@@ -20,7 +20,7 @@ The project is under active development toward v0.1. The first release focuses o
 - Stale or unresolved knowledge is explicit.
 - Code editing, testing, Git operations, and natural-language reasoning remain the agent's responsibility.
 
-Atlas runtime code is not implemented yet. This repository currently fixes the v0.1 product, graph, CLI, learning, and evaluation contracts that downstream implementation must satisfy.
+The runtime foundation currently covers repository inspection, revision-aware snapshots, external SQLite persistence, and the graph and evidence kernel. Compiler indexing, framework adaptation, the public CLI, and agent learning workflows remain under active development toward v0.1.
 
 ## License
 

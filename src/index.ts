@@ -1,4 +1,9 @@
 export {
+  CURRENT_ATLAS_SCHEMA_VERSION,
+  GraphStore,
+} from "./graph/graph-store.js";
+export type * from "./graph/types.js";
+export {
   discoverTargetSources,
   inspectGitRepository,
   isTargetSource,

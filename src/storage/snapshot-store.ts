@@ -1,10 +1,9 @@
-import { existsSync, mkdirSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, posix, relative, resolve, win32 } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { posix, win32 } from "node:path";
 
 import type { GitRepository } from "../repository/types.js";
 import type { RepositorySnapshot } from "../snapshots/types.js";
+import { AtlasDatabase } from "./atlas-database.js";
 
 export interface UserDataEnvironment {
   readonly platform: NodeJS.Platform;
@@ -40,80 +39,18 @@ export function resolveAtlasDataDirectory(
   return posix.join(dataDirectory, "semantic-atlas");
 }
 
-function canonicalizePath(path: string): string {
-  let existingAncestor = resolve(path);
-  const missingSegments: string[] = [];
-
-  while (!existsSync(existingAncestor)) {
-    missingSegments.unshift(basename(existingAncestor));
-    const parent = dirname(existingAncestor);
-    if (parent === existingAncestor) {
-      break;
-    }
-    existingAncestor = parent;
-  }
-
-  return resolve(realpathSync(existingAncestor), ...missingSegments);
-}
-
-function isWithinDirectory(parent: string, candidate: string): boolean {
-  const pathFromParent = relative(canonicalizePath(parent), canonicalizePath(candidate));
-  return pathFromParent === "" || (!pathFromParent.startsWith("..") && !isAbsolute(pathFromParent));
-}
-
 export class SnapshotStore implements Disposable {
   readonly databasePath: string;
-  readonly #database: DatabaseSync;
+  readonly #atlasDatabase: AtlasDatabase;
   readonly #repositoryId: string;
 
   constructor(
     dataDirectory: string,
     repository: GitRepository,
   ) {
-    if (!isAbsolute(dataDirectory)) {
-      throw new Error("Atlas data directory must be absolute");
-    }
-
-    const protectedRepositoryDirectories = [
-      repository.commonGitDirectory,
-      repository.worktreeRoot,
-      ...repository.worktreeRoots,
-    ];
-    if (protectedRepositoryDirectories.some((directory) => isWithinDirectory(directory, dataDirectory))) {
-      throw new Error("Atlas data directory must be outside the target repository");
-    }
-
     this.#repositoryId = repository.repositoryId;
-    this.databasePath = join(dataDirectory, "repositories", repository.repositoryId, "atlas.sqlite");
-    mkdirSync(dirname(this.databasePath), { recursive: true });
-    this.#database = new DatabaseSync(this.databasePath);
-    this.#database.exec(`
-      PRAGMA foreign_keys = ON;
-      PRAGMA journal_mode = WAL;
-
-      CREATE TABLE IF NOT EXISTS atlas_repositories (
-        repository_id TEXT PRIMARY KEY,
-        common_git_directory TEXT NOT NULL,
-        latest_snapshot_id TEXT,
-        updated_at TEXT NOT NULL
-      ) STRICT;
-
-      CREATE TABLE IF NOT EXISTS repository_snapshots (
-        repository_id TEXT NOT NULL,
-        snapshot_id TEXT NOT NULL,
-        payload TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        PRIMARY KEY (repository_id, snapshot_id),
-        FOREIGN KEY (repository_id) REFERENCES atlas_repositories(repository_id) ON DELETE CASCADE
-      ) STRICT;
-    `);
-    this.#database.prepare(`
-      INSERT INTO atlas_repositories (repository_id, common_git_directory, updated_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT (repository_id) DO UPDATE SET
-        common_git_directory = excluded.common_git_directory,
-        updated_at = excluded.updated_at
-    `).run(repository.repositoryId, repository.commonGitDirectory, new Date().toISOString());
+    this.#atlasDatabase = new AtlasDatabase(dataDirectory, repository);
+    this.databasePath = this.#atlasDatabase.databasePath;
   }
 
   save(snapshot: RepositorySnapshot): void {
@@ -122,27 +59,28 @@ export class SnapshotStore implements Disposable {
     }
 
     const timestamp = new Date().toISOString();
-    this.#database.exec("BEGIN IMMEDIATE");
+    const database = this.#atlasDatabase.connection;
+    database.exec("BEGIN IMMEDIATE");
     try {
-      this.#database.prepare(`
+      database.prepare(`
         INSERT INTO repository_snapshots (repository_id, snapshot_id, payload, created_at)
         VALUES (?, ?, ?, ?)
         ON CONFLICT (repository_id, snapshot_id) DO NOTHING
       `).run(this.#repositoryId, snapshot.snapshotId, JSON.stringify(snapshot), timestamp);
-      this.#database.prepare(`
+      database.prepare(`
         UPDATE atlas_repositories
         SET latest_snapshot_id = ?, updated_at = ?
         WHERE repository_id = ?
       `).run(snapshot.snapshotId, timestamp, this.#repositoryId);
-      this.#database.exec("COMMIT");
+      database.exec("COMMIT");
     } catch (error) {
-      this.#database.exec("ROLLBACK");
+      database.exec("ROLLBACK");
       throw error;
     }
   }
 
   find(snapshotId: string): RepositorySnapshot | undefined {
-    const row = this.#database.prepare(`
+    const row = this.#atlasDatabase.connection.prepare(`
       SELECT payload
       FROM repository_snapshots
       WHERE repository_id = ? AND snapshot_id = ?
@@ -151,7 +89,7 @@ export class SnapshotStore implements Disposable {
   }
 
   latest(): RepositorySnapshot | undefined {
-    const row = this.#database.prepare(`
+    const row = this.#atlasDatabase.connection.prepare(`
       SELECT snapshot.payload
       FROM atlas_repositories AS repository
       JOIN repository_snapshots AS snapshot
@@ -163,7 +101,7 @@ export class SnapshotStore implements Disposable {
   }
 
   close(): void {
-    this.#database.close();
+    this.#atlasDatabase.close();
   }
 
   [Symbol.dispose](): void {
