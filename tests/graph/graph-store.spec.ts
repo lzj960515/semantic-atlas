@@ -1,3 +1,4 @@
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { GraphStore } from "../../src/graph/graph-store.js";
@@ -87,7 +88,21 @@ describe("graph storage", () => {
 
     graph.mutateBusinessGraph(mutation(snapshot.snapshotId, businessNodes, businessRelations));
 
-    expect(graph.schemaVersion).toBe(1);
+    expect(graph.schemaVersion).toBe(2);
+    using schema = new DatabaseSync(graph.databasePath);
+    const businessNodeColumns = schema.prepare("PRAGMA table_info(business_nodes)")
+      .all() as unknown as { name: string }[];
+    expect(businessNodeColumns.map(({ name }) => name)).not.toContain("validity");
+    const validityTables = schema.prepare(`
+      SELECT name
+      FROM sqlite_master
+      WHERE type = 'table' AND name LIKE 'business_%_validity'
+      ORDER BY name ASC
+    `).all() as unknown as { name: string }[];
+    expect(validityTables.map(({ name }) => name)).toEqual([
+      "business_node_validity",
+      "business_relation_validity",
+    ]);
     for (const node of nodes) {
       expect(graph.getNode(structural(node.id), snapshot.snapshotId)?.kind).toBe(node.kind);
     }

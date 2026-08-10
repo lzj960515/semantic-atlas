@@ -151,6 +151,11 @@ export class GraphStore implements Disposable {
     this.transaction(() => {
       this.requireSnapshot(snapshotId);
       this.database.prepare(`
+        INSERT INTO structural_graph_snapshots (repository_id, snapshot_id)
+        VALUES (?, ?)
+        ON CONFLICT (repository_id, snapshot_id) DO NOTHING
+      `).run(this.#repositoryId, snapshotId);
+      this.database.prepare(`
         DELETE FROM graph_search
         WHERE repository_id = ? AND scope = ?
       `).run(this.#repositoryId, snapshotId);
@@ -170,7 +175,7 @@ export class GraphStore implements Disposable {
         this.insertStructuralRelation(snapshotId, relation);
       }
 
-      this.refreshBusinessValidity(this.latestSnapshotId() ?? snapshotId);
+      this.refreshBusinessValidity(snapshotId);
     });
   }
 
@@ -192,16 +197,14 @@ export class GraphStore implements Disposable {
         this.upsertBusinessRelation(mutation.baseSnapshotId, relation);
       }
 
-      this.refreshBusinessValidity(
-        this.latestSnapshotId() ?? mutation.baseSnapshotId,
-      );
+      this.refreshAllBusinessValidity();
     });
   }
 
   getNode(reference: GraphNodeReference, snapshotId: string): GraphNode | undefined {
     contentIdentifierSchema.parse(snapshotId);
     return reference.domain === "business"
-      ? this.readBusinessNode(reference.key)
+      ? this.readBusinessNode(reference.key, snapshotId)
       : this.readStructuralNode(reference.id, snapshotId);
   }
 
@@ -315,7 +318,7 @@ export class GraphStore implements Disposable {
       if (node === undefined) {
         return [];
       }
-      return [{ score: 1 / (1 + Math.abs(row.rank)), node }];
+      return [{ score: relevanceScoreFromBm25(row.rank), node }];
     });
   }
 
@@ -481,15 +484,6 @@ export class GraphStore implements Disposable {
     }
   }
 
-  private latestSnapshotId(): string | undefined {
-    const row = this.database.prepare(`
-      SELECT latest_snapshot_id
-      FROM atlas_repositories
-      WHERE repository_id = ?
-    `).get(this.#repositoryId) as { latest_snapshot_id: string | null } | undefined;
-    return row?.latest_snapshot_id ?? undefined;
-  }
-
   private insertStructuralNode(snapshotId: string, node: StructuralGraphNodeInput): void {
     const identityId = this.ensureIdentity({ domain: "structural", id: node.id });
     this.database.prepare(`
@@ -590,16 +584,14 @@ export class GraphStore implements Disposable {
         kind,
         label,
         summary,
-        certainty,
-        validity
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'valid')
+        certainty
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (identity_id) DO UPDATE SET
         base_snapshot_id = excluded.base_snapshot_id,
         kind = excluded.kind,
         label = excluded.label,
         summary = excluded.summary,
-        certainty = excluded.certainty,
-        validity = excluded.validity
+        certainty = excluded.certainty
     `).run(
       identityId,
       this.#repositoryId,
@@ -656,14 +648,12 @@ export class GraphStore implements Disposable {
         from_identity_id,
         relation_type,
         to_identity_id,
-        certainty,
-        validity
-      ) VALUES (?, ?, ?, ?, ?, ?, 'valid')
+        certainty
+      ) VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT (repository_id, from_identity_id, relation_type, to_identity_id)
       DO UPDATE SET
         base_snapshot_id = excluded.base_snapshot_id,
-        certainty = excluded.certainty,
-        validity = excluded.validity
+        certainty = excluded.certainty
     `).run(
       this.#repositoryId,
       baseSnapshotId,
@@ -813,55 +803,104 @@ export class GraphStore implements Disposable {
 
   private refreshBusinessValidity(snapshotId: string): void {
     this.database.prepare(`
-      UPDATE business_nodes AS assertion
-      SET validity = CASE WHEN EXISTS (
-        SELECT 1
-        FROM business_node_evidence AS evidence
-        WHERE evidence.identity_id = assertion.identity_id
-          AND NOT EXISTS (
-            SELECT 1
-            FROM structural_nodes AS symbol
-            JOIN structural_node_locations AS location
-              ON location.identity_id = symbol.identity_id
-              AND location.snapshot_id = symbol.snapshot_id
-            WHERE symbol.identity_id = evidence.symbol_identity_id
-              AND symbol.snapshot_id = ?
-              AND symbol.kind = 'Symbol'
-              AND location.file = evidence.file
-              AND location.start_line = evidence.start_line
-              AND location.start_column = evidence.start_column
-              AND location.end_line = evidence.end_line
-              AND location.end_column = evidence.end_column
-              AND location.content_hash = evidence.content_hash
-          )
-      ) THEN 'stale' ELSE 'valid' END
+      INSERT INTO business_node_validity (
+        identity_id,
+        repository_id,
+        snapshot_id,
+        validity
+      )
+      SELECT
+        assertion.identity_id,
+        assertion.repository_id,
+        ?,
+        CASE WHEN EXISTS (
+          SELECT 1
+          FROM business_node_evidence AS evidence
+          WHERE evidence.identity_id = assertion.identity_id
+            AND NOT EXISTS (
+              SELECT 1
+              FROM structural_nodes AS symbol
+              JOIN structural_node_locations AS location
+                ON location.identity_id = symbol.identity_id
+                AND location.snapshot_id = symbol.snapshot_id
+              WHERE symbol.identity_id = evidence.symbol_identity_id
+                AND symbol.snapshot_id = ?
+                AND symbol.kind = 'Symbol'
+                AND location.file = evidence.file
+                AND location.start_line = evidence.start_line
+                AND location.start_column = evidence.start_column
+                AND location.end_line = evidence.end_line
+                AND location.end_column = evidence.end_column
+                AND location.content_hash = evidence.content_hash
+            )
+        ) THEN 'stale' ELSE 'valid' END
+      FROM business_nodes AS assertion
       WHERE assertion.repository_id = ?
-    `).run(snapshotId, this.#repositoryId);
+      ON CONFLICT (identity_id, snapshot_id) DO UPDATE SET
+        validity = excluded.validity
+    `).run(snapshotId, snapshotId, this.#repositoryId);
     this.database.prepare(`
-      UPDATE business_relations AS assertion
-      SET validity = CASE WHEN EXISTS (
-        SELECT 1
-        FROM business_relation_evidence AS evidence
-        WHERE evidence.relation_id = assertion.relation_id
+      INSERT INTO business_relation_validity (
+        relation_id,
+        repository_id,
+        snapshot_id,
+        validity
+      )
+      SELECT
+        assertion.relation_id,
+        assertion.repository_id,
+        ?,
+        CASE WHEN EXISTS (
+          SELECT 1
+          FROM business_relation_evidence AS evidence
+          WHERE evidence.relation_id = assertion.relation_id
+            AND NOT EXISTS (
+              SELECT 1
+              FROM structural_nodes AS symbol
+              JOIN structural_node_locations AS location
+                ON location.identity_id = symbol.identity_id
+                AND location.snapshot_id = symbol.snapshot_id
+              WHERE symbol.identity_id = evidence.symbol_identity_id
+                AND symbol.snapshot_id = ?
+                AND symbol.kind = 'Symbol'
+                AND location.file = evidence.file
+                AND location.start_line = evidence.start_line
+                AND location.start_column = evidence.start_column
+                AND location.end_line = evidence.end_line
+                AND location.end_column = evidence.end_column
+                AND location.content_hash = evidence.content_hash
+            )
+        ) OR (
+          EXISTS (
+            SELECT 1
+            FROM graph_node_identities AS target
+            WHERE target.identity_id = assertion.to_identity_id
+              AND target.domain = 'structural'
+          )
           AND NOT EXISTS (
             SELECT 1
-            FROM structural_nodes AS symbol
-            JOIN structural_node_locations AS location
-              ON location.identity_id = symbol.identity_id
-              AND location.snapshot_id = symbol.snapshot_id
-            WHERE symbol.identity_id = evidence.symbol_identity_id
-              AND symbol.snapshot_id = ?
-              AND symbol.kind = 'Symbol'
-              AND location.file = evidence.file
-              AND location.start_line = evidence.start_line
-              AND location.start_column = evidence.start_column
-              AND location.end_line = evidence.end_line
-              AND location.end_column = evidence.end_column
-              AND location.content_hash = evidence.content_hash
+            FROM structural_nodes AS target_node
+            WHERE target_node.identity_id = assertion.to_identity_id
+              AND target_node.snapshot_id = ?
           )
-      ) THEN 'stale' ELSE 'valid' END
+        ) THEN 'stale' ELSE 'valid' END
+      FROM business_relations AS assertion
       WHERE assertion.repository_id = ?
-    `).run(snapshotId, this.#repositoryId);
+      ON CONFLICT (relation_id, snapshot_id) DO UPDATE SET
+        validity = excluded.validity
+    `).run(snapshotId, snapshotId, snapshotId, this.#repositoryId);
+  }
+
+  private refreshAllBusinessValidity(): void {
+    const snapshots = this.database.prepare(`
+      SELECT snapshot_id
+      FROM structural_graph_snapshots
+      WHERE repository_id = ?
+      ORDER BY snapshot_id ASC
+    `).all(this.#repositoryId) as unknown as { snapshot_id: string }[];
+    for (const { snapshot_id } of snapshots) {
+      this.refreshBusinessValidity(snapshot_id);
+    }
   }
 
   private readStructuralNode(id: string, snapshotId: string): GraphNode | undefined {
@@ -924,7 +963,7 @@ export class GraphStore implements Disposable {
     } as StructuralGraphNode;
   }
 
-  private readBusinessNode(key: string): BusinessGraphNode | undefined {
+  private readBusinessNode(key: string, snapshotId: string): BusinessGraphNode | undefined {
     const row = this.database.prepare(`
       SELECT
         identity.identity_id,
@@ -935,14 +974,17 @@ export class GraphStore implements Disposable {
         node.label,
         node.summary,
         node.certainty,
-        node.validity
+        COALESCE(validity.validity, 'stale') AS validity
       FROM graph_node_identities AS identity
       JOIN business_nodes AS node
         ON node.identity_id = identity.identity_id
+      LEFT JOIN business_node_validity AS validity
+        ON validity.identity_id = node.identity_id
+        AND validity.snapshot_id = ?
       WHERE identity.repository_id = ?
         AND identity.domain = 'business'
         AND identity.node_key = ?
-    `).get(this.#repositoryId, key) as BusinessNodeRow | undefined;
+    `).get(snapshotId, this.#repositoryId, key) as BusinessNodeRow | undefined;
     if (row === undefined) {
       return undefined;
     }
@@ -1082,7 +1124,7 @@ export class GraphStore implements Disposable {
           relation.base_snapshot_id,
           relation.relation_type,
           relation.certainty,
-          relation.validity,
+          COALESCE(validity.validity, 'stale') AS validity,
           relation.from_identity_id,
           source.node_key AS from_key,
           relation.to_identity_id,
@@ -1093,9 +1135,12 @@ export class GraphStore implements Disposable {
           ON source.identity_id = relation.from_identity_id
         JOIN graph_node_identities AS target
           ON target.identity_id = relation.to_identity_id
+        LEFT JOIN business_relation_validity AS validity
+          ON validity.relation_id = relation.relation_id
+          AND validity.snapshot_id = ?
         WHERE relation.repository_id = ?
           AND relation.${endpointColumn} = ?
-      `).all(this.#repositoryId, identity.identity_id) as unknown as BusinessRelationRow[];
+      `).all(snapshotId, this.#repositoryId, identity.identity_id) as unknown as BusinessRelationRow[];
       for (const row of businessRows) {
         const from: BusinessNodeReference = { domain: "business", key: row.from_key };
         const to: GraphNodeReference = row.to_domain === "business"
@@ -1294,6 +1339,10 @@ function referenceKey(reference: GraphNodeReference): string {
   return reference.domain === "business"
     ? `business:${reference.key}`
     : `structural:${reference.id}`;
+}
+
+function relevanceScoreFromBm25(rank: number): number {
+  return 1 / (1 + Math.exp(rank));
 }
 
 export { CURRENT_ATLAS_SCHEMA_VERSION };

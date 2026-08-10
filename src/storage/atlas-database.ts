@@ -4,7 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 
 import type { GitRepository } from "../repository/types.js";
 
-export const CURRENT_ATLAS_SCHEMA_VERSION = 1;
+export const CURRENT_ATLAS_SCHEMA_VERSION = 2;
 
 interface SchemaMigration {
   readonly version: number;
@@ -208,6 +208,130 @@ const migrations: readonly SchemaMigration[] = [
         paths,
         tokenize = 'unicode61 remove_diacritics 2'
       );
+    `,
+  },
+  {
+    version: 2,
+    sql: `
+      CREATE TABLE IF NOT EXISTS structural_graph_snapshots (
+        repository_id TEXT NOT NULL,
+        snapshot_id TEXT NOT NULL,
+        PRIMARY KEY (repository_id, snapshot_id),
+        FOREIGN KEY (repository_id, snapshot_id)
+          REFERENCES repository_snapshots(repository_id, snapshot_id) ON DELETE CASCADE
+      ) STRICT;
+
+      INSERT OR IGNORE INTO structural_graph_snapshots (repository_id, snapshot_id)
+      SELECT DISTINCT repository_id, snapshot_id
+      FROM structural_nodes;
+
+      CREATE TABLE IF NOT EXISTS business_node_validity (
+        identity_id INTEGER NOT NULL,
+        repository_id TEXT NOT NULL,
+        snapshot_id TEXT NOT NULL,
+        validity TEXT NOT NULL CHECK (validity IN ('valid', 'stale')),
+        PRIMARY KEY (identity_id, snapshot_id),
+        FOREIGN KEY (identity_id) REFERENCES business_nodes(identity_id) ON DELETE CASCADE,
+        FOREIGN KEY (repository_id, snapshot_id)
+          REFERENCES repository_snapshots(repository_id, snapshot_id) ON DELETE CASCADE
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS business_relation_validity (
+        relation_id INTEGER NOT NULL,
+        repository_id TEXT NOT NULL,
+        snapshot_id TEXT NOT NULL,
+        validity TEXT NOT NULL CHECK (validity IN ('valid', 'stale')),
+        PRIMARY KEY (relation_id, snapshot_id),
+        FOREIGN KEY (relation_id) REFERENCES business_relations(relation_id) ON DELETE CASCADE,
+        FOREIGN KEY (repository_id, snapshot_id)
+          REFERENCES repository_snapshots(repository_id, snapshot_id) ON DELETE CASCADE
+      ) STRICT;
+
+      INSERT INTO business_node_validity (
+        identity_id,
+        repository_id,
+        snapshot_id,
+        validity
+      )
+      SELECT
+        assertion.identity_id,
+        assertion.repository_id,
+        graph_snapshot.snapshot_id,
+        CASE WHEN EXISTS (
+          SELECT 1
+          FROM business_node_evidence AS evidence
+          WHERE evidence.identity_id = assertion.identity_id
+            AND NOT EXISTS (
+              SELECT 1
+              FROM structural_nodes AS symbol
+              JOIN structural_node_locations AS location
+                ON location.identity_id = symbol.identity_id
+                AND location.snapshot_id = symbol.snapshot_id
+              WHERE symbol.identity_id = evidence.symbol_identity_id
+                AND symbol.snapshot_id = graph_snapshot.snapshot_id
+                AND symbol.kind = 'Symbol'
+                AND location.file = evidence.file
+                AND location.start_line = evidence.start_line
+                AND location.start_column = evidence.start_column
+                AND location.end_line = evidence.end_line
+                AND location.end_column = evidence.end_column
+                AND location.content_hash = evidence.content_hash
+            )
+        ) THEN 'stale' ELSE 'valid' END
+      FROM business_nodes AS assertion
+      JOIN structural_graph_snapshots AS graph_snapshot
+        ON graph_snapshot.repository_id = assertion.repository_id;
+
+      INSERT INTO business_relation_validity (
+        relation_id,
+        repository_id,
+        snapshot_id,
+        validity
+      )
+      SELECT
+        assertion.relation_id,
+        assertion.repository_id,
+        graph_snapshot.snapshot_id,
+        CASE WHEN EXISTS (
+          SELECT 1
+          FROM business_relation_evidence AS evidence
+          WHERE evidence.relation_id = assertion.relation_id
+            AND NOT EXISTS (
+              SELECT 1
+              FROM structural_nodes AS symbol
+              JOIN structural_node_locations AS location
+                ON location.identity_id = symbol.identity_id
+                AND location.snapshot_id = symbol.snapshot_id
+              WHERE symbol.identity_id = evidence.symbol_identity_id
+                AND symbol.snapshot_id = graph_snapshot.snapshot_id
+                AND symbol.kind = 'Symbol'
+                AND location.file = evidence.file
+                AND location.start_line = evidence.start_line
+                AND location.start_column = evidence.start_column
+                AND location.end_line = evidence.end_line
+                AND location.end_column = evidence.end_column
+                AND location.content_hash = evidence.content_hash
+            )
+        ) OR (
+          EXISTS (
+            SELECT 1
+            FROM graph_node_identities AS target
+            WHERE target.identity_id = assertion.to_identity_id
+              AND target.domain = 'structural'
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM structural_nodes AS target_node
+            WHERE target_node.identity_id = assertion.to_identity_id
+              AND target_node.snapshot_id = graph_snapshot.snapshot_id
+          )
+        ) THEN 'stale' ELSE 'valid' END
+      FROM business_relations AS assertion
+      JOIN structural_graph_snapshots AS graph_snapshot
+        ON graph_snapshot.repository_id = assertion.repository_id;
+
+      ALTER TABLE business_nodes DROP COLUMN validity;
+      ALTER TABLE business_relations DROP COLUMN validity;
     `,
   },
 ];

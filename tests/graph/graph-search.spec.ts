@@ -48,4 +48,45 @@ describe("graph lexical search", () => {
       .toHaveLength(2);
     expect(graph.search("punctuation-only !!!", { snapshotId: snapshot.snapshotId })).toEqual([]);
   });
+
+  it("reports scores in the same relevance order as FTS ranking", async () => {
+    const context = await createGraphTestContext();
+    contexts.push(context);
+    const { graph, snapshot } = context;
+    graph.replaceStructuralSnapshot(snapshot.snapshotId, coreStructuralNodes(snapshot), []);
+    const evidence = evidenceFor(snapshot);
+    graph.mutateBusinessGraph({
+      baseSnapshotId: snapshot.snapshotId,
+      upsertNodes: [
+        {
+          key: "fixture/strong-ranking-match",
+          kind: "Operation",
+          label: "Rankingprobe operation",
+          summary: "Matches the strongest indexed field.",
+          aliases: [],
+          certainty: "exact",
+          evidence: [evidence],
+        },
+        {
+          key: "fixture/weak-ranking-match",
+          kind: "Operation",
+          label: "Secondary operation",
+          summary: "Contains rankingprobe only in a lower-weight summary field.",
+          aliases: [],
+          certainty: "exact",
+          evidence: [evidence],
+        },
+      ],
+      removeNodeKeys: [],
+      upsertRelations: [],
+      removeRelations: [],
+    });
+
+    const results = graph.search("rankingprobe", { snapshotId: snapshot.snapshotId });
+
+    expect(results.map(({ node }) => node.domain === "business" ? node.key : node.id))
+      .toEqual(["fixture/strong-ranking-match", "fixture/weak-ranking-match"]);
+    expect(results[0]!.score).toBeGreaterThan(results[1]!.score);
+    expect(results.every(({ score }) => score >= 0 && score <= 1)).toBe(true);
+  });
 });
