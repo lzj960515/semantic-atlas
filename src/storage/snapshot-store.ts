@@ -25,15 +25,19 @@ export function resolveAtlasDataDirectory(
 ): string {
   const { environment, homeDirectory, platform } = options;
   if (platform === "win32") {
-    const dataDirectory = environment.LOCALAPPDATA
-      || environment.APPDATA
-      || win32.join(homeDirectory, "AppData", "Local");
+    const dataDirectory = [environment.LOCALAPPDATA, environment.APPDATA]
+      .find((path) => path !== undefined && win32.isAbsolute(path))
+      ?? win32.join(homeDirectory, "AppData", "Local");
     return win32.join(dataDirectory, "semantic-atlas");
   }
   if (platform === "darwin") {
     return posix.join(homeDirectory, "Library", "Application Support", "semantic-atlas");
   }
-  return posix.join(environment.XDG_DATA_HOME || posix.join(homeDirectory, ".local", "share"), "semantic-atlas");
+  const xdgDataDirectory = environment.XDG_DATA_HOME;
+  const dataDirectory = xdgDataDirectory !== undefined && posix.isAbsolute(xdgDataDirectory)
+    ? xdgDataDirectory
+    : posix.join(homeDirectory, ".local", "share");
+  return posix.join(dataDirectory, "semantic-atlas");
 }
 
 function canonicalizePath(path: string): string {
@@ -66,7 +70,16 @@ export class SnapshotStore implements Disposable {
     dataDirectory: string,
     repository: GitRepository,
   ) {
-    if (isWithinDirectory(repository.worktreeRoot, dataDirectory)) {
+    if (!isAbsolute(dataDirectory)) {
+      throw new Error("Atlas data directory must be absolute");
+    }
+
+    const protectedRepositoryDirectories = [
+      repository.commonGitDirectory,
+      repository.worktreeRoot,
+      ...repository.worktreeRoots,
+    ];
+    if (protectedRepositoryDirectories.some((directory) => isWithinDirectory(directory, dataDirectory))) {
       throw new Error("Atlas data directory must be outside the target repository");
     }
 

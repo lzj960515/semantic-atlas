@@ -36,6 +36,17 @@ function compareRepositoryPaths(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+async function discoverWorktreeRoots(workingDirectory: string): Promise<string[]> {
+  const output = await runGit(workingDirectory, ["worktree", "list", "--porcelain", "-z"]);
+  const worktreePaths = output
+    .toString("utf8")
+    .split("\0")
+    .filter((field) => field.startsWith("worktree "))
+    .map((field) => resolveGitPath(workingDirectory, field.slice("worktree ".length)));
+
+  return [...new Set(worktreePaths)].sort(compareRepositoryPaths);
+}
+
 function hasSupportedExtension(path: string): boolean {
   const extensionIndex = path.lastIndexOf(".");
   if (extensionIndex < 0) {
@@ -67,11 +78,13 @@ export async function inspectGitRepository(startPath: string): Promise<GitReposi
     startPath,
     await runGitText(startPath, ["rev-parse", "--git-path", "index"]),
   );
+  const worktreeRoots = await discoverWorktreeRoots(worktreeRoot);
   return {
     repositoryId: createRepositoryId(commonGitDirectory),
     worktreeRoot,
     gitDirectory,
     commonGitDirectory,
+    worktreeRoots,
     indexPath,
   };
 }

@@ -44,6 +44,11 @@ describe("Git repository inspection", () => {
     expect(linked.repositoryId).toBe(primary.repositoryId);
     expect(linked.commonGitDirectory).toBe(primary.commonGitDirectory);
     expect(linked.worktreeRoot).not.toBe(primary.worktreeRoot);
+    expect(new Set(linked.worktreeRoots)).toEqual(new Set([
+      await realpath(fixture.directory),
+      await realpath(linkedWorktree),
+    ]));
+    expect(primary.worktreeRoots).toEqual(linked.worktreeRoots);
   });
 
   it("discovers tracked and untracked target sources while excluding unrelated files", async () => {

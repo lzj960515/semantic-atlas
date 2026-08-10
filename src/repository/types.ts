@@ -3,5 +3,6 @@ export interface GitRepository {
   readonly worktreeRoot: string;
   readonly gitDirectory: string;
   readonly commonGitDirectory: string;
+  readonly worktreeRoots: readonly string[];
   readonly indexPath: string;
 }
