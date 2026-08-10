@@ -185,7 +185,7 @@ export class GraphStore implements Disposable {
     this.transaction(() => {
       this.requireSnapshot(mutation.baseSnapshotId);
       for (const selector of mutation.removeRelations) {
-        this.removeBusinessRelation(selector);
+        this.removeBusinessRelation(mutation.baseSnapshotId, selector);
       }
       for (const key of mutation.removeNodeKeys) {
         this.removeBusinessNode(key);
@@ -678,7 +678,7 @@ export class GraphStore implements Disposable {
   private removeBusinessNode(key: string): void {
     const identity = this.findIdentity({ domain: "business", key });
     if (identity === undefined) {
-      return;
+      throw new Error(`Business node ${key} is missing`);
     }
     const relation = this.database.prepare(`
       SELECT relation_id
@@ -700,7 +700,16 @@ export class GraphStore implements Disposable {
     `).run(this.#repositoryId, key);
   }
 
-  private removeBusinessRelation(selector: BusinessRelationSelector): void {
+  private removeBusinessRelation(
+    baseSnapshotId: string,
+    selector: BusinessRelationSelector,
+  ): void {
+    this.requireBusinessEndpoint(selector.from);
+    if (selector.to.domain === "business") {
+      this.requireBusinessEndpoint(selector.to);
+    } else {
+      this.requireStructuralEndpoint(selector.to, baseSnapshotId);
+    }
     const relation = this.findBusinessRelation(selector);
     if (relation !== undefined) {
       this.database.prepare("DELETE FROM business_relations WHERE relation_id = ?")

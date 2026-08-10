@@ -79,11 +79,6 @@ const structuralNodeReferenceSchema = z.strictObject({
   id: structuralNodeIdSchema,
 });
 
-const nodeReferenceSchema = z.discriminatedUnion("domain", [
-  businessNodeReferenceSchema,
-  structuralNodeReferenceSchema,
-]);
-
 export const sourcePositionSchema = z.strictObject({
   line: z.number().int().positive(),
   column: z.number().int().positive(),
@@ -135,18 +130,46 @@ const businessNodeSchema = z.strictObject({
   evidence: z.array(evidenceSchema).min(1),
 });
 
-const relationSelectorSchema = z
-  .strictObject({
-    from: nodeReferenceSchema,
-    type: businessRelationTypeSchema,
-    to: nodeReferenceSchema,
-  })
-  .superRefine(validateBusinessRelationEndpoints);
+const businessTargetRelationTypeSchema = z.enum([
+  "part_of",
+  "reads",
+  "writes",
+  "publishes",
+  "consumes",
+  "constrained_by",
+]);
 
-const learnedRelationSchema = relationSelectorSchema.safeExtend({
+const structuralTargetRelationTypeSchema = z.enum([
+  "realized_by",
+  "verified_by",
+]);
+
+const businessTargetRelationSelectorSchema = z.strictObject({
+  from: businessNodeReferenceSchema,
+  type: businessTargetRelationTypeSchema,
+  to: businessNodeReferenceSchema,
+});
+
+const structuralTargetRelationSelectorSchema = z.strictObject({
+  from: businessNodeReferenceSchema,
+  type: structuralTargetRelationTypeSchema,
+  to: structuralNodeReferenceSchema,
+});
+
+const relationSelectorSchema = z.union([
+  businessTargetRelationSelectorSchema,
+  structuralTargetRelationSelectorSchema,
+]);
+
+const assertionShape = {
   certainty: assertionCertaintySchema,
   evidence: z.array(evidenceSchema).min(1),
-});
+};
+
+const learnedRelationSchema = z.union([
+  businessTargetRelationSelectorSchema.extend(assertionShape),
+  structuralTargetRelationSelectorSchema.extend(assertionShape),
+]);
 
 const nodeOperationSchema = z.discriminatedUnion("op", [
   z.strictObject({
@@ -178,33 +201,3 @@ export const graphPatchV1Schema = z.strictObject({
 });
 
 export type GraphPatchV1 = z.infer<typeof graphPatchV1Schema>;
-
-function validateBusinessRelationEndpoints(
-  relation: {
-    from: z.infer<typeof nodeReferenceSchema>;
-    type: z.infer<typeof businessRelationTypeSchema>;
-    to: z.infer<typeof nodeReferenceSchema>;
-  },
-  context: z.RefinementCtx,
-) {
-  if (relation.from.domain !== "business") {
-    context.addIssue({
-      code: "custom",
-      message: "Learned business relations must originate from a business node",
-      path: ["from"],
-    });
-  }
-
-  const structuralTargets = new Set(["realized_by", "verified_by"]);
-  const expectedTargetDomain = structuralTargets.has(relation.type)
-    ? "structural"
-    : "business";
-
-  if (relation.to.domain !== expectedTargetDomain) {
-    context.addIssue({
-      code: "custom",
-      message: `${relation.type} relations require a ${expectedTargetDomain} target`,
-      path: ["to"],
-    });
-  }
-}

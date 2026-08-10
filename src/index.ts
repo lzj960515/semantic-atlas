@@ -4,6 +4,11 @@ export {
 } from "./graph/graph-store.js";
 export type * from "./graph/types.js";
 export {
+  BusinessKnowledgeService,
+  GraphPatchConflictError,
+} from "./knowledge/business-knowledge-service.js";
+export type { AppliedGraphPatch } from "./knowledge/business-knowledge-service.js";
+export {
   discoverTargetSources,
   inspectGitRepository,
   isTargetSource,
