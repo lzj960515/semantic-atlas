@@ -1,0 +1,437 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/lzj960515/semantic-atlas/main/schemas/graph-patch-v1.schema.json",
+  "title": "Semantic Atlas GraphPatch v1",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "number",
+      "const": 1
+    },
+    "baseSnapshotId": {
+      "type": "string",
+      "pattern": "^snap_[a-f0-9]{64}$"
+    },
+    "nodeOperations": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "upsert"
+              },
+              "node": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "Capability",
+                      "Scenario",
+                      "Operation",
+                      "Invariant",
+                      "Interface",
+                      "Data"
+                    ]
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "summary": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "aliases": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "key",
+                  "kind",
+                  "label",
+                  "summary",
+                  "aliases"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "op",
+              "node"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "remove"
+              },
+              "key": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
+              }
+            },
+            "required": [
+              "op",
+              "key"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "relationOperations": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "upsert"
+              },
+              "relation": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string",
+                            "const": "business"
+                          },
+                          "key": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
+                          }
+                        },
+                        "required": [
+                          "domain",
+                          "key"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string",
+                            "const": "structural"
+                          },
+                          "id": {
+                            "type": "string",
+                            "pattern": "^(?:repository|module|file|symbol|test|unknown):.+$"
+                          }
+                        },
+                        "required": [
+                          "domain",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "part_of",
+                      "realized_by",
+                      "reads",
+                      "writes",
+                      "publishes",
+                      "consumes",
+                      "constrained_by",
+                      "verified_by"
+                    ]
+                  },
+                  "to": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string",
+                            "const": "business"
+                          },
+                          "key": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
+                          }
+                        },
+                        "required": [
+                          "domain",
+                          "key"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string",
+                            "const": "structural"
+                          },
+                          "id": {
+                            "type": "string",
+                            "pattern": "^(?:repository|module|file|symbol|test|unknown):.+$"
+                          }
+                        },
+                        "required": [
+                          "domain",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "certainty": {
+                    "type": "string",
+                    "enum": [
+                      "exact",
+                      "inferred",
+                      "hypothesis"
+                    ]
+                  },
+                  "evidence": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "symbolId": {
+                          "type": "string",
+                          "pattern": "^symbol:.+$"
+                        },
+                        "file": {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
+                        },
+                        "range": {
+                          "type": "object",
+                          "properties": {
+                            "start": {
+                              "type": "object",
+                              "properties": {
+                                "line": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "column": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "line",
+                                "column"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "end": {
+                              "type": "object",
+                              "properties": {
+                                "line": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "column": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "line",
+                                "column"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "start",
+                            "end"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "contentHash": {
+                          "type": "string",
+                          "pattern": "^sha256:[a-f0-9]{64}$"
+                        }
+                      },
+                      "required": [
+                        "symbolId",
+                        "file",
+                        "range",
+                        "contentHash"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "from",
+                  "type",
+                  "to",
+                  "certainty",
+                  "evidence"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "op",
+              "relation"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "const": "remove"
+              },
+              "relation": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string",
+                            "const": "business"
+                          },
+                          "key": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
+                          }
+                        },
+                        "required": [
+                          "domain",
+                          "key"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string",
+                            "const": "structural"
+                          },
+                          "id": {
+                            "type": "string",
+                            "pattern": "^(?:repository|module|file|symbol|test|unknown):.+$"
+                          }
+                        },
+                        "required": [
+                          "domain",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "part_of",
+                      "realized_by",
+                      "reads",
+                      "writes",
+                      "publishes",
+                      "consumes",
+                      "constrained_by",
+                      "verified_by"
+                    ]
+                  },
+                  "to": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string",
+                            "const": "business"
+                          },
+                          "key": {
+                            "type": "string",
+                            "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
+                          }
+                        },
+                        "required": [
+                          "domain",
+                          "key"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "domain": {
+                            "type": "string",
+                            "const": "structural"
+                          },
+                          "id": {
+                            "type": "string",
+                            "pattern": "^(?:repository|module|file|symbol|test|unknown):.+$"
+                          }
+                        },
+                        "required": [
+                          "domain",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "from",
+                  "type",
+                  "to"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "op",
+              "relation"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "baseSnapshotId",
+    "nodeOperations",
+    "relationOperations"
+  ],
+  "additionalProperties": false
+}

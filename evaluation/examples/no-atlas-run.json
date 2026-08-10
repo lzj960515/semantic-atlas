@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "runId": "example-location-nestjs-provider-no-atlas-01",
+  "caseId": "location-nestjs-provider",
+  "mode": "no-atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "fresh-agent-example",
+    "model": "example-model",
+    "freshContext": true
+  },
+  "startedAt": "2026-08-10T00:00:00.000Z",
+  "finishedAt": "2026-08-10T00:01:00.000Z",
+  "observations": {
+    "sourceTokenMethod": "runner-reported-source-input-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 180
+      },
+      {
+        "sequence": 2,
+        "file": "src/orders/orders.module.ts",
+        "sourceTokens": 120
+      }
+    ],
+    "atlasCalls": []
+  },
+  "answer": {
+    "response": "OrderService.placeOrder implements order placement, and OrdersModule registers OrderService as an injectable provider.",
+    "reportedFiles": [
+      "src/orders/order.service.ts",
+      "src/orders/orders.module.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/orders/order.service.ts",
+        "name": "OrderService.placeOrder"
+      },
+      {
+        "file": "src/orders/orders.module.ts",
+        "name": "OrdersModule"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Format example only; this is not a measured product result."
+  }
+}

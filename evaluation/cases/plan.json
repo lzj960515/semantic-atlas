@@ -1,0 +1,412 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "location-nestjs-provider",
+      "title": "Locate a NestJS operation provider",
+      "category": "location",
+      "frameworks": ["nestjs"],
+      "fixture": {
+        "kind": "synthetic",
+        "repository": "framework-evaluation",
+        "revision": "fixture-v1"
+      },
+      "prompt": "Locate the implementation that places an order and the NestJS module that makes it injectable.",
+      "oracle": {
+        "acceptanceCriteria": [
+          "The answer identifies both OrderService.placeOrder and the OrdersModule provider registration."
+        ],
+        "requiredFiles": [
+          "src/orders/order.service.ts",
+          "src/orders/orders.module.ts"
+        ],
+        "requiredSymbols": [
+          {
+            "file": "src/orders/order.service.ts",
+            "name": "OrderService.placeOrder"
+          },
+          {
+            "file": "src/orders/orders.module.ts",
+            "name": "OrdersModule"
+          }
+        ]
+      }
+    },
+    {
+      "id": "location-graphql-query",
+      "title": "Locate a GraphQL query implementation",
+      "category": "location",
+      "frameworks": ["graphql"],
+      "fixture": {
+        "kind": "synthetic",
+        "repository": "framework-evaluation",
+        "revision": "fixture-v1"
+      },
+      "prompt": "Locate the GraphQL product query and the service operation that supplies its result.",
+      "oracle": {
+        "acceptanceCriteria": [
+          "The answer connects ProductResolver.product to ProductService.findById."
+        ],
+        "requiredFiles": [
+          "src/catalog/product.resolver.ts",
+          "src/catalog/product.service.ts"
+        ],
+        "requiredSymbols": [
+          {
+            "file": "src/catalog/product.resolver.ts",
+            "name": "ProductResolver.product"
+          },
+          {
+            "file": "src/catalog/product.service.ts",
+            "name": "ProductService.findById"
+          }
+        ]
+      }
+    },
+    {
+      "id": "location-typeorm-relation",
+      "title": "Locate a TypeORM entity relation",
+      "category": "location",
+      "frameworks": ["typeorm"],
+      "fixture": {
+        "kind": "synthetic",
+        "repository": "framework-evaluation",
+        "revision": "fixture-v1"
+      },
+      "prompt": "Locate the invoice entity and the declaration that links an invoice to its customer.",
+      "oracle": {
+        "acceptanceCriteria": [
+          "The answer identifies the Invoice entity and its customer relation declaration."
+        ],
+        "requiredFiles": ["src/billing/invoice.entity.ts"],
+        "requiredSymbols": [
+          {
+            "file": "src/billing/invoice.entity.ts",
+            "name": "Invoice"
+          },
+          {
+            "file": "src/billing/invoice.entity.ts",
+            "name": "Invoice.customer"
+          }
+        ]
+      }
+    },
+    {
+      "id": "location-bullmq-processor",
+      "title": "Locate a BullMQ job consumer",
+      "category": "location",
+      "frameworks": ["bullmq"],
+      "fixture": {
+        "kind": "synthetic",
+        "repository": "framework-evaluation",
+        "revision": "fixture-v1"
+      },
+      "prompt": "Locate the consumer for the send-email job and the method that processes it.",
+      "oracle": {
+        "acceptanceCriteria": [
+          "The answer identifies EmailProcessor and its process method as the send-email consumer."
+        ],
+        "requiredFiles": ["src/notifications/email.processor.ts"],
+        "requiredSymbols": [
+          {
+            "file": "src/notifications/email.processor.ts",
+            "name": "EmailProcessor"
+          },
+          {
+            "file": "src/notifications/email.processor.ts",
+            "name": "EmailProcessor.process"
+          }
+        ]
+      }
+    },
+    {
+      "id": "location-nestjs-graphql-mutation",
+      "title": "Trace a GraphQL mutation to a NestJS provider",
+      "category": "location",
+      "frameworks": ["nestjs", "graphql"],
+      "fixture": {
+        "kind": "synthetic",
+        "repository": "framework-evaluation",
+        "revision": "fixture-v1"
+      },
+      "prompt": "Locate the create-order mutation and the injected NestJS operation it delegates to.",
+      "oracle": {
+        "acceptanceCriteria": [
+          "The answer traces OrderResolver.createOrder to OrderService.placeOrder."
+        ],
+        "requiredFiles": [
+          "src/orders/order.resolver.ts",
+          "src/orders/order.service.ts"
+        ],
+        "requiredSymbols": [
+          {
+            "file": "src/orders/order.resolver.ts",
+            "name": "OrderResolver.createOrder"
+          },
+          {
+            "file": "src/orders/order.service.ts",
+            "name": "OrderService.placeOrder"
+          }
+        ]
+      }
+    },
+    {
+      "id": "location-typeorm-bullmq-write",
+      "title": "Trace a BullMQ job to a TypeORM write",
+      "category": "location",
+      "frameworks": ["typeorm", "bullmq"],
+      "fixture": {
+        "kind": "synthetic",
+        "repository": "framework-evaluation",
+        "revision": "fixture-v1"
+      },
+      "prompt": "Locate the invoice-generation job consumer and the TypeORM write it invokes.",
+      "oracle": {
+        "acceptanceCriteria": [
+          "The answer traces InvoiceProcessor.process to InvoiceService.createInvoice and its persistence action."
+        ],
+        "requiredFiles": [
+          "src/billing/invoice.processor.ts",
+          "src/billing/invoice.service.ts"
+        ],
+        "requiredSymbols": [
+          {
+            "file": "src/billing/invoice.processor.ts",
+            "name": "InvoiceProcessor.process"
+          },
+          {
+            "file": "src/billing/invoice.service.ts",
+            "name": "InvoiceService.createInvoice"
+          }
+        ]
+      }
+    },
+    {
+      "id": "impact-nestjs-provider-contract",
+      "title": "Assess a NestJS provider contract change",
+      "category": "dependency-impact",
+      "frameworks": ["nestjs"],
+      "fixture": {
+        "kind": "synthetic",
+        "repository": "framework-evaluation",
+        "revision": "fixture-v1"
+      },
+      "prompt": "Identify the callers and composition points affected if OrderService.placeOrder requires a new argument.",
+      "oracle": {
+        "acceptanceCriteria": [
+          "The answer includes both entry-point callers and the NestJS composition point for OrderService."
+        ],
+        "requiredFiles": [
+          "src/orders/order.service.ts",
+          "src/orders/orders.controller.ts",
+          "src/orders/order.resolver.ts",
+          "src/orders/orders.module.ts"
+        ],
+        "requiredSymbols": [
+          {
+            "file": "src/orders/order.service.ts",
+            "name": "OrderService.placeOrder"
+          },
+          {
+            "file": "src/orders/orders.controller.ts",
+            "name": "OrdersController.create"
+          },
+          {
+            "file": "src/orders/order.resolver.ts",
+            "name": "OrderResolver.createOrder"
+          }
+        ]
+      }
+    },
+    {
+      "id": "impact-graphql-output-field",
+      "title": "Assess a GraphQL output field change",
+      "category": "dependency-impact",
+      "frameworks": ["graphql"],
+      "fixture": {
+        "kind": "synthetic",
+        "repository": "framework-evaluation",
+        "revision": "fixture-v1"
+      },
+      "prompt": "Identify the schema, resolver, mapping, and tests affected by renaming ProductDto.displayName.",
+      "oracle": {
+        "acceptanceCriteria": [
+          "The answer covers the GraphQL DTO field, resolver path, mapper, and resolver regression test."
+        ],
+        "requiredFiles": [
+          "src/catalog/dto/product.dto.ts",
+          "src/catalog/product.resolver.ts",
+          "src/catalog/product.mapper.ts",
+          "test/catalog/product.resolver.test.ts"
+        ],
+        "requiredSymbols": [
+          {
+            "file": "src/catalog/dto/product.dto.ts",
+            "name": "ProductDto.displayName"
+          },
+          {
+            "file": "src/catalog/product.resolver.ts",
+            "name": "ProductResolver.product"
+          },
+          {
+            "file": "src/catalog/product.mapper.ts",
+            "name": "toProductDto"
+          }
+        ]
+      }
+    },
+    {
+      "id": "impact-typeorm-column",
+      "title": "Assess a TypeORM column change",
+      "category": "dependency-impact",
+      "frameworks": ["typeorm"],
+      "fixture": {
+        "kind": "synthetic",
+        "repository": "framework-evaluation",
+        "revision": "fixture-v1"
+      },
+      "prompt": "Identify reads, writes, API mapping, and tests affected by changing Invoice.totalCents.",
+      "oracle": {
+        "acceptanceCriteria": [
+          "The answer covers the entity field, persistence service, API resolver, and service tests."
+        ],
+        "requiredFiles": [
+          "src/billing/invoice.entity.ts",
+          "src/billing/invoice.service.ts",
+          "src/billing/invoice.resolver.ts",
+          "test/billing/invoice.service.test.ts"
+        ],
+        "requiredSymbols": [
+          {
+            "file": "src/billing/invoice.entity.ts",
+            "name": "Invoice.totalCents"
+          },
+          {
+            "file": "src/billing/invoice.service.ts",
+            "name": "InvoiceService.createInvoice"
+          },
+          {
+            "file": "src/billing/invoice.resolver.ts",
+            "name": "InvoiceResolver.invoice"
+          }
+        ]
+      }
+    },
+    {
+      "id": "impact-bullmq-job-payload",
+      "title": "Assess a BullMQ job payload change",
+      "category": "dependency-impact",
+      "frameworks": ["bullmq"],
+      "fixture": {
+        "kind": "synthetic",
+        "repository": "framework-evaluation",
+        "revision": "fixture-v1"
+      },
+      "prompt": "Identify the producer, payload contract, consumer, and tests affected by adding locale to SendEmailJob.",
+      "oracle": {
+        "acceptanceCriteria": [
+          "The answer covers the shared job contract, producer, processor, and processor tests."
+        ],
+        "requiredFiles": [
+          "src/notifications/jobs/email.job.ts",
+          "src/notifications/email.producer.ts",
+          "src/notifications/email.processor.ts",
+          "test/notifications/email.processor.test.ts"
+        ],
+        "requiredSymbols": [
+          {
+            "file": "src/notifications/jobs/email.job.ts",
+            "name": "SendEmailJob"
+          },
+          {
+            "file": "src/notifications/email.producer.ts",
+            "name": "EmailProducer.enqueue"
+          },
+          {
+            "file": "src/notifications/email.processor.ts",
+            "name": "EmailProcessor.process"
+          }
+        ]
+      }
+    },
+    {
+      "id": "impact-nestjs-typeorm-transaction",
+      "title": "Assess a NestJS and TypeORM transaction change",
+      "category": "dependency-impact",
+      "frameworks": ["nestjs", "typeorm"],
+      "fixture": {
+        "kind": "synthetic",
+        "repository": "framework-evaluation",
+        "revision": "fixture-v1"
+      },
+      "prompt": "Identify the provider, entity access, module wiring, and tests affected by making order placement transactional.",
+      "oracle": {
+        "acceptanceCriteria": [
+          "The answer covers the order provider, entity access, NestJS module wiring, and service tests."
+        ],
+        "requiredFiles": [
+          "src/orders/order.service.ts",
+          "src/orders/order.entity.ts",
+          "src/orders/orders.module.ts",
+          "test/orders/order.service.test.ts"
+        ],
+        "requiredSymbols": [
+          {
+            "file": "src/orders/order.service.ts",
+            "name": "OrderService.placeOrder"
+          },
+          {
+            "file": "src/orders/order.entity.ts",
+            "name": "Order"
+          },
+          {
+            "file": "src/orders/orders.module.ts",
+            "name": "OrdersModule"
+          }
+        ]
+      }
+    },
+    {
+      "id": "impact-graphql-bullmq-flow",
+      "title": "Assess a GraphQL to BullMQ workflow change",
+      "category": "dependency-impact",
+      "frameworks": ["graphql", "bullmq"],
+      "fixture": {
+        "kind": "synthetic",
+        "repository": "framework-evaluation",
+        "revision": "fixture-v1"
+      },
+      "prompt": "Identify the mutation, queue producer, job contract, consumer, and tests affected by changing the export request format.",
+      "oracle": {
+        "acceptanceCriteria": [
+          "The answer traces the full GraphQL-to-BullMQ flow and includes its end-to-end regression test."
+        ],
+        "requiredFiles": [
+          "src/exports/export.resolver.ts",
+          "src/exports/export.producer.ts",
+          "src/exports/jobs/export.job.ts",
+          "src/exports/export.processor.ts",
+          "test/exports/export-flow.test.ts"
+        ],
+        "requiredSymbols": [
+          {
+            "file": "src/exports/export.resolver.ts",
+            "name": "ExportResolver.requestExport"
+          },
+          {
+            "file": "src/exports/export.producer.ts",
+            "name": "ExportProducer.enqueue"
+          },
+          {
+            "file": "src/exports/jobs/export.job.ts",
+            "name": "ExportJob"
+          },
+          {
+            "file": "src/exports/export.processor.ts",
+            "name": "ExportProcessor.process"
+          }
+        ]
+      }
+    }
+  ]
+}
