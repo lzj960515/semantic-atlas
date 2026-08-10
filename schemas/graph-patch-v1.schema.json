@@ -9,8 +9,7 @@
       "const": 1
     },
     "baseSnapshotId": {
-      "type": "string",
-      "pattern": "^snap_[a-f0-9]{64}$"
+      "$ref": "#/$defs/__schema0"
     },
     "nodeOperations": {
       "type": "array",
@@ -27,8 +26,7 @@
                 "type": "object",
                 "properties": {
                   "key": {
-                    "type": "string",
-                    "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
+                    "$ref": "#/$defs/__schema1"
                   },
                   "kind": {
                     "type": "string",
@@ -55,6 +53,16 @@
                       "type": "string",
                       "minLength": 1
                     }
+                  },
+                  "certainty": {
+                    "$ref": "#/$defs/__schema2"
+                  },
+                  "evidence": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/__schema3"
+                    }
                   }
                 },
                 "required": [
@@ -62,7 +70,9 @@
                   "kind",
                   "label",
                   "summary",
-                  "aliases"
+                  "aliases",
+                  "certainty",
+                  "evidence"
                 ],
                 "additionalProperties": false
               }
@@ -81,8 +91,7 @@
                 "const": "remove"
               },
               "key": {
-                "type": "string",
-                "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
+                "$ref": "#/$defs/__schema1"
               }
             },
             "required": [
@@ -109,183 +118,22 @@
                 "type": "object",
                 "properties": {
                   "from": {
-                    "oneOf": [
-                      {
-                        "type": "object",
-                        "properties": {
-                          "domain": {
-                            "type": "string",
-                            "const": "business"
-                          },
-                          "key": {
-                            "type": "string",
-                            "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
-                          }
-                        },
-                        "required": [
-                          "domain",
-                          "key"
-                        ],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "domain": {
-                            "type": "string",
-                            "const": "structural"
-                          },
-                          "id": {
-                            "type": "string",
-                            "pattern": "^(?:repository|module|file|symbol|test|unknown):.+$"
-                          }
-                        },
-                        "required": [
-                          "domain",
-                          "id"
-                        ],
-                        "additionalProperties": false
-                      }
-                    ]
+                    "$ref": "#/$defs/__schema5"
                   },
                   "type": {
-                    "type": "string",
-                    "enum": [
-                      "part_of",
-                      "realized_by",
-                      "reads",
-                      "writes",
-                      "publishes",
-                      "consumes",
-                      "constrained_by",
-                      "verified_by"
-                    ]
+                    "$ref": "#/$defs/__schema6"
                   },
                   "to": {
-                    "oneOf": [
-                      {
-                        "type": "object",
-                        "properties": {
-                          "domain": {
-                            "type": "string",
-                            "const": "business"
-                          },
-                          "key": {
-                            "type": "string",
-                            "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
-                          }
-                        },
-                        "required": [
-                          "domain",
-                          "key"
-                        ],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "domain": {
-                            "type": "string",
-                            "const": "structural"
-                          },
-                          "id": {
-                            "type": "string",
-                            "pattern": "^(?:repository|module|file|symbol|test|unknown):.+$"
-                          }
-                        },
-                        "required": [
-                          "domain",
-                          "id"
-                        ],
-                        "additionalProperties": false
-                      }
-                    ]
+                    "$ref": "#/$defs/__schema5"
                   },
                   "certainty": {
-                    "type": "string",
-                    "enum": [
-                      "exact",
-                      "inferred",
-                      "hypothesis"
-                    ]
+                    "$ref": "#/$defs/__schema2"
                   },
                   "evidence": {
                     "minItems": 1,
                     "type": "array",
                     "items": {
-                      "type": "object",
-                      "properties": {
-                        "symbolId": {
-                          "type": "string",
-                          "pattern": "^symbol:.+$"
-                        },
-                        "file": {
-                          "type": "string",
-                          "minLength": 1,
-                          "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
-                        },
-                        "range": {
-                          "type": "object",
-                          "properties": {
-                            "start": {
-                              "type": "object",
-                              "properties": {
-                                "line": {
-                                  "type": "integer",
-                                  "exclusiveMinimum": 0,
-                                  "maximum": 9007199254740991
-                                },
-                                "column": {
-                                  "type": "integer",
-                                  "exclusiveMinimum": 0,
-                                  "maximum": 9007199254740991
-                                }
-                              },
-                              "required": [
-                                "line",
-                                "column"
-                              ],
-                              "additionalProperties": false
-                            },
-                            "end": {
-                              "type": "object",
-                              "properties": {
-                                "line": {
-                                  "type": "integer",
-                                  "exclusiveMinimum": 0,
-                                  "maximum": 9007199254740991
-                                },
-                                "column": {
-                                  "type": "integer",
-                                  "exclusiveMinimum": 0,
-                                  "maximum": 9007199254740991
-                                }
-                              },
-                              "required": [
-                                "line",
-                                "column"
-                              ],
-                              "additionalProperties": false
-                            }
-                          },
-                          "required": [
-                            "start",
-                            "end"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "contentHash": {
-                          "type": "string",
-                          "pattern": "^sha256:[a-f0-9]{64}$"
-                        }
-                      },
-                      "required": [
-                        "symbolId",
-                        "file",
-                        "range",
-                        "contentHash"
-                      ],
-                      "additionalProperties": false
+                      "$ref": "#/$defs/__schema3"
                     }
                   }
                 },
@@ -316,97 +164,13 @@
                 "type": "object",
                 "properties": {
                   "from": {
-                    "oneOf": [
-                      {
-                        "type": "object",
-                        "properties": {
-                          "domain": {
-                            "type": "string",
-                            "const": "business"
-                          },
-                          "key": {
-                            "type": "string",
-                            "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
-                          }
-                        },
-                        "required": [
-                          "domain",
-                          "key"
-                        ],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "domain": {
-                            "type": "string",
-                            "const": "structural"
-                          },
-                          "id": {
-                            "type": "string",
-                            "pattern": "^(?:repository|module|file|symbol|test|unknown):.+$"
-                          }
-                        },
-                        "required": [
-                          "domain",
-                          "id"
-                        ],
-                        "additionalProperties": false
-                      }
-                    ]
+                    "$ref": "#/$defs/__schema5"
                   },
                   "type": {
-                    "type": "string",
-                    "enum": [
-                      "part_of",
-                      "realized_by",
-                      "reads",
-                      "writes",
-                      "publishes",
-                      "consumes",
-                      "constrained_by",
-                      "verified_by"
-                    ]
+                    "$ref": "#/$defs/__schema6"
                   },
                   "to": {
-                    "oneOf": [
-                      {
-                        "type": "object",
-                        "properties": {
-                          "domain": {
-                            "type": "string",
-                            "const": "business"
-                          },
-                          "key": {
-                            "type": "string",
-                            "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
-                          }
-                        },
-                        "required": [
-                          "domain",
-                          "key"
-                        ],
-                        "additionalProperties": false
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "domain": {
-                            "type": "string",
-                            "const": "structural"
-                          },
-                          "id": {
-                            "type": "string",
-                            "pattern": "^(?:repository|module|file|symbol|test|unknown):.+$"
-                          }
-                        },
-                        "required": [
-                          "domain",
-                          "id"
-                        ],
-                        "additionalProperties": false
-                      }
-                    ]
+                    "$ref": "#/$defs/__schema5"
                   }
                 },
                 "required": [
@@ -433,5 +197,135 @@
     "nodeOperations",
     "relationOperations"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "__schema1": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$"
+    },
+    "__schema2": {
+      "type": "string",
+      "enum": [
+        "exact",
+        "inferred",
+        "hypothesis"
+      ]
+    },
+    "__schema3": {
+      "type": "object",
+      "properties": {
+        "symbolId": {
+          "type": "string",
+          "pattern": "^symbol:.+$"
+        },
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
+        },
+        "range": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "$ref": "#/$defs/__schema4"
+            },
+            "end": {
+              "$ref": "#/$defs/__schema4"
+            }
+          },
+          "required": [
+            "start",
+            "end"
+          ],
+          "additionalProperties": false
+        },
+        "contentHash": {
+          "$ref": "#/$defs/__schema0"
+        }
+      },
+      "required": [
+        "symbolId",
+        "file",
+        "range",
+        "contentHash"
+      ],
+      "additionalProperties": false
+    },
+    "__schema4": {
+      "type": "object",
+      "properties": {
+        "line": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "column": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "line",
+        "column"
+      ],
+      "additionalProperties": false
+    },
+    "__schema5": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "domain": {
+              "type": "string",
+              "const": "business"
+            },
+            "key": {
+              "$ref": "#/$defs/__schema1"
+            }
+          },
+          "required": [
+            "domain",
+            "key"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "domain": {
+              "type": "string",
+              "const": "structural"
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^(?:repository|module|file|symbol|test|unknown):.+$"
+            }
+          },
+          "required": [
+            "domain",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "__schema6": {
+      "type": "string",
+      "enum": [
+        "part_of",
+        "realized_by",
+        "reads",
+        "writes",
+        "publishes",
+        "consumes",
+        "constrained_by",
+        "verified_by"
+      ]
+    }
+  }
 }

@@ -7,7 +7,7 @@ GraphPatch is the only public write contract for agent-learned knowledge. It can
 ```json
 {
   "schemaVersion": 1,
-  "baseSnapshotId": "snap_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "baseSnapshotId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "nodeOperations": [
     {
       "op": "upsert",
@@ -16,7 +16,19 @@ GraphPatch is the only public write contract for agent-learned knowledge. It can
         "kind": "Operation",
         "label": "Place order",
         "summary": "Validates and creates a customer order.",
-        "aliases": ["checkout"]
+        "aliases": ["checkout"],
+        "certainty": "exact",
+        "evidence": [
+          {
+            "symbolId": "symbol:src/orders/order.service.ts#OrderService.placeOrder",
+            "file": "src/orders/order.service.ts",
+            "range": {
+              "start": { "line": 18, "column": 3 },
+              "end": { "line": 24, "column": 4 }
+            },
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
       }
     }
   ],
@@ -42,7 +54,7 @@ GraphPatch is the only public write contract for agent-learned knowledge. It can
               "start": { "line": 18, "column": 3 },
               "end": { "line": 24, "column": 4 }
             },
-            "contentHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
           }
         ]
       }
@@ -53,7 +65,7 @@ GraphPatch is the only public write contract for agent-learned knowledge. It can
 
 ## Operations
 
-Business node upserts contain a stable hierarchical `key`, one of `Capability`, `Scenario`, `Operation`, `Invariant`, `Interface`, or `Data`, plus a label, summary, and aliases. Removing a node uses `{ "op": "remove", "key": "..." }`.
+Business node upserts contain a stable hierarchical `key`, one of `Capability`, `Scenario`, `Operation`, `Invariant`, `Interface`, or `Data`, plus a label, summary, aliases, certainty, and at least one evidence record. The key, kind, label, and aliases form vocabulary identity; the summary is an assertion governed by certainty and evidence. A node-only patch without assertion evidence is invalid. Removing a node uses `{ "op": "remove", "key": "..." }`.
 
 Business relation upserts contain a source reference, relation type, target reference, certainty, and at least one evidence record. Removing a relation supplies its source, type, and target selector. The stable relation identity is that `(from, type, to)` tuple; repeated upserts replace the assertion and its evidence idempotently.
 
@@ -66,9 +78,9 @@ All learned relations originate at a business node. `realized_by` and `verified_
 
 ## Evidence and certainty
 
-Each evidence item binds a structural symbol, normalized repository-relative file, one-based source range, and SHA-256 content hash. Evidence must resolve inside the same repository and match the current working snapshot exactly.
+Each node or relation evidence item binds a structural symbol, normalized repository-relative file, one-based source range, and lowercase SHA-256 content hash. Evidence must resolve inside the same repository and match the current working snapshot exactly.
 
-`exact` means the relation is uniquely established by evidence. `inferred` means the agent made a supported inference. `hypothesis` records exploration and remains visibly non-factual even while its evidence is current. Certainty never upgrades automatically.
+`exact` means the node summary or relation is uniquely established by evidence. `inferred` means the agent made a supported inference. `hypothesis` records exploration and remains visibly non-factual even while its evidence is current. Certainty never upgrades automatically.
 
 ## Atomic validation
 
@@ -78,9 +90,9 @@ Each evidence item binds a structural symbol, normalized repository-relative fil
 2. `baseSnapshotId` equals the current working-tree snapshot.
 3. Every referenced node exists either in the current snapshot or in the patch.
 4. Relation endpoints and kinds satisfy the graph contract.
-5. Every evidence symbol, path, range, and hash belongs to the current repository snapshot.
+5. Every node and relation evidence symbol, path, range, and hash belongs to the current repository snapshot.
 6. Removes do not leave dangling business relations.
 
 The patch is one transaction. Any failure rejects every operation with exit code 5 and a machine-readable error; retries start from a freshly read snapshot. No partial success is exposed.
 
-After later indexing, only assertions with changed evidence become `stale`. Unaffected assertions remain valid, and hypotheses remain hypotheses.
+Validity is derived rather than accepted from GraphPatch. After later indexing, only node summaries and relations with changed evidence become `stale`. Stable node identity and unaffected assertions remain available, and hypotheses remain hypotheses.

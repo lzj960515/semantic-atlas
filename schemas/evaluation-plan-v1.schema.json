@@ -5,165 +5,207 @@
   "type": "object",
   "properties": {
     "schemaVersion": {
-      "type": "number",
-      "const": 1
+      "$ref": "#/$defs/__schema0"
     },
     "cases": {
-      "minItems": 1,
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
-          },
-          "title": {
-            "type": "string",
-            "minLength": 1
-          },
-          "category": {
-            "type": "string",
-            "enum": [
-              "location",
-              "dependency-impact"
-            ]
-          },
-          "frameworks": {
-            "minItems": 1,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "nestjs",
-                "graphql",
-                "typeorm",
-                "bullmq"
-              ]
-            }
-          },
-          "fixture": {
-            "oneOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "kind": {
-                    "type": "string",
-                    "const": "synthetic"
-                  },
-                  "repository": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "revision": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                },
-                "required": [
-                  "kind",
-                  "repository",
-                  "revision"
-                ],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "kind": {
-                    "type": "string",
-                    "const": "private"
-                  },
-                  "repositoryAlias": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "revision": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                },
-                "required": [
-                  "kind",
-                  "repositoryAlias",
-                  "revision"
-                ],
-                "additionalProperties": false
-              }
-            ]
-          },
-          "prompt": {
-            "type": "string",
-            "minLength": 1
-          },
-          "oracle": {
-            "type": "object",
-            "properties": {
-              "acceptanceCriteria": {
-                "minItems": 1,
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "minLength": 1
-                }
-              },
-              "requiredFiles": {
-                "minItems": 1,
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "minLength": 1,
-                  "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
-                }
-              },
-              "requiredSymbols": {
-                "minItems": 1,
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "file": {
-                      "type": "string",
-                      "minLength": 1,
-                      "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
-                    },
-                    "name": {
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  },
-                  "required": [
-                    "file",
-                    "name"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            },
-            "required": [
-              "acceptanceCriteria",
-              "requiredFiles",
-              "requiredSymbols"
-            ],
-            "additionalProperties": false
-          }
-        },
-        "required": [
-          "id",
-          "title",
-          "category",
-          "frameworks",
-          "fixture",
-          "prompt",
-          "oracle"
-        ],
-        "additionalProperties": false
-      }
+      "$ref": "#/$defs/__schema1"
     }
   },
   "required": [
     "schemaVersion",
     "cases"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
+      "type": "number",
+      "const": 1
+    },
+    "__schema1": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema2"
+      }
+    },
+    "__schema2": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/__schema3"
+        },
+        "title": {
+          "$ref": "#/$defs/__schema4"
+        },
+        "category": {
+          "$ref": "#/$defs/__schema5"
+        },
+        "frameworks": {
+          "$ref": "#/$defs/__schema6"
+        },
+        "fixture": {
+          "$ref": "#/$defs/__schema8"
+        },
+        "prompt": {
+          "$ref": "#/$defs/__schema9"
+        },
+        "oracle": {
+          "$ref": "#/$defs/__schema10"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "category",
+        "frameworks",
+        "fixture",
+        "prompt",
+        "oracle"
+      ],
+      "additionalProperties": false
+    },
+    "__schema3": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "__schema4": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema5": {
+      "type": "string",
+      "enum": [
+        "location",
+        "dependency-impact"
+      ]
+    },
+    "__schema6": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/__schema7"
+      }
+    },
+    "__schema7": {
+      "type": "string",
+      "enum": [
+        "nestjs",
+        "graphql",
+        "typeorm",
+        "bullmq"
+      ]
+    },
+    "__schema8": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "synthetic"
+            },
+            "repository": {
+              "type": "string",
+              "minLength": 1
+            },
+            "revision": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "repository",
+            "revision"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "private"
+            },
+            "repositoryAlias": {
+              "type": "string",
+              "minLength": 1
+            },
+            "revision": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "repositoryAlias",
+            "revision"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "__schema9": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema10": {
+      "type": "object",
+      "properties": {
+        "acceptanceCriteria": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema11"
+          }
+        },
+        "requiredFiles": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema12"
+          }
+        },
+        "requiredSymbols": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/__schema13"
+          }
+        }
+      },
+      "required": [
+        "acceptanceCriteria",
+        "requiredFiles",
+        "requiredSymbols"
+      ],
+      "additionalProperties": false
+    },
+    "__schema11": {
+      "type": "string",
+      "minLength": 1
+    },
+    "__schema12": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
+    },
+    "__schema13": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/__schema12"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "file",
+        "name"
+      ],
+      "additionalProperties": false
+    }
+  }
 }

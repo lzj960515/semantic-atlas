@@ -5,29 +5,78 @@
   "type": "object",
   "properties": {
     "schemaVersion": {
+      "$ref": "#/$defs/__schema0"
+    },
+    "runId": {
+      "$ref": "#/$defs/__schema1"
+    },
+    "caseId": {
+      "$ref": "#/$defs/__schema2"
+    },
+    "mode": {
+      "$ref": "#/$defs/__schema3"
+    },
+    "fixtureRevision": {
+      "$ref": "#/$defs/__schema4"
+    },
+    "agent": {
+      "$ref": "#/$defs/__schema5"
+    },
+    "startedAt": {
+      "$ref": "#/$defs/__schema6"
+    },
+    "finishedAt": {
+      "$ref": "#/$defs/__schema7"
+    },
+    "observations": {
+      "$ref": "#/$defs/__schema8"
+    },
+    "answer": {
+      "$ref": "#/$defs/__schema10"
+    },
+    "adjudication": {
+      "$ref": "#/$defs/__schema11"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "runId",
+    "caseId",
+    "mode",
+    "fixtureRevision",
+    "agent",
+    "startedAt",
+    "finishedAt",
+    "observations",
+    "answer",
+    "adjudication"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "__schema0": {
       "type": "number",
       "const": 1
     },
-    "runId": {
+    "__schema1": {
       "type": "string",
       "minLength": 1
     },
-    "caseId": {
+    "__schema2": {
       "type": "string",
       "minLength": 1
     },
-    "mode": {
+    "__schema3": {
       "type": "string",
       "enum": [
         "no-atlas",
         "atlas"
       ]
     },
-    "fixtureRevision": {
+    "__schema4": {
       "type": "string",
       "minLength": 1
     },
-    "agent": {
+    "__schema5": {
       "type": "object",
       "properties": {
         "product": {
@@ -50,17 +99,17 @@
       ],
       "additionalProperties": false
     },
-    "startedAt": {
+    "__schema6": {
       "type": "string",
       "format": "date-time",
       "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
     },
-    "finishedAt": {
+    "__schema7": {
       "type": "string",
       "format": "date-time",
       "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
     },
-    "observations": {
+    "__schema8": {
       "type": "object",
       "properties": {
         "sourceTokenMethod": {
@@ -78,9 +127,7 @@
                 "maximum": 9007199254740991
               },
               "file": {
-                "type": "string",
-                "minLength": 1,
-                "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
+                "$ref": "#/$defs/__schema9"
               },
               "sourceTokens": {
                 "type": "integer",
@@ -126,7 +173,12 @@
       ],
       "additionalProperties": false
     },
-    "answer": {
+    "__schema9": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
+    },
+    "__schema10": {
       "type": "object",
       "properties": {
         "response": {
@@ -136,9 +188,7 @@
         "reportedFiles": {
           "type": "array",
           "items": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
+            "$ref": "#/$defs/__schema9"
           }
         },
         "reportedSymbols": {
@@ -147,9 +197,7 @@
             "type": "object",
             "properties": {
               "file": {
-                "type": "string",
-                "minLength": 1,
-                "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
+                "$ref": "#/$defs/__schema9"
               },
               "name": {
                 "type": "string",
@@ -171,7 +219,7 @@
       ],
       "additionalProperties": false
     },
-    "adjudication": {
+    "__schema11": {
       "type": "object",
       "properties": {
         "correct": {
@@ -188,19 +236,5 @@
       ],
       "additionalProperties": false
     }
-  },
-  "required": [
-    "schemaVersion",
-    "runId",
-    "caseId",
-    "mode",
-    "fixtureRevision",
-    "agent",
-    "startedAt",
-    "finishedAt",
-    "observations",
-    "answer",
-    "adjudication"
-  ],
-  "additionalProperties": false
+  }
 }

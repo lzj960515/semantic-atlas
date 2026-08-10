@@ -43,10 +43,10 @@ This document fixes the v0.1 product boundary. The versioned machine contracts l
 - Repository identity is shared by the main checkout and its Git worktrees. Each working tree can have a different content-derived snapshot.
 - A snapshot incorporates the repository identity, HEAD, Atlas index format version, analyzed file paths and hashes, staged and unstaged changes, and relevant untracked files.
 - Structural facts belong to one snapshot and are replaced by indexing. They cannot be created or edited through GraphPatch.
-- Business assertions are attached to a base snapshot and exact source evidence. A content change invalidates only assertions whose evidence changed.
+- Business node summaries and business relations are assertions attached to a base snapshot, certainty, and exact source evidence. A content change invalidates only assertions whose evidence changed; stable node keys and labels remain available as vocabulary while their stale summaries stay visibly stale.
 - `learn` is an optimistic-concurrency transaction: all operations commit together, or none commit.
 
-Identifiers are stable and opaque to CLI clients. Repository IDs begin with `repo_`, snapshot IDs use `snap_<sha256>`, structural IDs are namespaced by kind, and business nodes use agent-chosen hierarchical keys that remain stable when labels change.
+Identifiers are stable and opaque to CLI clients. Repository and snapshot IDs are lowercase SHA-256 values shared with the repository snapshot model, structural IDs are namespaced by kind, and business nodes use agent-chosen hierarchical keys that remain stable when labels change.
 
 ## Supported language and framework scope
 

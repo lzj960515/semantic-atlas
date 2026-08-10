@@ -43,6 +43,7 @@ const contracts = [
 for (const contract of contracts) {
   const generated = z.toJSONSchema(contract.schema, {
     target: "draft-2020-12",
+    reused: "ref",
     unrepresentable: "any",
   });
   const { $schema: _generatedDialect, ...body } = generated;

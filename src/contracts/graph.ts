@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { contentIdentifierSchema } from "./identifiers.js";
+
 export const structuralNodeKindSchema = z.enum([
   "Repository",
   "Module",
@@ -41,14 +43,14 @@ export const businessRelationTypeSchema = z.enum([
   "verified_by",
 ]);
 
-const businessKeySchema = z
+export const businessKeySchema = z
   .string()
   .regex(
     /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$/,
     "Expected a stable hierarchical business key",
   );
 
-const structuralNodeIdSchema = z
+export const structuralNodeIdSchema = z
   .string()
   .regex(
     /^(?:repository|module|file|symbol|test|unknown):.+$/,
@@ -59,7 +61,7 @@ const structuralSymbolIdSchema = z
   .string()
   .regex(/^symbol:.+$/, "Expected a compiler-owned structural symbol ID");
 
-const relativeSourcePathSchema = z
+export const relativeSourcePathSchema = z
   .string()
   .min(1)
   .regex(
@@ -82,35 +84,46 @@ const nodeReferenceSchema = z.discriminatedUnion("domain", [
   structuralNodeReferenceSchema,
 ]);
 
-const sourcePositionSchema = z.strictObject({
+export const sourcePositionSchema = z.strictObject({
   line: z.number().int().positive(),
   column: z.number().int().positive(),
 });
 
-const evidenceSchema = z
+export const sourceRangeSchema = z
   .strictObject({
-    symbolId: structuralSymbolIdSchema,
-    file: relativeSourcePathSchema,
-    range: z.strictObject({
-      start: sourcePositionSchema,
-      end: sourcePositionSchema,
-    }),
-    contentHash: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+    start: sourcePositionSchema,
+    end: sourcePositionSchema,
   })
-  .superRefine((evidence, context) => {
-    const { start, end } = evidence.range;
+  .superRefine((range, context) => {
     const endsBeforeStart =
-      end.line < start.line ||
-      (end.line === start.line && end.column < start.column);
+      range.end.line < range.start.line ||
+      (range.end.line === range.start.line &&
+        range.end.column < range.start.column);
 
     if (endsBeforeStart) {
       context.addIssue({
         code: "custom",
-        message: "Evidence range end must not precede its start",
-        path: ["range", "end"],
+        message: "Source range end must not precede its start",
+        path: ["end"],
       });
     }
   });
+
+export const evidenceSchema = z
+  .strictObject({
+    symbolId: structuralSymbolIdSchema,
+    file: relativeSourcePathSchema,
+    range: sourceRangeSchema,
+    contentHash: contentIdentifierSchema,
+  });
+
+export const assertionCertaintySchema = z.enum([
+  "exact",
+  "inferred",
+  "hypothesis",
+]);
+
+export const knowledgeValiditySchema = z.enum(["valid", "stale"]);
 
 const businessNodeSchema = z.strictObject({
   key: businessKeySchema,
@@ -118,6 +131,8 @@ const businessNodeSchema = z.strictObject({
   label: z.string().min(1),
   summary: z.string().min(1),
   aliases: z.array(z.string().min(1)),
+  certainty: assertionCertaintySchema,
+  evidence: z.array(evidenceSchema).min(1),
 });
 
 const relationSelectorSchema = z
@@ -129,7 +144,7 @@ const relationSelectorSchema = z
   .superRefine(validateBusinessRelationEndpoints);
 
 const learnedRelationSchema = relationSelectorSchema.safeExtend({
-  certainty: z.enum(["exact", "inferred", "hypothesis"]),
+  certainty: assertionCertaintySchema,
   evidence: z.array(evidenceSchema).min(1),
 });
 
@@ -157,7 +172,7 @@ const relationOperationSchema = z.discriminatedUnion("op", [
 
 export const graphPatchV1Schema = z.strictObject({
   schemaVersion: z.literal(1),
-  baseSnapshotId: z.string().regex(/^snap_[a-f0-9]{64}$/),
+  baseSnapshotId: contentIdentifierSchema,
   nodeOperations: z.array(nodeOperationSchema),
   relationOperations: z.array(relationOperationSchema),
 });

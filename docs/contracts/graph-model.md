@@ -21,7 +21,7 @@ Structural nodes and relations are compiler-owned projections. Business nodes an
 | Business | `Interface` | A business-facing API, event, queue, or integration contract |
 | Business | `Data` | A business data concept or persisted record |
 
-Structural IDs are deterministic, namespaced values derived from normalized repository-relative paths and compiler-qualified names. They have prefixes such as `file:`, `symbol:`, `test:`, and `unknown:`. Business keys are stable slash-separated keys such as `commerce/orders/place-order`; labels and summaries can evolve without changing the key.
+Repository and snapshot IDs are lowercase SHA-256 values produced by repository inspection. Structural IDs are deterministic, namespaced values derived from normalized repository-relative paths and compiler-qualified names. They have prefixes such as `file:`, `symbol:`, `test:`, and `unknown:`. Business keys are stable slash-separated keys such as `commerce/orders/place-order`; labels and aliases form stable vocabulary while evidence-bound summaries can evolve without changing the key.
 
 ## Relation kinds
 
@@ -49,7 +49,7 @@ All learned relations originate at a business node. `realized_by` and `verified_
 
 ## Evidence, certainty, and validity
 
-Every learned relation has one or more evidence records containing:
+Every learned business node summary and learned relation has a certainty and one or more evidence records containing:
 
 - a structural symbol ID;
 - a normalized repository-relative source path;
@@ -58,14 +58,14 @@ Every learned relation has one or more evidence records containing:
 
 Certainty and validity are independent:
 
-- `exact` means the evidence uniquely proves the relation;
-- `inferred` means evidence supports the relation but includes an agent inference;
+- `exact` means the evidence uniquely proves the node summary or relation;
+- `inferred` means evidence supports the assertion but includes an agent inference;
 - `hypothesis` is exploratory and is never a verified fact;
 - `valid` means all bound evidence still matches the current snapshot;
 - `stale` means at least one bound evidence item changed or disappeared;
 - `unknown` means the system has an explicit boundary rather than a supported assertion.
 
-Reindexing recalculates validity per assertion. It does not globally invalidate unrelated business knowledge.
+Validity is derived state and is never accepted as GraphPatch input. Reindexing compares each assertion's evidence with the new snapshot: changed or missing evidence makes that node summary or relation `stale`, while unchanged assertions remain `valid`. Stable node identity remains navigable, but every map result exposes `certainty`, `validity`, and evidence so stale or hypothesis content cannot appear exact.
 
 ## Unknown boundaries
 
