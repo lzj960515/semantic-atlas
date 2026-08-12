@@ -103,7 +103,7 @@ missing -> building -> current
 - `current` is published only after CodeGraph completes and Atlas snapshot/evidence reconciliation commits.
 - `failed` records the last failure while preventing a partial structural graph from being reported as current.
 
-All Semantic Atlas commands use one Atlas-owned worktree lock. Its PID, operating-system process-start identity, and ownership token cover the complete publication lifecycle, do not expire while that process instance is alive, and permit recovery after that instance exits even if its PID is later reused. Structural writes complete before Atlas knowledge writes. Read commands require a `current` snapshot or return explicit stale/failed state.
+All Semantic Atlas commands use one Atlas-owned worktree lock. Its PID, operating-system process-instance proof, and ownership token cover the complete publication lifecycle, do not expire while that process instance is alive, and permit recovery after that instance exits even if its PID is later reused. Linux and Windows use high-resolution OS process-start identities. On macOS and other POSIX hosts without `/proc`, owners keep the authoritative lease inode open for the full lifecycle; process exit closes that kernel-held proof, which cannot be inherited by a later process reusing the PID. Structural writes complete before Atlas knowledge writes. Read commands require a `current` snapshot or return explicit stale/failed state.
 
 Normal updates use CodeGraph incremental sync. A full structural rebuild uses `CodeGraph.clear()` followed by `indexAll()` because the current SDK clears only structural rows. The adapter never calls:
 

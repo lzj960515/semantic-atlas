@@ -396,19 +396,24 @@ describe("CodeGraph structural backend", () => {
         "",
       ].join("\n"));
 
-      const unrelated = spawn(process.execPath, ["-e", "process.stdin.resume()"], {
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-      if (unrelated.pid === undefined) {
-        throw new Error("Expected the unrelated PID-reuse fixture process to start");
-      }
+      const unrelated = await startBuiltProcessInstanceHolder();
       const atlasDirectory = join(fixture.directory, ".atlas");
+      const collidingLeasePath = join(
+        atlasDirectory,
+        `semantic-atlas.lock.owner-${unrelated.child.pid}-open-file-${unrelated.instanceId}-00000000-0000-4000-8000-000000000000`,
+      );
+      await writeFile(collidingLeasePath, `${JSON.stringify({
+        pid: unrelated.child.pid,
+        token: "00000000-0000-4000-8000-000000000000",
+        instanceId: unrelated.instanceId,
+        instanceProof: "open-file",
+      })}\n`);
       const legacyLeasePath = join(
         atlasDirectory,
-        `semantic-atlas.lock.owner-${unrelated.pid}-00000000-0000-4000-8000-000000000000`,
+        `semantic-atlas.lock.owner-${unrelated.child.pid}-00000000-0000-4000-8000-000000000000`,
       );
       await writeFile(legacyLeasePath, `${JSON.stringify({
-        pid: unrelated.pid,
+        pid: unrelated.child.pid,
         token: "00000000-0000-4000-8000-000000000000",
       })}\n`);
 
@@ -419,10 +424,10 @@ describe("CodeGraph structural backend", () => {
         const reusedInstanceId = "0".repeat(64);
         const leasePath = join(
           atlasDirectory,
-          `semantic-atlas.lock.owner-${unrelated.pid}-${reusedInstanceId}-00000000-0000-4000-8000-000000000000`,
+          `semantic-atlas.lock.owner-${unrelated.child.pid}-${reusedInstanceId}-00000000-0000-4000-8000-000000000000`,
         );
         await writeFile(leasePath, `${JSON.stringify({
-          pid: unrelated.pid,
+          pid: unrelated.child.pid,
           token: "00000000-0000-4000-8000-000000000000",
           instanceId: reusedInstanceId,
         })}\n`);
@@ -447,15 +452,63 @@ describe("CodeGraph structural backend", () => {
           expect.objectContaining({ node: expect.objectContaining({ name: "addedAfterPidReuse" }) }),
         ]));
         await expect(readFile(legacyLeasePath)).rejects.toMatchObject({ code: "ENOENT" });
+        await expect(readFile(collidingLeasePath)).rejects.toMatchObject({ code: "ENOENT" });
         await expect(readFile(leasePath)).rejects.toMatchObject({ code: "ENOENT" });
       } finally {
-        unrelated.stdin.end();
-        await waitForProcessExit(unrelated);
+        unrelated.child.stdin?.end();
+        await waitForProcessExit(unrelated.child);
       }
       await expectStructuralPublicationStateCleaned(join(atlasDirectory, "codegraph.db"));
     },
     60_000,
   );
+
+  it("assigns distinct identities to macOS processes started in the same second", async () => {
+    if (process.platform !== "darwin") {
+      return;
+    }
+    const projectRoot = join(import.meta.dirname, "..", "..");
+    await executeFile("pnpm", ["build"], { cwd: projectRoot });
+    await waitForEarlyWallClockSecond();
+
+    const instances = await Promise.all(Array.from(
+      { length: 4 },
+      () => inspectBuiltProcessInstance(),
+    ));
+
+    expect(new Set(instances.map((instance) => instance.startedAt))).toHaveLength(1);
+    expect(new Set(instances.map((instance) => instance.instanceId))).toHaveLength(instances.length);
+  }, 60_000);
+
+  it("disambiguates previous macOS process-start leases within one second", async () => {
+    if (process.platform !== "darwin") {
+      return;
+    }
+    const holder = await startBuiltProcessInstanceHolder();
+    try {
+      const leaseIdentity = {
+        path: "/unused-for-process-start-proof",
+        device: 0,
+        inode: 0,
+      };
+
+      expect(processInstance.inspectProcessInstance(
+        holder.child.pid,
+        holder.processStartInstanceId,
+        "process-start",
+        { ...leaseIdentity, writtenAtMs: 0 },
+      )).toBe("different");
+      expect(processInstance.inspectProcessInstance(
+        holder.child.pid,
+        holder.processStartInstanceId,
+        "process-start",
+        { ...leaseIdentity, writtenAtMs: Date.now() },
+      )).toBe("matching");
+    } finally {
+      holder.child.stdin?.end();
+      await waitForProcessExit(holder.child);
+    }
+  }, 60_000);
 
   it("reclaims a legacy fixed lock whose PID belongs to a newer process", async () => {
     const atlasDirectory = await mkdtemp(join(tmpdir(), "semantic-atlas-legacy-lock-"));
@@ -1157,6 +1210,98 @@ async function createBuiltStructuralBackend(
   return new module.CodeGraphStructuralBackend(repository);
 }
 
+interface ProcessInstanceFixture {
+  readonly child: ChildProcess & { readonly pid: number };
+  readonly instanceId: string;
+  readonly processStartInstanceId: string;
+}
+
+async function startBuiltProcessInstanceHolder(): Promise<ProcessInstanceFixture> {
+  const projectRoot = join(import.meta.dirname, "..", "..");
+  const modulePath = pathToFileURL(join(
+    projectRoot,
+    "dist",
+    "structural-backend",
+    "process-instance.js",
+  )).href;
+  const child = spawn(process.execPath, [
+    "--input-type=module",
+    "-e",
+    [
+      "const { createHash } = await import('node:crypto');",
+      "const { execFileSync } = await import('node:child_process');",
+      `const { currentProcessInstanceId } = await import(${JSON.stringify(modulePath)});`,
+      "const startedAt = process.platform === 'darwin' ? execFileSync('ps', ['-p', String(process.pid), '-o', 'lstart='], { encoding: 'utf8', env: { ...process.env, LANG: 'C', LC_ALL: 'C', TZ: 'UTC' } }).trim() : '';",
+      "const processStartInstanceId = startedAt === '' ? '' : createHash('sha256').update(`darwin:${startedAt}`).digest('hex');",
+      "process.stdout.write(JSON.stringify({ instanceId: currentProcessInstanceId(), processStartInstanceId }) + '\\n');",
+      "process.stdin.resume();",
+      "process.stdin.once('end', () => process.exit(0));",
+    ].join(" "),
+  ], {
+    cwd: projectRoot,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  if (child.pid === undefined) {
+    throw new Error("Expected the process-instance fixture to start");
+  }
+  const instance = JSON.parse(await readFirstChildOutputLine(child)) as {
+    readonly instanceId: string;
+    readonly processStartInstanceId: string;
+  };
+  return { child: child as ChildProcess & { readonly pid: number }, ...instance };
+}
+
+async function inspectBuiltProcessInstance(): Promise<{
+  readonly instanceId: string;
+  readonly startedAt: string;
+}> {
+  const projectRoot = join(import.meta.dirname, "..", "..");
+  const modulePath = pathToFileURL(join(
+    projectRoot,
+    "dist",
+    "structural-backend",
+    "process-instance.js",
+  )).href;
+  const script = [
+    "const { execFileSync } = await import('node:child_process');",
+    `const { currentProcessInstanceId } = await import(${JSON.stringify(modulePath)});`,
+    "const startedAt = execFileSync('ps', ['-p', String(process.pid), '-o', 'lstart='], { encoding: 'utf8', env: { ...process.env, LANG: 'C', LC_ALL: 'C', TZ: 'UTC' } }).trim();",
+    "process.stdout.write(JSON.stringify({ instanceId: currentProcessInstanceId(), startedAt }));",
+  ].join(" ");
+  const { stdout } = await executeFile(process.execPath, [
+    "--input-type=module",
+    "-e",
+    script,
+  ], { cwd: projectRoot, encoding: "utf8" });
+  return JSON.parse(stdout) as { readonly instanceId: string; readonly startedAt: string };
+}
+
+async function waitForEarlyWallClockSecond(): Promise<void> {
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline && Date.now() % 1_000 > 250) {
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+}
+
+async function readFirstChildOutputLine(child: ChildProcess): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    let output = "";
+    child.once("error", reject);
+    child.stdout?.on("data", (chunk: Buffer) => {
+      output += chunk.toString("utf8");
+      const lineEnd = output.indexOf("\n");
+      if (lineEnd !== -1) {
+        resolve(output.slice(0, lineEnd));
+      }
+    });
+    child.once("exit", (code) => {
+      reject(new Error(
+        `Process-instance fixture exited ${code}: ${child.stderr?.read()?.toString("utf8") ?? ""}`,
+      ));
+    });
+  });
+}
+
 async function executeBuiltBackendRequest<T>(
   backend: StructuralIndexBackend,
   operation: string,
@@ -1302,16 +1447,15 @@ async function crashAtlasLockDuringOwnershipPublication(worktreeRoot: string): P
     "const { createRequire, syncBuiltinESMExports } = await import('node:module');",
     "const require = createRequire(import.meta.url);",
     "const fs = require('node:fs');",
-    "const originalWriteFileSync = fs.writeFileSync;",
-    "fs.writeFileSync = (path, data, options) => {",
+    "const originalOpenSync = fs.openSync;",
+    "fs.openSync = (path, flags, mode) => {",
     "  if (typeof path === 'string' && path.startsWith(process.argv[1])) {",
-    "    const descriptor = fs.openSync(path, 'wx', 0o600);",
-    "    fs.closeSync(descriptor);",
+    "    const descriptor = originalOpenSync(path, flags, mode);",
     "    fs.writeSync(1, 'writing\\n');",
     "    process.kill(process.pid, 'SIGSTOP');",
-    "    return;",
+    "    return descriptor;",
     "  }",
-    "  return originalWriteFileSync(path, data, options);",
+    "  return originalOpenSync(path, flags, mode);",
     "};",
     "syncBuiltinESMExports();",
     `const { StructuralWriteLock } = await import(${JSON.stringify(lockModule)});`,

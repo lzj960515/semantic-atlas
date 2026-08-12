@@ -16,10 +16,11 @@ import {
 import { basename, dirname, join } from "node:path";
 
 import {
-  currentProcessInstanceId,
+  currentProcessInstance,
   inspectProcessInstance,
   isProcessAlive,
   processStartedAfter,
+  type ProcessInstanceProof,
 } from "./process-instance.js";
 
 const OWNERSHIP_FILE_MARKER = ".owner-";
@@ -28,6 +29,7 @@ interface LockOwnership {
   readonly pid: number;
   readonly token: string;
   readonly instanceId?: string;
+  readonly instanceProof?: ProcessInstanceProof;
 }
 
 interface ObservedLock {
@@ -40,17 +42,20 @@ export class StructuralWriteLock {
   readonly #identity: Stats;
   readonly #ownership: LockOwnership;
   readonly #ownershipPath: string;
+  readonly #ownershipDescriptor: number | undefined;
 
   private constructor(
     path: string,
     identity: Stats,
     ownership: LockOwnership,
     ownershipPath: string,
+    ownershipDescriptor?: number,
   ) {
     this.#path = path;
     this.#identity = identity;
     this.#ownership = ownership;
     this.#ownershipPath = ownershipPath;
+    this.#ownershipDescriptor = ownershipDescriptor;
   }
 
   static acquire(path: string): StructuralWriteLock | undefined {
@@ -80,30 +85,48 @@ export class StructuralWriteLock {
         ownership: this.#ownership,
       });
     } finally {
-      removeObservedLock(this.#ownershipPath, {
-        identity: this.#identity,
-        ownership: this.#ownership,
-      });
+      try {
+        removeObservedLock(this.#ownershipPath, {
+          identity: this.#identity,
+          ownership: this.#ownership,
+        });
+      } finally {
+        if (this.#ownershipDescriptor !== undefined) {
+          closeSync(this.#ownershipDescriptor);
+        }
+      }
     }
   }
 
   private static create(path: string): StructuralWriteLock | undefined {
+    const processInstance = currentProcessInstance();
     const ownership = {
       pid: process.pid,
       token: randomUUID(),
-      instanceId: currentProcessInstanceId(),
+      instanceId: processInstance.id,
+      instanceProof: processInstance.proof,
     };
     const ownershipPath = ownershipFilePath(path, ownership);
     let ownershipFileCreated = false;
     let ownershipLeaseRetained = false;
+    let ownershipDescriptor: number | undefined;
     try {
-      writeFileSync(ownershipPath, serializeOwnership(ownership), {
-        encoding: "utf8",
-        flag: "wx",
-        mode: 0o600,
-      });
+      const noFollow = fileSystemConstants.O_NOFOLLOW ?? 0;
+      ownershipDescriptor = openSync(
+        ownershipPath,
+        fileSystemConstants.O_CREAT |
+          fileSystemConstants.O_EXCL |
+          fileSystemConstants.O_RDWR |
+          noFollow,
+        0o600,
+      );
       ownershipFileCreated = true;
-      persistOwnershipFile(ownershipPath);
+      writeFileSync(ownershipDescriptor, serializeOwnership(ownership), { encoding: "utf8" });
+      persistOwnershipFile(ownershipDescriptor);
+      if (ownership.instanceProof !== "open-file") {
+        closeSync(ownershipDescriptor);
+        ownershipDescriptor = undefined;
+      }
       if (hasCompetingOwnershipLease(path, ownershipPath)) {
         return undefined;
       }
@@ -131,23 +154,29 @@ export class StructuralWriteLock {
         return undefined;
       }
       ownershipLeaseRetained = true;
-      return new StructuralWriteLock(path, identity, ownership, ownershipPath);
+      return new StructuralWriteLock(
+        path,
+        identity,
+        ownership,
+        ownershipPath,
+        ownershipDescriptor,
+      );
     } finally {
       if (ownershipFileCreated && !ownershipLeaseRetained) {
-        removeRegularFile(ownershipPath);
+        try {
+          removeRegularFile(ownershipPath);
+        } finally {
+          if (ownershipDescriptor !== undefined) {
+            closeSync(ownershipDescriptor);
+          }
+        }
       }
     }
   }
 }
 
-function persistOwnershipFile(path: string): void {
-  const noFollow = fileSystemConstants.O_NOFOLLOW ?? 0;
-  const descriptor = openSync(path, fileSystemConstants.O_RDONLY | noFollow);
-  try {
-    fsyncSync(descriptor);
-  } finally {
-    closeSync(descriptor);
-  }
+function persistOwnershipFile(descriptor: number): void {
+  fsyncSync(descriptor);
 }
 
 function persistDirectory(path: string): void {
@@ -166,7 +195,10 @@ function ownershipFilePath(path: string, ownership: LockOwnership): string {
   if (ownership.instanceId === undefined) {
     throw new Error("The structural lock owner lease requires a process instance identity");
   }
-  return `${path}${OWNERSHIP_FILE_MARKER}${ownership.pid}-${ownership.instanceId}-${ownership.token}`;
+  if (ownership.instanceProof === undefined) {
+    throw new Error("The structural lock owner lease requires a process instance proof");
+  }
+  return `${path}${OWNERSHIP_FILE_MARKER}${ownership.pid}-${ownership.instanceProof}-${ownership.instanceId}-${ownership.token}`;
 }
 
 function hasCompetingOwnershipLease(
@@ -196,12 +228,13 @@ function hasCompetingOwnershipLease(
       observed === undefined ||
       observed.ownership.pid !== ownership.pid ||
       observed.ownership.token !== ownership.token ||
-      observed.ownership.instanceId !== ownership.instanceId
+      observed.ownership.instanceId !== ownership.instanceId ||
+      observed.ownership.instanceProof !== ownership.instanceProof
     ) {
       if (
         ownership.instanceId === undefined
           ? isLegacyLeasePathActive(lockPath, path, ownership.pid)
-          : isOwnershipActive(ownership)
+          : isOwnershipActive(ownership, path)
       ) {
         return true;
       }
@@ -215,7 +248,7 @@ function hasCompetingOwnershipLease(
       ) {
         return true;
       }
-    } else if (isOwnershipActive(observed.ownership)) {
+    } else if (isOwnershipActive(observed.ownership, path, observed.identity)) {
       return true;
     }
     if (!removeRegularFile(path) && pathExists(path)) {
@@ -233,7 +266,7 @@ function parseOwnershipFileName(
     return undefined;
   }
   const serializedOwnership = name.slice(prefix.length);
-  const match = /^(\d+)-(?:(?<instanceId>[0-9a-f]{64})-)?(?<token>[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu
+  const match = /^(\d+)-(?:(?<instanceProof>process-start|open-file)-)?(?:(?<instanceId>[0-9a-f]{64})-)?(?<token>[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu
     .exec(serializedOwnership);
   if (match === null) {
     return undefined;
@@ -244,14 +277,21 @@ function parseOwnershipFileName(
     : Number.NaN;
   const token = match.groups?.token ?? "";
   const instanceId = match.groups?.instanceId;
+  const instanceProof = match.groups?.instanceProof as ProcessInstanceProof | undefined;
   if (
     !Number.isSafeInteger(pid) ||
     pid <= 0 ||
-    !isUuid(token)
+    !isUuid(token) ||
+    (instanceProof !== undefined && instanceId === undefined)
   ) {
     return undefined;
   }
-  return { pid, token, ...(instanceId === undefined ? {} : { instanceId }) };
+  return {
+    pid,
+    token,
+    ...(instanceId === undefined ? {} : { instanceId }),
+    ...(instanceProof === undefined ? {} : { instanceProof }),
+  };
 }
 
 function isUuid(value: string): boolean {
@@ -339,7 +379,8 @@ function matchesObservedLock(path: string, expected: ObservedLock): boolean {
     current.identity.ino === expected.identity.ino &&
     current.ownership.pid === expected.ownership.pid &&
     current.ownership.token === expected.ownership.token &&
-    current.ownership.instanceId === expected.ownership.instanceId;
+    current.ownership.instanceId === expected.ownership.instanceId &&
+    current.ownership.instanceProof === expected.ownership.instanceProof;
 }
 
 function serializeOwnership(ownership: LockOwnership): string {
@@ -358,34 +399,64 @@ function parseOwnership(value: string): LockOwnership | undefined {
     const instanceId = typeof parsed === "object" && parsed !== null && "instanceId" in parsed
       ? parsed.instanceId
       : undefined;
+    const instanceProof = typeof parsed === "object" && parsed !== null && "instanceProof" in parsed
+      ? parsed.instanceProof
+      : undefined;
     if (
       typeof pid !== "number" ||
       !Number.isSafeInteger(pid) ||
       pid <= 0 ||
       typeof token !== "string" ||
       token.length === 0 ||
-      (instanceId !== undefined && !isProcessInstanceId(instanceId))
+      (instanceId !== undefined && !isProcessInstanceId(instanceId)) ||
+      (instanceProof !== undefined && !isProcessInstanceProof(instanceProof)) ||
+      (instanceProof !== undefined && instanceId === undefined)
     ) {
       return undefined;
     }
-    return { pid, token, ...(instanceId === undefined ? {} : { instanceId }) };
+    return {
+      pid,
+      token,
+      ...(instanceId === undefined ? {} : { instanceId }),
+      ...(instanceProof === undefined ? {} : { instanceProof }),
+    };
   } catch {
     return undefined;
   }
 }
 
-function isOwnershipActive(ownership: LockOwnership): boolean {
+function isOwnershipActive(
+  ownership: LockOwnership,
+  leasePath: string,
+  leaseIdentity?: Stats,
+): boolean {
   if (ownership.instanceId === undefined) {
     return isProcessAlive(ownership.pid);
   }
-  const status = inspectProcessInstance(ownership.pid, ownership.instanceId);
+  let identity: Stats;
+  try {
+    identity = leaseIdentity ?? lstatSync(leasePath);
+  } catch {
+    return false;
+  }
+  const status = inspectProcessInstance(
+    ownership.pid,
+    ownership.instanceId,
+    ownership.instanceProof ?? "process-start",
+    {
+      path: leasePath,
+      device: identity.dev,
+      inode: identity.ino,
+      writtenAtMs: Math.max(identity.birthtimeMs, identity.ctimeMs),
+    },
+  );
   return status === "matching" || status === "unknown";
 }
 
 function isObservedOwnershipActive(lockPath: string, lock: ObservedLock): boolean {
   return lock.ownership.instanceId === undefined
     ? isLegacyLeaseActive(lockPath, lock)
-    : isOwnershipActive(lock.ownership);
+    : isOwnershipActive(lock.ownership, lockPath, lock.identity);
 }
 
 function isLegacyLeaseActive(lockPath: string, lease: ObservedLock): boolean {
@@ -426,6 +497,10 @@ function isLegacyLeasePathActive(
 
 function isProcessInstanceId(value: unknown): value is string {
   return typeof value === "string" && /^[0-9a-f]{64}$/u.test(value);
+}
+
+function isProcessInstanceProof(value: unknown): value is ProcessInstanceProof {
+  return value === "process-start" || value === "open-file";
 }
 
 function isFileSystemError(error: unknown, code: string): error is NodeJS.ErrnoException {
