@@ -440,6 +440,7 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
             "The structural index has not been built for this worktree",
           );
         }
+        await this.verifyAtlasDirectory();
 
         let graph: CodeGraph | undefined;
         let connection: ReturnType<typeof sdk.DatabaseConnection.open> | undefined;

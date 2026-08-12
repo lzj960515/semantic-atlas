@@ -315,6 +315,22 @@ describe("CodeGraph structural backend", () => {
     });
     expect(await readFile(outsideDatabase, "utf8")).toBe("not a database\n");
   });
+
+  it("rejects a database symlink introduced after indexing before serving queries", async () => {
+    const { backend, fixture } = await createStructuralFixture(fixtures);
+    const built = await backend.build();
+    const outsideDirectory = await mkdtemp(join(tmpdir(), "semantic-atlas-query-outside-"));
+    linkedWorktrees.push(outsideDirectory);
+    const outsideDatabase = join(outsideDirectory, "outside.db");
+    await writeFile(outsideDatabase, "not a database\n");
+    await rm(built.databasePath);
+    await symlink(outsideDatabase, built.databasePath);
+
+    await expect(backend.search({ query: "target", limit: 5 })).rejects.toMatchObject({
+      code: "STRUCTURAL_QUERY_FAILED",
+    });
+    expect(await readFile(outsideDatabase, "utf8")).toBe("not a database\n");
+  });
 });
 
 async function createStructuralFixture(fixtures: GitFixture[]): Promise<StructuralFixture> {
