@@ -21,7 +21,7 @@ The project is under active development toward v0.1. The first release focuses o
 - Stale or unresolved knowledge is explicit.
 - Code editing, testing, Git operations, and natural-language reasoning remain the agent's responsibility.
 
-The runtime foundation currently contains repository snapshots and the graph and evidence kernel. It is being migrated from an Atlas-owned TypeScript/JavaScript structural index and external storage to the embedded CodeGraph backend and worktree-local unified store defined by the v0.1 product contract.
+The runtime foundation now embeds CodeGraph behind an Atlas adapter and stores snapshots and business knowledge in namespaced `atlas_*` objects in the same worktree-local database. Structural and business results are composed through APIs rather than copied into a second structural schema.
 
 ## License
 

@@ -1,12 +1,7 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { inspectGitRepository } from "../../src/repository/repository-inspector.js";
 import { createRepositorySnapshot } from "../../src/snapshots/repository-snapshot.js";
 import {
-  coreStructuralNodes,
   createGraphTestContext,
   evidenceFor,
   saveSnapshot,
@@ -15,20 +10,14 @@ import {
 
 describe("business evidence lifecycle", () => {
   const contexts: GraphTestContext[] = [];
-  const temporaryDirectories: string[] = [];
-
   afterEach(async () => {
     await Promise.all(contexts.splice(0).map((context) => context.cleanup()));
-    await Promise.all(temporaryDirectories.splice(0).map((path) => (
-      rm(path, { recursive: true, force: true })
-    )));
   });
 
   it("persists ordered evidence and derives valid, stale, and restored states", async () => {
     const context = await createGraphTestContext();
     contexts.push(context);
-    const { dataDirectory, fixture, graph, repository, snapshot } = context;
-    graph.replaceStructuralSnapshot(snapshot.snapshotId, coreStructuralNodes(snapshot), []);
+    const { fixture, graph, repository, snapshot } = context;
     const evidence = evidenceFor(snapshot);
     graph.mutateBusinessGraph({
       baseSnapshotId: snapshot.snapshotId,
@@ -73,109 +62,25 @@ describe("business evidence lifecycle", () => {
       snapshot.snapshotId,
     )).toMatchObject({ certainty: "inferred", validity: "valid" });
 
-    const linkedWorktree = await mkdtemp(join(tmpdir(), "semantic-atlas-evidence-worktree-"));
-    temporaryDirectories.push(linkedWorktree);
-    await rm(linkedWorktree, { recursive: true, force: true });
-    await fixture.git("worktree", "add", "-b", "evidence-linked", linkedWorktree);
-    const linkedRepository = await inspectGitRepository(linkedWorktree);
-    const linkedSnapshot = await createRepositorySnapshot(linkedRepository);
-    expect(linkedSnapshot.snapshotId).toBe(snapshot.snapshotId);
-
     await fixture.write("src/example.ts", "export const value = 2;\n");
     await fixture.git("add", "src/example.ts");
     await fixture.git("commit", "-m", "test: change evidence");
     const changedSnapshot = await createRepositorySnapshot(repository);
-    saveSnapshot(dataDirectory, repository, changedSnapshot);
-    graph.replaceStructuralSnapshot(
-      changedSnapshot.snapshotId,
-      coreStructuralNodes(changedSnapshot),
-      [],
-    );
+    saveSnapshot(repository, changedSnapshot);
+    graph.reconcileSnapshot(changedSnapshot.snapshotId);
     expect(graph.getNode(
       { domain: "business", key: "fixture/read-value" },
       changedSnapshot.snapshotId,
     )).toMatchObject({ certainty: "inferred", validity: "stale" });
-    expect(graph.traverse(
-      { domain: "business", key: "fixture/read-value" },
-      {
-        snapshotId: changedSnapshot.snapshotId,
-        maxDepth: 1,
-        direction: "outgoing",
-      },
-    )[0]).toMatchObject({ relation: { validity: "stale" } });
-
-    saveSnapshot(dataDirectory, linkedRepository, linkedSnapshot);
-    graph.replaceStructuralSnapshot(
-      linkedSnapshot.snapshotId,
-      coreStructuralNodes(linkedSnapshot),
-      [],
-    );
-    expect(graph.getNode(
-      { domain: "business", key: "fixture/read-value" },
-      changedSnapshot.snapshotId,
-    )).toMatchObject({ validity: "stale" });
-    expect(graph.getNode(
-      { domain: "business", key: "fixture/read-value" },
-      linkedSnapshot.snapshotId,
-    )).toMatchObject({ validity: "valid" });
-    expect(graph.traverse(
-      { domain: "business", key: "fixture/read-value" },
-      {
-        snapshotId: linkedSnapshot.snapshotId,
-        maxDepth: 1,
-        direction: "outgoing",
-      },
-    )[0]).toMatchObject({ relation: { validity: "valid" } });
-    expect(graph.traverse(
-      { domain: "business", key: "fixture/read-value" },
-      {
-        snapshotId: changedSnapshot.snapshotId,
-        maxDepth: 1,
-        direction: "outgoing",
-      },
-    )[0]).toMatchObject({ relation: { validity: "stale" } });
-
-    saveSnapshot(dataDirectory, repository, changedSnapshot);
-    graph.replaceStructuralSnapshot(
-      changedSnapshot.snapshotId,
-      coreStructuralNodes(changedSnapshot),
-      [],
-    );
-    expect(graph.getNode(
-      { domain: "business", key: "fixture/read-value" },
-      linkedSnapshot.snapshotId,
-    )).toMatchObject({ validity: "valid" });
-    expect(graph.getNode(
-      { domain: "business", key: "fixture/read-value" },
-      changedSnapshot.snapshotId,
-    )).toMatchObject({ validity: "stale" });
-    expect(graph.traverse(
-      { domain: "business", key: "fixture/read-value" },
-      {
-        snapshotId: linkedSnapshot.snapshotId,
-        maxDepth: 1,
-        direction: "outgoing",
-      },
-    )[0]).toMatchObject({ relation: { validity: "valid" } });
-    expect(graph.traverse(
-      { domain: "business", key: "fixture/read-value" },
-      {
-        snapshotId: changedSnapshot.snapshotId,
-        maxDepth: 1,
-        direction: "outgoing",
-      },
-    )[0]).toMatchObject({ relation: { validity: "stale" } });
+    expect(graph.listBusinessRelations(changedSnapshot.snapshotId)[0])
+      .toMatchObject({ validity: "stale" });
 
     await fixture.write("src/example.ts", "export const value = 1;\n");
     await fixture.git("add", "src/example.ts");
     await fixture.git("commit", "-m", "test: restore evidence");
     const restoredSnapshot = await createRepositorySnapshot(repository);
-    saveSnapshot(dataDirectory, repository, restoredSnapshot);
-    graph.replaceStructuralSnapshot(
-      restoredSnapshot.snapshotId,
-      coreStructuralNodes(restoredSnapshot),
-      [],
-    );
+    saveSnapshot(repository, restoredSnapshot);
+    graph.reconcileSnapshot(restoredSnapshot.snapshotId);
     expect(graph.getNode(
       { domain: "business", key: "fixture/read-value" },
       restoredSnapshot.snapshotId,
@@ -186,7 +91,6 @@ describe("business evidence lifecycle", () => {
     const context = await createGraphTestContext();
     contexts.push(context);
     const { graph, snapshot } = context;
-    graph.replaceStructuralSnapshot(snapshot.snapshotId, coreStructuralNodes(snapshot), []);
     const invalidEvidence = {
       ...evidenceFor(snapshot),
       contentHash: "f".repeat(64),

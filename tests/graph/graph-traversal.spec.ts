@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import type { BusinessGraphMutation } from "../../src/graph/types.js";
 import {
-  coreStructuralNodes,
   createGraphTestContext,
   evidenceFor,
   type GraphTestContext,
@@ -15,44 +14,20 @@ describe("graph traversal", () => {
     await Promise.all(contexts.splice(0).map((context) => context.cleanup()));
   });
 
-  it("walks typed adjacency in either direction without revisiting nodes", async () => {
+  it("leaves structural traversal to the backend-owned query layer", async () => {
     const context = await createGraphTestContext();
     contexts.push(context);
     const { graph, snapshot } = context;
-    graph.replaceStructuralSnapshot(snapshot.snapshotId, coreStructuralNodes(snapshot), [
-      { from: "repository:fixture", type: "contains", to: "module:src" },
-      { from: "module:src", type: "contains", to: "file:src/example.ts" },
-      { from: "file:src/example.ts", type: "declares", to: "symbol:src/example.ts#value" },
-      { from: "symbol:src/example.ts#value", type: "references", to: "module:src" },
-    ]);
-
-    const result = graph.traverse(
+    expect(graph.traverse(
       { domain: "structural", id: "repository:fixture" },
       { snapshotId: snapshot.snapshotId, maxDepth: 3, direction: "outgoing" },
-    );
-
-    expect(result.map(({ depth, node }) => [depth, node.kind, "id" in node ? node.id : node.key]))
-      .toEqual([
-        [1, "Module", "module:src"],
-        [2, "File", "file:src/example.ts"],
-        [3, "Symbol", "symbol:src/example.ts#value"],
-      ]);
-    expect(graph.traverse(
-      { domain: "structural", id: "symbol:src/example.ts#value" },
-      {
-        snapshotId: snapshot.snapshotId,
-        maxDepth: 1,
-        direction: "incoming",
-        relationTypes: ["declares"],
-      },
-    ).map((neighbor) => neighbor.node.kind)).toEqual(["File"]);
+    )).toEqual([]);
   });
 
-  it("traverses structural and learned relations through one reference model", async () => {
+  it("traverses persisted business hierarchy without copying structural nodes", async () => {
     const context = await createGraphTestContext();
     contexts.push(context);
     const { graph, snapshot } = context;
-    graph.replaceStructuralSnapshot(snapshot.snapshotId, coreStructuralNodes(snapshot), []);
     const evidence = evidenceFor(snapshot);
     const mutation: BusinessGraphMutation = {
       baseSnapshotId: snapshot.snapshotId,
@@ -102,7 +77,9 @@ describe("graph traversal", () => {
       { snapshotId: snapshot.snapshotId, maxDepth: 1, direction: "outgoing" },
     ).map((neighbor) => [neighbor.relation.type, neighbor.node.kind])).toEqual([
       ["part_of", "Capability"],
-      ["realized_by", "Symbol"],
     ]);
+    expect(graph.listBusinessRelations(snapshot.snapshotId)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "realized_by", to: mutation.upsertRelations[1]!.to }),
+    ]));
   });
 });

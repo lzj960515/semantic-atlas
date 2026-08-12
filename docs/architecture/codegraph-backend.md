@@ -40,7 +40,7 @@ The SQLite file contains multiple table families because they have different wri
 
 Atlas accesses structural behavior through the CodeGraph public SDK. Atlas SQL migrations and repositories access only `atlas_*` objects. The world graph is composed in `WorldGraphQuery`; the public CLI never exposes table origin.
 
-The implementation removes the current Atlas-owned structural projection tables after the adapter can satisfy the world-graph contract. Keeping those tables would duplicate CodeGraph data and restore the two-graph problem this design resolves.
+The implementation contains no Atlas-owned structural projection tables. Keeping those tables would duplicate CodeGraph data and restore the two-graph problem this design resolves.
 
 ## Stable Atlas contracts
 
@@ -129,19 +129,11 @@ Atlas does not preserve a second full historical structural graph. `changes` is 
 - The dependency version is pinned exactly rather than selected through a semver range. The compatible host range is Node.js 22.12 through 24. Node.js 22.12 through 22.15 lack the FTS5 module required by CodeGraph 1.5.0, so the adapter runs its private SDK worker with the dependency's bundled Node.js runtime on those hosts; Node.js 22.16 through 24 use the SDK in process. Both paths expose the same Atlas contract and invoke no CodeGraph CLI, MCP, or daemon lifecycle. Upgrades run fixture repositories through index, sync, rebuild, query normalization, schema coexistence, and evidence-rebinding tests before changing the lockfile.
 - If an upstream release changes structural IDs, locator-based rebinding preserves stable Atlas business keys and makes unmatched evidence stale.
 
-## Transition from the current implementation
+## Pre-release storage transition
 
-The repository currently contains useful business/evidence contracts and an Atlas-owned structural projection. Migration work is divided by responsibility:
+The pre-release external `atlas.sqlite` layout is intentionally reset rather than imported. It contains the superseded duplicate structural projection, was never part of a published release, and cannot be copied into the shared database without violating schema ownership. Rebuild the worktree-local structural index, then relearn any experimental business assertions through GraphPatch.
 
-1. preserve business node, relation, GraphPatch, evidence, certainty, validity, and unified CLI concepts;
-2. replace external user-data storage with worktree-local `.atlas/codegraph.db` storage;
-3. introduce `CodeGraphBackend` and contract fixtures against the pinned package;
-4. replace the custom TypeScript/JavaScript analyzer and structural storage write path with backend indexing and normalization;
-5. rename Atlas-owned tables into the `atlas_*` namespace and remove duplicate structural tables;
-6. implement evidence rebinding and the index state machine;
-7. update map/change queries and evaluation around business retrieval rather than open-ended JavaScript runtime conformance.
-
-The existing analyzer candidate remains an experiment until this transition is planned. It is not merged merely to become an intermediate implementation that the new architecture immediately removes.
+The shared layout preserves the business node, relation, GraphPatch, evidence, certainty, validity, transaction, and lexical contracts in `atlas_*` objects. Evidence keeps public structural references without foreign keys to CodeGraph rows. The following reconciliation task extends those records with backend locators, qualified names, structural kinds, snapshot/backend versions, and the combined publication state machine.
 
 ## Alternatives considered
 

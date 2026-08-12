@@ -230,7 +230,7 @@ describe("CLI response envelope v1", () => {
           changes: { staged: 0, unstaged: 0, untracked: 0 },
         },
         freshness: "missing",
-        storeLocation: "/user-data/semantic-atlas/repository.sqlite",
+        storeLocation: "/workspace/example/.atlas/codegraph.db",
         languages: [
           { language: "typescript", support: "supported" },
           {

@@ -21,7 +21,7 @@ export type {
   RepositorySnapshot,
   SnapshotFile,
 } from "./snapshots/types.js";
-export { resolveAtlasDataDirectory, SnapshotStore } from "./storage/snapshot-store.js";
+export { SnapshotStore } from "./storage/snapshot-store.js";
 export {
   STRUCTURAL_BACKEND_VERSION,
   StructuralBackendError,

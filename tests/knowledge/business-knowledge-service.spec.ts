@@ -10,14 +10,9 @@ import type {
   BusinessNodeInput,
   BusinessRelationInput,
   Evidence,
-  GraphSourceLocation,
-  StructuralGraphNodeInput,
 } from "../../src/graph/types.js";
 import {
-  coreStructuralNodes,
   createGraphTestContext,
-  evidenceFor,
-  locationFor,
   saveSnapshot,
   type GraphTestContext,
 } from "../graph/graph-fixture.js";
@@ -32,12 +27,11 @@ describe("business knowledge learning", () => {
   it("atomically learns a navigable business hierarchy from GraphPatch v1", async () => {
     const context = await graphContext(contexts);
     const { graph, repository, snapshot } = context;
-    graph.replaceStructuralSnapshot(snapshot.snapshotId, coreStructuralNodes(snapshot), []);
-    const evidence = evidenceFor(snapshot);
+    const evidence = context.evidence;
     const capability = businessNode("fixture", "Capability", evidence);
     const scenario = businessNode("fixture/read-value", "Scenario", evidence);
     const operation = businessNode("fixture/read-value/return-value", "Operation", evidence);
-    const service = new BusinessKnowledgeService(repository, graph);
+    const service = new BusinessKnowledgeService(repository, graph, context.structuralBackend);
 
     const result = await service.learn(patch(
       snapshot.snapshotId,
@@ -48,7 +42,7 @@ describe("business knowledge learning", () => {
         businessRelation(
           operation.key,
           "realized_by",
-          structural("symbol:src/example.ts#value"),
+          structural(evidence.symbolId),
           evidence,
         ),
       ],
@@ -71,9 +65,9 @@ describe("business knowledge learning", () => {
     expect(neighbors.map(({ relation }) => relation.type).sort()).toEqual([
       "part_of",
       "part_of",
-      "realized_by",
     ]);
-    expect(neighbors.find(({ relation }) => relation.type === "realized_by")?.relation)
+    expect(graph.listBusinessRelations(snapshot.snapshotId)
+      .find(({ type }) => type === "realized_by"))
       .toMatchObject({
         certainty: "exact",
         validity: "valid",
@@ -84,9 +78,8 @@ describe("business knowledge learning", () => {
   it("rejects an old base snapshot before writing any operation", async () => {
     const context = await graphContext(contexts);
     const { fixture, graph, repository, snapshot } = context;
-    graph.replaceStructuralSnapshot(snapshot.snapshotId, coreStructuralNodes(snapshot), []);
-    const service = new BusinessKnowledgeService(repository, graph);
-    const node = businessNode("fixture/stale-write", "Operation", evidenceFor(snapshot));
+    const service = new BusinessKnowledgeService(repository, graph, context.structuralBackend);
+    const node = businessNode("fixture/stale-write", "Operation", context.evidence);
 
     await fixture.write("src/example.ts", "export const value = 2;\n");
 
@@ -101,16 +94,15 @@ describe("business knowledge learning", () => {
   it("rolls back valid operations when a relation references a missing node", async () => {
     const context = await graphContext(contexts);
     const { graph, repository, snapshot } = context;
-    graph.replaceStructuralSnapshot(snapshot.snapshotId, coreStructuralNodes(snapshot), []);
-    const evidence = evidenceFor(snapshot);
+    const evidence = context.evidence;
     const node = businessNode("fixture/rolled-back", "Operation", evidence);
-    const service = new BusinessKnowledgeService(repository, graph);
+    const service = new BusinessKnowledgeService(repository, graph, context.structuralBackend);
 
     await expect(service.learn(patch(snapshot.snapshotId, [node], [
       businessRelation(
         "fixture/missing-source",
         "realized_by",
-        structural("symbol:src/example.ts#value"),
+        structural(evidence.symbolId),
         evidence,
       ),
     ]))).rejects.toThrow(/missing/i);
@@ -121,8 +113,7 @@ describe("business knowledge learning", () => {
   it("rejects removals whose referenced nodes are missing", async () => {
     const context = await graphContext(contexts);
     const { graph, repository, snapshot } = context;
-    graph.replaceStructuralSnapshot(snapshot.snapshotId, coreStructuralNodes(snapshot), []);
-    const service = new BusinessKnowledgeService(repository, graph);
+    const service = new BusinessKnowledgeService(repository, graph, context.structuralBackend);
 
     await expect(service.learn({
       schemaVersion: 1,
@@ -141,19 +132,57 @@ describe("business knowledge learning", () => {
           relation: {
             from: business("fixture/missing-source"),
             type: "realized_by",
-            to: structural("symbol:src/example.ts#value"),
+            to: structural(context.evidence.symbolId),
           },
         },
       ],
     })).rejects.toThrow(/missing/i);
   });
 
-  it("rejects repository-boundary, changed-hash, and relation-kind violations", async () => {
+  it("removes a stale structural relation without resolving its former target", async () => {
     const context = await graphContext(contexts);
     const { graph, repository, snapshot } = context;
-    graph.replaceStructuralSnapshot(snapshot.snapshotId, coreStructuralNodes(snapshot), []);
-    const evidence = evidenceFor(snapshot);
-    const service = new BusinessKnowledgeService(repository, graph);
+    const node = businessNode("fixture/stale-target", "Operation", context.evidence);
+    const relation = businessRelation(
+      node.key,
+      "realized_by",
+      structural(context.evidence.symbolId),
+      context.evidence,
+    );
+    graph.mutateBusinessGraph({
+      baseSnapshotId: snapshot.snapshotId,
+      upsertNodes: [node],
+      removeNodeKeys: [],
+      upsertRelations: [relation],
+      removeRelations: [],
+    });
+    const unavailableStructural = new Proxy(context.structuralBackend, {
+      get(target, property) {
+        if (property === "getNode") {
+          return async () => undefined;
+        }
+        return Reflect.get(target, property, target) as unknown;
+      },
+    });
+    const service = new BusinessKnowledgeService(repository, graph, unavailableStructural);
+
+    await expect(service.learn({
+      schemaVersion: 1,
+      baseSnapshotId: snapshot.snapshotId,
+      nodeOperations: [],
+      relationOperations: [{
+        op: "remove",
+        relation: { from: relation.from, type: relation.type, to: relation.to },
+      }],
+    })).resolves.toMatchObject({ applied: { relationOperations: 1 } });
+    expect(graph.listBusinessRelations(snapshot.snapshotId)).toEqual([]);
+  });
+
+  it("rejects repository-boundary, fabricated-reference, changed-hash, and relation-kind violations", async () => {
+    const context = await graphContext(contexts);
+    const { graph, repository, snapshot } = context;
+    const evidence = context.evidence;
+    const service = new BusinessKnowledgeService(repository, graph, context.structuralBackend);
 
     const outsideEvidenceNode = businessNode("fixture/outside", "Operation", {
       ...evidence,
@@ -161,6 +190,13 @@ describe("business knowledge learning", () => {
     });
     await expect(service.learn(patch(snapshot.snapshotId, [outsideEvidenceNode])))
       .rejects.toThrow(/repository-relative path/i);
+
+    const fabricatedReferenceNode = businessNode("fixture/fabricated-reference", "Operation", {
+      ...evidence,
+      symbolId: "symbol:src/example.ts#fabricated",
+    });
+    await expect(service.learn(patch(snapshot.snapshotId, [fabricatedReferenceNode])))
+      .rejects.toThrow(/does not resolve/i);
 
     const changedHashNode = businessNode("fixture/changed-hash", "Operation", {
       ...evidence,
@@ -184,7 +220,7 @@ describe("business knowledge learning", () => {
           relation: {
             from: business("fixture/invalid-relation"),
             type: "contains",
-            to: structural("symbol:src/example.ts#value"),
+            to: structural(evidence.symbolId),
             certainty: "exact",
             evidence: [evidence],
           },
@@ -193,28 +229,35 @@ describe("business knowledge learning", () => {
     };
     await expect(service.learn(invalidRelationPatch)).rejects.toThrow();
 
-    for (const key of [outsideEvidenceNode.key, changedHashNode.key, "fixture/invalid-relation"]) {
+    for (const key of [
+      outsideEvidenceNode.key,
+      fabricatedReferenceNode.key,
+      changedHashNode.key,
+      "fixture/invalid-relation",
+    ]) {
       expect(graph.getNode(business(key), snapshot.snapshotId)).toBeUndefined();
     }
   });
 
-  it("marks only changed evidence stale while preserving hypothesis and unknown states", async () => {
+  it("marks only changed evidence stale while preserving hypothesis certainty", async () => {
     const context = await graphContext(contexts);
     const { fixture, graph, repository } = context;
     await fixture.write("src/stable.ts", "export const stable = true;\n");
     await fixture.git("add", "src/stable.ts");
     await fixture.git("commit", "-m", "test: add stable evidence");
+    await context.structuralBackend.sync();
     const baseSnapshot = await createRepositorySnapshot(repository);
-    saveSnapshot(context.dataDirectory, repository, baseSnapshot);
-    graph.replaceStructuralSnapshot(baseSnapshot.snapshotId, lifecycleNodes(baseSnapshot), []);
-    const changingEvidence = evidenceFor(baseSnapshot);
-    const stableEvidence = evidenceAt(
-      baseSnapshot,
-      "symbol:src/stable.ts#stable",
-      "src/stable.ts",
-      28,
-    );
-    const service = new BusinessKnowledgeService(repository, graph);
+    saveSnapshot(repository, baseSnapshot);
+    graph.reconcileSnapshot(baseSnapshot.snapshotId);
+    const changingNode = await context.structuralBackend.getNode({ id: context.evidence.symbolId });
+    const stableNode = (await context.structuralBackend.search({ query: "stable", limit: 10 }))
+      .find(({ node }) => node.name === "stable")?.node;
+    if (changingNode === undefined || stableNode === undefined) {
+      throw new Error("Expected current structural evidence nodes");
+    }
+    const changingEvidence = evidenceAtNode(baseSnapshot, changingNode);
+    const stableEvidence = evidenceAtNode(baseSnapshot, stableNode);
+    const service = new BusinessKnowledgeService(repository, graph, context.structuralBackend);
 
     await service.learn(patch(baseSnapshot.snapshotId, [
       businessNode("fixture/changing", "Operation", changingEvidence),
@@ -227,8 +270,8 @@ describe("business knowledge learning", () => {
 
     await fixture.write("src/example.ts", "export const value = 2;\n");
     const changedSnapshot = await createRepositorySnapshot(repository);
-    saveSnapshot(context.dataDirectory, repository, changedSnapshot);
-    graph.replaceStructuralSnapshot(changedSnapshot.snapshotId, lifecycleNodes(changedSnapshot), []);
+    saveSnapshot(repository, changedSnapshot);
+    graph.reconcileSnapshot(changedSnapshot.snapshotId);
 
     expect(graph.getNode(business("fixture/changing"), changedSnapshot.snapshotId))
       .toMatchObject({ validity: "stale", certainty: "exact" });
@@ -236,8 +279,6 @@ describe("business knowledge learning", () => {
       .toMatchObject({ validity: "valid", certainty: "exact" });
     expect(graph.getNode(business("fixture/hypothesis"), changedSnapshot.snapshotId))
       .toMatchObject({ validity: "valid", certainty: "hypothesis" });
-    expect(graph.listUnknownBoundaries(changedSnapshot.snapshotId))
-      .toEqual([expect.objectContaining({ validity: "unknown" })]);
   });
 });
 
@@ -299,57 +340,18 @@ function structural(id: string) {
   return { domain: "structural" as const, id };
 }
 
-function lifecycleNodes(snapshot: RepositorySnapshot): readonly StructuralGraphNodeInput[] {
-  const stableLocation = sourceLocation(snapshot, "src/stable.ts", 28);
-  return [
-    ...coreStructuralNodes(snapshot),
-    {
-      id: "file:src/stable.ts",
-      kind: "File",
-      label: "src/stable.ts",
-      locations: [stableLocation],
-    },
-    {
-      id: "symbol:src/stable.ts#stable",
-      kind: "Symbol",
-      label: "stable",
-      locations: [stableLocation],
-    },
-    {
-      id: "unknown:src/example.ts#dynamic-value",
-      kind: "UnknownBoundary",
-      label: "Dynamic value",
-      reason: "The property name is selected at runtime.",
-      location: locationFor(snapshot),
-      candidates: ["symbol:src/example.ts#value"],
-    },
-  ];
-}
-
-function evidenceAt(
+function evidenceAtNode(
   snapshot: RepositorySnapshot,
-  symbolId: string,
-  file: string,
-  endColumn: number,
+  node: import("../../src/structural-backend/types.js").StructuralNode,
 ): Evidence {
-  return { symbolId, ...sourceLocation(snapshot, file, endColumn) };
-}
-
-function sourceLocation(
-  snapshot: RepositorySnapshot,
-  file: string,
-  endColumn: number,
-): GraphSourceLocation {
-  const source = snapshot.files.find((candidate) => candidate.path === file);
+  const source = snapshot.files.find((candidate) => candidate.path === node.path);
   if (source?.worktree === null || source?.worktree === undefined) {
-    throw new Error(`Expected ${file} in test snapshot`);
+    throw new Error(`Expected ${node.path} in test snapshot`);
   }
   return {
-    file,
-    range: {
-      start: { line: 1, column: 1 },
-      end: { line: 1, column: endColumn },
-    },
+    symbolId: node.reference.id,
+    file: node.path,
+    range: node.range,
     contentHash: source.worktree.contentHash,
   };
 }

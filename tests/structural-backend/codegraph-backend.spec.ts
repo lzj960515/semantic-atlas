@@ -145,10 +145,18 @@ describe("CodeGraph structural backend", () => {
     const packageDocument = JSON.parse(await readFile(join(import.meta.dirname, "..", "..", "package.json"), "utf8")) as {
       readonly engines: { readonly node: string };
       readonly dependencies: Record<string, string>;
+      readonly main?: string;
+      readonly types?: string;
+      readonly exports?: Record<string, unknown>;
+      readonly files?: readonly string[];
       readonly bin?: unknown;
     };
     expect(packageDocument.dependencies["@colbymchenry/codegraph"]).toBe("1.5.0");
     expect(packageDocument.engines.node).toBe(">=22.12.0 <25");
+    expect(packageDocument.main).toBe("./dist/index.js");
+    expect(packageDocument.types).toBe("./dist/index.d.ts");
+    expect(packageDocument.exports).toHaveProperty(".");
+    expect(packageDocument.files).toContain("dist");
     expect(packageDocument.bin).toBeUndefined();
     for (const backendExport of [
       "CodeGraphStructuralBackend",
