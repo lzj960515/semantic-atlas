@@ -298,6 +298,83 @@ describe("CodeGraph structural backend", () => {
     expect(await readFile(lockPath, "utf8")).toBe(replacement);
   });
 
+  it("does not replace symlink or non-regular Atlas lock paths", async () => {
+    const { backend, fixture } = await createStructuralFixture(fixtures);
+    await backend.build();
+    const lockPath = join(fixture.directory, ".atlas", "semantic-atlas.lock");
+    const outsideDirectory = await mkdtemp(join(tmpdir(), "semantic-atlas-lock-outside-"));
+    linkedWorktrees.push(outsideDirectory);
+    const outsideLock = join(outsideDirectory, "outside-lock");
+    await writeFile(outsideLock, "outside sentinel\n");
+    await symlink(outsideLock, lockPath);
+
+    expect(StructuralWriteLock.acquire(lockPath)).toBeUndefined();
+    expect(await readFile(outsideLock, "utf8")).toBe("outside sentinel\n");
+
+    await rm(lockPath);
+    await mkdir(lockPath);
+    expect(StructuralWriteLock.acquire(lockPath)).toBeUndefined();
+    expect((await stat(lockPath)).isDirectory()).toBe(true);
+  });
+
+  it.each([
+    ["in-process SDK", false],
+    ["private SDK worker", true],
+  ] as const)(
+    "recovers a %s index after lock ownership publication is terminated",
+    async (_runtime, privateWorker) => {
+      if (process.platform === "win32") {
+        return;
+      }
+
+      const { fixture } = await createStructuralFixture(fixtures);
+      const projectRoot = join(import.meta.dirname, "..", "..");
+      await executeFile("pnpm", ["build"], { cwd: projectRoot });
+      const repository = await inspectGitRepository(fixture.directory);
+      const builtBackend = privateWorker ? undefined : await createBuiltStructuralBackend(repository);
+      const request = <T>(operation: string, input?: unknown): Promise<T> => privateWorker
+        ? runBuiltPrivateWorkerRequest(repository, { operation, input })
+        : executeBuiltBackendRequest(builtBackend!, operation, input);
+
+      await expect(request<StructuralBuildResult>("build")).resolves.toMatchObject({
+        completeness: "complete",
+      });
+      await crashAtlasLockDuringOwnershipPublication(fixture.directory);
+
+      await expect(request<StructuralIndexState>("inspect")).resolves.toMatchObject({
+        completeness: "complete",
+      });
+      await expect(request<readonly StructuralSearchResult[]>("search", {
+        query: "target",
+        limit: 5,
+      })).resolves.toEqual(expect.arrayContaining([
+        expect.objectContaining({ node: expect.objectContaining({ name: "target" }) }),
+      ]));
+
+      await fixture.write("src/dep.ts", [
+        "export function target(value: number) { return value + 2; }",
+        "export const addedAfterLockCrash = true;",
+        "",
+      ].join("\n"));
+      await expect(request<StructuralBuildResult>("sync")).resolves.toMatchObject({
+        completeness: "complete",
+        mode: "incremental",
+      });
+      await expect(request<readonly StructuralSearchResult[]>("search", {
+        query: "addedAfterLockCrash",
+        limit: 5,
+      })).resolves.toEqual(expect.arrayContaining([
+        expect.objectContaining({ node: expect.objectContaining({ name: "addedAfterLockCrash" }) }),
+      ]));
+      await expectStructuralPublicationStateCleaned(join(
+        fixture.directory,
+        ".atlas",
+        "codegraph.db",
+      ));
+    },
+    60_000,
+  );
+
   it("preserves the published graph when a full rebuild cannot acquire the write lock", async () => {
     const { backend, fixture } = await createStructuralFixture(fixtures);
     await backend.build();
@@ -896,6 +973,84 @@ async function createBuiltStructuralBackend(
   return new module.CodeGraphStructuralBackend(repository);
 }
 
+async function executeBuiltBackendRequest<T>(
+  backend: StructuralIndexBackend,
+  operation: string,
+  input?: unknown,
+): Promise<T> {
+  switch (operation) {
+    case "build": return backend.build() as Promise<T>;
+    case "sync": return backend.sync() as Promise<T>;
+    case "inspect": return backend.inspect() as Promise<T>;
+    case "search": return backend.search(input as Parameters<StructuralIndexBackend["search"]>[0]) as Promise<T>;
+    default: throw new Error(`Unsupported built backend fixture operation: ${operation}`);
+  }
+}
+
+async function crashAtlasLockDuringOwnershipPublication(worktreeRoot: string): Promise<void> {
+  const projectRoot = join(import.meta.dirname, "..", "..");
+  const lockPath = join(worktreeRoot, ".atlas", "semantic-atlas.lock");
+  const lockModule = pathToFileURL(join(
+    projectRoot,
+    "dist",
+    "structural-backend",
+    "structural-write-lock.js",
+  )).href;
+  const script = [
+    "const { createRequire, syncBuiltinESMExports } = await import('node:module');",
+    "const require = createRequire(import.meta.url);",
+    "const fs = require('node:fs');",
+    "const originalWriteFileSync = fs.writeFileSync;",
+    "fs.writeFileSync = (path, data, options) => {",
+    "  if (typeof path === 'string' && path.startsWith(process.argv[1])) {",
+    "    const descriptor = fs.openSync(path, 'wx', 0o600);",
+    "    fs.closeSync(descriptor);",
+    "    fs.writeSync(1, 'writing\\n');",
+    "    process.kill(process.pid, 'SIGSTOP');",
+    "    return;",
+    "  }",
+    "  return originalWriteFileSync(path, data, options);",
+    "};",
+    "syncBuiltinESMExports();",
+    `const { StructuralWriteLock } = await import(${JSON.stringify(lockModule)});`,
+    "const lock = StructuralWriteLock.acquire(process.argv[1]);",
+    "if (lock === undefined) throw new Error('Expected to acquire the Atlas write lock');",
+    "process.stdout.write('locked\\n');",
+    "process.stdin.resume();",
+  ].join(" ");
+  const child = spawn(process.execPath, [
+    "--input-type=module",
+    "--disable-warning=ExperimentalWarning",
+    "-e",
+    script,
+    lockPath,
+  ], {
+    cwd: projectRoot,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  let writing = false;
+  child.stdout.on("data", (chunk: Buffer) => {
+    writing ||= chunk.toString("utf8").includes("writing");
+  });
+
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(`Atlas lock crash fixture exited early: ${readChildStderr(child)}`);
+    }
+    if (writing) {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+  if (!writing) {
+    throw new Error("Timed out waiting for Atlas lock ownership publication");
+  }
+
+  child.kill("SIGKILL");
+  await waitForProcessExit(child);
+}
+
 function largeReplacementSource(): string {
   return `${Array.from(
     { length: 30_000 },
@@ -1154,6 +1309,7 @@ async function expectStructuralPublicationStateCleaned(databasePath: string): Pr
   const atlasDirectory = dirname(databasePath);
   expect(await readdir(atlasDirectory)).not.toEqual(expect.arrayContaining([
     expect.stringMatching(/^\.structural-(?:backup|publication)/u),
+    expect.stringMatching(/^semantic-atlas\.lock\.owner-/u),
     "semantic-atlas.lock",
     "codegraph.lock",
   ]));
