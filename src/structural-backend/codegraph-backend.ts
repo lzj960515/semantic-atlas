@@ -20,7 +20,7 @@ import {
   requiresBundledCodeGraphRuntime,
   runCodeGraphWorker,
 } from "./codegraph-worker-client.js";
-import { StructuralDatabaseBackup } from "./structural-database-backup.js";
+import { StructuralPublication } from "./structural-publication.js";
 import { StructuralWriteLock } from "./structural-write-lock.js";
 import {
   STRUCTURAL_BACKEND_VERSION,
@@ -99,23 +99,7 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
       }
     }
     try {
-      return await withCodeGraphSdk(async (sdk) => {
-        this.verifyDatabasePath(sdk.getDatabasePath(this.#repository.worktreeRoot));
-        if (!sdk.CodeGraph.isInitialized(this.#repository.worktreeRoot)) {
-          return this.missingState();
-        }
-        await this.verifyAtlasDirectory();
-
-        let graph: CodeGraph | undefined;
-        try {
-          graph = await sdk.CodeGraph.open(this.#repository.worktreeRoot, { sync: false });
-          return this.readState(graph);
-        } catch (error) {
-          return this.incompleteState(failureDiagnostic(error));
-        } finally {
-          graph?.close();
-        }
-      });
+      return await withCodeGraphSdk((sdk) => this.inspectWithSdk(sdk));
     } catch (error) {
       return this.incompleteState(failureDiagnostic(error));
     }
@@ -321,11 +305,7 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
       }
 
       try {
-        const writeLock = new sdk.FileLock(join(
-          this.#repository.worktreeRoot,
-          ATLAS_DIRECTORY,
-          CODEGRAPH_WRITE_LOCK,
-        ));
+        const writeLock = this.createCodeGraphWriteLock(sdk);
         try {
           writeLock.acquire();
         } catch {
@@ -333,6 +313,7 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
         }
 
         try {
+          await StructuralPublication.recoverAbandoned(this.#databasePath);
           return await this.runLockedBuild(sdk, requestedMode);
         } finally {
           writeLock.release();
@@ -350,11 +331,9 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
     const initialized = sdk.CodeGraph.isInitialized(this.#repository.worktreeRoot);
     const mode = initialized ? requestedMode : "initial";
     let graph: CodeGraph | undefined;
-    let backup: StructuralDatabaseBackup | undefined;
+    let publication: StructuralPublication | undefined;
     try {
-      if (mode !== "initial") {
-        backup = await StructuralDatabaseBackup.capture(this.#databasePath);
-      }
+      publication = await StructuralPublication.begin(this.#databasePath, initialized);
       graph = initialized
         ? await sdk.CodeGraph.open(this.#repository.worktreeRoot, { sync: false })
         : await sdk.CodeGraph.init(this.#repository.worktreeRoot, { index: false });
@@ -363,19 +342,19 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
       const buildResult = mode === "incremental"
         ? await this.synchronizeGraph(sdk, graph)
         : await this.rebuildGraph(sdk, graph, mode);
-      if (backup !== undefined && buildResult.completeness === "incomplete") {
+      if (buildResult.completeness === "incomplete") {
         graph.close();
         graph = undefined;
-        return await this.restorePublishedGraph(backup, buildResult);
+        return await this.restorePublishedGraph(publication, buildResult);
       }
-      await backup?.discard();
+      await publication.commit();
       return buildResult;
     } catch (error) {
       const failedResult = this.failedBuildResult(mode, error);
-      if (backup !== undefined) {
+      if (publication !== undefined) {
         graph?.close();
         graph = undefined;
-        return await this.restorePublishedGraph(backup, failedResult);
+        return await this.restorePublishedGraph(publication, failedResult);
       }
       return failedResult;
     } finally {
@@ -433,18 +412,18 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
   }
 
   private async restorePublishedGraph(
-    backup: StructuralDatabaseBackup,
+    publication: StructuralPublication,
     failedResult: StructuralBuildResult,
   ): Promise<StructuralBuildResult> {
     try {
-      await backup.restore();
+      await publication.rollback();
       return failedResult;
     } catch (error) {
       return {
         ...failedResult,
         diagnostics: [
           ...failedResult.diagnostics,
-          structuralRestoreFailureDiagnostic(error, backup.path),
+          structuralRestoreFailureDiagnostic(error, publication.backupPath),
         ],
       };
     }
@@ -545,22 +524,6 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
   ): Promise<StructuralBuildResult> {
     const initialized = sdk.CodeGraph.isInitialized(this.#repository.worktreeRoot);
     const mode = initialized ? requestedMode : "initial";
-    if (initialized && mode === "incremental") {
-      let graph: CodeGraph | undefined;
-      try {
-        graph = await sdk.CodeGraph.open(this.#repository.worktreeRoot, { sync: false });
-        return this.createLockUnavailableSyncResult(
-          graph,
-          emptySyncResult(),
-          normalizeChangedFiles(graph.getChangedFiles()),
-        );
-      } catch (error) {
-        return this.failedBuildResult(mode, error);
-      } finally {
-        graph?.close();
-      }
-    }
-
     return {
       ...this.incompleteState(lockUnavailableDiagnostic()),
       mode,
@@ -587,20 +550,9 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
     operation: (graph: CodeGraph, queries: QueryBuilder) => T | Promise<T>,
   ): Promise<T> {
     try {
-      return await withCodeGraphSdk(async (sdk) => {
-        this.verifyDatabasePath(sdk.getDatabasePath(this.#repository.worktreeRoot));
-        if (!sdk.CodeGraph.isInitialized(this.#repository.worktreeRoot)) {
-          throw new StructuralBackendError(
-            "STRUCTURAL_INDEX_MISSING",
-            "The structural index has not been built for this worktree",
-          );
-        }
-        await this.verifyAtlasDirectory();
-
-        let graph: CodeGraph | undefined;
+      return await withCodeGraphSdk((sdk) => this.withPublishedGraph(sdk, async (graph) => {
         let connection: ReturnType<typeof sdk.DatabaseConnection.open> | undefined;
         try {
-          graph = await sdk.CodeGraph.open(this.#repository.worktreeRoot, { sync: false });
           const state = this.readState(graph);
           if (state.completeness !== "complete") {
             throw new StructuralBackendError(
@@ -613,9 +565,8 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
           return await operation(graph, queries);
         } finally {
           connection?.close();
-          graph?.close();
         }
-      });
+      }));
     } catch (error) {
       if (error instanceof StructuralBackendError) {
         throw error;
@@ -685,6 +636,90 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
     await mkdir(directory, { recursive: true });
     await this.verifyAtlasDirectory();
     await this.prepareAtlasIgnoreFile(directory);
+  }
+
+  private async inspectWithSdk(sdk: CodeGraphModule): Promise<StructuralIndexState> {
+    try {
+      return await this.withPublishedGraph(sdk, (graph) => this.readState(graph));
+    } catch (error) {
+      if (error instanceof StructuralBackendError) {
+        if (error.code === "STRUCTURAL_INDEX_MISSING") {
+          return this.missingState();
+        }
+        if (error.code === "STRUCTURAL_INDEX_INCOMPLETE") {
+          return this.incompleteState(activePublicationDiagnostic());
+        }
+      }
+      return this.incompleteState(failureDiagnostic(error));
+    }
+  }
+
+  private async withPublishedGraph<T>(
+    sdk: CodeGraphModule,
+    operation: (graph: CodeGraph) => T | Promise<T>,
+  ): Promise<T> {
+    this.verifyDatabasePath(sdk.getDatabasePath(this.#repository.worktreeRoot));
+    if (!await this.atlasDirectoryExists()) {
+      throw missingStructuralIndexError();
+    }
+    await this.verifyAtlasDirectory();
+
+    const atlasWriteLock = this.acquireAtlasWriteLock();
+    if (atlasWriteLock === undefined) {
+      throw activePublicationError();
+    }
+    let writeLock: InstanceType<CodeGraphModule["FileLock"]> | undefined;
+    let graph: CodeGraph | undefined;
+    try {
+      writeLock = this.createCodeGraphWriteLock(sdk);
+      try {
+        writeLock.acquire();
+      } catch {
+        throw activePublicationError();
+      }
+      await StructuralPublication.recoverAbandoned(this.#databasePath);
+      await this.verifyAtlasDirectory();
+      if (!sdk.CodeGraph.isInitialized(this.#repository.worktreeRoot)) {
+        throw missingStructuralIndexError();
+      }
+      graph = await sdk.CodeGraph.open(this.#repository.worktreeRoot, { sync: false });
+      useHeldCodeGraphWriteLock(graph);
+      return await operation(graph);
+    } finally {
+      graph?.close();
+      writeLock?.release();
+      atlasWriteLock.release();
+    }
+  }
+
+  private acquireAtlasWriteLock(): StructuralWriteLock | undefined {
+    return StructuralWriteLock.acquire(join(
+      this.#repository.worktreeRoot,
+      ATLAS_DIRECTORY,
+      ATLAS_WRITE_LOCK,
+    ));
+  }
+
+  private createCodeGraphWriteLock(
+    sdk: CodeGraphModule,
+  ): InstanceType<CodeGraphModule["FileLock"]> {
+    return new sdk.FileLock(join(
+      this.#repository.worktreeRoot,
+      ATLAS_DIRECTORY,
+      CODEGRAPH_WRITE_LOCK,
+    ));
+  }
+
+  private async atlasDirectoryExists(): Promise<boolean> {
+    try {
+      await lstat(join(this.#repository.worktreeRoot, ATLAS_DIRECTORY));
+      return true;
+    } catch (error) {
+      if (isFileSystemError(error, "ENOENT")) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   private async prepareAtlasIgnoreFile(directory: string): Promise<void> {
@@ -1084,19 +1119,29 @@ function lockUnavailableDiagnostic(): StructuralDiagnostic {
   };
 }
 
-function isLockUnavailableSync(result: SyncResult): boolean {
-  return result.filesChecked === 0 && result.durationMs === 0;
+function activePublicationDiagnostic(): StructuralDiagnostic {
+  return {
+    code: "STRUCTURAL_INDEX_INCOMPLETE",
+    message: "The structural index cannot serve reads while another process is publishing it.",
+  };
 }
 
-function emptySyncResult(): SyncResult {
-  return {
-    filesChecked: 0,
-    filesAdded: 0,
-    filesModified: 0,
-    filesRemoved: 0,
-    nodesUpdated: 0,
-    durationMs: 0,
-  };
+function activePublicationError(): StructuralBackendError {
+  return new StructuralBackendError(
+    "STRUCTURAL_INDEX_INCOMPLETE",
+    "The structural index cannot serve queries while another process is publishing it",
+  );
+}
+
+function missingStructuralIndexError(): StructuralBackendError {
+  return new StructuralBackendError(
+    "STRUCTURAL_INDEX_MISSING",
+    "The structural index has not been built for this worktree",
+  );
+}
+
+function isLockUnavailableSync(result: SyncResult): boolean {
+  return result.filesChecked === 0 && result.durationMs === 0;
 }
 
 function diagnosticMessage(message: string): string {

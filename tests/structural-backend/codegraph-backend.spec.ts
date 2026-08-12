@@ -1,5 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
-import { execFile, spawn } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
+import { once } from "node:events";
 import {
   mkdir,
   mkdtemp,
@@ -21,7 +22,13 @@ import * as publicApi from "../../src/index.js";
 import { CodeGraphStructuralBackend } from "../../src/structural-backend/codegraph-backend.js";
 import { inspectGitRepository } from "../../src/repository/repository-inspector.js";
 import { StructuralWriteLock } from "../../src/structural-backend/structural-write-lock.js";
-import type { StructuralBuildResult } from "../../src/structural-backend/types.js";
+import type {
+  StructuralBuildResult,
+  StructuralIndexBackend,
+  StructuralIndexState,
+  StructuralNode,
+  StructuralSearchResult,
+} from "../../src/structural-backend/types.js";
 import { createGitFixture, type GitFixture } from "../support/git-fixture.js";
 
 interface StructuralFixture {
@@ -71,6 +78,7 @@ describe("CodeGraph structural backend", () => {
       ]);
       expect(await readFile(join(fixture.directory, ".atlas", ".gitignore"), "utf8"))
         .toBe("*\n");
+      await expectStructuralPublicationStateCleaned(result.databasePath);
       expect(await fixture.git("status", "--porcelain", "--untracked-files=all")).toBe("");
       await expect(readFile(join(fixture.directory, ".codegraph", "codegraph.db")))
         .rejects.toMatchObject({ code: "ENOENT" });
@@ -205,7 +213,7 @@ describe("CodeGraph structural backend", () => {
       completeness: "incomplete",
       mode: "incremental",
       counts: { filesDiscovered: 0, filesIndexed: 0 },
-      changes: { added: [], modified: ["src/entry.ts"], removed: [] },
+      changes: { added: [], modified: [], removed: [] },
       diagnostics: [expect.objectContaining({
         code: "STRUCTURAL_INDEX_INCOMPLETE",
         message: expect.stringMatching(/lock/iu),
@@ -232,7 +240,7 @@ describe("CodeGraph structural backend", () => {
       completeness: "incomplete",
       mode: "incremental",
       counts: { filesDiscovered: 0, filesIndexed: 0 },
-      changes: { added: [], modified: ["src/entry.ts"], removed: [] },
+      changes: { added: [], modified: [], removed: [] },
       diagnostics: [expect.objectContaining({
         code: "STRUCTURAL_INDEX_INCOMPLETE",
         message: expect.stringMatching(/lock/iu),
@@ -472,6 +480,97 @@ describe("CodeGraph structural backend", () => {
 
     await expectFailedSyncToPreservePublishedDatabase(backend, initial.databasePath, published, result);
   });
+
+  it.each([
+    ["in-process SDK", false],
+    ["private SDK worker", true],
+  ] as const)(
+    "rejects concurrent reads and recovers a %s sync terminated between structural writes",
+    async (_runtime, privateWorker) => {
+      if (process.platform === "win32") {
+        return;
+      }
+
+      const { fixture } = await createStructuralFixture(fixtures);
+      const projectRoot = join(import.meta.dirname, "..", "..");
+      await executeFile("pnpm", ["build"], { cwd: projectRoot });
+      const repository = await inspectGitRepository(fixture.directory);
+      const builtBackend = privateWorker ? undefined : await createBuiltStructuralBackend(repository);
+      const initial = privateWorker
+        ? await runBuiltPrivateWorkerRequest<StructuralBuildResult>(repository, { operation: "build" })
+        : await builtBackend!.build();
+      const initialSearch = privateWorker
+        ? await runBuiltPrivateWorkerRequest<readonly StructuralSearchResult[]>(repository, {
+            operation: "search",
+            input: { query: "target", limit: 5 },
+          })
+        : await builtBackend!.search({ query: "target", limit: 5 });
+      const published = initialSearch[0]?.node;
+      if (published === undefined) {
+        throw new Error("Expected a published symbol before interrupting synchronization");
+      }
+      const database = new DatabaseSync(initial.databasePath);
+      database.exec(`
+        CREATE TABLE atlas_fixture_knowledge (business_key TEXT PRIMARY KEY) STRICT;
+        INSERT INTO atlas_fixture_knowledge (business_key) VALUES ('orders/place-order');
+      `);
+      database.close();
+
+      await fixture.write("src/dep.ts", largeReplacementSource());
+      const sync = await startBuiltStructuralSync(repository, privateWorker);
+      const inspect = (): Promise<StructuralIndexState> => privateWorker
+        ? runBuiltPrivateWorkerRequest(repository, { operation: "inspect" })
+        : builtBackend!.inspect();
+      const search = (query: string): Promise<readonly StructuralSearchResult[]> => privateWorker
+        ? runBuiltPrivateWorkerRequest(repository, {
+            operation: "search",
+            input: { query, limit: 5 },
+          })
+        : builtBackend!.search({ query, limit: 5 });
+      const getNode = (): Promise<StructuralNode | undefined> => privateWorker
+        ? runBuiltPrivateWorkerRequest(repository, {
+            operation: "getNode",
+            input: published.reference,
+          })
+        : builtBackend!.getNode(published.reference);
+      try {
+        await waitForPartiallyWrittenSync(initial.databasePath, sync);
+
+        await expect(inspect()).resolves.toMatchObject({
+          completeness: "incomplete",
+          diagnostics: [expect.objectContaining({
+            code: "STRUCTURAL_INDEX_INCOMPLETE",
+            message: expect.stringMatching(/lock|publish/iu),
+          })],
+        });
+        await expect(search("target")).rejects.toMatchObject({
+          code: "STRUCTURAL_INDEX_INCOMPLETE",
+        });
+      } finally {
+        signalProcessGroup(sync, "SIGKILL");
+        await waitForProcessExit(sync);
+        await waitForStructuralWriterExit(initial.databasePath);
+      }
+
+      const recoveredState = await inspect();
+      expect(recoveredState).toMatchObject({ completeness: "complete" });
+      await expect(getNode()).resolves.toEqual(published);
+      await expect(search("target")).resolves.toEqual(expect.arrayContaining([
+        expect.objectContaining({ node: expect.objectContaining({ reference: published.reference }) }),
+      ]));
+      await expect(search("r29999")).resolves.toEqual([]);
+
+      const restored = new DatabaseSync(initial.databasePath, { readOnly: true });
+      try {
+        expect(restored.prepare("SELECT business_key FROM atlas_fixture_knowledge").get())
+          .toEqual({ business_key: "orders/place-order" });
+      } finally {
+        restored.close();
+      }
+      await expectStructuralPublicationStateCleaned(initial.databasePath);
+    },
+    60_000,
+  );
 
   it("keeps linked worktrees on independent databases without visible generated files", async () => {
     const primary = await createStructuralFixture(fixtures);
@@ -723,6 +822,178 @@ async function runBuiltCodeGraphWorker(
   return JSON.parse(stdout) as StructuralBuildResult;
 }
 
+async function startBuiltStructuralSync(
+  repository: Awaited<ReturnType<typeof inspectGitRepository>>,
+  privateWorker: boolean,
+): Promise<ChildProcess> {
+  const projectRoot = join(import.meta.dirname, "..", "..");
+  const encodedRepository = Buffer.from(JSON.stringify(repository), "utf8").toString("base64url");
+  const modulePath = pathToFileURL(join(
+    projectRoot,
+    "dist",
+    "structural-backend",
+    privateWorker ? "codegraph-worker-client.js" : "codegraph-backend.js",
+  )).href;
+  const script = privateWorker
+    ? [
+        `const { runCodeGraphWorker } = await import(${JSON.stringify(modulePath)});`,
+        "const repository = JSON.parse(Buffer.from(process.argv[1], 'base64url').toString('utf8'));",
+        "await runCodeGraphWorker({ operation: 'sync', repository });",
+      ].join(" ")
+    : [
+        `const { CodeGraphStructuralBackend } = await import(${JSON.stringify(modulePath)});`,
+        "const repository = JSON.parse(Buffer.from(process.argv[1], 'base64url').toString('utf8'));",
+        "await new CodeGraphStructuralBackend(repository).sync();",
+      ].join(" ");
+
+  return spawn(process.execPath, [
+    "--input-type=module",
+    "--disable-warning=ExperimentalWarning",
+    "-e",
+    script,
+    encodedRepository,
+  ], {
+    cwd: projectRoot,
+    detached: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
+async function runBuiltPrivateWorkerRequest<T>(
+  repository: Awaited<ReturnType<typeof inspectGitRepository>>,
+  request: { readonly operation: string; readonly input?: unknown },
+): Promise<T> {
+  const clientModule = pathToFileURL(join(
+    import.meta.dirname,
+    "..",
+    "..",
+    "dist",
+    "structural-backend",
+    "codegraph-worker-client.js",
+  )).href;
+  const client = await import(clientModule) as {
+    runCodeGraphWorker(request: unknown): Promise<T>;
+  };
+  return client.runCodeGraphWorker({ ...request, repository });
+}
+
+async function createBuiltStructuralBackend(
+  repository: Awaited<ReturnType<typeof inspectGitRepository>>,
+): Promise<StructuralIndexBackend> {
+  const backendModule = pathToFileURL(join(
+    import.meta.dirname,
+    "..",
+    "..",
+    "dist",
+    "structural-backend",
+    "codegraph-backend.js",
+  )).href;
+  const module = await import(backendModule) as {
+    CodeGraphStructuralBackend: new (
+      repository: Awaited<ReturnType<typeof inspectGitRepository>>,
+    ) => StructuralIndexBackend;
+  };
+  return new module.CodeGraphStructuralBackend(repository);
+}
+
+function largeReplacementSource(): string {
+  return `${Array.from(
+    { length: 30_000 },
+    (_, index) => `export const r${index}=${index};`,
+  ).join("\n")}\n`;
+}
+
+async function waitForPartiallyWrittenSync(
+  databasePath: string,
+  child: ChildProcess,
+): Promise<void> {
+  const atlasLockPath = join(dirname(databasePath), "semantic-atlas.lock");
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      throw new Error(`Structural sync exited before the partial-write window: ${readChildStderr(child)}`);
+    }
+    try {
+      await stat(atlasLockPath);
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      continue;
+    }
+
+    signalProcessGroup(child, "SIGSTOP");
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    try {
+      const database = new DatabaseSync(databasePath, { readOnly: true });
+      try {
+        const publishedCount = database.prepare(
+          "SELECT COUNT(*) AS count FROM nodes WHERE name = 'target'",
+        ).get() as { count: number };
+        const replacementCount = database.prepare(
+          "SELECT COUNT(*) AS count FROM nodes WHERE name = 'r29999'",
+        ).get() as { count: number };
+        if (publishedCount.count === 0 && replacementCount.count === 0) {
+          return;
+        }
+      } finally {
+        database.close();
+      }
+    } catch {
+      // The writer can briefly hold a schema or checkpoint lock between observable states.
+    }
+    signalProcessGroup(child, "SIGCONT");
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+  throw new Error(`Timed out waiting for a partial structural sync: ${readChildStderr(child)}`);
+}
+
+function signalProcessGroup(child: ChildProcess, signal: NodeJS.Signals): void {
+  if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+  try {
+    process.kill(-child.pid, signal);
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) {
+      throw error;
+    }
+  }
+}
+
+async function waitForProcessExit(child: ChildProcess): Promise<void> {
+  if (child.exitCode === null && child.signalCode === null) {
+    await once(child, "exit");
+  }
+}
+
+function readChildStderr(child: ChildProcess): string {
+  return child.stderr?.read()?.toString("utf8") ?? "no stderr";
+}
+
+async function waitForStructuralWriterExit(databasePath: string): Promise<void> {
+  const lockPath = join(dirname(databasePath), "semantic-atlas.lock");
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    try {
+      const lock = JSON.parse(await readFile(lockPath, "utf8")) as { pid?: unknown };
+      if (typeof lock.pid === "number") {
+        try {
+          process.kill(lock.pid, 0);
+        } catch (error) {
+          if (error instanceof Error && "code" in error && error.code === "ESRCH") {
+            return;
+          }
+        }
+      }
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+        return;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("Timed out waiting for the interrupted structural writer to exit");
+}
+
 async function withHeldCodeGraphLock<T>(
   worktreeRoot: string,
   operation: () => Promise<T>,
@@ -875,6 +1146,15 @@ async function expectStructuralBackupsCleaned(
 ): Promise<void> {
   const atlasDirectory = pathIsDatabase ? dirname(path) : join(path, ".atlas");
   expect(await readdir(atlasDirectory)).not.toEqual(expect.arrayContaining([
-    expect.stringMatching(/^\.structural-backup-/u),
+    expect.stringMatching(/^\.structural-publication/u),
+  ]));
+}
+
+async function expectStructuralPublicationStateCleaned(databasePath: string): Promise<void> {
+  const atlasDirectory = dirname(databasePath);
+  expect(await readdir(atlasDirectory)).not.toEqual(expect.arrayContaining([
+    expect.stringMatching(/^\.structural-(?:backup|publication)/u),
+    "semantic-atlas.lock",
+    "codegraph.lock",
   ]));
 }
