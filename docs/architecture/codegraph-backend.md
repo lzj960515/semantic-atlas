@@ -103,13 +103,15 @@ missing -> building -> current
 - `current` is published only after CodeGraph completes and Atlas snapshot/evidence reconciliation commits.
 - `failed` records the last failure while preventing a partial structural graph from being reported as current.
 
-All Semantic Atlas commands use one Atlas worktree lock. Structural writes complete before Atlas knowledge writes. Read commands require a `current` snapshot or return explicit stale/failed state.
+All Semantic Atlas commands use one Atlas-owned worktree lock. Its ownership token covers the complete publication lifecycle, does not expire while the holder process is alive, and is reclaimed only after that process has exited. Structural writes complete before Atlas knowledge writes. Read commands require a `current` snapshot or return explicit stale/failed state.
 
 Normal updates use CodeGraph incremental sync. A full structural rebuild uses `CodeGraph.clear()` followed by `indexAll()` because the current SDK clears only structural rows. The adapter never calls:
 
 - `CodeGraph.recreate()`, which removes `codegraph.db` and its sidecars;
 - `CodeGraph.uninitialize()`, which removes the entire `.atlas/` directory;
 - the CodeGraph CLI rebuild path, which is allowed to choose destructive lifecycle operations.
+
+Before mutating an existing structural index, the adapter captures an online backup of the shared database. Both full rebuild and incremental sync discard that backup only after a complete result; an incomplete result or exception restores the previously published structural graph and colocated `atlas_*` data before the Atlas lock is released.
 
 A future physical-database recovery command must copy or export Atlas-owned tables, replace the structural database, restore Atlas data, and verify evidence before publishing `current`.
 
