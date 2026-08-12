@@ -3,6 +3,7 @@ import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { createRequire } from "node:module";
 import {
+  link,
   mkdir,
   mkdtemp,
   readFile,
@@ -17,9 +18,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import * as publicApi from "../../src/index.js";
+import * as processInstance from "../../src/structural-backend/process-instance.js";
 import { CodeGraphStructuralBackend } from "../../src/structural-backend/codegraph-backend.js";
 import { inspectGitRepository } from "../../src/repository/repository-inspector.js";
 import { StructuralWriteLock } from "../../src/structural-backend/structural-write-lock.js";
@@ -370,6 +372,115 @@ describe("CodeGraph structural backend", () => {
     },
     60_000,
   );
+
+  it.each([
+    ["in-process SDK", false],
+    ["private SDK worker", true],
+  ] as const)(
+    "recovers a %s index from a PID-reused ownership lease",
+    async (_runtime, privateWorker) => {
+      const { fixture } = await createStructuralFixture(fixtures);
+      const projectRoot = join(import.meta.dirname, "..", "..");
+      await executeFile("pnpm", ["build"], { cwd: projectRoot });
+      const repository = await inspectGitRepository(fixture.directory);
+      const builtBackend = privateWorker ? undefined : await createBuiltStructuralBackend(repository);
+      const request = <T>(operation: string, input?: unknown): Promise<T> => privateWorker
+        ? runBuiltPrivateWorkerRequest(repository, { operation, input })
+        : executeBuiltBackendRequest(builtBackend!, operation, input);
+      await expect(request<StructuralBuildResult>("build")).resolves.toMatchObject({
+        completeness: "complete",
+      });
+      await fixture.write("src/dep.ts", [
+        "export function target(value: number) { return value + 2; }",
+        "export const addedAfterPidReuse = true;",
+        "",
+      ].join("\n"));
+
+      const unrelated = spawn(process.execPath, ["-e", "process.stdin.resume()"], {
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      if (unrelated.pid === undefined) {
+        throw new Error("Expected the unrelated PID-reuse fixture process to start");
+      }
+      const atlasDirectory = join(fixture.directory, ".atlas");
+      const legacyLeasePath = join(
+        atlasDirectory,
+        `semantic-atlas.lock.owner-${unrelated.pid}-00000000-0000-4000-8000-000000000000`,
+      );
+      await writeFile(legacyLeasePath, `${JSON.stringify({
+        pid: unrelated.pid,
+        token: "00000000-0000-4000-8000-000000000000",
+      })}\n`);
+
+      try {
+        await expect(request<StructuralIndexState>("inspect")).resolves.toMatchObject({
+          completeness: "complete",
+        });
+        const reusedInstanceId = "0".repeat(64);
+        const leasePath = join(
+          atlasDirectory,
+          `semantic-atlas.lock.owner-${unrelated.pid}-${reusedInstanceId}-00000000-0000-4000-8000-000000000000`,
+        );
+        await writeFile(leasePath, `${JSON.stringify({
+          pid: unrelated.pid,
+          token: "00000000-0000-4000-8000-000000000000",
+          instanceId: reusedInstanceId,
+        })}\n`);
+        await expect(request<readonly StructuralSearchResult[]>("search", {
+          query: "target",
+          limit: 5,
+        })).resolves.toEqual(expect.arrayContaining([
+          expect.objectContaining({ node: expect.objectContaining({ name: "target" }) }),
+        ]));
+        await writeFile(leasePath, "");
+        await expect(request<StructuralIndexState>("inspect")).resolves.toMatchObject({
+          completeness: "complete",
+        });
+        await expect(request<StructuralBuildResult>("sync")).resolves.toMatchObject({
+          completeness: "complete",
+          mode: "incremental",
+        });
+        await expect(request<readonly StructuralSearchResult[]>("search", {
+          query: "addedAfterPidReuse",
+          limit: 5,
+        })).resolves.toEqual(expect.arrayContaining([
+          expect.objectContaining({ node: expect.objectContaining({ name: "addedAfterPidReuse" }) }),
+        ]));
+        await expect(readFile(legacyLeasePath)).rejects.toMatchObject({ code: "ENOENT" });
+        await expect(readFile(leasePath)).rejects.toMatchObject({ code: "ENOENT" });
+      } finally {
+        unrelated.stdin.end();
+        await waitForProcessExit(unrelated);
+      }
+      await expectStructuralPublicationStateCleaned(join(atlasDirectory, "codegraph.db"));
+    },
+    60_000,
+  );
+
+  it("reclaims a legacy fixed lock whose PID belongs to a newer process", async () => {
+    const atlasDirectory = await mkdtemp(join(tmpdir(), "semantic-atlas-legacy-lock-"));
+    linkedWorktrees.push(atlasDirectory);
+    const lockPath = join(atlasDirectory, "semantic-atlas.lock");
+    const legacyLeasePath = `${lockPath}.owner-${process.pid}-00000000-0000-4000-8000-000000000000`;
+    await writeFile(legacyLeasePath, `${JSON.stringify({
+      pid: process.pid,
+      token: "00000000-0000-4000-8000-000000000000",
+    })}\n`);
+    await link(legacyLeasePath, lockPath);
+    const processStartedAfter = vi.spyOn(processInstance, "processStartedAfter")
+      .mockReturnValue(true);
+
+    try {
+      const acquired = StructuralWriteLock.acquire(lockPath);
+
+      expect(acquired).toBeDefined();
+      acquired?.release();
+      await expect(readFile(legacyLeasePath)).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(readFile(lockPath)).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      processStartedAfter.mockRestore();
+    }
+  });
 
   it("does not replace symlink or non-regular Atlas lock paths", async () => {
     const { backend, fixture } = await createStructuralFixture(fixtures);

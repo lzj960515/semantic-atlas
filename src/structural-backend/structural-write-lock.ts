@@ -15,11 +15,19 @@ import {
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
 
+import {
+  currentProcessInstanceId,
+  inspectProcessInstance,
+  isProcessAlive,
+  processStartedAfter,
+} from "./process-instance.js";
+
 const OWNERSHIP_FILE_MARKER = ".owner-";
 
 interface LockOwnership {
   readonly pid: number;
   readonly token: string;
+  readonly instanceId?: string;
 }
 
 interface ObservedLock {
@@ -55,7 +63,7 @@ export class StructuralWriteLock {
         return acquired;
       }
       const existing = observeLock(path);
-      if (existing === undefined || isProcessAlive(existing.ownership.pid)) {
+      if (existing === undefined || isObservedOwnershipActive(path, existing)) {
         return undefined;
       }
       if (!removeObservedLock(path, existing)) {
@@ -80,7 +88,11 @@ export class StructuralWriteLock {
   }
 
   private static create(path: string): StructuralWriteLock | undefined {
-    const ownership = { pid: process.pid, token: randomUUID() };
+    const ownership = {
+      pid: process.pid,
+      token: randomUUID(),
+      instanceId: currentProcessInstanceId(),
+    };
     const ownershipPath = ownershipFilePath(path, ownership);
     let ownershipFileCreated = false;
     let ownershipLeaseRetained = false;
@@ -151,7 +163,10 @@ function persistDirectory(path: string): void {
 }
 
 function ownershipFilePath(path: string, ownership: LockOwnership): string {
-  return `${path}${OWNERSHIP_FILE_MARKER}${ownership.pid}-${ownership.token}`;
+  if (ownership.instanceId === undefined) {
+    throw new Error("The structural lock owner lease requires a process instance identity");
+  }
+  return `${path}${OWNERSHIP_FILE_MARKER}${ownership.pid}-${ownership.instanceId}-${ownership.token}`;
 }
 
 function hasCompetingOwnershipLease(
@@ -176,7 +191,31 @@ function hasCompetingOwnershipLease(
     if (ownership === undefined) {
       continue;
     }
-    if (isProcessAlive(ownership.pid)) {
+    const observed = observeLock(path);
+    if (
+      observed === undefined ||
+      observed.ownership.pid !== ownership.pid ||
+      observed.ownership.token !== ownership.token ||
+      observed.ownership.instanceId !== ownership.instanceId
+    ) {
+      if (
+        ownership.instanceId === undefined
+          ? isLegacyLeasePathActive(lockPath, path, ownership.pid)
+          : isOwnershipActive(ownership)
+      ) {
+        return true;
+      }
+    } else if (observed.ownership.instanceId === undefined) {
+      if (isLegacyLeaseActive(lockPath, observed)) {
+        return true;
+      }
+      if (
+        matchesObservedLock(lockPath, observed) &&
+        !removeObservedLock(lockPath, observed)
+      ) {
+        return true;
+      }
+    } else if (isOwnershipActive(observed.ownership)) {
       return true;
     }
     if (!removeRegularFile(path) && pathExists(path)) {
@@ -193,15 +232,18 @@ function parseOwnershipFileName(
   if (!name.startsWith(prefix)) {
     return undefined;
   }
-  const separator = name.indexOf("-", prefix.length);
-  if (separator === -1) {
+  const serializedOwnership = name.slice(prefix.length);
+  const match = /^(\d+)-(?:(?<instanceId>[0-9a-f]{64})-)?(?<token>[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/iu
+    .exec(serializedOwnership);
+  if (match === null) {
     return undefined;
   }
-  const serializedPid = name.slice(prefix.length, separator);
+  const serializedPid = match[1] ?? "";
   const pid = /^\d+$/u.test(serializedPid)
     ? Number.parseInt(serializedPid, 10)
     : Number.NaN;
-  const token = name.slice(separator + 1);
+  const token = match.groups?.token ?? "";
+  const instanceId = match.groups?.instanceId;
   if (
     !Number.isSafeInteger(pid) ||
     pid <= 0 ||
@@ -209,7 +251,7 @@ function parseOwnershipFileName(
   ) {
     return undefined;
   }
-  return { pid, token };
+  return { pid, token, ...(instanceId === undefined ? {} : { instanceId }) };
 }
 
 function isUuid(value: string): boolean {
@@ -296,7 +338,8 @@ function matchesObservedLock(path: string, expected: ObservedLock): boolean {
     current.identity.dev === expected.identity.dev &&
     current.identity.ino === expected.identity.ino &&
     current.ownership.pid === expected.ownership.pid &&
-    current.ownership.token === expected.ownership.token;
+    current.ownership.token === expected.ownership.token &&
+    current.ownership.instanceId === expected.ownership.instanceId;
 }
 
 function serializeOwnership(ownership: LockOwnership): string {
@@ -312,28 +355,77 @@ function parseOwnership(value: string): LockOwnership | undefined {
     const token = typeof parsed === "object" && parsed !== null && "token" in parsed
       ? parsed.token
       : undefined;
+    const instanceId = typeof parsed === "object" && parsed !== null && "instanceId" in parsed
+      ? parsed.instanceId
+      : undefined;
     if (
       typeof pid !== "number" ||
       !Number.isSafeInteger(pid) ||
       pid <= 0 ||
       typeof token !== "string" ||
-      token.length === 0
+      token.length === 0 ||
+      (instanceId !== undefined && !isProcessInstanceId(instanceId))
     ) {
       return undefined;
     }
-    return { pid, token };
+    return { pid, token, ...(instanceId === undefined ? {} : { instanceId }) };
   } catch {
     return undefined;
   }
 }
 
-function isProcessAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return !isFileSystemError(error, "ESRCH");
+function isOwnershipActive(ownership: LockOwnership): boolean {
+  if (ownership.instanceId === undefined) {
+    return isProcessAlive(ownership.pid);
   }
+  const status = inspectProcessInstance(ownership.pid, ownership.instanceId);
+  return status === "matching" || status === "unknown";
+}
+
+function isObservedOwnershipActive(lockPath: string, lock: ObservedLock): boolean {
+  return lock.ownership.instanceId === undefined
+    ? isLegacyLeaseActive(lockPath, lock)
+    : isOwnershipActive(lock.ownership);
+}
+
+function isLegacyLeaseActive(lockPath: string, lease: ObservedLock): boolean {
+  return isLegacyLeasePathActive(lockPath, lease.identity, lease.ownership.pid);
+}
+
+function isLegacyLeasePathActive(
+  lockPath: string,
+  leasePathOrIdentity: string | Stats,
+  pid: number,
+): boolean {
+  if (!isProcessAlive(pid)) {
+    return false;
+  }
+  let leaseIdentity: Stats;
+  try {
+    leaseIdentity = typeof leasePathOrIdentity === "string"
+      ? lstatSync(leasePathOrIdentity)
+      : leasePathOrIdentity;
+  } catch {
+    return false;
+  }
+  try {
+    const fixedIdentity = lstatSync(lockPath);
+    const sameLease = fixedIdentity.isFile() &&
+      !fixedIdentity.isSymbolicLink() &&
+      fixedIdentity.dev === leaseIdentity.dev &&
+      fixedIdentity.ino === leaseIdentity.ino;
+    if (!sameLease) {
+      return false;
+    }
+    const leaseWrittenAtMs = Math.max(leaseIdentity.birthtimeMs, leaseIdentity.ctimeMs);
+    return processStartedAfter(pid, leaseWrittenAtMs) !== true;
+  } catch {
+    return false;
+  }
+}
+
+function isProcessInstanceId(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{64}$/u.test(value);
 }
 
 function isFileSystemError(error: unknown, code: string): error is NodeJS.ErrnoException {
