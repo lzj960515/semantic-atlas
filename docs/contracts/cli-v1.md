@@ -13,8 +13,8 @@ Commands:
 
 | Command | Contract |
 | --- | --- |
-| `status` | Report repository identity, current revision, latest snapshot, freshness, external store location, and language support. |
-| `index` | Create or reuse the content-derived snapshot and report added, changed, reused, and removed facts and unknowns. |
+| `status` | Report worktree identity, current revision, latest world snapshot, freshness, local store location, language support, and additive structural-backend metadata. |
+| `index` | Build or synchronize the embedded structural index, reconcile Atlas evidence, publish the completed world snapshot, and report changed facts and unknowns. |
 | `map roots` | Return top-level capabilities or structural module roots before learning. |
 | `map children <node-id>` | Follow `part_of` and `contains` children. |
 | `map search <query> [--limit <n>]` | Lexically rank labels, aliases, summaries, symbols, and paths; the default limit is 20. |
@@ -45,7 +45,7 @@ Every command writes one JSON envelope to standard output. The normative discrim
       "changes": { "staged": 0, "unstaged": 0, "untracked": 0 }
     },
     "freshness": "missing",
-    "storeLocation": "/user-data/semantic-atlas/repository.sqlite",
+    "storeLocation": "/workspace/example/.atlas/codegraph.db",
     "languages": [
       { "language": "typescript", "support": "supported" }
     ]
@@ -57,7 +57,7 @@ Every command writes one JSON envelope to standard output. The normative discrim
 - Successful responses have `status: "ok" | "partial"`, a non-null repository, and command data selected by `data.command`.
 - `snapshot` is `null` before the first successful index. Otherwise it includes the snapshot ID, Git HEAD, creation time, and `current` or `stale` freshness.
 - `partial` means usable data contains explicit unsupported, stale, or unknown boundaries.
-- Business map nodes and relations always include `certainty`, derived `validity`, and evidence. Structural nodes expose validity and source locations; unknown boundaries expose `unknown`, their reason, location, and candidates. Unsupported languages include a reason instead of an approximate analysis.
+- Business map nodes and relations always include `certainty`, derived `validity`, and evidence. Structural relations preserve normalized backend provenance and support as additive result metadata; unknown boundaries expose `unknown`, their reason, location, and candidates. Unsupported languages include a reason instead of an approximate analysis.
 - `warnings` contains stable codes and descriptions for non-fatal conditions. Consumers use codes rather than parsing messages.
 
 ## Command data
@@ -67,7 +67,7 @@ The schema requires these fields while allowing additive fields inside command d
 | `data.command` | Required result fields |
 | --- | --- |
 | `status` | `currentRevision`, `freshness`, `storeLocation`, `languages` |
-| `index` | `snapshotId`, fact counts, unknown-boundary counts |
+| `index` | `snapshotId`, fact counts, unknown-boundary counts; backend version and evidence-rebinding counts are additive metadata until promoted by a later schema version |
 | `map.roots` | top-level `Capability` or structural `Module` nodes |
 | `map.children` | `nodeId`, `children` |
 | `map.search` | `query`, `limit`, scored `results` |
@@ -75,7 +75,7 @@ The schema requires these fields while allowing additive fields inside command d
 | `learn` | `baseSnapshotId`, `snapshotId`, applied operation counts |
 | `changes` | source and target snapshot IDs, node/relation change sets, stale assertions |
 
-Map node and relation objects preserve their evidence lifecycle. When a source hash changes, a business node can remain addressable by key but its `summary` is returned with `validity: "stale"`; callers therefore cannot confuse vocabulary identity with a current fact.
+Map node and relation objects preserve their evidence lifecycle. When evidence cannot uniquely rebind after indexing, a business node can remain addressable by key while its `summary` is returned with `validity: "stale"`; callers therefore cannot confuse vocabulary identity with a current fact.
 
 ## Errors
 
