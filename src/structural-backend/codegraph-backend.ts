@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { lstat, mkdir, realpath, writeFile } from "node:fs/promises";
+import { constants as fileSystemConstants } from "node:fs";
+import { lstat, mkdir, open, realpath } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 
@@ -14,6 +15,7 @@ import type {
 } from "@colbymchenry/codegraph";
 
 import type { GitRepository } from "../repository/types.js";
+import { runGit } from "../repository/git-command.js";
 import {
   requiresBundledCodeGraphRuntime,
   runCodeGraphWorker,
@@ -316,6 +318,9 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
         if (mode === "incremental") {
           const changes = normalizeChangedFiles(graph.getChangedFiles());
           const result = await graph.sync();
+          if (isLockUnavailableSync(result)) {
+            return this.createLockUnavailableSyncResult(graph, result, changes);
+          }
           const connection = sdk.DatabaseConnection.open(this.#databasePath);
           try {
             const boundaries = normalizeUnresolvedReferences(
@@ -412,6 +417,28 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
       },
       changes,
       boundaries,
+    };
+  }
+
+  private createLockUnavailableSyncResult(
+    graph: CodeGraph,
+    result: SyncResult,
+    changes: StructuralFileChanges,
+  ): StructuralBuildResult {
+    const stats = graph.getStats();
+    return {
+      ...this.stateFromGraph(graph, "incomplete", [lockUnavailableDiagnostic()]),
+      mode: "incremental",
+      counts: {
+        filesDiscovered: result.filesChecked,
+        filesIndexed: 0,
+        filesSkipped: 0,
+        filesErrored: 0,
+        nodes: stats.nodeCount,
+        relations: stats.edgeCount,
+      },
+      changes,
+      boundaries: [],
     };
   }
 
@@ -526,9 +553,86 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
 
   private async prepareAtlasDirectory(): Promise<void> {
     const directory = join(this.#repository.worktreeRoot, ATLAS_DIRECTORY);
+    await this.verifyAtlasIgnoreIsUntracked();
     await mkdir(directory, { recursive: true });
     await this.verifyAtlasDirectory();
-    await writeFile(join(directory, ".gitignore"), ATLAS_IGNORE_CONTENT, { encoding: "utf8" });
+    await this.prepareAtlasIgnoreFile(directory);
+  }
+
+  private async prepareAtlasIgnoreFile(directory: string): Promise<void> {
+    const ignorePath = join(directory, ".gitignore");
+    await this.verifyAtlasIgnoreIsUntracked();
+
+    try {
+      await this.verifyExistingAtlasIgnoreFile(ignorePath);
+      return;
+    } catch (error) {
+      if (!isFileSystemError(error, "ENOENT")) {
+        throw error;
+      }
+    }
+
+    const noFollow = fileSystemConstants.O_NOFOLLOW ?? 0;
+    let ignoreFile: Awaited<ReturnType<typeof open>>;
+    try {
+      ignoreFile = await open(
+        ignorePath,
+        fileSystemConstants.O_WRONLY |
+          fileSystemConstants.O_CREAT |
+          fileSystemConstants.O_EXCL |
+          noFollow,
+        0o600,
+      );
+    } catch (error) {
+      if (isFileSystemError(error, "EEXIST")) {
+        await this.verifyExistingAtlasIgnoreFile(ignorePath);
+        return;
+      }
+      throw error;
+    }
+    try {
+      await ignoreFile.writeFile(ATLAS_IGNORE_CONTENT, { encoding: "utf8" });
+    } finally {
+      await ignoreFile.close();
+    }
+    await this.verifyExistingAtlasIgnoreFile(ignorePath);
+  }
+
+  private async verifyAtlasIgnoreIsUntracked(): Promise<void> {
+    const tracked = (await runGit(this.#repository.worktreeRoot, [
+      "ls-files",
+      "-z",
+      "--",
+      `${ATLAS_DIRECTORY}/.gitignore`,
+    ])).length > 0;
+    if (tracked) {
+      throw new Error("The Atlas ignore file is repository-owned and cannot be modified");
+    }
+  }
+
+  private async verifyExistingAtlasIgnoreFile(ignorePath: string): Promise<void> {
+    const metadata = await lstat(ignorePath);
+    if (!metadata.isFile() || metadata.isSymbolicLink()) {
+      throw new Error("The Atlas ignore file must be an Atlas-owned regular file");
+    }
+
+    const noFollow = fileSystemConstants.O_NOFOLLOW ?? 0;
+    const ignoreFile = await open(ignorePath, fileSystemConstants.O_RDONLY | noFollow);
+    try {
+      const openedMetadata = await ignoreFile.stat();
+      if (
+        !openedMetadata.isFile() ||
+        openedMetadata.dev !== metadata.dev ||
+        openedMetadata.ino !== metadata.ino
+      ) {
+        throw new Error("The Atlas ignore file must be an Atlas-owned regular file");
+      }
+      if (await ignoreFile.readFile({ encoding: "utf8" }) !== ATLAS_IGNORE_CONTENT) {
+        throw new Error("The existing Atlas ignore file is not owned by Semantic Atlas");
+      }
+    } finally {
+      await ignoreFile.close();
+    }
   }
 
   private async verifyAtlasDirectory(): Promise<void> {
@@ -832,6 +936,17 @@ function incompleteDiagnostic(indexState: ReturnType<CodeGraph["getIndexState"]>
     code: "STRUCTURAL_INDEX_INCOMPLETE",
     message: `The structural index is ${indexState ?? "not marked complete"}.`,
   };
+}
+
+function lockUnavailableDiagnostic(): StructuralDiagnostic {
+  return {
+    code: "STRUCTURAL_INDEX_INCOMPLETE",
+    message: "The structural index sync did not run because another process holds the CodeGraph write lock.",
+  };
+}
+
+function isLockUnavailableSync(result: SyncResult): boolean {
+  return result.filesChecked === 0 && result.durationMs === 0;
 }
 
 function diagnosticMessage(message: string): string {

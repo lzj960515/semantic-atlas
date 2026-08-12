@@ -22,7 +22,6 @@ export type {
   SnapshotFile,
 } from "./snapshots/types.js";
 export { resolveAtlasDataDirectory, SnapshotStore } from "./storage/snapshot-store.js";
-export { CodeGraphStructuralBackend } from "./structural-backend/codegraph-backend.js";
 export {
   STRUCTURAL_BACKEND_VERSION,
   StructuralBackendError,
