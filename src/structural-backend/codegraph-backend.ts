@@ -20,6 +20,7 @@ import {
   requiresBundledCodeGraphRuntime,
   runCodeGraphWorker,
 } from "./codegraph-worker-client.js";
+import { StructuralDatabaseBackup } from "./structural-database-backup.js";
 import {
   STRUCTURAL_BACKEND_VERSION,
   StructuralBackendError,
@@ -46,6 +47,7 @@ import {
 
 const ATLAS_DIRECTORY = ".atlas";
 const ATLAS_IGNORE_CONTENT = "*\n";
+const CODEGRAPH_WRITE_LOCK = "codegraph.lock";
 
 type CodeGraphModule = typeof import("@colbymchenry/codegraph");
 
@@ -307,50 +309,118 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
       this.verifyDatabasePath(sdk.getDatabasePath(this.#repository.worktreeRoot));
       await this.prepareAtlasDirectory();
 
-      const initialized = sdk.CodeGraph.isInitialized(this.#repository.worktreeRoot);
-      const mode = initialized ? requestedMode : "initial";
-      let graph: CodeGraph | undefined;
+      const writeLock = new sdk.FileLock(join(
+        this.#repository.worktreeRoot,
+        ATLAS_DIRECTORY,
+        CODEGRAPH_WRITE_LOCK,
+      ));
       try {
-        graph = initialized
-          ? await sdk.CodeGraph.open(this.#repository.worktreeRoot, { sync: false })
-          : await sdk.CodeGraph.init(this.#repository.worktreeRoot, { index: false });
+        writeLock.acquire();
+      } catch {
+        return await this.createLockUnavailableBuildResult(sdk, requestedMode);
+      }
 
-        if (mode === "incremental") {
-          const changes = normalizeChangedFiles(graph.getChangedFiles());
-          const result = await graph.sync();
-          if (isLockUnavailableSync(result)) {
-            return this.createLockUnavailableSyncResult(graph, result, changes);
-          }
-          const connection = sdk.DatabaseConnection.open(this.#databasePath);
-          try {
-            const boundaries = normalizeUnresolvedReferences(
-              graph,
-              new sdk.QueryBuilder(connection.getDb()),
-            );
-            return this.createSyncResult(graph, result, changes, boundaries);
-          } finally {
-            connection.close();
-          }
-        }
+      try {
+        return await this.runLockedBuild(sdk, requestedMode);
+      } finally {
+        writeLock.release();
+      }
+    });
+  }
 
-        if (mode === "full") {
-          graph.clear();
+  private async runLockedBuild(
+    sdk: CodeGraphModule,
+    requestedMode: "full" | "incremental",
+  ): Promise<StructuralBuildResult> {
+    const initialized = sdk.CodeGraph.isInitialized(this.#repository.worktreeRoot);
+    const mode = initialized ? requestedMode : "initial";
+    let graph: CodeGraph | undefined;
+    let backup: StructuralDatabaseBackup | undefined;
+    let fullRebuildStarted = false;
+    try {
+      graph = initialized
+        ? await sdk.CodeGraph.open(this.#repository.worktreeRoot, { sync: false })
+        : await sdk.CodeGraph.init(this.#repository.worktreeRoot, { index: false });
+      useHeldCodeGraphWriteLock(graph);
+
+      if (mode === "incremental") {
+        const changes = normalizeChangedFiles(graph.getChangedFiles());
+        const result = await graph.sync();
+        if (isLockUnavailableSync(result)) {
+          return this.createLockUnavailableSyncResult(graph, result, changes);
         }
-        const result = await graph.indexAll();
         const connection = sdk.DatabaseConnection.open(this.#databasePath);
         try {
-          const queries = new sdk.QueryBuilder(connection.getDb());
-          const boundaries = normalizeUnresolvedReferences(graph, queries);
-          return this.createFullBuildResult(graph, result, mode, boundaries);
+          const boundaries = normalizeUnresolvedReferences(
+            graph,
+            new sdk.QueryBuilder(connection.getDb()),
+          );
+          return this.createSyncResult(graph, result, changes, boundaries);
         } finally {
           connection.close();
         }
-      } catch (error) {
-        return this.failedBuildResult(mode, error);
-      } finally {
-        graph?.close();
       }
-    });
+
+      if (mode === "full") {
+        backup = await StructuralDatabaseBackup.capture(this.#databasePath);
+      }
+      const result = await graph.indexAll({
+        ...(mode === "full"
+          ? {
+              onProgress: () => {
+                if (!fullRebuildStarted) {
+                  fullRebuildStarted = true;
+                  graph?.clear();
+                }
+              },
+            }
+          : {}),
+      });
+      const connection = sdk.DatabaseConnection.open(this.#databasePath);
+      let buildResult: StructuralBuildResult;
+      try {
+        const queries = new sdk.QueryBuilder(connection.getDb());
+        const boundaries = normalizeUnresolvedReferences(graph, queries);
+        buildResult = this.createFullBuildResult(graph, result, mode, boundaries);
+      } finally {
+        connection.close();
+      }
+      if (backup !== undefined && buildResult.completeness === "incomplete") {
+        graph.close();
+        graph = undefined;
+        return await this.restorePublishedGraph(backup, buildResult);
+      }
+      await backup?.discard();
+      return buildResult;
+    } catch (error) {
+      const failedResult = this.failedBuildResult(mode, error);
+      if (backup !== undefined) {
+        graph?.close();
+        graph = undefined;
+        return await this.restorePublishedGraph(backup, failedResult);
+      }
+      return failedResult;
+    } finally {
+      graph?.close();
+    }
+  }
+
+  private async restorePublishedGraph(
+    backup: StructuralDatabaseBackup,
+    failedResult: StructuralBuildResult,
+  ): Promise<StructuralBuildResult> {
+    try {
+      await backup.restore();
+      return failedResult;
+    } catch (error) {
+      return {
+        ...failedResult,
+        diagnostics: [
+          ...failedResult.diagnostics,
+          structuralRestoreFailureDiagnostic(error, backup.path),
+        ],
+      };
+    }
   }
 
   private createFullBuildResult(
@@ -438,6 +508,37 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
         relations: stats.edgeCount,
       },
       changes,
+      boundaries: [],
+    };
+  }
+
+  private async createLockUnavailableBuildResult(
+    sdk: CodeGraphModule,
+    requestedMode: "full" | "incremental",
+  ): Promise<StructuralBuildResult> {
+    const initialized = sdk.CodeGraph.isInitialized(this.#repository.worktreeRoot);
+    const mode = initialized ? requestedMode : "initial";
+    if (initialized && mode === "incremental") {
+      let graph: CodeGraph | undefined;
+      try {
+        graph = await sdk.CodeGraph.open(this.#repository.worktreeRoot, { sync: false });
+        return this.createLockUnavailableSyncResult(
+          graph,
+          emptySyncResult(),
+          normalizeChangedFiles(graph.getChangedFiles()),
+        );
+      } catch (error) {
+        return this.failedBuildResult(mode, error);
+      } finally {
+        graph?.close();
+      }
+    }
+
+    return {
+      ...this.incompleteState(lockUnavailableDiagnostic()),
+      mode,
+      counts: emptyCounts(),
+      changes: emptyChanges(),
       boundaries: [],
     };
   }
@@ -931,6 +1032,17 @@ function failureDiagnostic(error: unknown): StructuralDiagnostic {
   };
 }
 
+function structuralRestoreFailureDiagnostic(
+  error: unknown,
+  backupPath: string,
+): StructuralDiagnostic {
+  const message = error instanceof Error ? error.message : String(error);
+  return {
+    code: "STRUCTURAL_BACKEND_FAILURE",
+    message: `${diagnosticMessage(message)} The published database backup remains at ${backupPath}.`,
+  };
+}
+
 function incompleteDiagnostic(indexState: ReturnType<CodeGraph["getIndexState"]>): StructuralDiagnostic {
   return {
     code: "STRUCTURAL_INDEX_INCOMPLETE",
@@ -941,12 +1053,23 @@ function incompleteDiagnostic(indexState: ReturnType<CodeGraph["getIndexState"]>
 function lockUnavailableDiagnostic(): StructuralDiagnostic {
   return {
     code: "STRUCTURAL_INDEX_INCOMPLETE",
-    message: "The structural index sync did not run because another process holds the CodeGraph write lock.",
+    message: "The structural index operation did not run because another process holds the CodeGraph write lock.",
   };
 }
 
 function isLockUnavailableSync(result: SyncResult): boolean {
   return result.filesChecked === 0 && result.durationMs === 0;
+}
+
+function emptySyncResult(): SyncResult {
+  return {
+    filesChecked: 0,
+    filesAdded: 0,
+    filesModified: 0,
+    filesRemoved: 0,
+    nodesUpdated: 0,
+    durationMs: 0,
+  };
 }
 
 function diagnosticMessage(message: string): string {
@@ -978,6 +1101,25 @@ function isFileSystemError(error: unknown, code: string): error is NodeJS.ErrnoE
 function loadCodeGraphSdk(): CodeGraphModule {
   // CodeGraph 1.5.0 publishes ESM declarations through a CommonJS SDK shim.
   return require("@colbymchenry/codegraph") as CodeGraphModule;
+}
+
+function useHeldCodeGraphWriteLock(graph: CodeGraph): void {
+  const graphWithLock = graph as unknown as {
+    fileLock?: { acquire(): void; release(): void };
+  };
+  if (
+    graphWithLock.fileLock === undefined ||
+    typeof graphWithLock.fileLock.acquire !== "function" ||
+    typeof graphWithLock.fileLock.release !== "function"
+  ) {
+    throw new Error("CodeGraph 1.5.0 does not expose the expected internal write lock");
+  }
+
+  // Atlas already owns the same on-disk lock for the complete publication lifecycle.
+  graphWithLock.fileLock = {
+    acquire: () => undefined,
+    release: () => undefined,
+  };
 }
 
 async function withCodeGraphSdk<T>(

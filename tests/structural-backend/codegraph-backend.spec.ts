@@ -1,8 +1,18 @@
 import { DatabaseSync } from "node:sqlite";
 import { execFile, spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
@@ -215,7 +225,7 @@ describe("CodeGraph structural backend", () => {
     const repository = await inspectGitRepository(fixture.directory);
 
     const result = await withHeldCodeGraphLock(fixture.directory, () =>
-      runBuiltCodeGraphWorker(repository));
+      runBuiltCodeGraphWorker(repository, "sync"));
 
     expect(result).toMatchObject({
       completeness: "incomplete",
@@ -227,6 +237,62 @@ describe("CodeGraph structural backend", () => {
         message: expect.stringMatching(/lock/iu),
       })],
     });
+  });
+
+  it("preserves the published graph when a full rebuild cannot acquire the write lock", async () => {
+    const { backend, fixture } = await createStructuralFixture(fixtures);
+    await backend.build();
+    const published = (await backend.search({ query: "target", limit: 5 }))[0]?.node;
+    if (published === undefined) {
+      throw new Error("Expected a published symbol before rebuilding");
+    }
+
+    const result = await withHeldCodeGraphLock(fixture.directory, () => backend.build());
+
+    expect(result).toMatchObject({
+      completeness: "incomplete",
+      mode: "full",
+      counts: { filesIndexed: 0 },
+      diagnostics: [expect.objectContaining({
+        code: "STRUCTURAL_INDEX_INCOMPLETE",
+        message: expect.stringMatching(/lock/iu),
+      })],
+    });
+    await expect(backend.inspect()).resolves.toMatchObject({ completeness: "complete" });
+    await expect(backend.getNode(published.reference)).resolves.toEqual(published);
+    await expect(backend.search({ query: "target", limit: 5 })).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ node: expect.objectContaining({ reference: published.reference }) }),
+    ]));
+    await expectStructuralBackupsCleaned(fixture.directory);
+  });
+
+  it("preserves the published graph when a worker full rebuild cannot acquire the write lock", async () => {
+    const { backend, fixture } = await createStructuralFixture(fixtures);
+    await backend.build();
+    const published = (await backend.search({ query: "target", limit: 5 }))[0]?.node;
+    if (published === undefined) {
+      throw new Error("Expected a published symbol before rebuilding");
+    }
+    const repository = await inspectGitRepository(fixture.directory);
+
+    const result = await withHeldCodeGraphLock(fixture.directory, () =>
+      runBuiltCodeGraphWorker(repository, "build"));
+
+    expect(result).toMatchObject({
+      completeness: "incomplete",
+      mode: "full",
+      counts: { filesIndexed: 0 },
+      diagnostics: [expect.objectContaining({
+        code: "STRUCTURAL_INDEX_INCOMPLETE",
+        message: expect.stringMatching(/lock/iu),
+      })],
+    });
+    await expect(backend.inspect()).resolves.toMatchObject({ completeness: "complete" });
+    await expect(backend.getNode(published.reference)).resolves.toEqual(published);
+    await expect(backend.search({ query: "target", limit: 5 })).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ node: expect.objectContaining({ reference: published.reference }) }),
+    ]));
+    await expectStructuralBackupsCleaned(fixture.directory);
   });
 
   it("rebuilds an existing structural index without replacing colocated Atlas data", async () => {
@@ -248,6 +314,51 @@ describe("CodeGraph structural backend", () => {
     } finally {
       reopened.close();
     }
+  });
+
+  it("restores the published database when a full rebuild fails after acquiring the write lock", async () => {
+    const { backend } = await createStructuralFixture(fixtures);
+    const initial = await backend.build();
+    const published = (await backend.search({ query: "target", limit: 5 }))[0]?.node;
+    if (published === undefined) {
+      throw new Error("Expected a published symbol before rebuilding");
+    }
+
+    const database = new DatabaseSync(initial.databasePath);
+    database.exec(`
+      CREATE TABLE atlas_fixture_knowledge (business_key TEXT PRIMARY KEY) STRICT;
+      INSERT INTO atlas_fixture_knowledge (business_key) VALUES ('orders/place-order');
+      CREATE TRIGGER fail_structural_rebuild
+      BEFORE INSERT ON nodes
+      BEGIN
+        SELECT RAISE(ABORT, 'forced structural rebuild failure');
+      END;
+    `);
+    database.close();
+
+    const result = await backend.build();
+
+    expect(result).toMatchObject({
+      completeness: "incomplete",
+      mode: "full",
+      diagnostics: [expect.objectContaining({
+        message: expect.stringMatching(/forced structural rebuild failure/iu),
+      })],
+    });
+    await expect(backend.inspect()).resolves.toMatchObject({ completeness: "complete" });
+    await expect(backend.getNode(published.reference)).resolves.toEqual(published);
+    await expect(backend.search({ query: "target", limit: 5 })).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ node: expect.objectContaining({ reference: published.reference }) }),
+    ]));
+
+    const restored = new DatabaseSync(initial.databasePath, { readOnly: true });
+    try {
+      expect(restored.prepare("SELECT business_key FROM atlas_fixture_knowledge").get())
+        .toEqual({ business_key: "orders/place-order" });
+    } finally {
+      restored.close();
+    }
+    await expectStructuralBackupsCleaned(initial.databasePath, true);
   });
 
   it("keeps linked worktrees on independent databases without visible generated files", async () => {
@@ -470,6 +581,7 @@ async function createStructuralFixture(fixtures: GitFixture[]): Promise<Structur
 
 async function runBuiltCodeGraphWorker(
   repository: Awaited<ReturnType<typeof inspectGitRepository>>,
+  operation: "build" | "sync",
 ): Promise<StructuralBuildResult> {
   const projectRoot = join(import.meta.dirname, "..", "..");
   await executeFile("pnpm", ["build"], { cwd: projectRoot });
@@ -483,7 +595,7 @@ async function runBuiltCodeGraphWorker(
   const script = [
     `const { runCodeGraphWorker } = await import(${JSON.stringify(clientModule)});`,
     "const repository = JSON.parse(Buffer.from(process.argv[1], 'base64url').toString('utf8'));",
-    "const result = await runCodeGraphWorker({ operation: 'sync', repository });",
+    `const result = await runCodeGraphWorker({ operation: ${JSON.stringify(operation)}, repository });`,
     "process.stdout.write(JSON.stringify(result));",
   ].join(" ");
   const { stdout } = await executeFile(process.execPath, [
@@ -542,4 +654,14 @@ async function withHeldCodeGraphLock<T>(
     holder.stdin.end();
     await new Promise<void>((resolve) => holder.once("exit", () => resolve()));
   }
+}
+
+async function expectStructuralBackupsCleaned(
+  path: string,
+  pathIsDatabase = false,
+): Promise<void> {
+  const atlasDirectory = pathIsDatabase ? dirname(path) : join(path, ".atlas");
+  expect(await readdir(atlasDirectory)).not.toEqual(expect.arrayContaining([
+    expect.stringMatching(/^\.structural-backup-/u),
+  ]));
 }
