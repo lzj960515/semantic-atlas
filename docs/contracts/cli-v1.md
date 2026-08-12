@@ -2,7 +2,7 @@
 
 ## Invocation
 
-The npm package and executable are both named `semantic-atlas`. Development uses Node.js 24; the published CLI supports Node.js 22.12 and newer.
+The npm package and executable are both named `semantic-atlas`. Development uses Node.js 24; the published CLI supports Node.js 22.12 through 24.
 
 Global options:
 

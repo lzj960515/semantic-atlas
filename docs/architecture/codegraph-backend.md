@@ -124,7 +124,7 @@ Atlas does not preserve a second full historical structural graph. `changes` is 
 - A CodeGraph index or sync error fails the Atlas index command and leaves the world snapshot non-current.
 - Atlas schema migration failure leaves CodeGraph structural data present but unpublished through Atlas until migration succeeds.
 - Unsupported structure is returned as backend support metadata or an unresolved boundary; Atlas does not invent an exact edge.
-- The dependency version is pinned exactly rather than selected through a semver range. The initial compatible runtime range is Node.js 22.12 through 24 because Atlas needs `node:sqlite` and CodeGraph 1.5.0 declares Node.js below 25. Upgrades run fixture repositories through index, sync, rebuild, query normalization, schema coexistence, and evidence-rebinding tests before changing the lockfile.
+- The dependency version is pinned exactly rather than selected through a semver range. The compatible host range is Node.js 22.12 through 24. Node.js 22.12 through 22.15 lack the FTS5 module required by CodeGraph 1.5.0, so the adapter runs its private SDK worker with the dependency's bundled Node.js runtime on those hosts; Node.js 22.16 through 24 use the SDK in process. Both paths expose the same Atlas contract and invoke no CodeGraph CLI, MCP, or daemon lifecycle. Upgrades run fixture repositories through index, sync, rebuild, query normalization, schema coexistence, and evidence-rebinding tests before changing the lockfile.
 - If an upstream release changes structural IDs, locator-based rebinding preserves stable Atlas business keys and makes unmatched evidence stale.
 
 ## Transition from the current implementation

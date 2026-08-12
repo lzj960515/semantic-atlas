@@ -4,7 +4,7 @@
   "description": "A local, revision-aware project world model for AI coding agents.",
   "type": "module",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.12.0 <25"
   },
   "packageManager": "pnpm@11.5.1",
   "scripts": {
@@ -17,6 +17,7 @@
     "contracts:check": "tsx scripts/generate-contracts.ts --check"
   },
   "dependencies": {
+    "@colbymchenry/codegraph": "1.5.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {

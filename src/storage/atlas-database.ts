@@ -1,10 +1,15 @@
 import { existsSync, mkdirSync, realpathSync } from "node:fs";
+import { createRequire } from "node:module";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync as NodeDatabaseSync } from "node:sqlite";
 
 import type { GitRepository } from "../repository/types.js";
 
 export const CURRENT_ATLAS_SCHEMA_VERSION = 2;
+
+const require = createRequire(import.meta.url);
+
+type DatabaseSyncConstructor = new (path: string) => NodeDatabaseSync;
 
 interface SchemaMigration {
   readonly version: number;
@@ -359,7 +364,7 @@ function isWithinDirectory(parent: string, candidate: string): boolean {
 
 export class AtlasDatabase implements Disposable {
   readonly databasePath: string;
-  readonly connection: DatabaseSync;
+  readonly connection: NodeDatabaseSync;
 
   constructor(
     dataDirectory: string,
@@ -380,6 +385,7 @@ export class AtlasDatabase implements Disposable {
 
     this.databasePath = join(dataDirectory, "repositories", repository.repositoryId, "atlas.sqlite");
     mkdirSync(dirname(this.databasePath), { recursive: true });
+    const { DatabaseSync } = require("node:sqlite") as { DatabaseSync: DatabaseSyncConstructor };
     this.connection = new DatabaseSync(this.databasePath);
     try {
       this.connection.exec("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;");

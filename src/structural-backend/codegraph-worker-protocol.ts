@@ -1,0 +1,34 @@
+import type { GitRepository } from "../repository/types.js";
+import type {
+  StructuralReference,
+  StructuralSearchQuery,
+  StructuralTraversalQuery,
+} from "./types.js";
+
+export type CodeGraphWorkerRequest =
+  | WorkerRequest<"inspect">
+  | WorkerRequest<"build">
+  | WorkerRequest<"sync">
+  | WorkerRequest<"search", StructuralSearchQuery>
+  | WorkerRequest<"getNode", StructuralReference>
+  | WorkerRequest<"traverse", StructuralTraversalQuery>
+  | WorkerRequest<"getCallers", StructuralReference>
+  | WorkerRequest<"getCallees", StructuralReference>
+  | WorkerRequest<"getFileDependencies", string>;
+
+type WorkerRequest<Operation extends string, Input = undefined> = {
+  readonly operation: Operation;
+  readonly repository: GitRepository;
+} & (Input extends undefined ? { readonly input?: never } : { readonly input: Input });
+
+export type CodeGraphWorkerResponse =
+  | { readonly ok: true; readonly value: unknown }
+  | {
+    readonly ok: false;
+    readonly error: {
+      readonly name: string;
+      readonly message: string;
+      readonly code?: string;
+      readonly stack?: string;
+    };
+  };
