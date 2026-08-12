@@ -31,15 +31,24 @@ export class StructuralWriteLock {
   readonly #path: string;
   readonly #identity: Stats;
   readonly #ownership: LockOwnership;
+  readonly #ownershipPath: string;
 
-  private constructor(path: string, identity: Stats, ownership: LockOwnership) {
+  private constructor(
+    path: string,
+    identity: Stats,
+    ownership: LockOwnership,
+    ownershipPath: string,
+  ) {
     this.#path = path;
     this.#identity = identity;
     this.#ownership = ownership;
+    this.#ownershipPath = ownershipPath;
   }
 
   static acquire(path: string): StructuralWriteLock | undefined {
-    cleanupAbandonedOwnershipFiles(path);
+    if (hasCompetingOwnershipLease(path)) {
+      return undefined;
+    }
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const acquired = StructuralWriteLock.create(path);
       if (acquired !== undefined) {
@@ -57,16 +66,24 @@ export class StructuralWriteLock {
   }
 
   release(): void {
-    removeObservedLock(this.#path, {
-      identity: this.#identity,
-      ownership: this.#ownership,
-    });
+    try {
+      removeObservedLock(this.#path, {
+        identity: this.#identity,
+        ownership: this.#ownership,
+      });
+    } finally {
+      removeObservedLock(this.#ownershipPath, {
+        identity: this.#identity,
+        ownership: this.#ownership,
+      });
+    }
   }
 
   private static create(path: string): StructuralWriteLock | undefined {
     const ownership = { pid: process.pid, token: randomUUID() };
     const ownershipPath = ownershipFilePath(path, ownership);
     let ownershipFileCreated = false;
+    let ownershipLeaseRetained = false;
     try {
       writeFileSync(ownershipPath, serializeOwnership(ownership), {
         encoding: "utf8",
@@ -75,6 +92,9 @@ export class StructuralWriteLock {
       });
       ownershipFileCreated = true;
       persistOwnershipFile(ownershipPath);
+      if (hasCompetingOwnershipLease(path, ownershipPath)) {
+        return undefined;
+      }
       // Publish only a complete owner record at the contested lock path.
       try {
         linkSync(ownershipPath, path);
@@ -91,9 +111,17 @@ export class StructuralWriteLock {
         removeObservedLock(path, { identity, ownership });
         throw error;
       }
-      return new StructuralWriteLock(path, identity, ownership);
+      if (
+        hasCompetingOwnershipLease(path, ownershipPath) ||
+        !matchesObservedLock(path, { identity, ownership })
+      ) {
+        removeObservedLock(path, { identity, ownership });
+        return undefined;
+      }
+      ownershipLeaseRetained = true;
+      return new StructuralWriteLock(path, identity, ownership, ownershipPath);
     } finally {
-      if (ownershipFileCreated) {
+      if (ownershipFileCreated && !ownershipLeaseRetained) {
         removeRegularFile(ownershipPath);
       }
     }
@@ -126,22 +154,36 @@ function ownershipFilePath(path: string, ownership: LockOwnership): string {
   return `${path}${OWNERSHIP_FILE_MARKER}${ownership.pid}-${ownership.token}`;
 }
 
-function cleanupAbandonedOwnershipFiles(lockPath: string): void {
+function hasCompetingOwnershipLease(
+  lockPath: string,
+  ownOwnershipPath?: string,
+): boolean {
   const directory = dirname(lockPath);
   const prefix = `${basename(lockPath)}${OWNERSHIP_FILE_MARKER}`;
   let entries: string[];
   try {
     entries = readdirSync(directory);
   } catch {
-    return;
+    return true;
   }
 
   for (const entry of entries) {
+    const path = join(directory, entry);
+    if (path === ownOwnershipPath) {
+      continue;
+    }
     const ownership = parseOwnershipFileName(entry, prefix);
-    if (ownership !== undefined && !isProcessAlive(ownership.pid)) {
-      removeRegularFile(join(directory, entry));
+    if (ownership === undefined) {
+      continue;
+    }
+    if (isProcessAlive(ownership.pid)) {
+      return true;
+    }
+    if (!removeRegularFile(path) && pathExists(path)) {
+      return true;
     }
   }
+  return false;
 }
 
 function parseOwnershipFileName(
@@ -197,6 +239,15 @@ function removeRegularFile(path: string): boolean {
   }
 }
 
+function pathExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch (error) {
+    return !isFileSystemError(error, "ENOENT");
+  }
+}
+
 function observeLock(path: string): ObservedLock | undefined {
   let descriptor: number | undefined;
   try {
@@ -227,14 +278,7 @@ function observeLock(path: string): ObservedLock | undefined {
 }
 
 function removeObservedLock(path: string, expected: ObservedLock): boolean {
-  const current = observeLock(path);
-  if (
-    current === undefined ||
-    current.identity.dev !== expected.identity.dev ||
-    current.identity.ino !== expected.identity.ino ||
-    current.ownership.pid !== expected.ownership.pid ||
-    current.ownership.token !== expected.ownership.token
-  ) {
+  if (!matchesObservedLock(path, expected)) {
     return false;
   }
 
@@ -244,6 +288,15 @@ function removeObservedLock(path: string, expected: ObservedLock): boolean {
   } catch {
     return false;
   }
+}
+
+function matchesObservedLock(path: string, expected: ObservedLock): boolean {
+  const current = observeLock(path);
+  return current !== undefined &&
+    current.identity.dev === expected.identity.dev &&
+    current.identity.ino === expected.identity.ino &&
+    current.ownership.pid === expected.ownership.pid &&
+    current.ownership.token === expected.ownership.token;
 }
 
 function serializeOwnership(ownership: LockOwnership): string {

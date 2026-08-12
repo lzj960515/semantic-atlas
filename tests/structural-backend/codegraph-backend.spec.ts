@@ -1,6 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
+import { createRequire } from "node:module";
 import {
   mkdir,
   mkdtemp,
@@ -297,6 +298,78 @@ describe("CodeGraph structural backend", () => {
     lock?.release();
     expect(await readFile(lockPath, "utf8")).toBe(replacement);
   });
+
+  it.each([
+    ["in-process SDK", false],
+    ["private SDK worker", true],
+  ] as const)(
+    "allows only one live %s lock reclaimer",
+    async (_runtime, privateWorker) => {
+      if (process.platform === "win32") {
+        return;
+      }
+
+      const { fixture } = await createStructuralFixture(fixtures);
+      const projectRoot = join(import.meta.dirname, "..", "..");
+      await executeFile("pnpm", ["build"], { cwd: projectRoot });
+      const repository = await inspectGitRepository(fixture.directory);
+      const builtBackend = privateWorker ? undefined : await createBuiltStructuralBackend(repository);
+      const request = <T>(operation: string, input?: unknown): Promise<T> => privateWorker
+        ? runBuiltPrivateWorkerRequest(repository, { operation, input })
+        : executeBuiltBackendRequest(builtBackend!, operation, input);
+      await expect(request<StructuralBuildResult>("build")).resolves.toMatchObject({
+        completeness: "complete",
+      });
+      await fixture.write("src/dep.ts", [
+        "export function target(value: number) { return value + 2; }",
+        "export const addedAfterDeadLockRace = true;",
+        "",
+      ].join("\n"));
+
+      const lockPath = join(fixture.directory, ".atlas", "semantic-atlas.lock");
+      const deadPid = await exitedProcessId();
+      await writeFile(lockPath, `${JSON.stringify({ pid: deadPid, token: "dead-owner" })}\n`);
+      const first = startBuiltLockContender(lockPath, privateWorker, true);
+      const contenders = [first];
+      try {
+        await waitForContenderOutput(first, "reclaiming");
+        const second = startBuiltLockContender(lockPath, privateWorker, false);
+        contenders.push(second);
+        await waitForContenderOutcome(second);
+        first.child.kill("SIGCONT");
+        await waitForContenderOutcome(first);
+
+        expect(contenders.filter((contender) => contender.output.includes("acquired\n")))
+          .toHaveLength(1);
+        await expect(request<StructuralBuildResult>("sync")).resolves.toMatchObject({
+          completeness: "incomplete",
+          diagnostics: [expect.objectContaining({
+            code: "STRUCTURAL_INDEX_INCOMPLETE",
+            message: expect.stringMatching(/lock/iu),
+          })],
+        });
+      } finally {
+        await Promise.all(contenders.map(finishLockContender));
+      }
+
+      await expect(request<StructuralBuildResult>("sync")).resolves.toMatchObject({
+        completeness: "complete",
+        mode: "incremental",
+      });
+      await expect(request<readonly StructuralSearchResult[]>("search", {
+        query: "addedAfterDeadLockRace",
+        limit: 5,
+      })).resolves.toEqual(expect.arrayContaining([
+        expect.objectContaining({ node: expect.objectContaining({ name: "addedAfterDeadLockRace" }) }),
+      ]));
+      await expectStructuralPublicationStateCleaned(join(
+        fixture.directory,
+        ".atlas",
+        "codegraph.db",
+      ));
+    },
+    60_000,
+  );
 
   it("does not replace symlink or non-regular Atlas lock paths", async () => {
     const { backend, fixture } = await createStructuralFixture(fixtures);
@@ -985,6 +1058,124 @@ async function executeBuiltBackendRequest<T>(
     case "search": return backend.search(input as Parameters<StructuralIndexBackend["search"]>[0]) as Promise<T>;
     default: throw new Error(`Unsupported built backend fixture operation: ${operation}`);
   }
+}
+
+interface LockContender {
+  readonly child: ChildProcess;
+  output: string;
+  stderr: string;
+}
+
+function startBuiltLockContender(
+  lockPath: string,
+  privateWorker: boolean,
+  pauseBeforeReclaim: boolean,
+): LockContender {
+  const projectRoot = join(import.meta.dirname, "..", "..");
+  const lockModule = pathToFileURL(join(
+    projectRoot,
+    "dist",
+    "structural-backend",
+    "structural-write-lock.js",
+  )).href;
+  const script = [
+    "const { createRequire, syncBuiltinESMExports } = await import('node:module');",
+    "const require = createRequire(import.meta.url);",
+    "const fs = require('node:fs');",
+    "const lockPath = process.argv[1];",
+    "const pauseBeforeReclaim = process.argv[2] === 'pause';",
+    "const originalUnlinkSync = fs.unlinkSync;",
+    "let paused = false;",
+    "fs.unlinkSync = (path) => {",
+    "  if (pauseBeforeReclaim && !paused && path === lockPath) {",
+    "    paused = true;",
+    "    process.stdout.write('reclaiming\\n');",
+    "    process.kill(process.pid, 'SIGSTOP');",
+    "  }",
+    "  return originalUnlinkSync(path);",
+    "};",
+    "syncBuiltinESMExports();",
+    `const { StructuralWriteLock } = await import(${JSON.stringify(lockModule)});`,
+    "const lock = StructuralWriteLock.acquire(lockPath);",
+    "if (lock === undefined) { process.stdout.write('unavailable\\n'); process.exit(0); }",
+    "process.stdout.write('acquired\\n');",
+    "process.stdin.resume();",
+    "process.stdin.once('end', () => { lock.release(); process.exit(0); });",
+  ].join(" ");
+  const runtime = privateWorker ? bundledCodeGraphRuntime() : process.execPath;
+  const runtimeOptions = privateWorker ? ["--liftoff-only"] : [];
+  const child = spawn(runtime, [
+    ...runtimeOptions,
+    "--input-type=module",
+    "--disable-warning=ExperimentalWarning",
+    "-e",
+    script,
+    lockPath,
+    pauseBeforeReclaim ? "pause" : "continue",
+  ], {
+    cwd: projectRoot,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  const contender: LockContender = { child, output: "", stderr: "" };
+  child.stdout?.on("data", (chunk: Buffer) => {
+    contender.output += chunk.toString("utf8");
+  });
+  child.stderr?.on("data", (chunk: Buffer) => {
+    contender.stderr += chunk.toString("utf8");
+  });
+  return contender;
+}
+
+function bundledCodeGraphRuntime(): string {
+  const require = createRequire(import.meta.url);
+  const codeGraphPackage = require.resolve("@colbymchenry/codegraph/package.json");
+  const codeGraphRequire = createRequire(codeGraphPackage);
+  const platformPackageName = `@colbymchenry/codegraph-${process.platform}-${process.arch}`;
+  const platformPackage = codeGraphRequire.resolve(`${platformPackageName}/package.json`);
+  return join(dirname(platformPackage), process.platform === "win32" ? "node.exe" : "node");
+}
+
+async function waitForContenderOutput(
+  contender: LockContender,
+  expected: "reclaiming" | "acquired" | "unavailable",
+): Promise<void> {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    if (contender.output.includes(`${expected}\n`)) {
+      return;
+    }
+    if (contender.child.exitCode !== null || contender.child.signalCode !== null) {
+      throw new Error(
+        `Lock contender exited before ${expected}: ${contender.stderr || contender.output || "no output"}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+  throw new Error(`Timed out waiting for lock contender ${expected}: ${contender.stderr || contender.output}`);
+}
+
+async function waitForContenderOutcome(contender: LockContender): Promise<void> {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    if (contender.output.includes("acquired\n") || contender.output.includes("unavailable\n")) {
+      return;
+    }
+    if (contender.child.exitCode !== null || contender.child.signalCode !== null) {
+      throw new Error(
+        `Lock contender exited before reporting its outcome: ${contender.stderr || contender.output || "no output"}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+  throw new Error(`Timed out waiting for lock contender outcome: ${contender.stderr || contender.output}`);
+}
+
+async function finishLockContender(contender: LockContender): Promise<void> {
+  if (contender.child.pid !== undefined && contender.child.exitCode === null && contender.child.signalCode === null) {
+    contender.child.kill("SIGCONT");
+    contender.child.stdin?.end();
+  }
+  await waitForProcessExit(contender.child);
 }
 
 async function crashAtlasLockDuringOwnershipPublication(worktreeRoot: string): Promise<void> {
