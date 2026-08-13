@@ -96,7 +96,20 @@ describe("business flow derivation", () => {
       }),
     ]));
     expect(relations.every((relation) => relation.certainty !== "exact")).toBe(true);
-    expect(result.boundaries).toEqual([]);
+    expect(result.boundaries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        framework: "nestjs",
+        operation: "resolve_called_operation",
+        owner: expect.objectContaining(catalog.byName("create").reference),
+        candidates: [catalog.byQualifiedName("OrdersService::createOrder").reference.id],
+      }),
+      expect.objectContaining({
+        framework: "graphql",
+        operation: "resolve_called_operation",
+        owner: expect.objectContaining(catalog.byName("resolveCreateOrder").reference),
+        candidates: [catalog.byQualifiedName("OrdersService::createOrder").reference.id],
+      }),
+    ]));
     expect(graphPatchV1Schema.parse(result.patch)).toEqual(result.patch);
   });
 
@@ -233,6 +246,89 @@ describe("business flow derivation", () => {
         operation: "resolve_called_operation",
         owner: expect.objectContaining(resolverOperation),
         candidates: [controllerOperation.id, serviceOperation.id].sort(),
+      }),
+    ]));
+  });
+
+  it("does not trust a rooted same-name target across multiple injected services", async () => {
+    const probe = await deriveRealGraphqlFixture(gitFixtures, {
+      "src/orders.resolver.ts": [
+        "import { Resolver, Mutation } from '@nestjs/graphql';",
+        "import { OrdersService } from './orders.service.js';",
+        "import { AuditService } from './audit.service.js';",
+        "@Resolver()",
+        "export class OrdersResolver {",
+        "  constructor(",
+        "    private readonly orders: OrdersService,",
+        "    private readonly audit: AuditService,",
+        "  ) {}",
+        "  @Mutation() createOrder() { return this.orders.create(); }",
+        "}",
+        "",
+      ],
+      "src/orders.service.ts": [
+        "export class OrdersService { create() { return 'order'; } }",
+        "",
+      ],
+      "src/audit.service.ts": [
+        "export class AuditService { create() { return 'audit'; } }",
+        "",
+      ],
+    }, [
+      { path: "src/orders.resolver.ts", name: "MUTATION createOrder" },
+      { path: "src/audit.service.ts", name: "create" },
+    ]);
+    const resolver = probe.referenceAt("src/orders.resolver.ts", "createOrder");
+    const audit = probe.referenceAt("src/audit.service.ts", "create");
+    const orders = probe.referenceAt("src/orders.service.ts", "create");
+    expect(probe.exactCallTarget(resolver)).toEqual(audit);
+
+    const resolverBusiness = realizedBusinessOperation(probe.result.patch, resolver);
+    expect(operationInvocationsFrom(probe.result.patch, resolverBusiness.key)).toEqual([]);
+    expect(probe.result.boundaries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        framework: "graphql",
+        operation: "resolve_called_operation",
+        owner: expect.objectContaining(resolver),
+        candidates: [audit.id],
+      }),
+    ]));
+    expect(probe.result.boundaries.flatMap((boundary) => boundary.candidates)).not.toContain(orders.id);
+  });
+
+  it("does not trust a same-owner method as an injected call receiver", async () => {
+    const probe = await deriveRealGraphqlFixture(gitFixtures, {
+      "src/orders.resolver.ts": [
+        "import { Resolver, Mutation } from '@nestjs/graphql';",
+        "import { OrdersService } from './orders.service.js';",
+        "@Resolver()",
+        "export class OrdersResolver {",
+        "  constructor(private readonly orders: OrdersService) {}",
+        "  create() { return 'resolver'; }",
+        "  @Mutation() createOrder() { return this.orders.create(); }",
+        "}",
+        "",
+      ],
+      "src/orders.service.ts": [
+        "export class OrdersService { create() { return 'order'; } }",
+        "",
+      ],
+    }, [
+      { path: "src/orders.resolver.ts", name: "MUTATION createOrder" },
+      { path: "src/orders.resolver.ts", name: "create" },
+    ]);
+    const resolver = probe.referenceAt("src/orders.resolver.ts", "createOrder");
+    const decoy = probe.referenceAt("src/orders.resolver.ts", "create");
+    expect(probe.exactCallTarget(resolver)).toEqual(decoy);
+
+    const resolverBusiness = realizedBusinessOperation(probe.result.patch, resolver);
+    expect(operationInvocationsFrom(probe.result.patch, resolverBusiness.key)).toEqual([]);
+    expect(probe.result.boundaries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        framework: "graphql",
+        operation: "resolve_called_operation",
+        owner: expect.objectContaining(resolver),
+        candidates: [decoy.id],
       }),
     ]));
   });
@@ -544,26 +640,30 @@ describe("business flow derivation", () => {
       },
     });
 
-    expect(upsertedNodes(result.patch)).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: "Operation", label: "createOrder" }),
+    expect(result.boundaries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        framework: "nestjs",
+        operation: "resolve_called_operation",
+        owner: expect.objectContaining(handler.reference),
+        candidates: [serviceOperation.reference.id],
+      }),
     ]));
-    for (const incidental of ["serializeResponse", "logRequest", "cloneValue", "serializeOrder"]) {
+    for (const incidental of [
+      "createOrder",
+      "serializeResponse",
+      "logRequest",
+      "cloneValue",
+      "serializeOrder",
+    ]) {
       expect(upsertedNodes(result.patch)).not.toEqual(expect.arrayContaining([
         expect.objectContaining({ kind: "Operation", label: incidental }),
       ]));
     }
   });
 
-  it("uses an exact file import when a framework handler has no declaring class", async () => {
+  it("promotes a receiverless same-file business function", async () => {
     const context = await createGraphTestContext();
     contexts.push(context);
-    const controllerFile = nodeAt(
-      "controller-file",
-      "orders.controller.ts",
-      "src/example.ts",
-      "file",
-      "src/example.ts",
-    );
     const route = nodeAt(
       "route",
       "POST /orders",
@@ -578,27 +678,18 @@ describe("business flow derivation", () => {
       "function",
       "src/example.ts",
     );
-    const serviceOwner = nodeAt(
-      "service-owner",
-      "OrdersService",
-      "OrdersService",
-      "class",
-      "src/example.ts",
-    );
     const serviceOperation = nodeAt(
       "service-operation",
       "createOrder",
-      "OrdersService::createOrder",
-      "method",
+      "createOrder",
+      "function",
       "src/example.ts",
     );
     const structural = structuralBackend(
-      [controllerFile, route, handler, serviceOwner, serviceOperation],
+      [route, handler, serviceOperation],
       [
-        relation(controllerFile, serviceOwner, "imports"),
         relation(route, handler, "references"),
         relation(handler, serviceOperation, "calls"),
-        relation(serviceOwner, serviceOperation, "contains"),
       ],
     );
 
@@ -1084,6 +1175,66 @@ function upsertedRelations(patch: GraphPatchV1) {
   return patch.relationOperations.flatMap((operation) => (
     operation.op === "upsert" ? [operation.relation] : []
   ));
+}
+
+function operationInvocationsFrom(patch: GraphPatchV1, operationKey: string) {
+  return upsertedRelations(patch).filter((relation) => (
+    relation.type === "invokes" && relation.from.key === operationKey
+  ));
+}
+
+async function deriveRealGraphqlFixture(
+  fixtures: GitFixture[],
+  files: Readonly<Record<string, readonly string[]>>,
+  roots: readonly { readonly path: string; readonly name: string }[],
+) {
+  const fixture = await createGitFixture();
+  fixtures.push(fixture);
+  await fixture.write("package.json", JSON.stringify({
+    type: "module",
+    dependencies: { "@nestjs/graphql": "13.0.0" },
+  }));
+  for (const [path, lines] of Object.entries(files)) {
+    await fixture.write(path, lines.join("\n"));
+  }
+  await fixture.git("add", ".");
+  await fixture.git("commit", "-m", "test: add GraphQL receiver fixture");
+  const repository = await inspectGitRepository(fixture.directory);
+  const world = await new (await import("../../src/world/world-model-service.js"))
+    .WorldModelService(repository).build();
+  expect(world.structural.completeness).toBe("complete");
+  const structural = new (await import("../../src/structural-backend/codegraph-backend.js"))
+    .CodeGraphStructuralBackend(repository);
+  const graph = await structural.readProjectGraph({
+    declarationKinds: ["file", "import", "route", "class", "method", "function"],
+  });
+  const referenceAt = (path: string, name: string): StructuralNode["reference"] => {
+    const matches = graph.nodes.filter((node) => node.path === path && node.name === name);
+    if (matches.length !== 1) {
+      throw new Error(`Expected one real GraphQL reference ${path}#${name}`);
+    }
+    return matches[0]!.reference;
+  };
+  const exactCallTarget = (owner: StructuralNode["reference"]): StructuralNode["reference"] => {
+    const calls = graph.relations.filter((relation) => (
+      relation.from.id === owner.id
+      && relation.type === "calls"
+      && relation.support.status === "exact"
+    ));
+    if (calls.length !== 1) {
+      throw new Error(`Expected one exact call from ${owner.id}`);
+    }
+    return calls[0]!.to;
+  };
+  const result = await new BusinessFlowDerivationService(repository, structural).derive({
+    capability: {
+      key: "commerce/orders",
+      label: "Orders",
+      summary: "Creates orders through GraphQL.",
+      roots: roots.map(({ path, name }) => referenceAt(path, name)),
+    },
+  });
+  return { result, referenceAt, exactCallTarget };
 }
 
 function realizedBusinessOperation(

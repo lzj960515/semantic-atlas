@@ -33,8 +33,9 @@ export function deriveCalledBusinessOperations(input: CalledOperationDerivationI
       call.support.status === "exact"
       && target !== undefined
       && target.reference.id !== input.handler.reference.id
+      && target.declarationKind === "function"
       && hasBusinessOperationEvidence(target, input.catalog)
-      && hasUniqueReceiverBinding(target, candidates, input.handler, input.catalog)
+      && hasReceiverlessFunctionBinding(input.handler, target, input.catalog)
     ) {
       addCalledOperation(input, target);
       continue;
@@ -113,59 +114,19 @@ function calledOperationCandidates(
   ));
 }
 
-function hasUniqueReceiverBinding(
-  target: StructuralNode,
-  candidates: readonly StructuralNode[],
-  handler: StructuralNode,
-  catalog: StructuralFlowCatalog,
-): boolean {
-  const boundCandidates = candidates.filter((candidate) => (
-    hasReceiverBinding(handler, candidate, catalog)
-  ));
-  return boundCandidates.length === 1
-    && boundCandidates[0]!.reference.id === target.reference.id;
-}
-
-function hasReceiverBinding(
+function hasReceiverlessFunctionBinding(
   handler: StructuralNode,
   target: StructuralNode,
   catalog: StructuralFlowCatalog,
 ): boolean {
-  const handlerOwner = uniqueDeclaringOwner(handler, catalog);
-  const targetOwner = uniqueDeclaringOwner(target, catalog);
-  if (handlerOwner === undefined || targetOwner === undefined) {
-    return hasExactFileImport(handler.path, targetOwner ?? target, catalog);
+  if (handler.path === target.path) {
+    const sameFileFunctions = catalog.contextNodes(handler.path).filter((node) => (
+      node.declarationKind === "function" && node.name === target.name
+    ));
+    return sameFileFunctions.length === 1
+      && sameFileFunctions[0]!.reference.id === target.reference.id;
   }
-  if (handlerOwner.reference.id === targetOwner.reference.id) {
-    return true;
-  }
-  return catalog.contextOutgoing(handlerOwner.reference.id, "contains")
-    .filter((relation) => relation.support.status === "exact")
-    .map((relation) => catalog.contextNode(relation.to.id))
-    .filter((node): node is StructuralNode => node?.name === "constructor")
-    .some((constructor) => catalog.contextOutgoing(constructor.reference.id, "references")
-      .some((relation) => (
-        relation.support.status === "exact" && relation.to.id === targetOwner.reference.id
-      )));
-}
-
-function uniqueDeclaringOwner(
-  node: StructuralNode,
-  catalog: StructuralFlowCatalog,
-): StructuralNode | undefined {
-  const owners = catalog.contextIncoming(node.reference.id, "contains")
-    .filter((relation) => relation.support.status === "exact")
-    .map((relation) => catalog.contextNode(relation.from.id))
-    .filter((candidate): candidate is StructuralNode => candidate?.declarationKind === "class");
-  return owners.length === 1 ? owners[0] : undefined;
-}
-
-function hasExactFileImport(
-  handlerPath: string,
-  target: StructuralNode,
-  catalog: StructuralFlowCatalog,
-): boolean {
-  return catalog.contextNodes(handlerPath)
+  return catalog.contextNodes(handler.path)
     .filter((node) => node.declarationKind === "file")
     .some((file) => catalog.contextOutgoing(file.reference.id, "imports")
       .some((relation) => (
