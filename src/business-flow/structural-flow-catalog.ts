@@ -125,6 +125,12 @@ export class StructuralFlowCatalog {
     ));
   }
 
+  contextOutgoing(reference: string, type?: StructuralRelation["type"]): readonly StructuralRelation[] {
+    return this.#contextRelations.filter((relation) => (
+      relation.from.id === reference && (type === undefined || relation.type === type)
+    ));
+  }
+
   contextNode(reference: string): StructuralNode | undefined {
     return this.#contextNodesByReference.get(reference);
   }

@@ -193,6 +193,7 @@ describe("business flow derivation", () => {
         roots: [
           root("POST /orders"),
           root("MUTATION createOrder"),
+          controllerOperation,
           serviceOperation,
           root("Order"),
           root("handleCreated"),
@@ -211,36 +212,29 @@ describe("business flow derivation", () => {
         reason: expect.stringContaining("OrdersProcessor::handleCreated"),
       }),
     ]));
-    const serviceBusinessOperation = upsertedRelations(result.patch).find((relation) => (
-      relation.type === "realized_by"
-      && relation.to.domain === "structural"
-      && relation.to.id === serviceOperation.id
-    ))?.from;
-    for (const [framework, handler] of [
-      ["nestjs", controllerOperation],
-      ["graphql", resolverOperation],
-    ] as const) {
-      const handlerBusinessOperation = upsertedRelations(result.patch).find((relation) => (
-        relation.type === "realized_by"
-        && relation.to.domain === "structural"
-        && relation.to.id === handler.id
-      ))?.from;
-      const invokesService = serviceBusinessOperation !== undefined
-        && handlerBusinessOperation !== undefined
-        && upsertedRelations(result.patch).some((relation) => (
-          relation.type === "invokes"
-          && relation.from.key === handlerBusinessOperation.key
-          && relation.to.domain === "business"
-          && relation.to.key === serviceBusinessOperation.key
-        ));
-      const requiresSourceFallback = result.boundaries.some((boundary) => (
-        boundary.framework === framework
-        && boundary.operation === "resolve_called_operation"
-        && boundary.owner.id === handler.id
-        && boundary.candidates.includes(serviceOperation.id)
-      ));
-      expect(invokesService || requiresSourceFallback).toBe(true);
-    }
+    const controllerBusinessOperation = realizedBusinessOperation(result.patch, controllerOperation);
+    const resolverBusinessOperation = realizedBusinessOperation(result.patch, resolverOperation);
+    expect(upsertedRelations(result.patch)).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        from: resolverBusinessOperation,
+        type: "invokes",
+        to: controllerBusinessOperation,
+      }),
+    ]));
+    expect(result.boundaries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        framework: "nestjs",
+        operation: "resolve_called_operation",
+        owner: expect.objectContaining(controllerOperation),
+        candidates: [serviceOperation.id],
+      }),
+      expect.objectContaining({
+        framework: "graphql",
+        operation: "resolve_called_operation",
+        owner: expect.objectContaining(resolverOperation),
+        candidates: [controllerOperation.id, serviceOperation.id].sort(),
+      }),
+    ]));
   });
 
   it("preserves real TypeORM repository reads and writes as source fallbacks", async () => {
@@ -490,6 +484,13 @@ describe("business flow derivation", () => {
     contexts.push(context);
     const route = node("route", "POST /orders", "POST /orders", "route");
     const handler = node("handler", "create", "OrdersController::create", "method");
+    const handlerOwner = node("handler-owner", "OrdersController", "OrdersController", "class");
+    const handlerConstructor = node(
+      "handler-constructor",
+      "constructor",
+      "OrdersController::constructor",
+      "method",
+    );
     const serviceOperation = node(
       "service-operation",
       "createOrder",
@@ -507,9 +508,23 @@ describe("business flow derivation", () => {
       "method",
     );
     const structural = structuralBackend(
-      [route, handler, serviceOwner, serviceOperation, serviceSerializer, serialize, log, utility],
+      [
+        route,
+        handlerOwner,
+        handlerConstructor,
+        handler,
+        serviceOwner,
+        serviceOperation,
+        serviceSerializer,
+        serialize,
+        log,
+        utility,
+      ],
       [
         relation(route, handler, "references"),
+        relation(handlerOwner, handlerConstructor, "contains"),
+        relation(handlerOwner, handler, "contains"),
+        relation(handlerConstructor, serviceOwner, "references"),
         relation(handler, serviceOperation, "calls"),
         relation(serviceOwner, serviceOperation, "contains"),
         relation(serviceOwner, serviceSerializer, "contains"),
@@ -537,6 +552,71 @@ describe("business flow derivation", () => {
         expect.objectContaining({ kind: "Operation", label: incidental }),
       ]));
     }
+  });
+
+  it("uses an exact file import when a framework handler has no declaring class", async () => {
+    const context = await createGraphTestContext();
+    contexts.push(context);
+    const controllerFile = nodeAt(
+      "controller-file",
+      "orders.controller.ts",
+      "src/example.ts",
+      "file",
+      "src/example.ts",
+    );
+    const route = nodeAt(
+      "route",
+      "POST /orders",
+      "POST /orders",
+      "route",
+      "src/example.ts",
+    );
+    const handler = nodeAt(
+      "handler",
+      "create",
+      "create",
+      "function",
+      "src/example.ts",
+    );
+    const serviceOwner = nodeAt(
+      "service-owner",
+      "OrdersService",
+      "OrdersService",
+      "class",
+      "src/example.ts",
+    );
+    const serviceOperation = nodeAt(
+      "service-operation",
+      "createOrder",
+      "OrdersService::createOrder",
+      "method",
+      "src/example.ts",
+    );
+    const structural = structuralBackend(
+      [controllerFile, route, handler, serviceOwner, serviceOperation],
+      [
+        relation(controllerFile, serviceOwner, "imports"),
+        relation(route, handler, "references"),
+        relation(handler, serviceOperation, "calls"),
+        relation(serviceOwner, serviceOperation, "contains"),
+      ],
+    );
+
+    const result = await new BusinessFlowDerivationService(context.repository, structural).derive({
+      capability: {
+        key: "commerce/orders",
+        label: "Orders",
+        summary: "Accepts customer orders.",
+        roots: [route.reference, serviceOperation.reference],
+      },
+    });
+
+    expect(upsertedNodes(result.patch)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "Operation", label: "createOrder" }),
+    ]));
+    expect(result.boundaries).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ operation: "resolve_called_operation" }),
+    ]));
   });
 
   it("emits verification only for agent-verified test evidence", async () => {
@@ -800,11 +880,31 @@ describe("business flow derivation", () => {
 });
 
 function frameworkCatalog(options: { readonly includeAmbiguousDataAccess: boolean }) {
+  const controllerOwner = node("controller-owner", "OrdersController", "OrdersController", "class");
+  const controllerConstructor = node(
+    "controller-constructor",
+    "constructor",
+    "OrdersController::constructor",
+    "method",
+  );
+  const resolverOwner = node("resolver-owner", "OrdersResolver", "OrdersResolver", "class");
+  const resolverConstructor = node(
+    "resolver-constructor",
+    "constructor",
+    "OrdersResolver::constructor",
+    "method",
+  );
+  const serviceOwner = node("service-owner", "OrdersService", "OrdersService", "class", ["Injectable"]);
   const nodes = [
     node("route-http", "POST /orders", "POST /orders", "route"),
+    controllerOwner,
+    controllerConstructor,
     node("controller", "create", "OrdersController::create", "method"),
     node("route-graphql", "MUTATION createOrder", "MUTATION createOrder", "route"),
+    resolverOwner,
+    resolverConstructor,
     node("resolver", "resolveCreateOrder", "OrdersResolver::resolveCreateOrder", "method"),
+    serviceOwner,
     node("service", "createOrder", "OrdersService::createOrder", "method"),
     node("repository-save", "save", "Repository<Order>::save", "method"),
     ...(options.includeAmbiguousDataAccess
@@ -833,6 +933,13 @@ function frameworkCatalog(options: { readonly includeAmbiguousDataAccess: boolea
   const relations = [
     relation(byName("POST /orders"), byName("create"), "references"),
     relation(byName("MUTATION createOrder"), byName("resolveCreateOrder"), "references"),
+    relation(controllerOwner, controllerConstructor, "contains"),
+    relation(controllerOwner, byName("create"), "contains"),
+    relation(controllerConstructor, serviceOwner, "references"),
+    relation(resolverOwner, resolverConstructor, "contains"),
+    relation(resolverOwner, byName("resolveCreateOrder"), "contains"),
+    relation(resolverConstructor, serviceOwner, "references"),
+    relation(serviceOwner, byQualifiedName("OrdersService::createOrder"), "contains"),
     relation(byName("create"), byQualifiedName("OrdersService::createOrder"), "calls"),
     relation(byName("resolveCreateOrder"), byQualifiedName("OrdersService::createOrder"), "calls"),
     relation(byQualifiedName("OrdersService::createOrder"), byName("save"), "calls"),
@@ -977,4 +1084,19 @@ function upsertedRelations(patch: GraphPatchV1) {
   return patch.relationOperations.flatMap((operation) => (
     operation.op === "upsert" ? [operation.relation] : []
   ));
+}
+
+function realizedBusinessOperation(
+  patch: GraphPatchV1,
+  structural: StructuralNode["reference"],
+) {
+  const operation = upsertedRelations(patch).find((relation) => (
+    relation.type === "realized_by"
+    && relation.to.domain === "structural"
+    && relation.to.id === structural.id
+  ))?.from;
+  if (operation === undefined) {
+    throw new Error(`Expected one business operation realized by ${structural.id}`);
+  }
+  return operation;
 }

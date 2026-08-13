@@ -28,16 +28,18 @@ interface CalledOperationDerivationInput {
 export function deriveCalledBusinessOperations(input: CalledOperationDerivationInput): void {
   for (const call of input.catalog.outgoing(input.handler.reference.id, "calls")) {
     const target = input.catalog.node(call.to.id);
+    const candidates = calledOperationCandidates(target?.name, input.handler, input.catalog);
     if (
       call.support.status === "exact"
       && target !== undefined
       && target.reference.id !== input.handler.reference.id
       && hasBusinessOperationEvidence(target, input.catalog)
+      && hasUniqueReceiverBinding(target, candidates, input.handler, input.catalog)
     ) {
       addCalledOperation(input, target);
       continue;
     }
-    addResolutionBoundary(input, target?.name, target, call.support.status);
+    addResolutionBoundary(input, target?.name, target, call.support.status, candidates);
   }
 
   for (const boundary of input.catalog.boundaries.filter((candidate) => (
@@ -77,8 +79,12 @@ function addResolutionBoundary(
   calledName: string | undefined,
   target?: StructuralNode,
   support?: StructuralSupportStatus,
+  candidates: readonly StructuralNode[] = calledOperationCandidates(
+    calledName,
+    input.handler,
+    input.catalog,
+  ),
 ): void {
-  const candidates = calledOperationCandidates(calledName, input.handler, input.catalog);
   if (candidates.length === 0) {
     return;
   }
@@ -103,8 +109,68 @@ function calledOperationCandidates(
     node.reference.id !== handler.reference.id
     && node.name === name
     && (node.declarationKind === "method" || node.declarationKind === "function")
-    && catalog.isRoot(node.reference.id)
+    && hasBusinessOperationEvidence(node, catalog)
   ));
+}
+
+function hasUniqueReceiverBinding(
+  target: StructuralNode,
+  candidates: readonly StructuralNode[],
+  handler: StructuralNode,
+  catalog: StructuralFlowCatalog,
+): boolean {
+  const boundCandidates = candidates.filter((candidate) => (
+    hasReceiverBinding(handler, candidate, catalog)
+  ));
+  return boundCandidates.length === 1
+    && boundCandidates[0]!.reference.id === target.reference.id;
+}
+
+function hasReceiverBinding(
+  handler: StructuralNode,
+  target: StructuralNode,
+  catalog: StructuralFlowCatalog,
+): boolean {
+  const handlerOwner = uniqueDeclaringOwner(handler, catalog);
+  const targetOwner = uniqueDeclaringOwner(target, catalog);
+  if (handlerOwner === undefined || targetOwner === undefined) {
+    return hasExactFileImport(handler.path, targetOwner ?? target, catalog);
+  }
+  if (handlerOwner.reference.id === targetOwner.reference.id) {
+    return true;
+  }
+  return catalog.contextOutgoing(handlerOwner.reference.id, "contains")
+    .filter((relation) => relation.support.status === "exact")
+    .map((relation) => catalog.contextNode(relation.to.id))
+    .filter((node): node is StructuralNode => node?.name === "constructor")
+    .some((constructor) => catalog.contextOutgoing(constructor.reference.id, "references")
+      .some((relation) => (
+        relation.support.status === "exact" && relation.to.id === targetOwner.reference.id
+      )));
+}
+
+function uniqueDeclaringOwner(
+  node: StructuralNode,
+  catalog: StructuralFlowCatalog,
+): StructuralNode | undefined {
+  const owners = catalog.contextIncoming(node.reference.id, "contains")
+    .filter((relation) => relation.support.status === "exact")
+    .map((relation) => catalog.contextNode(relation.from.id))
+    .filter((candidate): candidate is StructuralNode => candidate?.declarationKind === "class");
+  return owners.length === 1 ? owners[0] : undefined;
+}
+
+function hasExactFileImport(
+  handlerPath: string,
+  target: StructuralNode,
+  catalog: StructuralFlowCatalog,
+): boolean {
+  return catalog.contextNodes(handlerPath)
+    .filter((node) => node.declarationKind === "file")
+    .some((file) => catalog.contextOutgoing(file.reference.id, "imports")
+      .some((relation) => (
+        relation.support.status === "exact" && relation.to.id === target.reference.id
+      )));
 }
 
 function calledOperationResolutionReason(
