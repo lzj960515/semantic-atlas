@@ -104,10 +104,18 @@ export interface StructuralFileChanges {
   readonly removed: readonly string[];
 }
 
+export interface StructuralFactChanges {
+  readonly added: number;
+  readonly changed: number;
+  readonly reused: number;
+  readonly removed: number;
+}
+
 export interface StructuralBuildResult extends StructuralIndexState {
   readonly mode: "initial" | "full" | "incremental";
   readonly counts: StructuralBuildCounts;
   readonly changes: StructuralFileChanges;
+  readonly factChanges: StructuralFactChanges;
   readonly boundaries: readonly StructuralUnknownBoundary[];
 }
 

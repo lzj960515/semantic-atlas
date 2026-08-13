@@ -574,6 +574,7 @@ function buildResult() {
       relations: 3,
     },
     changes: { added: [], modified: [], removed: [] },
+    factChanges: { added: 0, changed: 0, reused: 8, removed: 0 },
     boundaries: [],
   };
 }

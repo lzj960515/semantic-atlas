@@ -169,12 +169,6 @@ export class CliApplication {
     const publication = context.structural.completeness === "complete"
       ? await world.sync()
       : await world.build();
-    const changedFiles = publication.structural.changes;
-    const changedCount = changedFiles.added.length
-      + changedFiles.modified.length
-      + changedFiles.removed.length;
-    const reused = Math.max(0, publication.structural.counts.filesDiscovered - changedCount);
-    const initialPublication = publication.structural.mode === "initial";
     const unknownChanges = compareUnknownBoundaries(
       previousUnknowns,
       publication.structural.boundaries,
@@ -195,14 +189,7 @@ export class CliApplication {
       data: {
         command: "index",
         snapshotId: publication.snapshotId,
-        facts: {
-          added: initialPublication
-            ? publication.structural.counts.nodes + publication.structural.counts.relations
-            : changedFiles.added.length,
-          changed: changedFiles.modified.length,
-          reused,
-          removed: changedFiles.removed.length,
-        },
+        facts: publication.structural.factChanges,
         unknowns: {
           added: unknownChanges.added,
           resolved: unknownChanges.resolved,

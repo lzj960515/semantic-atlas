@@ -126,6 +126,95 @@ describe("semantic-atlas CLI", () => {
     expect(await fixture.git("status", "--porcelain", "--untracked-files=all")).toBe("");
   });
 
+  it("reports structural fact changes in one stable unit across incremental indexes", async () => {
+    const fixture = await createGitFixture();
+    fixtures.push(fixture);
+
+    const initial = requireData(
+      await runCli(["index"], fixture.directory, undefined, 60_000),
+      "index",
+    );
+    const initialTotal = structuralFactTotal(initial);
+    expect(initial.facts).toEqual({
+      added: initialTotal,
+      changed: 0,
+      reused: 0,
+      removed: 0,
+    });
+
+    const unchanged = requireData(
+      await runCli(["index"], fixture.directory, undefined, 60_000),
+      "index",
+    );
+    expect(unchanged.facts).toEqual({
+      added: 0,
+      changed: 0,
+      reused: initialTotal,
+      removed: 0,
+    });
+
+    await fixture.write(
+      "src/added.ts",
+      [
+        "export const first = 1;",
+        "export const second = first + 1;",
+        "export function total(): number {",
+        "  return first + second;",
+        "}",
+        "",
+      ].join("\n"),
+    );
+    const added = requireData(
+      await runCli(["index"], fixture.directory, undefined, 60_000),
+      "index",
+    );
+    const addedTotal = structuralFactTotal(added);
+    expect(added.facts).toEqual({
+      added: addedTotal - initialTotal,
+      changed: 0,
+      reused: initialTotal,
+      removed: 0,
+    });
+    expect(added.facts.added).toBeGreaterThan(1);
+
+    await fixture.write(
+      "src/added.ts",
+      [
+        "",
+        "export const first = 1;",
+        "export const second = first + 1;",
+        "export function total(): number {",
+        "  return first + second;",
+        "}",
+        "",
+      ].join("\n"),
+    );
+    const changed = requireData(
+      await runCli(["index"], fixture.directory, undefined, 60_000),
+      "index",
+    );
+    const changedTotal = structuralFactTotal(changed);
+    expect(changed.facts.added).toBe(0);
+    expect(changed.facts.changed).toBeGreaterThan(1);
+    expect(changed.facts.removed).toBe(0);
+    expect(changed.facts.added + changed.facts.changed + changed.facts.reused)
+      .toBe(changedTotal);
+
+    await fixture.git("clean", "-f", "src/added.ts");
+    const removed = requireData(
+      await runCli(["index"], fixture.directory, undefined, 60_000),
+      "index",
+    );
+    const removedTotal = structuralFactTotal(removed);
+    expect(removedTotal).toBe(initialTotal);
+    expect(removed.facts).toEqual({
+      added: 0,
+      changed: 0,
+      reused: initialTotal,
+      removed: changedTotal - initialTotal,
+    });
+  }, 120_000);
+
   it("indexes, maps, learns, rejects stale reads, and reports semantic changes", async () => {
     const fixture = await createGitFixture();
     fixtures.push(fixture);
@@ -402,4 +491,19 @@ function requireData<Command extends CliEnvelope["data"]["command"]>(
     throw new Error(`Expected ${command} success data`);
   }
   return data as Extract<CliEnvelope["data"], { command: Command }>;
+}
+
+function structuralFactTotal(data: Extract<CliEnvelope["data"], { command: "index" }>): number {
+  const totals = data.structuralTotals;
+  if (
+    totals === null
+    || typeof totals !== "object"
+    || !("nodes" in totals)
+    || !("relations" in totals)
+    || typeof totals.nodes !== "number"
+    || typeof totals.relations !== "number"
+  ) {
+    throw new Error("Expected structural fact totals in index data");
+  }
+  return totals.nodes + totals.relations;
 }
