@@ -98,7 +98,7 @@ const invariantMapNodeSchema = businessMapNodeSchema.safeExtend({
 });
 
 const testMapNodeSchema = structuralMapNodeSchema.safeExtend({
-  kind: z.literal("Test"),
+  kind: z.enum(["Symbol", "Test"]),
 });
 
 const commandNameSchema = z.enum([

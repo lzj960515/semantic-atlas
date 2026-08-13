@@ -71,14 +71,16 @@ describe("CodeGraph structural backend", () => {
         databasePath: join(await realpath(fixture.directory), ".atlas", "codegraph.db"),
         counts: { filesErrored: 0 },
       });
-      expect(result.boundaries).toEqual([
+      expect(result.boundaries).toEqual(expect.arrayContaining([
         expect.objectContaining({
           kind: "UnknownBoundary",
           operation: "calls",
           support: { status: "unresolved", provenance: "backend" },
           owner: expect.objectContaining({ id: expect.stringMatching(/^symbol:/u) }),
         }),
-      ]);
+        expect.objectContaining({ target: "beforeEach" }),
+        expect.objectContaining({ target: "test" }),
+      ]));
       expect(await readFile(join(fixture.directory, ".atlas", ".gitignore"), "utf8"))
         .toBe("*\n");
       await expectStructuralPublicationStateCleaned(result.databasePath);
@@ -134,6 +136,12 @@ describe("CodeGraph structural backend", () => {
           name: "src",
           virtual: true,
         }),
+        expect.objectContaining({
+          reference: { id: "module:tests" },
+          kind: "Module",
+          name: "tests",
+          virtual: true,
+        }),
       ]);
       await expect(backend.getNode(roots[0]!.reference)).resolves.toEqual(roots[0]);
       await expect(backend.traverse({
@@ -172,15 +180,43 @@ describe("CodeGraph structural backend", () => {
           expect.objectContaining({ operation: "calls" }),
         ]),
       });
-      await expect(backend.readProjectGraph({
-        declarationKinds: ["test"],
-      })).resolves.toMatchObject({
-        nodes: [expect.objectContaining({
-          kind: "Test",
-          declarationKind: "test",
-          name: "calls target",
-        })],
+      const testDirectoryGraph = await backend.readProjectGraph({
+        declarationKinds: ["function"],
       });
+      expect(testDirectoryGraph.nodes).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          kind: "Symbol",
+          declarationKind: "function",
+          name: "callsTarget",
+          path: "tests/entry.spec.ts",
+          reference: { id: expect.stringMatching(/^symbol:/u) },
+        }),
+        expect.objectContaining({
+          kind: "Symbol",
+          declarationKind: "function",
+          name: "seedForDemo",
+          path: "tests/manual-support.ts",
+        }),
+        expect.objectContaining({
+          kind: "Symbol",
+          declarationKind: "function",
+          name: "createOrderFixture",
+          path: "tests/fixtures/order.fixture.ts",
+        }),
+        expect.objectContaining({
+          kind: "Symbol",
+          declarationKind: "function",
+          name: "resetOrder",
+          path: "tests/entry.spec.ts",
+        }),
+        expect.objectContaining({
+          kind: "Symbol",
+          declarationKind: "function",
+          name: "createsOrder",
+          path: "tests/entry.spec.ts",
+        }),
+      ]));
+      expect(testDirectoryGraph.nodes.every((node) => node.kind !== "Test")).toBe(true);
     } finally {
       if (originalDirectory === undefined) {
         delete process.env.CODEGRAPH_DIR;
@@ -1164,6 +1200,18 @@ async function createStructuralFixture(fixtures: GitFixture[]): Promise<Structur
   await fixture.write("tests/entry.spec.ts", [
     "import { caller } from '../src/entry.js';",
     "export function callsTarget() { return caller(); }",
+    "beforeEach(function resetOrder() { return caller(); });",
+    "test('calls target', function createsOrder() { return caller(); });",
+    "",
+  ].join("\n"));
+  await fixture.write("tests/manual-support.ts", [
+    "import { caller } from '../src/entry.js';",
+    "export function seedForDemo() { return caller(); }",
+    "",
+  ].join("\n"));
+  await fixture.write("tests/fixtures/order.fixture.ts", [
+    "import { caller } from '../../src/entry.js';",
+    "export function createOrderFixture() { return caller(); }",
     "",
   ].join("\n"));
   await fixture.git("add", ".");

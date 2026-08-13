@@ -65,10 +65,12 @@ interface StructuralIndexBackend {
 These are domain-level capabilities rather than a mirror of every CodeGraph API. The adapter may use `CodeGraph.init`, `open`, `indexAll`, `sync`, search, callers, callees, call graph, impact, and file-dependency APIs internally.
 
 Business-flow derivation requests one bounded project graph containing only the
-declaration kinds used by its framework strategies. The adapter returns
-normalized declaration kinds, decorator names, supported relations, and unknown
-boundaries in one query so Node 22 private-worker execution does not degenerate
-into a process-per-node traversal.
+declaration kinds used by its framework strategies. A caller supplies explicit
+capability roots; Atlas follows exact ownership and execution relations from
+those roots and uses same-file framework declarations only as interpretation
+context. The adapter returns normalized declaration kinds, decorator names,
+supported relations, and unknown boundaries in one query so Node 22
+private-worker execution does not degenerate into a process-per-node traversal.
 
 `WorldModelService` owns orchestration. `BusinessKnowledgeStore` owns Atlas tables and transactions. `WorldGraphQuery` resolves cross-domain references and returns the existing versioned CLI graph contract.
 

@@ -7,6 +7,7 @@ import {
   addBusinessNode,
   addBusinessRelation,
   addStructuralRelation,
+  hasBusinessOperationEvidence,
   nodeKey,
 } from "./strategy-helpers.js";
 
@@ -80,7 +81,6 @@ export class NestJsBusinessStrategy implements FrameworkBusinessStrategy {
         to: handler,
       });
       linkCalledOperations(handler, operationKey, catalog, options, draft);
-      linkTests(handler, operationKey, catalog, draft);
     }
   }
 }
@@ -94,7 +94,11 @@ function linkCalledOperations(
 ): void {
   for (const call of catalog.outgoing(handler.reference.id, "calls")) {
     const target = catalog.exactTarget(call);
-    if (target === undefined || target.reference.id === handler.reference.id) {
+    if (
+      target === undefined
+      || target.reference.id === handler.reference.id
+      || !hasBusinessOperationEvidence(target, catalog)
+    ) {
       continue;
     }
     const targetKey = nodeKey(options.capability.key, "operations", target);
@@ -116,26 +120,6 @@ function linkCalledOperations(
       type: "realized_by",
       to: target,
     });
-    linkTests(target, targetKey, catalog, draft);
-  }
-}
-
-function linkTests(
-  handler: StructuralNode,
-  operationKey: string,
-  catalog: StructuralFlowCatalog,
-  draft: BusinessFlowDraft,
-): void {
-  for (const incoming of catalog.incoming(handler.reference.id, "calls")) {
-    const caller = catalog.node(incoming.from.id);
-    if (caller?.kind === "Test" && incoming.support.status === "exact") {
-      addStructuralRelation(draft, {
-        from: operationKey,
-        type: "verified_by",
-        to: caller,
-        evidence: caller,
-      });
-    }
   }
 }
 

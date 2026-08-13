@@ -131,10 +131,9 @@ export class WorldGraphQuery implements Disposable {
             neighbor.domain === "business" && neighbor.kind === "Invariant"
           ))),
         tests: uniqueNodes(traversal.neighbors
+          .filter(({ relation }) => relation.type === "verified_by")
           .map(({ node: neighbor }) => neighbor)
-          .filter((neighbor): neighbor is StructuralGraphNode => (
-            neighbor.domain === "structural" && neighbor.kind === "Test"
-          ))),
+          .filter((neighbor): neighbor is StructuralGraphNode => neighbor.domain === "structural")),
         unknowns: traversal.unknowns,
       };
     });

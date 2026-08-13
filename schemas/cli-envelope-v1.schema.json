@@ -574,7 +574,10 @@
                       },
                       "kind": {
                         "type": "string",
-                        "const": "Test"
+                        "enum": [
+                          "Symbol",
+                          "Test"
+                        ]
                       },
                       "label": {
                         "$ref": "#/$defs/__schema7"

@@ -13,7 +13,7 @@ export interface BusinessCapabilityDefinition {
   readonly label: string;
   readonly summary: string;
   readonly aliases?: readonly string[];
-  readonly evidence?: StructuralReference;
+  readonly roots: readonly StructuralReference[];
 }
 
 export interface VerifiedMessageFlow {
@@ -32,10 +32,17 @@ export interface VerifiedInvariant {
   readonly certainty?: AssertionCertainty;
 }
 
+export interface VerifiedTestFlow {
+  readonly operation: StructuralReference;
+  readonly test: StructuralReference;
+  readonly certainty?: AssertionCertainty;
+}
+
 export interface BusinessFlowDerivationOptions {
   readonly capability: BusinessCapabilityDefinition;
   readonly messageFlows?: readonly VerifiedMessageFlow[];
   readonly invariants?: readonly VerifiedInvariant[];
+  readonly verifications?: readonly VerifiedTestFlow[];
 }
 
 export interface BusinessFlowBoundary {

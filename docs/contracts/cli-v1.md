@@ -71,7 +71,7 @@ The schema requires these fields while allowing additive fields inside command d
 | `map.roots` | top-level `Capability` or structural `Module` nodes |
 | `map.children` | `nodeId`, `children` |
 | `map.search` | `query`, `limit`, scored `results` |
-| `map.show` | `node`, `depth`, evidence-aware `neighbors`, `Invariant` nodes, structural `Test` nodes, `unknowns` |
+| `map.show` | `node`, `depth`, evidence-aware `neighbors`, `Invariant` nodes, agent-verified structural test declarations, `unknowns` |
 | `learn` | `baseSnapshotId`, `snapshotId`, applied operation counts |
 | `changes` | source and target snapshot IDs, node/relation change sets, stale assertions |
 

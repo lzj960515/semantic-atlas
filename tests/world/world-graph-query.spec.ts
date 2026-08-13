@@ -62,13 +62,17 @@ describe("unified world graph queries", () => {
       ["constrained_by", "Invariant"],
       ["part_of", "Capability"],
       ["realized_by", "Symbol"],
-      ["verified_by", "Test"],
+      ["verified_by", "Symbol"],
     ]);
     expect(business.invariants).toEqual([
       expect.objectContaining({ key: "fixture/checkout/rule", certainty: "inferred" }),
     ]);
     expect(business.tests).toEqual([
-      expect.objectContaining({ id: "test:src/example.test.ts#checkout", support: exactSupport }),
+      expect.objectContaining({
+        id: "symbol:src/example.test.ts#checkout",
+        kind: "Symbol",
+        support: exactSupport,
+      }),
     ]);
 
     const structural = await query.show(
@@ -526,7 +530,7 @@ function structuralNodes(): StructuralNode[] {
     node("symbol:src/caller.ts#caller", "Symbol", "caller", "src/example.ts"),
     node("symbol:src/example.ts#value", "Symbol", "value", "src/example.ts"),
     node("symbol:src/target.ts#target", "Symbol", "CheckoutHandler", "src/example.ts"),
-    node("test:src/example.test.ts#checkout", "Test", "checkout test", "src/example.ts"),
+    node("symbol:src/example.test.ts#checkout", "Symbol", "checkout test", "src/example.ts"),
   ];
 }
 
@@ -678,7 +682,7 @@ function learnBusinessWorld(context: GraphTestContext): void {
         evidence,
         "fixture/checkout",
         "verified_by",
-        { domain: "structural", id: "test:src/example.test.ts#checkout" },
+        { domain: "structural", id: "symbol:src/example.test.ts#checkout" },
       ),
     ],
     removeRelations: [],

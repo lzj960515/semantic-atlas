@@ -7,6 +7,7 @@ import type {
   StructuralIndexBackend,
   StructuralNode,
   StructuralRelation,
+  StructuralUnknownBoundary,
 } from "../../src/structural-backend/types.js";
 import { inspectGitRepository } from "../../src/repository/repository-inspector.js";
 import {
@@ -38,6 +39,13 @@ describe("business flow derivation", () => {
         key: "commerce/orders",
         label: "Orders",
         summary: "Accepts, persists, publishes, and verifies customer orders.",
+        roots: [
+          catalog.byName("POST /orders").reference,
+          catalog.byName("MUTATION createOrder").reference,
+          catalog.byName("Order").reference,
+          catalog.byName("publishCreated").reference,
+          catalog.byName("handleCreated").reference,
+        ],
       },
       messageFlows: [{
         channel: "orders.created",
@@ -50,6 +58,10 @@ describe("business flow derivation", () => {
         summary: "Only valid orders can be persisted.",
         evidence: catalog.byName("assertValid").reference,
         constrains: [catalog.byQualifiedName("OrdersService::createOrder").reference],
+      }],
+      verifications: [{
+        operation: catalog.byQualifiedName("OrdersService::createOrder").reference,
+        test: catalog.byName("creates an order").reference,
       }],
     });
 
@@ -139,11 +151,29 @@ describe("business flow derivation", () => {
     const world = await new (await import("../../src/world/world-model-service.js"))
       .WorldModelService(repository).build();
     expect(world.structural.completeness).toBe("complete");
-    const result = await new BusinessFlowDerivationService(repository).derive({
+    const structural = new (await import("../../src/structural-backend/codegraph-backend.js"))
+      .CodeGraphStructuralBackend(repository);
+    const graph = await structural.readProjectGraph({
+      declarationKinds: ["file", "import", "route", "class", "method", "function"],
+    });
+    const root = (name: string): StructuralNode["reference"] => {
+      const matches = graph.nodes.filter((node) => node.name === name);
+      if (matches.length !== 1) {
+        throw new Error(`Expected one real framework root named ${name}`);
+      }
+      return matches[0]!.reference;
+    };
+    const result = await new BusinessFlowDerivationService(repository, structural).derive({
       capability: {
         key: "commerce/orders",
         label: "Orders",
         summary: "Creates orders through HTTP and GraphQL.",
+        roots: [
+          root("POST /orders"),
+          root("MUTATION createOrder"),
+          root("Order"),
+          root("handleCreated"),
+        ],
       },
     });
 
@@ -160,6 +190,78 @@ describe("business flow derivation", () => {
     ]);
   });
 
+  it("preserves real TypeORM repository reads and writes as source fallbacks", async () => {
+    const fixture = await createGitFixture();
+    gitFixtures.push(fixture);
+    await fixture.write("package.json", JSON.stringify({
+      type: "module",
+      dependencies: { typeorm: "0.3.26" },
+    }));
+    await fixture.write("src/order.entity.ts", [
+      "import { Entity } from 'typeorm';",
+      "@Entity()",
+      "export class Order {}",
+      "",
+    ].join("\n"));
+    await fixture.write("src/orders.service.ts", [
+      "import type { Repository } from 'typeorm';",
+      "import type { Order } from './order.entity.js';",
+      "export class OrdersService {",
+      "  constructor(private readonly orders: Repository<Order>) {}",
+      "  async create(order: Order) { return this.orders.save(order); }",
+      "  async list() { return this.orders.find(); }",
+      "}",
+      "",
+    ].join("\n"));
+    await fixture.git("add", ".");
+    await fixture.git("commit", "-m", "test: add TypeORM repository fixture");
+    const repository = await inspectGitRepository(fixture.directory);
+    const world = await new (await import("../../src/world/world-model-service.js"))
+      .WorldModelService(repository).build();
+    expect(world.structural.completeness).toBe("complete");
+    const structural = new (await import("../../src/structural-backend/codegraph-backend.js"))
+      .CodeGraphStructuralBackend(repository);
+    const graph = await structural.readProjectGraph({
+      declarationKinds: ["file", "import", "class", "method"],
+    });
+    const root = (name: string): StructuralNode["reference"] => {
+      const matches = graph.nodes.filter((node) => node.name === name);
+      if (matches.length !== 1) {
+        throw new Error(`Expected one real TypeORM root named ${name}`);
+      }
+      return matches[0]!.reference;
+    };
+
+    const result = await new BusinessFlowDerivationService(repository, structural).derive({
+      capability: {
+        key: "commerce/orders",
+        label: "Orders",
+        summary: "Persists and reads customer orders.",
+        roots: [root("Order"), root("create"), root("list")],
+      },
+    });
+
+    expect(upsertedNodes(result.patch)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "Data", label: "Order" }),
+    ]));
+    expect(result.boundaries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        framework: "typeorm",
+        operation: "resolve_repository_access",
+        reason: expect.stringContaining("save"),
+        owner: expect.objectContaining(root("create")),
+      }),
+      expect.objectContaining({
+        framework: "typeorm",
+        operation: "resolve_repository_access",
+        reason: expect.stringContaining("find"),
+        owner: expect.objectContaining(root("list")),
+      }),
+    ]));
+    expect(upsertedRelations(result.patch).map((relation) => relation.type))
+      .not.toEqual(expect.arrayContaining(["reads", "writes"]));
+  });
+
   it("keeps dynamic queue wiring and unsupported data access as source-fallback boundaries", async () => {
     const context = await createGraphTestContext();
     contexts.push(context);
@@ -174,6 +276,13 @@ describe("business flow derivation", () => {
         key: "commerce/orders",
         label: "Orders",
         summary: "Handles customer orders.",
+        roots: [
+          catalog.byName("POST /orders").reference,
+          catalog.byName("MUTATION createOrder").reference,
+          catalog.byName("Order").reference,
+          catalog.byName("publishCreated").reference,
+          catalog.byName("handleCreated").reference,
+        ],
       },
     });
 
@@ -202,6 +311,255 @@ describe("business flow derivation", () => {
     ]));
   });
 
+  it("derives only framework anchors owned by the requested capability root", async () => {
+    const context = await createGraphTestContext();
+    contexts.push(context);
+    const ordersRoute = nodeAt(
+      "orders-route",
+      "POST /orders",
+      "POST /orders",
+      "route",
+      "src/example.ts",
+    );
+    const ordersHandler = nodeAt(
+      "orders-handler",
+      "create",
+      "OrdersController::create",
+      "method",
+      "src/example.ts",
+    );
+    const billingRoute = nodeAt(
+      "billing-route",
+      "POST /billing",
+      "POST /billing",
+      "route",
+      "src/example.ts",
+    );
+    const billingHandler = nodeAt(
+      "billing-handler",
+      "charge",
+      "BillingController::charge",
+      "method",
+      "src/example.ts",
+    );
+    const service = new BusinessFlowDerivationService(
+      context.repository,
+      structuralBackend(
+        [ordersRoute, ordersHandler, billingRoute, billingHandler],
+        [
+          relation(ordersRoute, ordersHandler, "references"),
+          relation(billingRoute, billingHandler, "references"),
+        ],
+      ),
+    );
+
+    const result = await service.derive({
+      capability: {
+        key: "commerce/orders",
+        label: "Orders",
+        summary: "Accepts customer orders.",
+        roots: [ordersRoute.reference],
+      },
+    });
+
+    expect(upsertedNodes(result.patch)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "Interface", label: "POST /orders" }),
+    ]));
+    expect(upsertedNodes(result.patch)).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: "POST /billing" }),
+      expect.objectContaining({ label: "charge" }),
+    ]));
+  });
+
+  it("keeps unresolved TypeORM repository calls as owner-linked source fallbacks", async () => {
+    const context = await createGraphTestContext();
+    contexts.push(context);
+    const entity = nodeAt(
+      "entity",
+      "Order",
+      "Order",
+      "class",
+      "src/example.ts",
+      ["Entity"],
+    );
+    const operation = nodeAt(
+      "operation",
+      "createOrder",
+      "OrdersService::createOrder",
+      "method",
+      "src/example.ts",
+    );
+    const typeOrmImport = nodeAt(
+      "typeorm-import",
+      "typeorm",
+      "typeorm",
+      "import",
+      "src/example.ts",
+    );
+    const repositoryReference = unresolvedBoundary(
+      "repository-type",
+      operation,
+      "references",
+      "Repository",
+    );
+    const saveCall = unresolvedBoundary("save-call", operation, "calls", "save");
+    const service = new BusinessFlowDerivationService(
+      context.repository,
+      structuralBackend(
+        [entity, operation, typeOrmImport],
+        [],
+        [repositoryReference, saveCall],
+      ),
+    );
+
+    const result = await service.derive({
+      capability: {
+        key: "commerce/orders",
+        label: "Orders",
+        summary: "Persists customer orders.",
+        roots: [operation.reference, entity.reference],
+      },
+    });
+
+    expect(result.boundaries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        framework: "typeorm",
+        operation: "resolve_repository_access",
+        owner: expect.objectContaining(operation.reference),
+        reason: expect.stringContaining("save"),
+      }),
+    ]));
+    expect(upsertedRelations(result.patch).map((item) => item.type)).not.toContain("writes");
+  });
+
+  it("does not promote serialization, logging, or utility callees into business operations", async () => {
+    const context = await createGraphTestContext();
+    contexts.push(context);
+    const route = node("route", "POST /orders", "POST /orders", "route");
+    const handler = node("handler", "create", "OrdersController::create", "method");
+    const serviceOperation = node(
+      "service-operation",
+      "createOrder",
+      "OrdersService::createOrder",
+      "method",
+    );
+    const serviceOwner = node("service-owner", "OrdersService", "OrdersService", "class", ["Injectable"]);
+    const serialize = node("serialize", "serializeResponse", "serializeResponse", "function");
+    const log = node("log", "logRequest", "logRequest", "function");
+    const utility = node("utility", "cloneValue", "cloneValue", "function");
+    const serviceSerializer = node(
+      "service-serializer",
+      "serializeOrder",
+      "OrdersService::serializeOrder",
+      "method",
+    );
+    const structural = structuralBackend(
+      [route, handler, serviceOwner, serviceOperation, serviceSerializer, serialize, log, utility],
+      [
+        relation(route, handler, "references"),
+        relation(handler, serviceOperation, "calls"),
+        relation(serviceOwner, serviceOperation, "contains"),
+        relation(serviceOwner, serviceSerializer, "contains"),
+        relation(handler, serviceSerializer, "calls"),
+        relation(handler, serialize, "calls"),
+        relation(handler, log, "calls"),
+        relation(handler, utility, "calls"),
+      ],
+    );
+
+    const result = await new BusinessFlowDerivationService(context.repository, structural).derive({
+      capability: {
+        key: "commerce/orders",
+        label: "Orders",
+        summary: "Accepts customer orders.",
+        roots: [route.reference, serviceOperation.reference],
+      },
+    });
+
+    expect(upsertedNodes(result.patch)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "Operation", label: "createOrder" }),
+    ]));
+    for (const incidental of ["serializeResponse", "logRequest", "cloneValue", "serializeOrder"]) {
+      expect(upsertedNodes(result.patch)).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ kind: "Operation", label: incidental }),
+      ]));
+    }
+  });
+
+  it("emits verification only for agent-verified test evidence", async () => {
+    const context = await createGraphTestContext();
+    contexts.push(context);
+    const route = node("route", "POST /orders", "POST /orders", "route");
+    const operation = node("operation", "create", "OrdersController::create", "method");
+    const support = nodeAt(
+      "support",
+      "seedForDemo",
+      "seedForDemo",
+      "function",
+      "src/example.ts",
+    );
+    const fixture = nodeAt(
+      "fixture",
+      "createFixture",
+      "createFixture",
+      "function",
+      "src/example.ts",
+    );
+    const hook = nodeAt(
+      "hook",
+      "prepareOrder",
+      "prepareOrder",
+      "function",
+      "src/example.ts",
+    );
+    const testCase = nodeAt(
+      "test-case",
+      "creates an order",
+      "orders suite::creates an order",
+      "function",
+      "src/example.ts",
+    );
+    const structural = structuralBackend(
+      [route, operation, support, fixture, hook, testCase],
+      [
+        relation(route, operation, "references"),
+        relation(support, operation, "calls"),
+        relation(fixture, operation, "calls"),
+        relation(hook, operation, "calls"),
+        relation(testCase, operation, "calls"),
+      ],
+    );
+    const service = new BusinessFlowDerivationService(context.repository, structural);
+    const options = {
+      capability: {
+        key: "commerce/orders",
+        label: "Orders",
+        summary: "Accepts customer orders.",
+        roots: [route.reference],
+      },
+    } as const;
+
+    const unverified = await service.derive(options);
+    expect(upsertedRelations(unverified.patch).map((relation) => relation.type))
+      .not.toContain("verified_by");
+
+    const verified = await service.derive({
+      ...options,
+      verifications: [{ operation: operation.reference, test: testCase.reference }],
+    });
+    expect(upsertedRelations(verified.patch)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "verified_by",
+        to: expect.objectContaining(testCase.reference),
+      }),
+    ]));
+    for (const incidental of [support, fixture, hook]) {
+      expect(upsertedRelations(verified.patch)).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ type: "verified_by", to: incidental.reference }),
+      ]));
+    }
+  });
+
   it("does not interpret persistence-shaped application methods as TypeORM access", async () => {
     const context = await createGraphTestContext();
     contexts.push(context);
@@ -221,6 +579,7 @@ describe("business flow derivation", () => {
         key: "commerce/orders",
         label: "Orders",
         summary: "Handles customer orders.",
+        roots: [operation.reference, entity.reference],
       },
     });
 
@@ -251,6 +610,7 @@ describe("business flow derivation", () => {
         key: "commerce/orders",
         label: "Orders",
         summary: "Handles customer orders.",
+        roots: [operation.reference, entity.reference],
       },
     });
 
@@ -288,6 +648,7 @@ describe("business flow derivation", () => {
         key: "commerce/orders",
         label: "Orders",
         summary: "Stores customer orders.",
+        roots: [entity.reference],
       },
     });
 
@@ -312,15 +673,16 @@ describe("business flow derivation", () => {
         key: "shared/formatting",
         label: "Formatting",
         summary: "Formats values.",
+        roots: [],
       },
-    })).rejects.toThrow("requires framework or agent-verified evidence");
+    })).rejects.toThrow("requires at least one capability root");
 
     const verified = await service.derive({
       capability: {
         key: "shared/formatting",
         label: "Formatting",
         summary: "Formats values.",
-        evidence: incidental.reference,
+        roots: [incidental.reference],
       },
     });
     expect(upsertedNodes(verified.patch)).toEqual([
@@ -343,6 +705,7 @@ describe("business flow derivation", () => {
         key: "documents/publishing",
         label: "Document publishing",
         summary: "Publishes documents through HTTP.",
+        roots: [route.reference],
       },
     });
 
@@ -366,6 +729,7 @@ describe("business flow derivation", () => {
         key: "commerce/order-processing",
         label: "Order processing",
         summary: "Processes asynchronous order events.",
+        roots: [consumer.reference],
       },
     });
 
@@ -397,7 +761,7 @@ function frameworkCatalog(options: { readonly includeAmbiguousDataAccess: boolea
     node("producer", "publishCreated", "OrdersService::publishCreated", "method", ["InjectQueue"]),
     node("consumer", "handleCreated", "OrdersProcessor::handleCreated", "method", ["Processor"]),
     node("invariant", "assertValid", "OrdersService::assertValid", "method"),
-    node("test", "creates an order", "OrdersService.spec::creates an order", "test"),
+    node("test", "creates an order", "OrdersService.spec::creates an order", "function"),
   ];
   const byName = (name: string): StructuralNode => {
     const matches = nodes.filter((candidate) => candidate.name === name);
@@ -434,26 +798,57 @@ function node(
   declarationKind: StructuralNode["declarationKind"],
   decorators: readonly string[] = [],
 ): StructuralNode {
+  return nodeAt(id, name, qualifiedName, declarationKind, "src/example.ts", decorators);
+}
+
+function nodeAt(
+  id: string,
+  name: string,
+  qualifiedName: string,
+  declarationKind: StructuralNode["declarationKind"],
+  path: string,
+  decorators: readonly string[] = [],
+): StructuralNode {
   return {
     reference: {
       id: declarationKind === "test"
-        ? `test:src/example.ts#${id}`
+        ? `test:${path}#${id}`
         : declarationKind === "file"
-          ? `file:src/example.ts`
-          : `symbol:src/example.ts#${id}`,
+          ? `file:${path}`
+          : `symbol:${path}#${id}`,
     },
     kind: declarationKind === "test" ? "Test" : declarationKind === "file" ? "File" : "Symbol",
     declarationKind,
     decorators,
     name,
     qualifiedName,
-    path: "src/example.ts",
+    path,
     language: "typescript",
     range: {
       start: { line: 1, column: 1 },
       end: { line: 1, column: 24 },
     },
     support: { status: "exact", provenance: "backend" },
+  };
+}
+
+function unresolvedBoundary(
+  id: string,
+  owner: StructuralNode,
+  operation: string,
+  target: string,
+): StructuralUnknownBoundary {
+  return {
+    reference: { id: `unknown:${id}` },
+    kind: "UnknownBoundary",
+    owner: owner.reference,
+    operation,
+    target,
+    reason: `The structural backend could not resolve ${target}.`,
+    path: owner.path,
+    position: owner.range.start,
+    candidates: [],
+    support: { status: "unresolved", provenance: "backend" },
   };
 }
 
@@ -473,6 +868,7 @@ function relation(
 function structuralBackend(
   nodes: readonly StructuralNode[],
   relations: readonly StructuralRelation[],
+  boundaries: readonly StructuralUnknownBoundary[] = [],
 ): StructuralIndexBackend {
   const byId = new Map(nodes.map((candidate) => [candidate.reference.id, candidate]));
   return {
@@ -491,7 +887,7 @@ function structuralBackend(
         relations: relations.filter((candidate) => (
           selectedIds.has(candidate.from.id) && selectedIds.has(candidate.to.id)
         )),
-        boundaries: [],
+        boundaries: boundaries.filter((boundary) => selectedIds.has(boundary.owner.id)),
       };
     },
     search: async () => [],

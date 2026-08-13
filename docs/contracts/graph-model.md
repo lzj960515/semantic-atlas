@@ -18,7 +18,7 @@ Both domains live in `.atlas/codegraph.db`, but Atlas does not copy CodeGraph no
 | Structural | `Module` | A code or framework composition unit |
 | Structural | `File` | A normalized repository-relative source file |
 | Structural | `Symbol` | A normalized CodeGraph declaration such as a class, function, method, field, interface, route, or component |
-| Structural | `Test` | A statically identified test declaration |
+| Structural | `Test` | A backend-statically identified test declaration when such identity is available |
 | Structural | `UnknownBoundary` | An unresolved or unsupported structural relationship |
 | Business | `Capability` | A durable business ability |
 | Business | `Scenario` | A user or system scenario within a capability |
@@ -53,9 +53,9 @@ Business keys are stable slash-separated keys such as `commerce/orders/place-ord
 | Business | `publishes` | A business action publishes an interface or data contract |
 | Business | `consumes` | A business action consumes an interface or data contract |
 | Business | `constrained_by` | A business node is governed by an invariant |
-| Business | `verified_by` | A business node is checked by a structural test |
+| Business | `verified_by` | A business node is checked by an agent-verified structural declaration |
 
-All learned relations originate at a business node. `realized_by` and `verified_by` target structural nodes; the other business relations target business nodes.
+All learned relations originate at a business node. `realized_by` and `verified_by` target structural nodes; the other business relations target business nodes. A test directory or filename is structural context only. Atlas exposes a declaration in `map.show.tests` after an agent verifies it through `verified_by`; the declaration remains a `Symbol` when the structural backend cannot identify a test case independently.
 
 ## Structural support
 

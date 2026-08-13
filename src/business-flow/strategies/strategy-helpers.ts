@@ -7,6 +7,7 @@ import type {
 } from "../../graph/types.js";
 import type { StructuralNode } from "../../structural-backend/types.js";
 import { businessKeySegment, type BusinessFlowDraft } from "../business-flow-draft.js";
+import type { StructuralFlowCatalog } from "../structural-flow-catalog.js";
 
 export function nodeKey(
   capabilityKey: string,
@@ -89,4 +90,14 @@ export function decoratorNames(node: StructuralNode): readonly string[] {
 export function hasDecorator(node: StructuralNode, names: readonly string[]): boolean {
   const decorators = decoratorNames(node);
   return names.some((name) => decorators.includes(name));
+}
+
+export function hasBusinessOperationEvidence(
+  node: StructuralNode,
+  catalog: StructuralFlowCatalog,
+): boolean {
+  if (hasDecorator(node, ["CommandHandler", "EventsHandler", "QueryHandler", "Resolver"])) {
+    return true;
+  }
+  return catalog.isRoot(node.reference.id);
 }

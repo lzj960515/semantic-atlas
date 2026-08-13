@@ -42,7 +42,9 @@ export class BullMqBusinessStrategy implements FrameworkBusinessStrategy {
 }
 
 export function findBullMqAnchors(catalog: StructuralFlowCatalog): StructuralNode[] {
-  const frameworkPaths = new Set(catalog.nodes.filter((node) => (
+  const frameworkPaths = new Set(catalog.nodes.flatMap((node) => (
+    catalog.contextNodes(node.path)
+  )).filter((node) => (
     node.declarationKind === "import"
     && (node.name === "bullmq" || node.name === "@nestjs/bullmq")
   )).map((node) => node.path));

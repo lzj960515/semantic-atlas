@@ -79,12 +79,50 @@ export class TypeOrmBusinessStrategy implements FrameworkBusinessStrategy {
           evidence: dataAccess,
         });
       }
+      deriveUnresolvedRepositoryAccess(operation, catalog, draft);
     }
   }
 }
 
+function deriveUnresolvedRepositoryAccess(
+  operation: StructuralNode,
+  catalog: StructuralFlowCatalog,
+  draft: BusinessFlowDraft,
+): void {
+  const fileContext = catalog.contextNodes(operation.path);
+  const hasTypeOrmImport = fileContext.some(isTypeOrmImport);
+  const boundaries = catalog.boundaries.filter((boundary) => (
+    boundary.owner.id === operation.reference.id && boundary.operation === "calls"
+  ));
+  if (!hasTypeOrmImport || !hasRepositoryTypeEvidence(operation.path, catalog)) {
+    return;
+  }
+  for (const boundary of boundaries) {
+    if (boundary.target === undefined || classifyDataAccess(boundary.target) === undefined) {
+      continue;
+    }
+    draft.addBoundary(
+      "typeorm",
+      "resolve_repository_access",
+      `The TypeORM repository call ${boundary.target} is unresolved and requires source inspection.`,
+      operation,
+      boundary.candidates,
+    );
+  }
+}
+
+function hasRepositoryTypeEvidence(path: string, catalog: StructuralFlowCatalog): boolean {
+  return catalog.contextBoundaries(path).some((boundary) => (
+    boundary.target === "Repository"
+    && (boundary.operation === "references" || boundary.operation === "imports")
+  ));
+}
+
 export function findTypeOrmEntities(catalog: StructuralFlowCatalog): StructuralNode[] {
-  const entities = catalog.nodes.filter((node) => hasDecorator(node, ["Entity", "ViewEntity"]));
+  const entities = catalog.nodes.filter((node) => (
+    hasDecorator(node, ["Entity", "ViewEntity"])
+    || isConventionalEntity(node, catalog)
+  ));
   for (const file of catalog.nodes.filter(isTypeOrmEntityFile)) {
     const children = catalog.outgoing(file.reference.id, "declares")
       .filter((relation) => relation.support.status === "exact")
@@ -99,6 +137,21 @@ export function findTypeOrmEntities(catalog: StructuralFlowCatalog): StructuralN
     )));
   }
   return [...new Map(entities.map((entity) => [entity.reference.id, entity])).values()];
+}
+
+function isConventionalEntity(
+  node: StructuralNode,
+  catalog: StructuralFlowCatalog,
+): boolean {
+  if (node.declarationKind !== "class") {
+    return false;
+  }
+  const ownerFile = catalog.contextIncoming(node.reference.id, "declares")
+    .map((relation) => catalog.contextNode(relation.from.id))
+    .find((owner) => owner !== undefined && isTypeOrmEntityFile(owner));
+  return ownerFile !== undefined
+    && node.name.toLowerCase() === entityNameFromFile(ownerFile.name)
+    && catalog.contextNodes(ownerFile.path).some(isTypeOrmImport);
 }
 
 function entityNameFromFile(fileName: string): string {

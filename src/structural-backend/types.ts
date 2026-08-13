@@ -95,6 +95,7 @@ export interface StructuralUnknownBoundary {
   readonly kind: "UnknownBoundary";
   readonly owner: StructuralReference;
   readonly operation: string;
+  readonly target?: string;
   readonly reason: string;
   readonly path?: string;
   readonly position?: StructuralSourcePosition;

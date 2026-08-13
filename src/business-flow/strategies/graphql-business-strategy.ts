@@ -7,6 +7,7 @@ import {
   addBusinessNode,
   addBusinessRelation,
   addStructuralRelation,
+  hasBusinessOperationEvidence,
   nodeKey,
 } from "./strategy-helpers.js";
 
@@ -84,7 +85,11 @@ export class GraphqlBusinessStrategy implements FrameworkBusinessStrategy {
 
       for (const call of catalog.outgoing(handler.reference.id, "calls")) {
         const target = catalog.exactTarget(call);
-        if (target === undefined || target.reference.id === handler.reference.id) {
+        if (
+          target === undefined
+          || target.reference.id === handler.reference.id
+          || !hasBusinessOperationEvidence(target, catalog)
+        ) {
           continue;
         }
         const targetKey = nodeKey(options.capability.key, "operations", target);
@@ -106,17 +111,6 @@ export class GraphqlBusinessStrategy implements FrameworkBusinessStrategy {
           type: "realized_by",
           to: target,
         });
-        for (const incoming of catalog.incoming(target.reference.id, "calls")) {
-          const caller = catalog.node(incoming.from.id);
-          if (caller?.kind === "Test" && incoming.support.status === "exact") {
-            addStructuralRelation(draft, {
-              from: targetKey,
-              type: "verified_by",
-              to: caller,
-              evidence: caller,
-            });
-          }
-        }
       }
     }
   }

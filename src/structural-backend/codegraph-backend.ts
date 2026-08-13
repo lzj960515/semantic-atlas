@@ -952,7 +952,7 @@ function normalizeNode(node: Node): StructuralNode {
   return {
     reference: referenceForNode(node),
     kind: normalizeNodeKind(node),
-    declarationKind: isTestNode(node) ? "test" : node.kind,
+    declarationKind: node.kind,
     decorators: [...(node.decorators ?? [])],
     name: node.name,
     qualifiedName: node.qualifiedName,
@@ -973,7 +973,7 @@ function normalizeProjectGraph(
 ): StructuralTraversalResult {
   const requestedKinds = new Set(query.declarationKinds);
   const backendNodes = projectNodes(graph, requestedKinds).filter((node) => (
-    requestedKinds.has(isTestNode(node) ? "test" : node.kind)
+    requestedKinds.has(node.kind)
   ));
   const nodesById = new Map(backendNodes.map((node) => [node.id, node]));
   const relations: StructuralRelation[] = [];
@@ -1010,13 +1010,6 @@ function projectNodes(
   const nodes = [...requestedKinds]
     .filter((kind): kind is Node["kind"] => kind !== "test" && kind !== "virtual_module")
     .flatMap((kind) => graph.getNodesByKind(kind));
-  if (requestedKinds.has("test")) {
-    for (const file of graph.getFiles()) {
-      if (isTestPath(file.path)) {
-        nodes.push(...graph.getNodesInFile(file.path));
-      }
-    }
-  }
   return uniqueBy(nodes, (node) => node.id);
 }
 
@@ -1121,7 +1114,7 @@ function normalizeNodeKind(node: Node): StructuralNode["kind"] {
   if (node.kind === "module" || node.kind === "namespace") {
     return "Module";
   }
-  return isTestNode(node) ? "Test" : "Symbol";
+  return "Symbol";
 }
 
 function referenceForNode(node: Node): StructuralReference {
@@ -1129,7 +1122,7 @@ function referenceForNode(node: Node): StructuralReference {
   if (node.kind === "file") {
     return { id: `file:${path}` };
   }
-  const prefix = isTestNode(node) ? "test" : node.kind === "module" || node.kind === "namespace"
+  const prefix = node.kind === "module" || node.kind === "namespace"
     ? "module"
     : "symbol";
   return {
@@ -1299,6 +1292,7 @@ function unresolvedReferenceBoundary(
     kind: "UnknownBoundary",
     owner: ownerReference,
     operation,
+    target: reference.referenceName,
     reason: `The structural backend could not resolve ${reference.referenceName}.`,
     ...(path === undefined ? {} : { path: normalizeRepositoryPath(path) }),
     position: { line: positiveLine(reference.line), column: reference.column + 1 },
@@ -1355,16 +1349,6 @@ function normalizeRepositoryPath(path: string): string {
     );
   }
   return normalized;
-}
-
-function isTestNode(node: Node): boolean {
-  return isTestPath(node.filePath);
-}
-
-function isTestPath(filePath: string): boolean {
-  const path = filePath.toLowerCase();
-  return /(?:^|\/)(?:__tests__|test|tests|spec|specs)(?:\/|$)/u.test(path) ||
-    /(?:^|\.)(?:test|spec)\.[cm]?[jt]sx?$/u.test(path);
 }
 
 function positiveLine(line: number): number {

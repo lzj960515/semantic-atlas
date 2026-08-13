@@ -6,17 +6,12 @@ import type { StructuralIndexBackend } from "../structural-backend/types.js";
 import { WorldSnapshotStore } from "../world/world-snapshot-store.js";
 import { BusinessFlowDraft } from "./business-flow-draft.js";
 import type { FrameworkBusinessStrategy } from "./framework-business-strategy.js";
-import {
-  findBullMqAnchors,
-  BullMqBusinessStrategy,
-} from "./strategies/bullmq-business-strategy.js";
+import { BullMqBusinessStrategy } from "./strategies/bullmq-business-strategy.js";
 import { GraphqlBusinessStrategy } from "./strategies/graphql-business-strategy.js";
 import { NestJsBusinessStrategy } from "./strategies/nestjs-business-strategy.js";
-import {
-  findTypeOrmEntities,
-  TypeOrmBusinessStrategy,
-} from "./strategies/typeorm-business-strategy.js";
+import { TypeOrmBusinessStrategy } from "./strategies/typeorm-business-strategy.js";
 import { deriveVerifiedInvariants } from "./strategies/verified-invariant-strategy.js";
+import { deriveVerifiedTests } from "./strategies/verified-test-strategy.js";
 import { StructuralFlowCatalog } from "./structural-flow-catalog.js";
 import type {
   BusinessFlowDerivationOptions,
@@ -42,7 +37,7 @@ export class BusinessFlowDerivationService {
     if (snapshot.snapshotId !== currentWorld.snapshot.snapshotId) {
       throw new Error("Business flow derivation requires a current world snapshot");
     }
-    const catalog = await StructuralFlowCatalog.load(
+    const projectCatalog = await StructuralFlowCatalog.load(
       this.structural,
       verifiedEvidenceReferences(options),
     );
@@ -55,15 +50,15 @@ export class BusinessFlowDerivationService {
       throw new Error("The repository or world publication changed during business flow derivation");
     }
     const draft = new BusinessFlowDraft(snapshot);
-    const capabilityEvidence = resolveCapabilityEvidence(catalog, options);
-    if (capabilityEvidence === undefined) {
-      throw new Error("Business flow derivation requires framework or agent-verified evidence");
-    }
+    const roots = derivationRoots(options);
+    const catalog = projectCatalog.scopeTo(roots);
+    const capabilityEvidence = options.capability.roots.map((root) => requireNode(projectCatalog, root));
     draft.addNode(capabilityNode(options, draft, capabilityEvidence));
     for (const strategy of DEFAULT_STRATEGIES) {
       strategy.derive(catalog, options, draft);
     }
     deriveVerifiedInvariants(catalog, options, draft);
+    deriveVerifiedTests(catalog, options, draft);
     return draft.finish();
   }
 
@@ -76,7 +71,7 @@ export class BusinessFlowDerivationService {
 function capabilityNode(
   options: BusinessFlowDerivationOptions,
   draft: BusinessFlowDraft,
-  evidence: Parameters<BusinessFlowDraft["evidenceFor"]>[0],
+  evidence: readonly Parameters<BusinessFlowDraft["evidenceFor"]>[0][],
 ): BusinessNodeInput {
   return {
     key: options.capability.key,
@@ -85,59 +80,38 @@ function capabilityNode(
     summary: options.capability.summary,
     aliases: [...(options.capability.aliases ?? [])],
     certainty: "inferred",
-    evidence: [draft.evidenceFor(evidence)],
+    evidence: evidence.map((item) => draft.evidenceFor(item)),
   };
 }
 
-function resolveCapabilityEvidence(
+function requireNode(
   catalog: StructuralFlowCatalog,
-  options: BusinessFlowDerivationOptions,
+  reference: { readonly id: string },
 ) {
-  if (options.capability.evidence !== undefined) {
-    const evidence = catalog.node(options.capability.evidence.id);
-    if (evidence === undefined) {
-      throw new Error(`Capability ${options.capability.key} references missing evidence`);
-    }
-    return evidence;
+  const node = catalog.node(reference.id);
+  if (node === undefined) {
+    throw new Error(`Business flow root ${reference.id} references missing evidence`);
   }
-
-  return catalog.nodes.find((node) => (
-    node.declarationKind === "route"
-    || node.decorators.some((decorator) => [
-      "Entity",
-      "Processor",
-      "InjectQueue",
-    ].includes(decoratorName(decorator)))
-  )) ?? findTypeOrmEntities(catalog)[0]
-    ?? findBullMqAnchors(catalog)[0]
-    ?? firstVerifiedEvidence(catalog, options);
-}
-
-function firstVerifiedEvidence(
-  catalog: StructuralFlowCatalog,
-  options: BusinessFlowDerivationOptions,
-) {
-  const references = [
-    ...(options.messageFlows ?? []).flatMap((flow) => [flow.producer, flow.consumer]),
-    ...(options.invariants ?? []).map((invariant) => invariant.evidence),
-  ];
-  return references.map((reference) => catalog.node(reference.id))
-    .find((node) => node !== undefined);
+  return node;
 }
 
 function verifiedEvidenceReferences(
   options: BusinessFlowDerivationOptions,
 ) {
   return [
-    ...(options.capability.evidence === undefined ? [] : [options.capability.evidence]),
+    ...options.capability.roots,
     ...(options.messageFlows ?? []).flatMap((flow) => [flow.producer, flow.consumer]),
     ...(options.invariants ?? []).flatMap((invariant) => [
       invariant.evidence,
       ...invariant.constrains,
     ]),
+    ...(options.verifications ?? []).flatMap((verification) => [
+      verification.operation,
+      verification.test,
+    ]),
   ];
 }
 
-function decoratorName(decorator: string): string {
-  return decorator.replace(/^@/u, "").split("(", 1)[0]!.split(".").at(-1)!;
+function derivationRoots(options: BusinessFlowDerivationOptions) {
+  return verifiedEvidenceReferences(options);
 }
