@@ -77,6 +77,8 @@ Atlas business knowledge does not own CodeGraph rows. An evidence record contain
 
 No cascading foreign key points from `atlas_*` evidence to a CodeGraph structural table. CodeGraph may clear and recreate its structural rows during a supported rebuild. After every successful index, Atlas attempts to rebind evidence from the durable locator tuple. A unique match is current, a missing or ambiguous match is stale, and certainty remains unchanged.
 
+Structural relation targets own the same kind of durable locator independently from their supporting evidence. A relation may target one structural node while its evidence cites another; Atlas resolves both locators separately and marks the relation stale when either one is missing or ambiguous.
+
 ## Directory lifecycle
 
 Atlas owns directory preparation:
@@ -120,6 +122,8 @@ A future physical-database recovery command must copy or export Atlas-owned tabl
 CodeGraph's structural tables represent the current code projection. Atlas snapshots record repository content identity, Git state, relevant file hashes, the CodeGraph package and extraction versions, build outcome, and evidence validity.
 
 Atlas does not preserve a second full historical structural graph. `changes` is derived during index/sync from the previous completed state and persisted as Atlas-owned change metadata. Business assertions remain durable across snapshots and expose validity for the requested current snapshot.
+
+World publication captures the repository snapshot after acquiring the Atlas write lock, verifies it again after structural indexing, and compares its source hashes with CodeGraph's indexed file manifest. If source changes during that interval, including a transient change that restores the same final snapshot, Atlas rolls the structural database back and leaves the prior world snapshot as the last published revision. The first semantic transition published for a snapshot is immutable, so a later no-change sync cannot replace its path-level change metadata.
 
 ## Failure and upgrade behavior
 

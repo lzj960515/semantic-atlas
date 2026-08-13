@@ -38,6 +38,10 @@ import type {
   KnowledgeValidity,
   TraversalDirection,
 } from "./types.js";
+import {
+  readStructuralTargetBinding,
+  type StructuralTargetBinding,
+} from "../knowledge/structural-target-binding.js";
 
 interface BusinessNodeRow {
   readonly node_id: number;
@@ -435,6 +439,9 @@ export class GraphStore implements Disposable {
       this.requireBusinessNodeId(relation.to.key);
     }
     const targetKey = relation.to.domain === "business" ? relation.to.key : relation.to.id;
+    const target = relation.to.domain === "structural"
+      ? readStructuralTargetBinding(relation) ?? inferredStructuralTarget(relation, baseSnapshotId)
+      : undefined;
     this.database.prepare(`
       INSERT INTO atlas_business_relations (
         repository_id,
@@ -443,12 +450,34 @@ export class GraphStore implements Disposable {
         relation_type,
         to_domain,
         to_key,
-        certainty
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        certainty,
+        target_file,
+        target_qualified_symbol,
+        target_structural_kind,
+        target_start_line,
+        target_start_column,
+        target_end_line,
+        target_end_column,
+        target_atlas_snapshot_id,
+        target_backend_version,
+        target_backend_locator,
+        target_binding_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (repository_id, from_key, relation_type, to_domain, to_key)
       DO UPDATE SET
         base_snapshot_id = excluded.base_snapshot_id,
-        certainty = excluded.certainty
+        certainty = excluded.certainty,
+        target_file = excluded.target_file,
+        target_qualified_symbol = excluded.target_qualified_symbol,
+        target_structural_kind = excluded.target_structural_kind,
+        target_start_line = excluded.target_start_line,
+        target_start_column = excluded.target_start_column,
+        target_end_line = excluded.target_end_line,
+        target_end_column = excluded.target_end_column,
+        target_atlas_snapshot_id = excluded.target_atlas_snapshot_id,
+        target_backend_version = excluded.target_backend_version,
+        target_backend_locator = excluded.target_backend_locator,
+        target_binding_status = excluded.target_binding_status
     `).run(
       this.#repositoryId,
       baseSnapshotId,
@@ -457,6 +486,17 @@ export class GraphStore implements Disposable {
       relation.to.domain,
       targetKey,
       relation.certainty,
+      target?.file ?? null,
+      target?.qualifiedSymbol ?? null,
+      target?.structuralKind ?? null,
+      target?.range.start.line ?? null,
+      target?.range.start.column ?? null,
+      target?.range.end.line ?? null,
+      target?.range.end.column ?? null,
+      target?.atlasSnapshotId ?? null,
+      target?.backendVersion ?? null,
+      target?.backendLocator ?? null,
+      target === undefined ? "unresolved" : "bound",
     );
     const stored = this.findBusinessRelation(relation);
     if (stored === undefined) {
@@ -619,12 +659,19 @@ export class GraphStore implements Disposable {
     }
 
     const relationRows = this.database.prepare(`
-      SELECT relation_id
+      SELECT relation_id, to_domain, target_binding_status
       FROM atlas_business_relations
       WHERE repository_id = ?
-    `).all(this.#repositoryId) as unknown as { relation_id: number }[];
-    for (const { relation_id } of relationRows) {
-      const validity = allEvidenceMatches(this.readRelationEvidenceRows(relation_id), snapshot)
+    `).all(this.#repositoryId) as unknown as {
+      relation_id: number;
+      to_domain: "structural" | "business";
+      target_binding_status: EvidenceRow["binding_status"];
+    }[];
+    for (const relation of relationRows) {
+      const targetIsBound = relation.to_domain === "business"
+        || relation.target_binding_status === "bound";
+      const validity = targetIsBound
+        && allEvidenceMatches(this.readRelationEvidenceRows(relation.relation_id), snapshot)
         ? "valid"
         : "stale";
       this.database.prepare(`
@@ -636,7 +683,7 @@ export class GraphStore implements Disposable {
         ) VALUES (?, ?, ?, ?)
         ON CONFLICT (relation_id, snapshot_id) DO UPDATE SET
           validity = excluded.validity
-      `).run(relation_id, this.#repositoryId, snapshot.snapshotId, validity);
+      `).run(relation.relation_id, this.#repositoryId, snapshot.snapshotId, validity);
     }
   }
 
@@ -872,6 +919,31 @@ function allEvidenceMatches(rows: readonly EvidenceRow[], snapshot: RepositorySn
     row.binding_status === "bound"
     && evidenceMatchesSnapshot(evidenceFromRow(row), snapshot)
   ));
+}
+
+function inferredStructuralTarget(
+  relation: BusinessRelationInput,
+  snapshotId: string,
+): StructuralTargetBinding | undefined {
+  if (relation.to.domain !== "structural") {
+    return undefined;
+  }
+  const targetReference = relation.to.id;
+  const matchingEvidence = relation.evidence.find((item) => item.symbolId === targetReference);
+  if (matchingEvidence === undefined) {
+    return undefined;
+  }
+  const storedEvidence = matchingEvidence as StoredEvidence;
+  return {
+    structuralReference: targetReference,
+    file: matchingEvidence.file,
+    qualifiedSymbol: storedEvidence.qualifiedSymbol ?? null,
+    structuralKind: storedEvidence.structuralKind ?? null,
+    range: matchingEvidence.range,
+    atlasSnapshotId: storedEvidence.atlasSnapshotId ?? snapshotId,
+    backendVersion: storedEvidence.backendVersion ?? null,
+    backendLocator: storedEvidence.backendLocator ?? null,
+  };
 }
 
 function lexicalScore(terms: readonly string[], fields: readonly string[]): number {

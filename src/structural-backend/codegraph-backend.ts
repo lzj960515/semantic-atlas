@@ -17,8 +17,9 @@ import type {
 import type { GitRepository } from "../repository/types.js";
 import { runGit } from "../repository/git-command.js";
 import type {
-  EvidenceLocator,
+  IndexedSourceFile,
   StructuralEvidenceResolver,
+  StructuralTargetLocator,
   WorldWriteCoordinator,
 } from "../world/types.js";
 import {
@@ -87,10 +88,11 @@ const backendRelationTypes = new Map<BackendStructuralRelationType, EdgeKind>([
 ]);
 
 export interface StructuralWorldPublicationHooks {
-  onBuilding(): void;
+  onBuilding(): void | Promise<void>;
   publish(
     result: StructuralBuildResult,
     resolver: StructuralEvidenceResolver,
+    indexedSources: readonly IndexedSourceFile[],
   ): void | Promise<void>;
   fail(error: unknown): void;
 }
@@ -389,10 +391,10 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
     try {
       if (!initialized && worldHooks !== undefined) {
         graph = await sdk.CodeGraph.init(this.#repository.worktreeRoot, { index: false });
-        worldHooks.onBuilding();
+        await worldHooks.onBuilding();
         publication = await StructuralPublication.begin(this.#databasePath, false);
       } else {
-        worldHooks?.onBuilding();
+        await worldHooks?.onBuilding();
         publication = await StructuralPublication.begin(this.#databasePath, initialized);
         graph = initialized
           ? await sdk.CodeGraph.open(this.#repository.worktreeRoot, { sync: false })
@@ -410,7 +412,14 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
         await this.persistWorldFailure(sdk, initialized, worldHooks, restored.diagnostics[0]?.message);
         return restored;
       }
-      await worldHooks?.publish(buildResult, structuralEvidenceResolver(graph));
+      await worldHooks?.publish(
+        buildResult,
+        structuralEvidenceResolver(graph),
+        graph.getFiles().map((file) => ({
+          path: normalizeRepositoryPath(file.path),
+          contentHash: file.contentHash,
+        })),
+      );
       await publication.commit();
       return buildResult;
     } catch (error) {
@@ -982,7 +991,7 @@ function structuralEvidenceResolver(graph: CodeGraph): StructuralEvidenceResolve
   };
 }
 
-function candidateMatchesLocator(node: StructuralNode, locator: EvidenceLocator): boolean {
+function candidateMatchesLocator(node: StructuralNode, locator: StructuralTargetLocator): boolean {
   return (locator.qualifiedSymbol === null || node.qualifiedName === locator.qualifiedSymbol)
     && (locator.structuralKind === null || node.kind === locator.structuralKind);
 }

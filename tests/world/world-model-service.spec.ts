@@ -1,10 +1,24 @@
+import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
+import { stat } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { GraphStore } from "../../src/graph/graph-store.js";
 import { inspectGitRepository } from "../../src/repository/repository-inspector.js";
-import { WorldModelService } from "../../src/world/world-model-service.js";
+import type { GitRepository } from "../../src/repository/types.js";
+import { createRepositorySnapshot } from "../../src/snapshots/repository-snapshot.js";
+import { CodeGraphStructuralBackend } from "../../src/structural-backend/codegraph-backend.js";
+import {
+  WorldModelService,
+  worldPublicationMismatch,
+} from "../../src/world/world-model-service.js";
 import { createGitFixture, type GitFixture } from "../support/git-fixture.js";
+
+const executeFile = promisify(execFile);
 
 describe("world model publication", () => {
   const fixtures: GitFixture[] = [];
@@ -111,4 +125,142 @@ describe("world model publication", () => {
       FROM atlas_semantic_changes
     `).get()).toEqual({ count: 2 });
   });
+
+  it("preserves the first transition when a later sync publishes the same snapshot", async () => {
+    const fixture = await createGitFixture();
+    fixtures.push(fixture);
+    const repository = await inspectGitRepository(fixture.directory);
+    const world = new WorldModelService(repository);
+    const initial = await world.build();
+    await fixture.write("src/example.ts", "export const value = 2;\n");
+    const changed = await world.sync();
+
+    const unchanged = await world.sync();
+
+    expect(unchanged.snapshotId).toBe(changed.snapshotId);
+    using database = new DatabaseSync(changed.structural.databasePath, { readOnly: true });
+    expect(database.prepare(`
+      SELECT from_snapshot_id, to_snapshot_id, modified_paths
+      FROM atlas_semantic_changes
+      WHERE to_snapshot_id = ?
+    `).get(changed.snapshotId)).toEqual({
+      from_snapshot_id: initial.snapshotId,
+      to_snapshot_id: changed.snapshotId,
+      modified_paths: '["src/example.ts"]',
+    });
+  });
+
+  it("detects indexed-source ABA when the repository returns to the captured snapshot", async () => {
+    const fixture = await createGitFixture();
+    fixtures.push(fixture);
+    const repository = await inspectGitRepository(fixture.directory);
+    const captured = await createRepositorySnapshot(repository);
+    const transientContents = "export const transientValue = true;\n";
+
+    await fixture.write("src/example.ts", transientContents);
+    await fixture.write("src/example.ts", "export const value = 1;\n");
+    const restored = await createRepositorySnapshot(repository);
+
+    expect(restored.snapshotId).toBe(captured.snapshotId);
+    expect(worldPublicationMismatch(captured, restored, [{
+      path: "src/example.ts",
+      contentHash: createHash("sha256").update(transientContents).digest("hex"),
+    }])).toMatch(/indexed source src\/example\.ts/iu);
+    expect(worldPublicationMismatch(captured, restored, [])).toMatch(
+      /snapshot source src\/example\.ts is missing/iu,
+    );
+  });
+
+  it.each([
+    ["in-process SDK", false],
+    ["private SDK worker", true],
+  ] as const)(
+    "rejects a mixed world when source changes during %s publication",
+    async (_runtime, privateWorker) => {
+      const fixture = await createGitFixture();
+      fixtures.push(fixture);
+      const repository = await inspectGitRepository(fixture.directory);
+      const world = new WorldModelService(repository);
+      const initial = await world.build();
+      await fixture.write("src/example.ts", largeSource("indexedCandidate", privateWorker));
+      if (privateWorker) {
+        await executeFile("pnpm", ["build"], { cwd: projectRoot() });
+      }
+
+      const synchronization = privateWorker
+        ? runBuiltPrivateWorldSync(repository)
+        : world.sync();
+      void synchronization.catch(() => undefined);
+      const rewrite = rewriteDuringStructuralPublication(
+        initial.structural.databasePath,
+        fixture,
+        "export const changedDuringPublication = true;\n",
+      );
+
+      await rewrite;
+      await expect(synchronization).rejects.toThrow(/repository changed during world publication/iu);
+      expect(world.state()).toMatchObject({
+        status: "failed",
+        currentSnapshotId: initial.snapshotId,
+      });
+      expect((await createRepositorySnapshot(repository)).snapshotId).not.toBe(initial.snapshotId);
+      const backend = new CodeGraphStructuralBackend(repository);
+      await expect(backend.search({ query: "value", limit: 5 })).resolves.toEqual(
+        expect.arrayContaining([expect.objectContaining({
+          node: expect.objectContaining({ name: "value" }),
+        })]),
+      );
+      await expect(backend.search({ query: "changedDuringPublication", limit: 5 }))
+        .resolves.toEqual([]);
+    },
+    60_000,
+  );
 });
+
+function projectRoot(): string {
+  return join(import.meta.dirname, "..", "..");
+}
+
+async function runBuiltPrivateWorldSync(repository: GitRepository): Promise<unknown> {
+  const clientModule = pathToFileURL(join(
+    projectRoot(),
+    "dist",
+    "structural-backend",
+    "codegraph-worker-client.js",
+  )).href;
+  const client = await import(clientModule) as {
+    runCodeGraphWorker(request: unknown): Promise<unknown>;
+  };
+  return client.runCodeGraphWorker({ operation: "worldSync", repository });
+}
+
+async function rewriteDuringStructuralPublication(
+  databasePath: string,
+  fixture: GitFixture,
+  contents: string,
+): Promise<void> {
+  const publicationDirectory = join(dirname(databasePath), ".structural-publication");
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    try {
+      if ((await stat(publicationDirectory)).isDirectory()) {
+        await fixture.write("src/example.ts", contents);
+        return;
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw error;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+  throw new Error("Timed out waiting for active structural publication");
+}
+
+function largeSource(symbol: string, privateWorker: boolean): string {
+  const count = privateWorker ? 80_000 : 30_000;
+  return `${Array.from(
+    { length: count },
+    (_, index) => `export const ${symbol}${index} = ${index};`,
+  ).join("\n")}\n`;
+}

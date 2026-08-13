@@ -5,7 +5,7 @@ import type { DatabaseSync as NodeDatabaseSync } from "node:sqlite";
 
 import type { GitRepository } from "../repository/types.js";
 
-export const CURRENT_ATLAS_SCHEMA_VERSION = 2;
+export const CURRENT_ATLAS_SCHEMA_VERSION = 3;
 
 const require = createRequire(import.meta.url);
 
@@ -204,6 +204,47 @@ const migrations: readonly SchemaMigration[] = [
       INSERT INTO atlas_world_state (repository_id, status, updated_at)
       SELECT repository_id, 'missing', updated_at
       FROM atlas_repositories;
+    `,
+  },
+  {
+    version: 3,
+    sql: `
+      ALTER TABLE atlas_business_relations ADD COLUMN target_file TEXT;
+      ALTER TABLE atlas_business_relations ADD COLUMN target_qualified_symbol TEXT;
+      ALTER TABLE atlas_business_relations ADD COLUMN target_structural_kind TEXT;
+      ALTER TABLE atlas_business_relations ADD COLUMN target_start_line INTEGER;
+      ALTER TABLE atlas_business_relations ADD COLUMN target_start_column INTEGER;
+      ALTER TABLE atlas_business_relations ADD COLUMN target_end_line INTEGER;
+      ALTER TABLE atlas_business_relations ADD COLUMN target_end_column INTEGER;
+      ALTER TABLE atlas_business_relations ADD COLUMN target_atlas_snapshot_id TEXT;
+      ALTER TABLE atlas_business_relations ADD COLUMN target_backend_version TEXT;
+      ALTER TABLE atlas_business_relations ADD COLUMN target_backend_locator TEXT;
+      ALTER TABLE atlas_business_relations ADD COLUMN target_binding_status TEXT NOT NULL DEFAULT 'unresolved'
+        CHECK (target_binding_status IN ('bound', 'missing', 'ambiguous', 'unresolved'));
+
+      UPDATE atlas_business_relations
+      SET
+        target_file = evidence.file,
+        target_qualified_symbol = evidence.qualified_symbol,
+        target_structural_kind = evidence.structural_kind,
+        target_start_line = evidence.start_line,
+        target_start_column = evidence.start_column,
+        target_end_line = evidence.end_line,
+        target_end_column = evidence.end_column,
+        target_atlas_snapshot_id = evidence.atlas_snapshot_id,
+        target_backend_version = evidence.backend_version,
+        target_backend_locator = evidence.backend_locator,
+        target_binding_status = evidence.binding_status
+      FROM atlas_business_relation_evidence AS evidence
+      WHERE atlas_business_relations.to_domain = 'structural'
+        AND evidence.relation_id = atlas_business_relations.relation_id
+        AND evidence.structural_reference = atlas_business_relations.to_key
+        AND evidence.position = (
+          SELECT MIN(candidate.position)
+          FROM atlas_business_relation_evidence AS candidate
+          WHERE candidate.relation_id = atlas_business_relations.relation_id
+            AND candidate.structural_reference = atlas_business_relations.to_key
+        );
     `,
   },
 ];

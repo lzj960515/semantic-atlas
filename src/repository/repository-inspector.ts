@@ -47,7 +47,7 @@ async function discoverWorktreeRoots(workingDirectory: string): Promise<string[]
   return [...new Set(worktreePaths)].sort(compareRepositoryPaths);
 }
 
-function hasSupportedExtension(path: string): boolean {
+export function isSupportedSource(path: string): boolean {
   const extensionIndex = path.lastIndexOf(".");
   if (extensionIndex < 0) {
     return false;
@@ -58,7 +58,7 @@ function hasSupportedExtension(path: string): boolean {
 export function isTargetSource(path: string): boolean {
   const fileName = basename(path);
   return (
-    hasSupportedExtension(path) ||
+    isSupportedSource(path) ||
     fileName === "package.json" ||
     /^(?:ts|js)config(?:\.[^.]+)*\.json$/u.test(fileName)
   );

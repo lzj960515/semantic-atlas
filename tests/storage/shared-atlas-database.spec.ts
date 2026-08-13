@@ -82,7 +82,73 @@ describe("shared Atlas database", () => {
       evidence: [context.evidence],
     });
   });
+
+  it("backfills v2 structural targets only from evidence for the same reference", async () => {
+    const context = await createSharedDatabaseContext(fixtures);
+    using snapshots = new SnapshotStore(context.repository);
+    snapshots.save(context.snapshot);
+    const matchingTarget = context.evidence.symbolId;
+    const independentTarget = "symbol:src/independent.ts#independent";
+    using graph = new GraphStore(context.repository);
+    graph.mutateBusinessGraph({
+      ...businessMutation(context.snapshot.snapshotId, context.evidence),
+      upsertRelations: [matchingTarget, independentTarget].map((target) => ({
+        from: { domain: "business" as const, key: "fixture/read-value" },
+        type: "realized_by" as const,
+        to: { domain: "structural" as const, id: target },
+        certainty: "exact" as const,
+        evidence: [context.evidence],
+      })),
+    });
+    graph.close();
+    snapshots.close();
+
+    downgradeTargetLocatorSchema(context.databasePath);
+
+    using migrated = new GraphStore(context.repository);
+    expect(migrated.schemaVersion).toBe(3);
+    using database = new DatabaseSync(context.databasePath, { readOnly: true });
+    const migratedTargets = database.prepare(`
+      SELECT to_key, target_file, target_binding_status
+      FROM atlas_business_relations
+    `).all() as unknown as {
+      to_key: string;
+      target_file: string | null;
+      target_binding_status: string;
+    }[];
+    const targetByReference = new Map(migratedTargets.map((target) => [target.to_key, target]));
+    expect(targetByReference.get(matchingTarget)).toEqual({
+      to_key: matchingTarget,
+      target_file: context.evidence.file,
+      target_binding_status: "bound",
+    });
+    expect(targetByReference.get(independentTarget)).toEqual({
+      to_key: independentTarget,
+      target_file: null,
+      target_binding_status: "unresolved",
+    });
+  });
 });
+
+function downgradeTargetLocatorSchema(databasePath: string): void {
+  using database = new DatabaseSync(databasePath);
+  for (const column of [
+    "target_file",
+    "target_qualified_symbol",
+    "target_structural_kind",
+    "target_start_line",
+    "target_start_column",
+    "target_end_line",
+    "target_end_column",
+    "target_atlas_snapshot_id",
+    "target_backend_version",
+    "target_backend_locator",
+    "target_binding_status",
+  ]) {
+    database.exec(`ALTER TABLE atlas_business_relations DROP COLUMN ${column}`);
+  }
+  database.prepare("DELETE FROM atlas_schema_migrations WHERE version = 3").run();
+}
 
 function readCodeGraphOwnershipCounts(databasePath: string) {
   using database = new DatabaseSync(databasePath);

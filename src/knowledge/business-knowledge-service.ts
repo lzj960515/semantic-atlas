@@ -25,6 +25,10 @@ import type {
   StructuralEvidenceResolver,
   WorldWriteCoordinator,
 } from "../world/types.js";
+import {
+  bindStructuralTarget as attachStructuralTargetBinding,
+  type StructuralTargetBinding,
+} from "./structural-target-binding.js";
 
 export interface AppliedGraphPatch {
   readonly baseSnapshotId: string;
@@ -192,6 +196,24 @@ function toBusinessGraphMutation(
       backendLocator: resolver.backendLocator(node) ?? node.reference.id,
     };
   };
+  const createStructuralTargetBinding = (
+    reference: string,
+  ): StructuralTargetBinding => {
+    const node = structuralNodes.get(reference);
+    if (node === undefined) {
+      throw new Error(`Structural relation target ${reference} was not verified`);
+    }
+    return {
+      structuralReference: reference,
+      file: node.path,
+      qualifiedSymbol: node.qualifiedName,
+      structuralKind: node.kind,
+      range: node.range,
+      atlasSnapshotId: snapshotId,
+      backendVersion,
+      backendLocator: resolver.backendLocator(node) ?? node.reference.id,
+    };
+  };
   return {
     baseSnapshotId: patch.baseSnapshotId,
     upsertNodes: patch.nodeOperations.flatMap((operation) => (
@@ -204,7 +226,15 @@ function toBusinessGraphMutation(
     )),
     upsertRelations: patch.relationOperations.flatMap((operation) => (
       operation.op === "upsert"
-        ? [{ ...operation.relation, evidence: operation.relation.evidence.map(bindEvidence) }]
+        ? [operation.relation.to.domain === "structural"
+            ? attachStructuralTargetBinding({
+                ...operation.relation,
+                evidence: operation.relation.evidence.map(bindEvidence),
+              }, createStructuralTargetBinding(operation.relation.to.id))
+            : {
+                ...operation.relation,
+                evidence: operation.relation.evidence.map(bindEvidence),
+              }]
         : []
     )),
     removeRelations: patch.relationOperations.flatMap((operation) => (

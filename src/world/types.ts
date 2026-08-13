@@ -18,7 +18,7 @@ export interface WorldSnapshotState {
   readonly updatedAt: string;
 }
 
-export interface EvidenceLocator {
+export interface StructuralLocator {
   readonly structuralReference: string;
   readonly file: string;
   readonly qualifiedSymbol: string | null;
@@ -27,14 +27,24 @@ export interface EvidenceLocator {
     readonly start: { readonly line: number; readonly column: number };
     readonly end: { readonly line: number; readonly column: number };
   };
-  readonly contentHash: string;
   readonly backendLocator?: string;
 }
 
+export interface EvidenceLocator extends StructuralLocator {
+  readonly contentHash: string;
+}
+
+export type StructuralTargetLocator = StructuralLocator;
+
 export interface StructuralEvidenceResolver {
   getNode(reference: string): StructuralNode | undefined;
-  findCandidates(locator: EvidenceLocator): readonly StructuralNode[];
+  findCandidates(locator: StructuralLocator): readonly StructuralNode[];
   backendLocator(node: StructuralNode): string | undefined;
+}
+
+export interface IndexedSourceFile {
+  readonly path: string;
+  readonly contentHash: string;
 }
 
 export interface WorldWriteCoordinator {

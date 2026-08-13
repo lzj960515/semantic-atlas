@@ -2,6 +2,8 @@ import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { GraphStore } from "../../src/graph/graph-store.js";
+import { BusinessKnowledgeService } from "../../src/knowledge/business-knowledge-service.js";
+import { createRepositorySnapshot } from "../../src/snapshots/repository-snapshot.js";
 import type { StructuralNode } from "../../src/structural-backend/types.js";
 import type {
   EvidenceLocator,
@@ -212,6 +214,176 @@ describe("world snapshot reconciliation", () => {
       SELECT COUNT(*) AS count FROM atlas_repository_snapshots
     `).get()).toEqual({ count: 1 });
   });
+
+  it("rebinds a structural relation target independently from its supporting evidence", async () => {
+    const context = await createContext(contexts);
+    await context.fixture.write("src/stable.ts", "export const stable = true;\n");
+    const snapshot = await createRepositorySnapshot(context.repository);
+    const value = structuralNode(context.evidence.symbolId);
+    const stable = structuralNode(
+      "symbol:src/stable.ts#stable",
+      "stable",
+      "src/stable.ts",
+      28,
+    );
+    using store = new WorldSnapshotStore(context.repository);
+    store.begin(snapshot.snapshotId);
+    store.publish(snapshot, "1.5.0", 1, nodeResolver([value, stable]), {
+      fromSnapshotId: context.snapshot.snapshotId,
+      toSnapshotId: snapshot.snapshotId,
+      structural: { added: ["src/stable.ts"], modified: [], removed: [] },
+    });
+    const service = new BusinessKnowledgeService(
+      context.repository,
+      context.graph,
+      context.structuralBackend,
+    );
+    await service.learn({
+      schemaVersion: 1,
+      baseSnapshotId: snapshot.snapshotId,
+      nodeOperations: [{
+        op: "upsert",
+        node: {
+          key: "fixture/read-value",
+          kind: "Operation",
+          label: "Read value",
+          summary: "Reads a value with separately located supporting evidence.",
+          aliases: [],
+          certainty: "exact",
+          evidence: [context.evidence],
+        },
+      }],
+      relationOperations: [{
+        op: "upsert",
+        relation: {
+          from: { domain: "business", key: "fixture/read-value" },
+          type: "realized_by",
+          to: { domain: "structural", id: stable.reference.id },
+          certainty: "exact",
+          evidence: [context.evidence],
+        },
+      }],
+    });
+    using targetDatabase = new DatabaseSync(context.graph.databasePath, { readOnly: true });
+    expect(targetDatabase.prepare(`
+      SELECT
+        to_key,
+        target_file,
+        target_qualified_symbol,
+        target_structural_kind,
+        target_start_line,
+        target_start_column,
+        target_end_line,
+        target_end_column,
+        target_atlas_snapshot_id,
+        target_backend_version,
+        target_backend_locator,
+        target_binding_status
+      FROM atlas_business_relations
+      WHERE to_domain = 'structural'
+    `).get()).toEqual({
+      to_key: stable.reference.id,
+      target_file: stable.path,
+      target_qualified_symbol: stable.qualifiedName,
+      target_structural_kind: stable.kind,
+      target_start_line: stable.range.start.line,
+      target_start_column: stable.range.start.column,
+      target_end_line: stable.range.end.line,
+      target_end_column: stable.range.end.column,
+      target_atlas_snapshot_id: snapshot.snapshotId,
+      target_backend_version: "1.5.0",
+      target_backend_locator: `backend:${stable.reference.id}`,
+      target_binding_status: "bound",
+    });
+
+    const reboundValue = structuralNode("symbol:rebound-value");
+    const reboundStable = structuralNode(
+      "symbol:rebound-stable",
+      "stable",
+      "src/stable.ts",
+      28,
+    );
+    store.begin(snapshot.snapshotId);
+    expect(store.publish(snapshot, "1.5.0", 1, candidateResolver([
+      reboundValue,
+      reboundStable,
+    ]), {
+      fromSnapshotId: snapshot.snapshotId,
+      toSnapshotId: snapshot.snapshotId,
+      structural: { added: [], modified: [], removed: [] },
+    }).staleAssertions).toEqual([]);
+    expect(context.graph.listBusinessRelations(snapshot.snapshotId)).toEqual([
+      expect.objectContaining({
+        to: { domain: "structural", id: reboundStable.reference.id },
+        validity: "valid",
+        evidence: [expect.objectContaining({ symbolId: reboundValue.reference.id })],
+      }),
+    ]);
+
+    store.begin(snapshot.snapshotId);
+    const missingTarget = store.publish(
+      snapshot,
+      "1.5.0",
+      1,
+      candidateResolver([reboundValue]),
+      {
+        fromSnapshotId: snapshot.snapshotId,
+        toSnapshotId: snapshot.snapshotId,
+        structural: { added: [], modified: [], removed: [] },
+      },
+    );
+    expect(missingTarget.staleAssertions).toEqual([
+      `fixture/read-value:realized_by:structural:${reboundStable.reference.id}`,
+    ]);
+    expect(context.graph.listBusinessRelations(snapshot.snapshotId)).toEqual([
+      expect.objectContaining({
+        to: { domain: "structural", id: reboundStable.reference.id },
+        validity: "stale",
+      }),
+    ]);
+
+    context.graph.mutateBusinessGraph({
+      baseSnapshotId: snapshot.snapshotId,
+      upsertNodes: [{
+        key: "fixture/unrelated",
+        kind: "Invariant",
+        label: "Unrelated",
+        summary: "Must not revive a relation with a missing structural target.",
+        aliases: [],
+        certainty: "exact",
+        evidence: [context.evidence],
+      }],
+      removeNodeKeys: [],
+      upsertRelations: [],
+      removeRelations: [],
+    });
+    expect(context.graph.listBusinessRelations(snapshot.snapshotId)).toEqual([
+      expect.objectContaining({ validity: "stale" }),
+    ]);
+
+    store.begin(snapshot.snapshotId);
+    const ambiguousTarget = store.publish(
+      snapshot,
+      "1.5.0",
+      1,
+      candidateResolver([
+        reboundValue,
+        reboundStable,
+        { ...reboundStable, reference: { id: "symbol:other-stable" } },
+      ]),
+      {
+        fromSnapshotId: snapshot.snapshotId,
+        toSnapshotId: snapshot.snapshotId,
+        structural: { added: [], modified: [], removed: [] },
+      },
+    );
+    expect(ambiguousTarget.staleAssertions).toEqual([
+      `fixture/read-value:realized_by:structural:${reboundStable.reference.id}`,
+    ]);
+    expect(context.graph.listBusinessRelations(snapshot.snapshotId)).toEqual([
+      expect.objectContaining({ validity: "stale" }),
+    ]);
+  });
 });
 
 async function createContext(contexts: GraphTestContext[]): Promise<GraphTestContext> {
@@ -237,17 +409,30 @@ function candidateResolver(candidates: readonly StructuralNode[]): StructuralEvi
   };
 }
 
-function structuralNode(reference: string): StructuralNode {
+function nodeResolver(nodes: readonly StructuralNode[]): StructuralEvidenceResolver {
+  return {
+    getNode: (reference) => nodes.find((node) => node.reference.id === reference),
+    findCandidates: (locator) => nodes.filter((node) => node.path === locator.file),
+    backendLocator: (node) => `backend:${node.reference.id}`,
+  };
+}
+
+function structuralNode(
+  reference: string,
+  name = "value",
+  path = "src/example.ts",
+  endColumn = 24,
+): StructuralNode {
   return {
     reference: { id: reference },
     kind: "Symbol",
-    name: "value",
-    qualifiedName: "value",
-    path: "src/example.ts",
+    name,
+    qualifiedName: name,
+    path,
     language: "typescript",
     range: {
       start: { line: 1, column: 1 },
-      end: { line: 1, column: 24 },
+      end: { line: 1, column: endColumn },
     },
     support: { status: "exact", provenance: "backend" },
   };

@@ -7,6 +7,7 @@ import type {
   EvidenceLocator,
   SemanticChangeMetadata,
   StructuralEvidenceResolver,
+  StructuralTargetLocator,
   WorldSnapshotState,
 } from "./types.js";
 
@@ -29,6 +30,21 @@ interface EvidenceRow {
 
 interface ReconciliationResult {
   readonly staleAssertions: readonly string[];
+}
+
+interface StructuralTargetRow {
+  readonly relation_id: number;
+  readonly from_key: string;
+  readonly relation_type: string;
+  readonly to_key: string;
+  readonly target_file: string | null;
+  readonly target_qualified_symbol: string | null;
+  readonly target_structural_kind: string | null;
+  readonly target_start_line: number | null;
+  readonly target_start_column: number | null;
+  readonly target_end_line: number | null;
+  readonly target_end_column: number | null;
+  readonly target_backend_locator: string | null;
 }
 
 export class WorldSnapshotStore implements Disposable {
@@ -113,8 +129,14 @@ export class WorldSnapshotStore implements Disposable {
         backendVersion,
         resolver,
       );
+      staleAssertions.push(...this.rebindStructuralRelationTargets(
+        snapshot,
+        backendVersion,
+        resolver,
+      ));
+      const uniqueStaleAssertions = [...new Set(staleAssertions)].sort();
       this.refreshValidity(snapshot.snapshotId);
-      this.saveSemanticChanges({ ...changes, staleAssertions });
+      this.saveSemanticChanges({ ...changes, staleAssertions: uniqueStaleAssertions });
       const timestamp = new Date().toISOString();
       this.connection.prepare(`
         UPDATE atlas_world_state
@@ -136,7 +158,7 @@ export class WorldSnapshotStore implements Disposable {
         timestamp,
         this.#repositoryId,
       );
-      result = { staleAssertions };
+      result = { staleAssertions: uniqueStaleAssertions };
     });
     return result!;
   }
@@ -229,7 +251,7 @@ export class WorldSnapshotStore implements Disposable {
     snapshot: RepositorySnapshot,
     backendVersion: string,
     resolver: StructuralEvidenceResolver,
-  ): readonly string[] {
+  ): string[] {
     const staleAssertions: string[] = [];
     const bindings = [
       ...this.rebindEvidenceTable(
@@ -341,25 +363,90 @@ export class WorldSnapshotStore implements Disposable {
         row.owner_id,
         row.position,
       );
-      if (
-        ownerType === "relation"
-        && match.node !== undefined
-        && match.node.reference.id !== row.structural_reference
-      ) {
-        this.connection.prepare(`
-          UPDATE atlas_business_relations
-          SET to_key = ?
-          WHERE relation_id = ?
-            AND to_domain = 'structural'
-            AND to_key = ?
-        `).run(match.node.reference.id, row.owner_id, row.structural_reference);
-      }
       return { ownerType, ownerId: row.owner_id, status };
     });
   }
 
+  private rebindStructuralRelationTargets(
+    snapshot: RepositorySnapshot,
+    backendVersion: string,
+    resolver: StructuralEvidenceResolver,
+  ): readonly string[] {
+    const rows = this.connection.prepare(`
+      SELECT
+        relation_id,
+        from_key,
+        relation_type,
+        to_key,
+        target_file,
+        target_qualified_symbol,
+        target_structural_kind,
+        target_start_line,
+        target_start_column,
+        target_end_line,
+        target_end_column,
+        target_backend_locator
+      FROM atlas_business_relations
+      WHERE repository_id = ? AND to_domain = 'structural'
+      ORDER BY relation_id
+    `).all(this.#repositoryId) as unknown as StructuralTargetRow[];
+    const staleAssertions: string[] = [];
+
+    for (const row of rows) {
+      const locator = structuralTargetLocatorFromRow(row);
+      const match = locator === undefined
+        ? { status: "unresolved" as const }
+        : this.resolveStructuralLocator(locator, resolver);
+      const identity = `${row.from_key}:${row.relation_type}:structural:${row.to_key}`;
+      if (match.status !== "bound") {
+        staleAssertions.push(identity);
+      }
+      this.connection.prepare(`
+        UPDATE atlas_business_relations
+        SET
+          to_key = ?,
+          target_file = ?,
+          target_qualified_symbol = ?,
+          target_structural_kind = ?,
+          target_start_line = ?,
+          target_start_column = ?,
+          target_end_line = ?,
+          target_end_column = ?,
+          target_atlas_snapshot_id = ?,
+          target_backend_version = ?,
+          target_backend_locator = ?,
+          target_binding_status = ?
+        WHERE relation_id = ?
+      `).run(
+        match.node?.reference.id ?? row.to_key,
+        match.node?.path ?? row.target_file,
+        match.node?.qualifiedName ?? row.target_qualified_symbol,
+        match.node?.kind ?? row.target_structural_kind,
+        match.node?.range.start.line ?? row.target_start_line,
+        match.node?.range.start.column ?? row.target_start_column,
+        match.node?.range.end.line ?? row.target_end_line,
+        match.node?.range.end.column ?? row.target_end_column,
+        snapshot.snapshotId,
+        backendVersion,
+        match.node === undefined
+          ? row.target_backend_locator
+          : resolver.backendLocator(match.node) ?? null,
+        match.status,
+        row.relation_id,
+      );
+    }
+    return staleAssertions;
+  }
+
   private resolveEvidence(
     locator: EvidenceLocator,
+    resolver: StructuralEvidenceResolver,
+  ): { status: EvidenceBindingStatus; node?: ReturnType<StructuralEvidenceResolver["getNode"]> } {
+    return this.resolveStructuralLocator(locator, resolver);
+  }
+
+  private resolveStructuralLocator(
+    locator: StructuralTargetLocator,
     resolver: StructuralEvidenceResolver,
   ): { status: EvidenceBindingStatus; node?: ReturnType<StructuralEvidenceResolver["getNode"]> } {
     const directlyLocated = resolver.getNode(locator.structuralReference);
@@ -413,11 +500,27 @@ export class WorldSnapshotStore implements Disposable {
       const validity = row.evidence_count > 0 && row.evidence_count === row.bound_count
         ? "valid"
         : "stale";
+      const targetBindingStatus = ownerColumn === "relation_id"
+        ? (this.connection.prepare(`
+            SELECT to_domain, target_binding_status
+            FROM atlas_business_relations
+            WHERE relation_id = ?
+          `).get(owner_id) as {
+            to_domain: "structural" | "business";
+            target_binding_status: EvidenceBindingStatus;
+          })
+        : undefined;
+      const targetIsBound = targetBindingStatus === undefined
+        || targetBindingStatus.to_domain === "business"
+        || targetBindingStatus.target_binding_status === "bound";
+      const derivedValidity = targetIsBound
+        ? validity
+        : "stale";
       this.connection.prepare(`
         INSERT INTO ${validityTable} (${ownerColumn}, repository_id, snapshot_id, validity)
         VALUES (?, ?, ?, ?)
         ON CONFLICT (${ownerColumn}, snapshot_id) DO UPDATE SET validity = excluded.validity
-      `).run(owner_id, this.#repositoryId, snapshotId, validity);
+      `).run(owner_id, this.#repositoryId, snapshotId, derivedValidity);
     }
   }
 
@@ -433,13 +536,7 @@ export class WorldSnapshotStore implements Disposable {
         stale_assertions,
         created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (repository_id, to_snapshot_id) DO UPDATE SET
-        from_snapshot_id = excluded.from_snapshot_id,
-        added_paths = excluded.added_paths,
-        modified_paths = excluded.modified_paths,
-        removed_paths = excluded.removed_paths,
-        stale_assertions = excluded.stale_assertions,
-        created_at = excluded.created_at
+      ON CONFLICT (repository_id, to_snapshot_id) DO NOTHING
     `).run(
       this.#repositoryId,
       changes.fromSnapshotId,
@@ -468,9 +565,36 @@ function locatorFromRow(row: EvidenceRow): EvidenceLocator {
   };
 }
 
+function structuralTargetLocatorFromRow(
+  row: StructuralTargetRow,
+): StructuralTargetLocator | undefined {
+  if (
+    row.target_file === null
+    || row.target_start_line === null
+    || row.target_start_column === null
+    || row.target_end_line === null
+    || row.target_end_column === null
+  ) {
+    return undefined;
+  }
+  return {
+    structuralReference: row.to_key,
+    file: row.target_file,
+    qualifiedSymbol: row.target_qualified_symbol,
+    structuralKind: row.target_structural_kind,
+    range: {
+      start: { line: row.target_start_line, column: row.target_start_column },
+      end: { line: row.target_end_line, column: row.target_end_column },
+    },
+    ...(row.target_backend_locator === null
+      ? {}
+      : { backendLocator: row.target_backend_locator }),
+  };
+}
+
 function nodeMatchesLocator(
   node: NonNullable<ReturnType<StructuralEvidenceResolver["getNode"]>>,
-  locator: EvidenceLocator,
+  locator: StructuralTargetLocator,
 ): boolean {
   return node.path === locator.file
     && (locator.qualifiedSymbol === null || node.qualifiedName === locator.qualifiedSymbol)
