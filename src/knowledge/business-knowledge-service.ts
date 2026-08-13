@@ -29,6 +29,9 @@ import {
   bindStructuralTarget as attachStructuralTargetBinding,
   type StructuralTargetBinding,
 } from "./structural-target-binding.js";
+import { GraphPatchConflictError } from "./graph-patch-conflict-error.js";
+
+export { GraphPatchConflictError } from "./graph-patch-conflict-error.js";
 
 export interface AppliedGraphPatch {
   readonly baseSnapshotId: string;
@@ -45,20 +48,6 @@ interface StoredEvidence extends Evidence {
   readonly atlasSnapshotId: string;
   readonly backendVersion: string;
   readonly backendLocator: string;
-}
-
-export class GraphPatchConflictError extends Error {
-  readonly code = "BASE_SNAPSHOT_MISMATCH";
-
-  constructor(
-    readonly baseSnapshotId: string,
-    readonly currentSnapshotId: string,
-  ) {
-    super(
-      `GraphPatch base snapshot ${baseSnapshotId} does not match current snapshot ${currentSnapshotId}`,
-    );
-    this.name = "GraphPatchConflictError";
-  }
 }
 
 export class BusinessKnowledgeService {

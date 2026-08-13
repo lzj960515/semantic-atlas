@@ -1,3 +1,4 @@
+import type { GRAPH_PATCH_BASE_SNAPSHOT_MISMATCH } from "../knowledge/graph-patch-conflict-error.js";
 import type { GitRepository } from "../repository/types.js";
 import type {
   StructuralReference,
@@ -28,10 +29,21 @@ export type CodeGraphWorkerResponse =
   | { readonly ok: true; readonly value: unknown }
   | {
     readonly ok: false;
-    readonly error: {
-      readonly name: string;
-      readonly message: string;
-      readonly code?: string;
-      readonly stack?: string;
-    };
+    readonly error: CodeGraphWorkerError;
   };
+
+export type CodeGraphWorkerError = {
+  readonly name: string;
+  readonly message: string;
+  readonly code?: string;
+  readonly stack?: string;
+  readonly baseSnapshotId?: string;
+  readonly currentSnapshotId?: string;
+};
+
+export type GraphPatchConflictWorkerError = CodeGraphWorkerError & {
+  readonly name: "GraphPatchConflictError";
+  readonly code: typeof GRAPH_PATCH_BASE_SNAPSHOT_MISMATCH;
+  readonly baseSnapshotId: string;
+  readonly currentSnapshotId: string;
+};

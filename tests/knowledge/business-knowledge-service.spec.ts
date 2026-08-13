@@ -87,7 +87,7 @@ describe("business knowledge learning", () => {
       });
   });
 
-  it("keeps the graph store open until private-worker learning commits", async () => {
+  it("preserves successful learning and stale-base conflicts across the private worker", async () => {
     const fixture = await createGitFixture();
     try {
       await fixture.write("src/stable.ts", "export const stable = true;\n");
@@ -106,9 +106,7 @@ describe("business knowledge learning", () => {
       }
       const supportEvidence = evidenceAtNode(snapshot, support);
       const operation = businessNode("fixture/private-worker", "Operation", supportEvidence);
-      await executeFile("pnpm", ["build"], { cwd: projectRoot() });
-
-      await expect(runBuiltPrivateLearn(repository, patch(
+      const input = patch(
         world.snapshotId,
         [operation],
         [businessRelation(
@@ -117,26 +115,41 @@ describe("business knowledge learning", () => {
           structural(target.reference.id),
           supportEvidence,
         )],
-      ))).resolves.toMatchObject({
+      );
+      await executeFile("pnpm", ["build"], { cwd: projectRoot() });
+
+      await expect(runBuiltPrivateLearn(repository, input)).resolves.toMatchObject({
         baseSnapshotId: world.snapshotId,
         snapshotId: world.snapshotId,
         applied: { nodeOperations: 1, relationOperations: 1 },
       });
 
-      using graph = new GraphStore(repository);
-      expect(graph.getNode(business(operation.key), world.snapshotId)).toMatchObject({
-        key: operation.key,
-        validity: "valid",
-        evidence: [supportEvidence],
-      });
-      expect(graph.listBusinessRelations(world.snapshotId)).toEqual([
-        expect.objectContaining({
-          from: business(operation.key),
-          to: structural(target.reference.id),
+      {
+        using graph = new GraphStore(repository);
+        expect(graph.getNode(business(operation.key), world.snapshotId)).toMatchObject({
+          key: operation.key,
           validity: "valid",
           evidence: [supportEvidence],
-        }),
-      ]);
+        });
+        expect(graph.listBusinessRelations(world.snapshotId)).toEqual([
+          expect.objectContaining({
+            from: business(operation.key),
+            to: structural(target.reference.id),
+            validity: "valid",
+            evidence: [supportEvidence],
+          }),
+        ]);
+      }
+
+      await fixture.write("src/example.ts", "export const value = 2;\n");
+      const currentSnapshot = await createRepositorySnapshot(repository);
+
+      await expect(runBuiltPrivateLearn(repository, input)).rejects.toMatchObject({
+        name: "GraphPatchConflictError",
+        code: "BASE_SNAPSHOT_MISMATCH",
+        baseSnapshotId: world.snapshotId,
+        currentSnapshotId: currentSnapshot.snapshotId,
+      } satisfies Partial<GraphPatchConflictError>);
     } finally {
       await fixture.cleanup();
     }

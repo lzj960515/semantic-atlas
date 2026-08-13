@@ -2,6 +2,7 @@ import { stdin, stdout } from "node:process";
 
 import { GraphStore } from "../graph/graph-store.js";
 import { BusinessKnowledgeService } from "../knowledge/business-knowledge-service.js";
+import { GraphPatchConflictError } from "../knowledge/graph-patch-conflict-error.js";
 import { WorldModelService } from "../world/world-model-service.js";
 import { CodeGraphStructuralBackend } from "./codegraph-backend.js";
 import type {
@@ -55,6 +56,16 @@ async function readStandardInput(): Promise<string> {
 }
 
 function serializeError(error: unknown): Extract<CodeGraphWorkerResponse, { ok: false }>["error"] {
+  if (error instanceof GraphPatchConflictError) {
+    return {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      baseSnapshotId: error.baseSnapshotId,
+      currentSnapshotId: error.currentSnapshotId,
+      ...(error.stack === undefined ? {} : { stack: error.stack }),
+    };
+  }
   if (!(error instanceof Error)) {
     return { name: "Error", message: String(error) };
   }

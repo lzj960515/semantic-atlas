@@ -3,9 +3,15 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  GRAPH_PATCH_BASE_SNAPSHOT_MISMATCH,
+  GraphPatchConflictError,
+} from "../knowledge/graph-patch-conflict-error.js";
 import type {
+  CodeGraphWorkerError,
   CodeGraphWorkerRequest,
   CodeGraphWorkerResponse,
+  GraphPatchConflictWorkerError,
 } from "./codegraph-worker-protocol.js";
 import { StructuralBackendError } from "./types.js";
 
@@ -37,12 +43,28 @@ export async function runCodeGraphWorker<T>(request: CodeGraphWorkerRequest): Pr
     return response.value as T;
   }
 
+  if (isGraphPatchConflictWorkerError(response.error)) {
+    throw new GraphPatchConflictError(
+      response.error.baseSnapshotId,
+      response.error.currentSnapshotId,
+    );
+  }
+
   throw new StructuralBackendError(
     isStructuralBackendErrorCode(response.error.code)
       ? response.error.code
       : "STRUCTURAL_QUERY_FAILED",
     response.error.message,
   );
+}
+
+function isGraphPatchConflictWorkerError(
+  error: CodeGraphWorkerError,
+): error is GraphPatchConflictWorkerError {
+  return error.name === "GraphPatchConflictError" &&
+    error.code === GRAPH_PATCH_BASE_SNAPSHOT_MISMATCH &&
+    typeof error.baseSnapshotId === "string" &&
+    typeof error.currentSnapshotId === "string";
 }
 
 async function executeWorker(request: CodeGraphWorkerRequest): Promise<CodeGraphWorkerResponse> {
