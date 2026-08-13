@@ -2,6 +2,7 @@ import type { GRAPH_PATCH_BASE_SNAPSHOT_MISMATCH } from "../knowledge/graph-patc
 import type { GitRepository } from "../repository/types.js";
 import type {
   StructuralReference,
+  StructuralProjectGraphQuery,
   StructuralSearchQuery,
   StructuralTraversalQuery,
 } from "./types.js";
@@ -11,6 +12,7 @@ export type CodeGraphWorkerRequest =
   | WorkerRequest<"build">
   | WorkerRequest<"sync">
   | WorkerRequest<"listRoots">
+  | WorkerRequest<"readProjectGraph", StructuralProjectGraphQuery>
   | WorkerRequest<"search", StructuralSearchQuery>
   | WorkerRequest<"getNode", StructuralReference>
   | WorkerRequest<"traverse", StructuralTraversalQuery>

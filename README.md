@@ -23,6 +23,18 @@ The project is under active development toward v0.1. The first release focuses o
 
 The runtime foundation now embeds CodeGraph behind an Atlas adapter and stores snapshots and business knowledge in namespaced `atlas_*` objects in the same worktree-local database. Structural and business results are composed through APIs rather than copied into a second structural schema.
 
+## Business Flow Derivation
+
+`BusinessFlowDerivationService` turns a current, normalized structural graph into
+a deterministic GraphPatch draft for a caller-supplied capability. Its built-in
+strategies recognize representative NestJS HTTP endpoints, GraphQL operations,
+TypeORM entities and provable repository reads/writes, BullMQ producer/consumer
+flows, agent-verified invariants, and structural tests. Framework convention is
+reported as `inferred`; dynamic channels, reflection, indirect dispatch, and
+unclassifiable data access return source-fallback boundaries instead of exact
+business claims. The calling agent reviews the draft and submits it through the
+normal `BusinessKnowledgeService.learn()` transaction.
+
 ## License
 
 MIT

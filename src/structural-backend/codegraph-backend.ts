@@ -39,9 +39,11 @@ import {
   type StructuralFileDependency,
   type StructuralIndexBackend,
   type StructuralIndexState,
+  type BackendDeclarationKind,
   type BackendStructuralRelationType,
   type StructuralNode,
   type StructuralProvenance,
+  type StructuralProjectGraphQuery,
   type StructuralReference,
   type StructuralRelation,
   type StructuralSearchQuery,
@@ -194,6 +196,17 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
     return this.withCurrentGraph((graph) => structuralModuleRoots(graph));
   }
 
+  async readProjectGraph(query: StructuralProjectGraphQuery): Promise<StructuralTraversalResult> {
+    if (requiresBundledCodeGraphRuntime()) {
+      return runCodeGraphWorker({
+        operation: "readProjectGraph",
+        repository: this.#repository,
+        input: query,
+      });
+    }
+    return this.withCurrentGraph((graph, queries) => normalizeProjectGraph(graph, queries, query));
+  }
+
   async search(query: StructuralSearchQuery): Promise<readonly StructuralSearchResult[]> {
     if (requiresBundledCodeGraphRuntime()) {
       return runCodeGraphWorker({
@@ -272,9 +285,11 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
         }
       }
 
-      const traversedReferences = new Set(normalizedNodes.map((node) => node.reference.id));
-      boundaries.push(...normalizeUnresolvedReferences(graph, queries)
-        .filter((boundary) => traversedReferences.has(boundary.owner.id)));
+      boundaries.push(...normalizeUnresolvedReferences(
+        graph,
+        queries,
+        new Set(nodesByBackendId.keys()),
+      ));
 
       return {
         roots: subgraph.roots
@@ -937,6 +952,8 @@ function normalizeNode(node: Node): StructuralNode {
   return {
     reference: referenceForNode(node),
     kind: normalizeNodeKind(node),
+    declarationKind: isTestNode(node) ? "test" : node.kind,
+    decorators: [...(node.decorators ?? [])],
     name: node.name,
     qualifiedName: node.qualifiedName,
     path,
@@ -947,6 +964,60 @@ function normalizeNode(node: Node): StructuralNode {
     },
     support: exactBackendSupport(),
   };
+}
+
+function normalizeProjectGraph(
+  graph: CodeGraph,
+  queries: Pick<QueryBuilder, "getUnresolvedReferences">,
+  query: StructuralProjectGraphQuery,
+): StructuralTraversalResult {
+  const requestedKinds = new Set(query.declarationKinds);
+  const backendNodes = projectNodes(graph, requestedKinds).filter((node) => (
+    requestedKinds.has(isTestNode(node) ? "test" : node.kind)
+  ));
+  const nodesById = new Map(backendNodes.map((node) => [node.id, node]));
+  const relations: StructuralRelation[] = [];
+  const boundaries: StructuralUnknownBoundary[] = [];
+  for (const source of backendNodes) {
+    for (const edge of graph.getOutgoingEdges(source.id)) {
+      const target = nodesById.get(edge.target);
+      if (target === undefined) {
+        continue;
+      }
+      const relation = normalizeRelation(edge, source, target);
+      if (relation === undefined) {
+        boundaries.push(unsupportedRelationBoundary(edge, source, target));
+      } else {
+        relations.push(relation);
+      }
+    }
+  }
+  const requestedBackendIds = new Set(backendNodes.map((node) => node.id));
+  boundaries.push(...normalizeUnresolvedReferences(graph, queries, requestedBackendIds));
+  return {
+    roots: structuralModuleRoots(graph).map((node) => node.reference),
+    nodes: uniqueBy(backendNodes.map(normalizeNode), (node) => node.reference.id)
+      .sort(compareStructuralNodes),
+    relations: uniqueBy(relations, relationIdentity),
+    boundaries: uniqueBy(boundaries, (boundary) => boundary.reference.id),
+  };
+}
+
+function projectNodes(
+  graph: CodeGraph,
+  requestedKinds: ReadonlySet<BackendDeclarationKind>,
+): Node[] {
+  const nodes = [...requestedKinds]
+    .filter((kind): kind is Node["kind"] => kind !== "test" && kind !== "virtual_module")
+    .flatMap((kind) => graph.getNodesByKind(kind));
+  if (requestedKinds.has("test")) {
+    for (const file of graph.getFiles()) {
+      if (isTestPath(file.path)) {
+        nodes.push(...graph.getNodesInFile(file.path));
+      }
+    }
+  }
+  return uniqueBy(nodes, (node) => node.id);
 }
 
 function structuralModuleRoots(graph: CodeGraph): StructuralNode[] {
@@ -1017,6 +1088,8 @@ function virtualModuleRoot(root: string, representativePath: string): Structural
   return {
     reference: { id: `module:${encodeURIComponent(root)}` },
     kind: "Module",
+    declarationKind: "virtual_module",
+    decorators: [],
     name: root,
     qualifiedName: root,
     path: representativePath,
@@ -1191,11 +1264,14 @@ function dependencySupport(edges: readonly Edge[]): StructuralSupport {
 function normalizeUnresolvedReferences(
   graph: CodeGraph,
   queries: Pick<QueryBuilder, "getUnresolvedReferences">,
+  ownerBackendIds?: ReadonlySet<string>,
 ): StructuralUnknownBoundary[] {
-  return queries.getUnresolvedReferences().map((reference) => {
+  return queries.getUnresolvedReferences()
+    .filter((reference) => ownerBackendIds?.has(reference.fromNodeId) ?? true)
+    .map((reference) => {
     const owner = graph.getNode(reference.fromNodeId) ?? undefined;
     return unresolvedReferenceBoundary(reference, owner);
-  });
+    });
 }
 
 function unresolvedReferenceBoundary(
@@ -1282,7 +1358,11 @@ function normalizeRepositoryPath(path: string): string {
 }
 
 function isTestNode(node: Node): boolean {
-  const path = node.filePath.toLowerCase();
+  return isTestPath(node.filePath);
+}
+
+function isTestPath(filePath: string): boolean {
+  const path = filePath.toLowerCase();
   return /(?:^|\/)(?:__tests__|test|tests|spec|specs)(?:\/|$)/u.test(path) ||
     /(?:^|\.)(?:test|spec)\.[cm]?[jt]sx?$/u.test(path);
 }

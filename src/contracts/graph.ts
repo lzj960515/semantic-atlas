@@ -35,6 +35,7 @@ export const structuralRelationTypeSchema = z.enum([
 
 export const businessRelationTypeSchema = z.enum([
   "part_of",
+  "invokes",
   "realized_by",
   "reads",
   "writes",
@@ -58,9 +59,9 @@ export const structuralNodeIdSchema = z
     "Expected a namespaced structural node ID",
   );
 
-const structuralSymbolIdSchema = z
+const evidenceNodeIdSchema = z
   .string()
-  .regex(/^symbol:.+$/, "Expected a compiler-owned structural symbol ID");
+  .regex(/^(?:symbol|test):.+$/, "Expected an evidence-bearing structural symbol or test ID");
 
 export const relativeSourcePathSchema = z
   .string()
@@ -107,7 +108,7 @@ export const sourceRangeSchema = z
 
 export const evidenceSchema = z
   .strictObject({
-    symbolId: structuralSymbolIdSchema,
+    symbolId: evidenceNodeIdSchema,
     file: relativeSourcePathSchema,
     range: sourceRangeSchema,
     contentHash: contentIdentifierSchema,
@@ -152,6 +153,7 @@ const businessNodeSchema = z.strictObject({
 
 const businessTargetRelationTypeSchema = z.enum([
   "part_of",
+  "invokes",
   "reads",
   "writes",
   "publishes",

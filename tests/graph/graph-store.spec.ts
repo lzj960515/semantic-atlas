@@ -43,6 +43,7 @@ describe("business graph storage", () => {
     }));
     const businessRelations: BusinessRelationInput[] = [
       relation("fixture/scenario", "part_of", business("fixture/capability"), evidence),
+      relation("fixture/scenario", "invokes", business("fixture/operation"), evidence),
       relation("fixture/operation", "realized_by", structural(evidence.symbolId), evidence),
       relation("fixture/operation", "reads", business("fixture/data"), evidence),
       relation("fixture/scenario", "writes", business("fixture/data"), evidence),
@@ -54,7 +55,7 @@ describe("business graph storage", () => {
 
     graph.mutateBusinessGraph(mutation(snapshot.snapshotId, businessNodes, businessRelations));
 
-    expect(graph.schemaVersion).toBe(4);
+    expect(graph.schemaVersion).toBe(5);
     using schema = new DatabaseSync(graph.databasePath);
     const atlasObjects = schema.prepare(`
       SELECT name
@@ -79,6 +80,7 @@ describe("business graph storage", () => {
       .toEqual([
         "constrained_by",
         "consumes",
+        "invokes",
         "part_of",
         "publishes",
         "reads",

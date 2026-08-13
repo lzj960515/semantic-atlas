@@ -272,7 +272,7 @@
       "properties": {
         "symbolId": {
           "type": "string",
-          "pattern": "^symbol:.+$"
+          "pattern": "^(?:symbol|test):.+$"
         },
         "file": {
           "type": "string",
@@ -348,6 +348,7 @@
       "type": "string",
       "enum": [
         "part_of",
+        "invokes",
         "reads",
         "writes",
         "publishes",

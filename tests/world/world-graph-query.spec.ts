@@ -488,6 +488,12 @@ function structuralBackend(): StructuralIndexBackend {
     build: async () => buildResult(),
     sync: async () => buildResult(),
     listRoots: async () => [nodes.get("module:src")!],
+    readProjectGraph: async () => ({
+      roots: [{ id: "module:src" }],
+      nodes: [...nodes.values()],
+      relations,
+      boundaries: [boundary],
+    }),
     search: async ({ query }) => query.toLowerCase().includes("checkout")
       ? [{ score: 88, node: nodes.get("symbol:src/target.ts#target")! }]
       : [],
@@ -533,6 +539,8 @@ function node(
   return {
     reference: { id },
     kind,
+    declarationKind: kind === "Test" ? "test" : kind === "File" ? "file" : kind === "Module" ? "module" : "function",
+    decorators: [],
     name,
     qualifiedName: name,
     path,

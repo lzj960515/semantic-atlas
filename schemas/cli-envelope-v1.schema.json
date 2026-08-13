@@ -464,6 +464,7 @@
                             "type": "string",
                             "enum": [
                               "part_of",
+                              "invokes",
                               "realized_by",
                               "reads",
                               "writes",
@@ -1033,7 +1034,7 @@
       "properties": {
         "symbolId": {
           "type": "string",
-          "pattern": "^symbol:.+$"
+          "pattern": "^(?:symbol|test):.+$"
         },
         "file": {
           "$ref": "#/$defs/__schema11"

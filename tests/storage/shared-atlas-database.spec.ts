@@ -107,7 +107,7 @@ describe("shared Atlas database", () => {
     downgradeTargetLocatorSchema(context.databasePath);
 
     using migrated = new GraphStore(context.repository);
-    expect(migrated.schemaVersion).toBe(4);
+    expect(migrated.schemaVersion).toBe(5);
     using database = new DatabaseSync(context.databasePath, { readOnly: true });
     const migratedTargets = database.prepare(`
       SELECT to_key, target_file, target_binding_status
@@ -181,7 +181,133 @@ describe("shared Atlas database", () => {
     ]);
     expect(database.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
   });
+
+  it("preserves v4 relation state while adding invokes support", async () => {
+    const context = await createSharedDatabaseContext(fixtures);
+    using snapshots = new SnapshotStore(context.repository);
+    snapshots.save(context.snapshot);
+    using graph = new GraphStore(context.repository);
+    graph.mutateBusinessGraph(relationMigrationMutation(context.snapshot.snapshotId, context.evidence));
+    graph.close();
+    snapshots.close();
+
+    downgradeBusinessRelationSchema(context.databasePath);
+
+    using migrated = new GraphStore(context.repository);
+    expect(migrated.schemaVersion).toBe(5);
+    expect(migrated.listBusinessRelations(context.snapshot.snapshotId)).toEqual([
+      expect.objectContaining({
+        type: "reads",
+        validity: "valid",
+        evidence: [context.evidence],
+      }),
+    ]);
+    migrated.mutateBusinessGraph({
+      baseSnapshotId: context.snapshot.snapshotId,
+      upsertNodes: [],
+      removeNodeKeys: [],
+      upsertRelations: [{
+        from: { domain: "business", key: "fixture/read-value" },
+        type: "invokes",
+        to: { domain: "business", key: "fixture/load-value" },
+        certainty: "inferred",
+        evidence: [context.evidence],
+      }],
+      removeRelations: [],
+    });
+
+    using database = new DatabaseSync(context.databasePath, { readOnly: true });
+    expect(database.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+    expect(migrated.listBusinessRelations(context.snapshot.snapshotId).map((item) => item.type).sort())
+      .toEqual(["invokes", "reads"]);
+  });
 });
+
+function downgradeBusinessRelationSchema(databasePath: string): void {
+  using database = new DatabaseSync(databasePath);
+  database.exec(`
+    CREATE TABLE atlas_business_relations_v4 (
+      relation_id INTEGER PRIMARY KEY,
+      repository_id TEXT NOT NULL,
+      base_snapshot_id TEXT NOT NULL,
+      from_key TEXT NOT NULL,
+      relation_type TEXT NOT NULL CHECK (relation_type IN (
+        'part_of', 'realized_by', 'reads', 'writes', 'publishes', 'consumes',
+        'constrained_by', 'verified_by'
+      )),
+      to_domain TEXT NOT NULL CHECK (to_domain IN ('structural', 'business')),
+      to_key TEXT NOT NULL,
+      certainty TEXT NOT NULL CHECK (certainty IN ('exact', 'inferred', 'hypothesis')),
+      target_file TEXT,
+      target_qualified_symbol TEXT,
+      target_structural_kind TEXT,
+      target_start_line INTEGER,
+      target_start_column INTEGER,
+      target_end_line INTEGER,
+      target_end_column INTEGER,
+      target_atlas_snapshot_id TEXT,
+      target_backend_version TEXT,
+      target_backend_locator TEXT,
+      target_binding_status TEXT NOT NULL DEFAULT 'unresolved'
+        CHECK (target_binding_status IN ('bound', 'missing', 'ambiguous', 'unresolved')),
+      UNIQUE (repository_id, from_key, relation_type, to_domain, to_key),
+      FOREIGN KEY (repository_id, base_snapshot_id)
+        REFERENCES atlas_repository_snapshots(repository_id, snapshot_id),
+      FOREIGN KEY (repository_id, from_key)
+        REFERENCES atlas_business_nodes(repository_id, node_key)
+    ) STRICT;
+
+    INSERT INTO atlas_business_relations_v4 SELECT * FROM atlas_business_relations;
+
+    CREATE TABLE atlas_business_relation_evidence_v4 (
+      relation_id INTEGER NOT NULL,
+      position INTEGER NOT NULL,
+      structural_reference TEXT NOT NULL,
+      file TEXT NOT NULL,
+      start_line INTEGER NOT NULL,
+      start_column INTEGER NOT NULL,
+      end_line INTEGER NOT NULL,
+      end_column INTEGER NOT NULL,
+      content_hash TEXT NOT NULL,
+      qualified_symbol TEXT,
+      structural_kind TEXT,
+      atlas_snapshot_id TEXT,
+      backend_version TEXT,
+      backend_locator TEXT,
+      binding_status TEXT NOT NULL DEFAULT 'unresolved'
+        CHECK (binding_status IN ('bound', 'missing', 'ambiguous', 'unresolved')),
+      PRIMARY KEY (relation_id, position),
+      FOREIGN KEY (relation_id)
+        REFERENCES atlas_business_relations_v4(relation_id) ON DELETE CASCADE
+    ) STRICT;
+    INSERT INTO atlas_business_relation_evidence_v4
+    SELECT * FROM atlas_business_relation_evidence;
+
+    CREATE TABLE atlas_business_relation_validity_v4 (
+      relation_id INTEGER NOT NULL,
+      repository_id TEXT NOT NULL,
+      snapshot_id TEXT NOT NULL,
+      validity TEXT NOT NULL CHECK (validity IN ('valid', 'stale')),
+      PRIMARY KEY (relation_id, snapshot_id),
+      FOREIGN KEY (relation_id)
+        REFERENCES atlas_business_relations_v4(relation_id) ON DELETE CASCADE,
+      FOREIGN KEY (repository_id, snapshot_id)
+        REFERENCES atlas_repository_snapshots(repository_id, snapshot_id) ON DELETE CASCADE
+    ) STRICT;
+    INSERT INTO atlas_business_relation_validity_v4
+    SELECT * FROM atlas_business_relation_validity;
+
+    DROP TABLE atlas_business_relation_evidence;
+    DROP TABLE atlas_business_relation_validity;
+    DROP TABLE atlas_business_relations;
+    ALTER TABLE atlas_business_relations_v4 RENAME TO atlas_business_relations;
+    ALTER TABLE atlas_business_relation_evidence_v4
+      RENAME TO atlas_business_relation_evidence;
+    ALTER TABLE atlas_business_relation_validity_v4
+      RENAME TO atlas_business_relation_validity;
+    DELETE FROM atlas_schema_migrations WHERE version = 5;
+  `);
+}
 
 function downgradeTargetLocatorSchema(databasePath: string): void {
   using database = new DatabaseSync(databasePath);
@@ -332,6 +458,50 @@ function businessMutation(snapshotId: string, evidence: Evidence): BusinessGraph
     ],
     removeNodeKeys: [],
     upsertRelations: [],
+    removeRelations: [],
+  };
+}
+
+function relationMigrationMutation(snapshotId: string, evidence: Evidence): BusinessGraphMutation {
+  return {
+    baseSnapshotId: snapshotId,
+    upsertNodes: [
+      {
+        key: "fixture/read-value",
+        kind: "Operation",
+        label: "Read value",
+        summary: "Reads the fixture value.",
+        aliases: [],
+        certainty: "exact",
+        evidence: [evidence],
+      },
+      {
+        key: "fixture/load-value",
+        kind: "Operation",
+        label: "Load value",
+        summary: "Loads the fixture value.",
+        aliases: [],
+        certainty: "exact",
+        evidence: [evidence],
+      },
+      {
+        key: "fixture/data",
+        kind: "Data",
+        label: "Fixture data",
+        summary: "The stored fixture value.",
+        aliases: [],
+        certainty: "exact",
+        evidence: [evidence],
+      },
+    ],
+    removeNodeKeys: [],
+    upsertRelations: [{
+      from: { domain: "business", key: "fixture/read-value" },
+      type: "reads",
+      to: { domain: "business", key: "fixture/data" },
+      certainty: "exact",
+      evidence: [evidence],
+    }],
     removeRelations: [],
   };
 }

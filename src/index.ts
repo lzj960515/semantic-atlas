@@ -3,6 +3,8 @@ export {
   GraphStore,
 } from "./graph/graph-store.js";
 export type * from "./graph/types.js";
+export { BusinessFlowDerivationService } from "./business-flow/business-flow-derivation-service.js";
+export type * from "./business-flow/types.js";
 export {
   BusinessKnowledgeService,
   GraphPatchConflictError,

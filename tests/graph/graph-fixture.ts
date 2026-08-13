@@ -149,6 +149,7 @@ function createStructuralBackendFixture(
     build: async () => ({ ...buildResult, mode: "full" }),
     sync: async () => buildResult,
     listRoots: async () => [],
+    readProjectGraph: async () => ({ roots: [], nodes: [], relations: [], boundaries: [] }),
     search: async ({ query }) => [
       nodeFor("symbol:src/example.ts#value"),
       nodeFor("symbol:src/stable.ts#stable"),
@@ -178,6 +179,8 @@ function structuralNode(
   return {
     reference: { id },
     kind: "Symbol",
+    declarationKind: "variable",
+    decorators: [],
     name,
     qualifiedName: name,
     path,

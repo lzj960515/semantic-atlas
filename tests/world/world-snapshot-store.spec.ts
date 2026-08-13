@@ -503,6 +503,8 @@ function structuralNode(
   return {
     reference: { id: reference },
     kind: "Symbol",
+    declarationKind: "variable",
+    decorators: [],
     name,
     qualifiedName: name,
     path,

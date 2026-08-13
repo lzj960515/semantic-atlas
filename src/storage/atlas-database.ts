@@ -5,7 +5,7 @@ import type { DatabaseSync as NodeDatabaseSync } from "node:sqlite";
 
 import type { GitRepository } from "../repository/types.js";
 
-export const CURRENT_ATLAS_SCHEMA_VERSION = 4;
+export const CURRENT_ATLAS_SCHEMA_VERSION = 5;
 
 const require = createRequire(import.meta.url);
 
@@ -326,6 +326,138 @@ const migrations: readonly SchemaMigration[] = [
       );
 
       DROP TABLE atlas_semantic_changes;
+    `,
+  },
+  {
+    version: 5,
+    sql: `
+      CREATE TABLE atlas_business_relations_v5 (
+        relation_id INTEGER PRIMARY KEY,
+        repository_id TEXT NOT NULL,
+        base_snapshot_id TEXT NOT NULL,
+        from_key TEXT NOT NULL,
+        relation_type TEXT NOT NULL CHECK (relation_type IN (
+          'part_of', 'invokes', 'realized_by', 'reads', 'writes', 'publishes',
+          'consumes', 'constrained_by', 'verified_by'
+        )),
+        to_domain TEXT NOT NULL CHECK (to_domain IN ('structural', 'business')),
+        to_key TEXT NOT NULL,
+        certainty TEXT NOT NULL CHECK (certainty IN ('exact', 'inferred', 'hypothesis')),
+        target_file TEXT,
+        target_qualified_symbol TEXT,
+        target_structural_kind TEXT,
+        target_start_line INTEGER,
+        target_start_column INTEGER,
+        target_end_line INTEGER,
+        target_end_column INTEGER,
+        target_atlas_snapshot_id TEXT,
+        target_backend_version TEXT,
+        target_backend_locator TEXT,
+        target_binding_status TEXT NOT NULL DEFAULT 'unresolved'
+          CHECK (target_binding_status IN ('bound', 'missing', 'ambiguous', 'unresolved')),
+        UNIQUE (repository_id, from_key, relation_type, to_domain, to_key),
+        FOREIGN KEY (repository_id, base_snapshot_id)
+          REFERENCES atlas_repository_snapshots(repository_id, snapshot_id),
+        FOREIGN KEY (repository_id, from_key)
+          REFERENCES atlas_business_nodes(repository_id, node_key)
+      ) STRICT;
+
+      INSERT INTO atlas_business_relations_v5 (
+        relation_id,
+        repository_id,
+        base_snapshot_id,
+        from_key,
+        relation_type,
+        to_domain,
+        to_key,
+        certainty,
+        target_file,
+        target_qualified_symbol,
+        target_structural_kind,
+        target_start_line,
+        target_start_column,
+        target_end_line,
+        target_end_column,
+        target_atlas_snapshot_id,
+        target_backend_version,
+        target_backend_locator,
+        target_binding_status
+      )
+      SELECT
+        relation_id,
+        repository_id,
+        base_snapshot_id,
+        from_key,
+        relation_type,
+        to_domain,
+        to_key,
+        certainty,
+        target_file,
+        target_qualified_symbol,
+        target_structural_kind,
+        target_start_line,
+        target_start_column,
+        target_end_line,
+        target_end_column,
+        target_atlas_snapshot_id,
+        target_backend_version,
+        target_backend_locator,
+        target_binding_status
+      FROM atlas_business_relations;
+
+      CREATE TABLE atlas_business_relation_evidence_v5 (
+        relation_id INTEGER NOT NULL,
+        position INTEGER NOT NULL,
+        structural_reference TEXT NOT NULL,
+        file TEXT NOT NULL,
+        start_line INTEGER NOT NULL,
+        start_column INTEGER NOT NULL,
+        end_line INTEGER NOT NULL,
+        end_column INTEGER NOT NULL,
+        content_hash TEXT NOT NULL,
+        qualified_symbol TEXT,
+        structural_kind TEXT,
+        atlas_snapshot_id TEXT,
+        backend_version TEXT,
+        backend_locator TEXT,
+        binding_status TEXT NOT NULL DEFAULT 'unresolved'
+          CHECK (binding_status IN ('bound', 'missing', 'ambiguous', 'unresolved')),
+        PRIMARY KEY (relation_id, position),
+        FOREIGN KEY (relation_id)
+          REFERENCES atlas_business_relations_v5(relation_id) ON DELETE CASCADE
+      ) STRICT;
+
+      INSERT INTO atlas_business_relation_evidence_v5
+      SELECT * FROM atlas_business_relation_evidence;
+
+      CREATE TABLE atlas_business_relation_validity_v5 (
+        relation_id INTEGER NOT NULL,
+        repository_id TEXT NOT NULL,
+        snapshot_id TEXT NOT NULL,
+        validity TEXT NOT NULL CHECK (validity IN ('valid', 'stale')),
+        PRIMARY KEY (relation_id, snapshot_id),
+        FOREIGN KEY (relation_id)
+          REFERENCES atlas_business_relations_v5(relation_id) ON DELETE CASCADE,
+        FOREIGN KEY (repository_id, snapshot_id)
+          REFERENCES atlas_repository_snapshots(repository_id, snapshot_id) ON DELETE CASCADE
+      ) STRICT;
+
+      INSERT INTO atlas_business_relation_validity_v5
+      SELECT * FROM atlas_business_relation_validity;
+
+      DROP TABLE atlas_business_relation_evidence;
+      DROP TABLE atlas_business_relation_validity;
+      DROP TABLE atlas_business_relations;
+      ALTER TABLE atlas_business_relations_v5 RENAME TO atlas_business_relations;
+      ALTER TABLE atlas_business_relation_evidence_v5
+        RENAME TO atlas_business_relation_evidence;
+      ALTER TABLE atlas_business_relation_validity_v5
+        RENAME TO atlas_business_relation_validity;
+
+      CREATE INDEX atlas_business_relations_from_index
+        ON atlas_business_relations (repository_id, from_key);
+      CREATE INDEX atlas_business_relations_to_index
+        ON atlas_business_relations (repository_id, to_domain, to_key);
     `,
   },
 ];

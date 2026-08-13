@@ -12,6 +12,31 @@ export type StructuralProjectionCompleteness = "missing" | "complete" | "incompl
 export type StructuralSupportStatus = z.infer<typeof structuralSupportStatusSchema>;
 export type StructuralProvenance = z.infer<typeof structuralProvenanceSchema>;
 export type BackendStructuralNodeKind = "Module" | "File" | "Symbol" | "Test";
+export type BackendDeclarationKind =
+  | "file"
+  | "module"
+  | "class"
+  | "struct"
+  | "interface"
+  | "trait"
+  | "protocol"
+  | "function"
+  | "method"
+  | "property"
+  | "field"
+  | "variable"
+  | "constant"
+  | "enum"
+  | "enum_member"
+  | "type_alias"
+  | "namespace"
+  | "parameter"
+  | "import"
+  | "export"
+  | "route"
+  | "component"
+  | "test"
+  | "virtual_module";
 export type BackendStructuralRelationType =
   | "contains"
   | "declares"
@@ -43,6 +68,8 @@ export interface StructuralSourceRange {
 export interface StructuralNode {
   readonly reference: StructuralReference;
   readonly kind: BackendStructuralNodeKind;
+  readonly declarationKind: BackendDeclarationKind;
+  readonly decorators: readonly string[];
   readonly name: string;
   readonly qualifiedName: string;
   readonly path: string;
@@ -121,6 +148,10 @@ export interface StructuralSearchResult {
   readonly node: StructuralNode;
 }
 
+export interface StructuralProjectGraphQuery {
+  readonly declarationKinds: readonly BackendDeclarationKind[];
+}
+
 export interface StructuralTraversalQuery {
   readonly reference: StructuralReference;
   readonly maxDepth?: number;
@@ -150,6 +181,7 @@ export interface StructuralIndexBackend {
   build(): Promise<StructuralBuildResult>;
   sync(): Promise<StructuralBuildResult>;
   listRoots(): Promise<readonly StructuralNode[]>;
+  readProjectGraph(query: StructuralProjectGraphQuery): Promise<StructuralTraversalResult>;
   search(query: StructuralSearchQuery): Promise<readonly StructuralSearchResult[]>;
   getNode(reference: StructuralReference): Promise<StructuralNode | undefined>;
   traverse(query: StructuralTraversalQuery): Promise<StructuralTraversalResult>;

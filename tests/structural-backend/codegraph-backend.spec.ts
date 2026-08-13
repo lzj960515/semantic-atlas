@@ -155,6 +155,32 @@ describe("CodeGraph structural backend", () => {
           }),
         ]),
       });
+      await expect(backend.readProjectGraph({
+        declarationKinds: ["function"],
+      })).resolves.toMatchObject({
+        nodes: expect.arrayContaining([
+          expect.objectContaining({
+            name: "caller",
+            declarationKind: "function",
+            decorators: [],
+          }),
+        ]),
+        relations: expect.arrayContaining([
+          expect.objectContaining({ type: "calls" }),
+        ]),
+        boundaries: expect.arrayContaining([
+          expect.objectContaining({ operation: "calls" }),
+        ]),
+      });
+      await expect(backend.readProjectGraph({
+        declarationKinds: ["test"],
+      })).resolves.toMatchObject({
+        nodes: [expect.objectContaining({
+          kind: "Test",
+          declarationKind: "test",
+          name: "calls target",
+        })],
+      });
     } finally {
       if (originalDirectory === undefined) {
         delete process.env.CODEGRAPH_DIR;
@@ -1133,6 +1159,11 @@ async function createStructuralFixture(fixtures: GitFixture[]): Promise<Structur
     "import { target } from './dep.js';",
     "export function caller() { return target(1); }",
     "export function dynamic(name: string) { return globalThis[name]?.(); }",
+    "",
+  ].join("\n"));
+  await fixture.write("tests/entry.spec.ts", [
+    "import { caller } from '../src/entry.js';",
+    "export function callsTarget() { return caller(); }",
     "",
   ].join("\n"));
   await fixture.git("add", ".");

@@ -74,11 +74,11 @@ Reference domains make ownership explicit:
 - `{ "domain": "business", "key": "..." }` addresses an existing or same-patch business node.
 - `{ "domain": "structural", "id": "symbol:..." }` addresses an Atlas-normalized CodeGraph node in the base snapshot.
 
-All learned relations originate at a business node. `realized_by` and `verified_by` target structural nodes; `part_of`, `reads`, `writes`, `publishes`, `consumes`, and `constrained_by` target business nodes.
+All learned relations originate at a business node. `realized_by` and `verified_by` target structural nodes; `part_of`, `invokes`, `reads`, `writes`, `publishes`, `consumes`, and `constrained_by` target business nodes.
 
 ## Evidence and certainty
 
-Each node or relation evidence item binds an Atlas structural reference, normalized repository-relative file, one-based source range, and lowercase SHA-256 content hash. Atlas also records the backend locator and version needed for later rebinding. Evidence must resolve inside the same worktree and match the current completed snapshot exactly.
+Each node or relation evidence item binds an Atlas structural symbol or test reference, normalized repository-relative file, one-based source range, and lowercase SHA-256 content hash. Atlas also records the backend locator and version needed for later rebinding. Evidence must resolve inside the same worktree and match the current completed snapshot exactly.
 
 `exact` means the node summary or relation is uniquely established by evidence. `inferred` means the agent made a supported inference. `hypothesis` records exploration and remains visibly non-factual even while its evidence is current. Certainty never upgrades automatically.
 

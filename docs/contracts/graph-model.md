@@ -46,6 +46,7 @@ Business keys are stable slash-separated keys such as `commerce/orders/place-ord
 | Structural | `instantiates` | A symbol creates an instance |
 | Structural | `decorated_by` | A declaration has a resolved decorator |
 | Business | `part_of` | A business node belongs to another business node |
+| Business | `invokes` | A scenario or operation invokes another operation |
 | Business | `realized_by` | A business node is implemented by a structural node |
 | Business | `reads` | A business action reads business data |
 | Business | `writes` | A business action writes business data |
