@@ -1,10 +1,13 @@
 import type { DatabaseSync } from "node:sqlite";
 
+import { contentIdentifierSchema } from "../contracts/identifiers.js";
+import { isSupportedSource } from "../repository/repository-inspector.js";
 import type { GitRepository } from "../repository/types.js";
 import type { RepositorySnapshot } from "../snapshots/types.js";
 import { AtlasDatabase } from "../storage/atlas-database.js";
 import type {
   EvidenceLocator,
+  SemanticGraphChangeOptions,
   SemanticGraphChanges,
   SemanticChangeMetadata,
   StructuralEvidenceResolver,
@@ -46,6 +49,12 @@ interface StructuralTargetRow {
   readonly target_end_line: number | null;
   readonly target_end_column: number | null;
   readonly target_backend_locator: string | null;
+}
+
+interface SemanticChangeRow {
+  readonly from_snapshot_id: string | null;
+  readonly to_snapshot_id: string;
+  readonly stale_assertions: string;
 }
 
 export class WorldSnapshotStore implements Disposable {
@@ -199,46 +208,87 @@ export class WorldSnapshotStore implements Disposable {
     return JSON.parse(row.payload) as RepositorySnapshot;
   }
 
-  readSemanticChanges(toSnapshotId?: string): SemanticGraphChanges | undefined {
-    const target = toSnapshotId ?? this.readState().currentSnapshotId;
+  readSemanticChanges(options: SemanticGraphChangeOptions = {}): SemanticGraphChanges | undefined {
+    const requestedStart = options.fromSnapshotId === undefined
+      ? undefined
+      : contentIdentifierSchema.parse(options.fromSnapshotId);
+    const requestedTarget = options.toSnapshotId === undefined
+      ? undefined
+      : contentIdentifierSchema.parse(options.toSnapshotId);
+    const target = requestedTarget ?? this.readState().currentSnapshotId;
     if (target === null) {
       return undefined;
     }
-    const row = this.connection.prepare(`
+    const targetTransition = this.readSemanticChange(target);
+    if (targetTransition === undefined) {
+      return undefined;
+    }
+    const start = requestedStart ?? targetTransition.from_snapshot_id;
+    if (start === null) {
+      return undefined;
+    }
+    this.requireSemanticChangeRange(start, target, targetTransition);
+    const nodes = compareSnapshotContents(
+      this.readSnapshot(start),
+      this.readSnapshot(target),
+    );
+    return {
+      fromSnapshotId: start,
+      toSnapshotId: target,
+      nodes,
+      relations: { added: [], changed: [], removed: [] },
+      staleAssertions: parseStringArray(targetTransition.stale_assertions),
+    };
+  }
+
+  private readSemanticChange(toSnapshotId: string): SemanticChangeRow | undefined {
+    return this.connection.prepare(`
       SELECT
         from_snapshot_id,
         to_snapshot_id,
-        added_paths,
-        modified_paths,
-        removed_paths,
         stale_assertions
       FROM atlas_semantic_changes
       WHERE repository_id = ? AND to_snapshot_id = ?
-    `).get(this.#repositoryId, target) as {
-      from_snapshot_id: string | null;
-      to_snapshot_id: string;
-      added_paths: string;
-      modified_paths: string;
-      removed_paths: string;
-      stale_assertions: string;
-    } | undefined;
-    if (row === undefined || row.from_snapshot_id === null) {
-      return undefined;
+    `).get(this.#repositoryId, toSnapshotId) as SemanticChangeRow | undefined;
+  }
+
+  private requireSemanticChangeRange(
+    fromSnapshotId: string,
+    toSnapshotId: string,
+    targetTransition: SemanticChangeRow,
+  ): void {
+    if (fromSnapshotId === toSnapshotId) {
+      return;
     }
-    const fileReferences = (paths: string): string[] => (
-      (JSON.parse(paths) as string[]).map((path) => `file:${path}`)
+    const visitedSnapshots = new Set<string>();
+    let transition: SemanticChangeRow | undefined = targetTransition;
+    while (transition !== undefined && transition.from_snapshot_id !== null) {
+      if (visitedSnapshots.has(transition.to_snapshot_id)) {
+        throw new Error(
+          `Persisted semantic transition chain contains a cycle at ${transition.to_snapshot_id}`,
+        );
+      }
+      visitedSnapshots.add(transition.to_snapshot_id);
+      if (transition.from_snapshot_id === fromSnapshotId) {
+        return;
+      }
+      transition = this.readSemanticChange(transition.from_snapshot_id);
+    }
+    throw new Error(
+      `No persisted semantic transition connects ${fromSnapshotId} to ${toSnapshotId}`,
     );
-    return {
-      fromSnapshotId: row.from_snapshot_id,
-      toSnapshotId: row.to_snapshot_id,
-      nodes: {
-        added: fileReferences(row.added_paths),
-        changed: fileReferences(row.modified_paths),
-        removed: fileReferences(row.removed_paths),
-      },
-      relations: { added: [], changed: [], removed: [] },
-      staleAssertions: JSON.parse(row.stale_assertions) as string[],
-    };
+  }
+
+  private readSnapshot(snapshotId: string): RepositorySnapshot {
+    const row = this.connection.prepare(`
+      SELECT payload
+      FROM atlas_repository_snapshots
+      WHERE repository_id = ? AND snapshot_id = ?
+    `).get(this.#repositoryId, snapshotId) as { payload: string } | undefined;
+    if (row === undefined) {
+      throw new Error(`Repository snapshot ${snapshotId} is not stored`);
+    }
+    return JSON.parse(row.payload) as RepositorySnapshot;
   }
 
   close(): void {
@@ -606,6 +656,43 @@ function locatorFromRow(row: EvidenceRow): EvidenceLocator {
     contentHash: row.content_hash,
     ...(row.backend_locator === null ? {} : { backendLocator: row.backend_locator }),
   };
+}
+
+function compareSnapshotContents(
+  from: RepositorySnapshot,
+  to: RepositorySnapshot,
+): SemanticGraphChanges["nodes"] {
+  const fromFiles = snapshotContents(from);
+  const toFiles = snapshotContents(to);
+  const added: string[] = [];
+  const changed: string[] = [];
+  const removed: string[] = [];
+  const paths = new Set([...fromFiles.keys(), ...toFiles.keys()]);
+  for (const path of [...paths].sort()) {
+    const before = fromFiles.get(path);
+    const after = toFiles.get(path);
+    const reference = `file:${path}`;
+    if (before === undefined && after !== undefined) {
+      added.push(reference);
+    } else if (before !== undefined && after === undefined) {
+      removed.push(reference);
+    } else if (before !== undefined && after !== undefined && before !== after) {
+      changed.push(reference);
+    }
+  }
+  return { added, changed, removed };
+}
+
+function snapshotContents(snapshot: RepositorySnapshot): ReadonlyMap<string, string> {
+  return new Map(snapshot.files.flatMap((file) => (
+    file.worktree === null || !isSupportedSource(file.path)
+      ? []
+      : [[file.path, file.worktree.contentHash] as const]
+  )));
+}
+
+function parseStringArray(value: string): string[] {
+  return JSON.parse(value) as string[];
 }
 
 function structuralTargetLocatorFromRow(

@@ -78,3 +78,8 @@ export interface SemanticGraphChanges {
   };
   readonly staleAssertions: readonly string[];
 }
+
+export interface SemanticGraphChangeOptions {
+  readonly fromSnapshotId?: string;
+  readonly toSnapshotId?: string;
+}

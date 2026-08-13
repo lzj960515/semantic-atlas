@@ -24,7 +24,10 @@ import type {
 } from "../structural-backend/types.js";
 import type { RepositorySnapshot } from "../snapshots/types.js";
 import { WorldSnapshotStore } from "./world-snapshot-store.js";
-import type { SemanticGraphChanges } from "./types.js";
+import type {
+  SemanticGraphChangeOptions,
+  SemanticGraphChanges,
+} from "./types.js";
 
 export type WorldGraphTraversalOptions = Omit<GraphTraversalOptions, "snapshotId">;
 
@@ -137,23 +140,9 @@ export class WorldGraphQuery implements Disposable {
     });
   }
 
-  changes(options: {
-    readonly fromSnapshotId?: string;
-    readonly toSnapshotId?: string;
-  } = {}): SemanticGraphChanges | undefined {
+  changes(options: SemanticGraphChangeOptions = {}): SemanticGraphChanges | undefined {
     using store = new WorldSnapshotStore(this.#repository);
-    const changes = store.readSemanticChanges(options.toSnapshotId);
-    if (
-      changes !== undefined
-      && options.fromSnapshotId !== undefined
-      && changes.fromSnapshotId !== options.fromSnapshotId
-    ) {
-      throw new Error(
-        `The requested transition starts at ${options.fromSnapshotId}, ` +
-        `but ${changes.toSnapshotId} was published from ${changes.fromSnapshotId ?? "no snapshot"}`,
-      );
-    }
-    return changes;
+    return store.readSemanticChanges(options);
   }
 
   async traverse(

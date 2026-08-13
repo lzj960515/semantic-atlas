@@ -20,7 +20,7 @@ Commands:
 | `map search <query> [--limit <n>]` | Lexically rank labels, aliases, summaries, symbols, and paths; the default limit is 20. |
 | `map show <node-id> [--depth <n>]` | Return locations, evidence-rich neighbors, invariants, tests, validity, and unknowns; depth defaults to 1 and is limited to 3. |
 | `learn --stdin` | Read one complete GraphPatch v1 JSON value from standard input and apply it atomically. |
-| `changes [--from <snapshot-id>] [--to <snapshot-id>]` | Report semantic graph changes between Atlas snapshots, not a raw Git diff. Defaults compare the previous and current snapshots. |
+| `changes [--from <snapshot-id>] [--to <snapshot-id>]` | Report net semantic graph changes between persisted Atlas snapshot endpoints, not a raw Git diff. The source must be an ancestor of the target in the publication chain; defaults compare the previous and current snapshots. |
 
 `map` commands are graph access primitives. The calling agent extracts concepts, reformulates searches, reads source, and judges impact.
 
@@ -76,6 +76,8 @@ The schema requires these fields while allowing additive fields inside command d
 | `changes` | source and target snapshot IDs, node/relation change sets, stale assertions |
 
 Map node and relation objects preserve their evidence lifecycle. When evidence cannot uniquely rebind after indexing, a business node can remain addressable by key while its `summary` is returned with `validity: "stale"`; callers therefore cannot confuse vocabulary identity with a current fact.
+
+Change ranges fold every persisted transition between the requested endpoints into one endpoint comparison. Paths that have the same presence and content at both endpoints are omitted even if they changed in between, while `staleAssertions` reports the target snapshot's final validity state. A snapshot can only be compared with itself when its publication is persisted; an unknown target has no change result.
 
 ## Errors
 

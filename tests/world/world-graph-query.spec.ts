@@ -1,3 +1,5 @@
+import { DatabaseSync } from "node:sqlite";
+
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { BusinessGraphMutation } from "../../src/graph/types.js";
@@ -9,6 +11,7 @@ import type {
   StructuralTraversalResult,
   StructuralUnknownBoundary,
 } from "../../src/structural-backend/types.js";
+import type { StructuralEvidenceResolver } from "../../src/world/types.js";
 import { WorldGraphQuery } from "../../src/world/world-graph-query.js";
 import { WorldSnapshotStore } from "../../src/world/world-snapshot-store.js";
 import {
@@ -137,13 +140,167 @@ describe("unified world graph queries", () => {
     await expect(query.search("!!!", { limit: 4 })).resolves.toEqual([]);
   });
 
-  it("returns persisted structural transitions as stable Atlas references", async () => {
+  it("aggregates persisted structural changes between Atlas snapshot endpoints", async () => {
     const context = await createGraphTestContext();
     contexts.push(context);
     const query = createQuery(context);
 
     expect(query.changes()).toBeUndefined();
     expect(query.changes({ toSnapshotId: "f".repeat(64) })).toBeUndefined();
+
+    await context.fixture.write("src/remove-me.ts", "export const removeMe = true;\n");
+    await context.fixture.write("src/restored.ts", "export const restored = true;\n");
+    await context.fixture.git("add", ".");
+    await context.fixture.git("commit", "-m", "test: establish range start");
+    const start = await createRepositorySnapshot(context.repository);
+    publishSnapshot(context, start, context.snapshot.snapshotId, {
+      added: ["src/remove-me.ts", "src/restored.ts"],
+      modified: [],
+      removed: [],
+    });
+    const restored = node(
+      "symbol:src/restored.ts#restored",
+      "Symbol",
+      "restored",
+      "src/restored.ts",
+    );
+    const restoredSource = start.files.find(({ path }) => path === restored.path)?.worktree;
+    if (restoredSource === undefined || restoredSource === null) {
+      throw new Error("Expected restored source in range start snapshot");
+    }
+    context.graph.mutateBusinessGraph({
+      baseSnapshotId: start.snapshotId,
+      upsertNodes: [{
+        key: "fixture/restored",
+        kind: "Operation",
+        label: "Restored operation",
+        summary: "Proves stale assertions use the target snapshot state.",
+        aliases: [],
+        certainty: "exact",
+        evidence: [{
+          symbolId: restored.reference.id,
+          file: restored.path,
+          range: restored.range,
+          contentHash: restoredSource.contentHash,
+        }],
+      }],
+      removeNodeKeys: [],
+      upsertRelations: [],
+      removeRelations: [],
+    });
+
+    await context.fixture.write("src/example.ts", "export const value = 2;\n");
+    await context.fixture.write("src/persistent.ts", "export const persistent = 1;\n");
+    await context.fixture.write("src/transient.ts", "export const transient = true;\n");
+    await context.fixture.git("rm", "src/remove-me.ts", "src/restored.ts");
+    await context.fixture.git("add", ".");
+    const middle = await createRepositorySnapshot(context.repository);
+    publishSnapshot(context, middle, start.snapshotId, {
+      added: ["src/persistent.ts", "src/transient.ts"],
+      modified: ["src/example.ts"],
+      removed: ["src/remove-me.ts", "src/restored.ts"],
+    });
+
+    await context.fixture.write("src/example.ts", "export const value = 3;\n");
+    await context.fixture.write("src/persistent.ts", "export const persistent = 2;\n");
+    await context.fixture.write("src/restored.ts", "export const restored = true;\n");
+    await context.fixture.git("rm", "--force", "src/transient.ts");
+    const target = await createRepositorySnapshot(context.repository);
+    publishSnapshot(context, target, middle.snapshotId, {
+      added: [],
+      modified: [],
+      removed: [],
+    }, exactNodeResolver(restored));
+
+    expect(query.changes({
+      fromSnapshotId: start.snapshotId,
+      toSnapshotId: middle.snapshotId,
+    })?.staleAssertions).toEqual(["fixture/restored"]);
+
+    expect(query.changes({
+      fromSnapshotId: middle.snapshotId,
+      toSnapshotId: target.snapshotId,
+    })).toEqual({
+      fromSnapshotId: middle.snapshotId,
+      toSnapshotId: target.snapshotId,
+      nodes: {
+        added: ["file:src/restored.ts"],
+        changed: ["file:src/example.ts", "file:src/persistent.ts"],
+        removed: ["file:src/transient.ts"],
+      },
+      relations: { added: [], changed: [], removed: [] },
+      staleAssertions: [],
+    });
+    expect(query.changes({
+      fromSnapshotId: target.snapshotId,
+      toSnapshotId: target.snapshotId,
+    })).toEqual({
+      fromSnapshotId: target.snapshotId,
+      toSnapshotId: target.snapshotId,
+      nodes: { added: [], changed: [], removed: [] },
+      relations: { added: [], changed: [], removed: [] },
+      staleAssertions: [],
+    });
+    expect(query.changes({
+      fromSnapshotId: start.snapshotId,
+      toSnapshotId: target.snapshotId,
+    })).toEqual({
+      fromSnapshotId: start.snapshotId,
+      toSnapshotId: target.snapshotId,
+      nodes: {
+        added: ["file:src/persistent.ts"],
+        changed: ["file:src/example.ts"],
+        removed: ["file:src/remove-me.ts"],
+      },
+      relations: { added: [], changed: [], removed: [] },
+      staleAssertions: [],
+    });
+  });
+
+  it("validates endpoints and rejects unconnected or cyclic transition chains", async () => {
+    const context = await createGraphTestContext();
+    contexts.push(context);
+    const query = createQuery(context);
+    const unknownSnapshotId = "f".repeat(64);
+
+    expect(query.changes({
+      fromSnapshotId: unknownSnapshotId,
+      toSnapshotId: unknownSnapshotId,
+    })).toBeUndefined();
+    expect(() => query.changes({ fromSnapshotId: "not-a-snapshot" })).toThrow(
+      /Expected a SHA-256 identifier/,
+    );
+
+    await context.fixture.write("src/example.ts", "export const value = 2;\n");
+    const middle = await createRepositorySnapshot(context.repository);
+    publishSnapshot(context, middle, context.snapshot.snapshotId, {
+      added: [],
+      modified: ["src/example.ts"],
+      removed: [],
+    });
+    await context.fixture.write("src/example.ts", "export const value = 3;\n");
+    const target = await createRepositorySnapshot(context.repository);
+    publishSnapshot(context, target, middle.snapshotId, {
+      added: [],
+      modified: ["src/example.ts"],
+      removed: [],
+    });
+
+    expect(() => query.changes({
+      fromSnapshotId: target.snapshotId,
+      toSnapshotId: middle.snapshotId,
+    })).toThrow(/No persisted semantic transition connects/);
+
+    using database = new DatabaseSync(context.graph.databasePath);
+    database.prepare(`
+      UPDATE atlas_semantic_changes
+      SET from_snapshot_id = ?
+      WHERE repository_id = ? AND to_snapshot_id = ?
+    `).run(target.snapshotId, context.repository.repositoryId, middle.snapshotId);
+    expect(() => query.changes({
+      fromSnapshotId: context.snapshot.snapshotId,
+      toSnapshotId: target.snapshotId,
+    })).toThrow(/transition chain contains a cycle/);
   });
 
   it("rejects a result when publication changes during an asynchronous query", async () => {
@@ -313,6 +470,34 @@ function emptyResolver() {
     getNode: () => undefined,
     findCandidates: () => [],
     backendLocator: () => undefined,
+  };
+}
+
+function publishSnapshot(
+  context: GraphTestContext,
+  snapshot: Awaited<ReturnType<typeof createRepositorySnapshot>>,
+  fromSnapshotId: string,
+  structural: {
+    readonly added: readonly string[];
+    readonly modified: readonly string[];
+    readonly removed: readonly string[];
+  },
+  resolver: StructuralEvidenceResolver = emptyResolver(),
+): void {
+  using store = new WorldSnapshotStore(context.repository);
+  store.begin(snapshot.snapshotId);
+  store.publish(snapshot, "1.5.0", 1, resolver, {
+    fromSnapshotId,
+    toSnapshotId: snapshot.snapshotId,
+    structural,
+  });
+}
+
+function exactNodeResolver(node: StructuralNode): StructuralEvidenceResolver {
+  return {
+    getNode: (reference) => reference === node.reference.id ? node : undefined,
+    findCandidates: (locator) => locator.file === node.path ? [node] : [],
+    backendLocator: () => `backend:${node.reference.id}`,
   };
 }
 
