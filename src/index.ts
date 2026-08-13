@@ -24,7 +24,13 @@ export type {
 export { SnapshotStore } from "./storage/snapshot-store.js";
 export { WorldModelService } from "./world/world-model-service.js";
 export type { PublishedWorldSnapshot } from "./world/world-model-service.js";
-export type { WorldSnapshotState, WorldSnapshotStatus } from "./world/types.js";
+export { WorldGraphQuery } from "./world/world-graph-query.js";
+export type { WorldGraphTraversalOptions } from "./world/world-graph-query.js";
+export type {
+  SemanticGraphChanges,
+  WorldSnapshotState,
+  WorldSnapshotStatus,
+} from "./world/types.js";
 export {
   STRUCTURAL_BACKEND_VERSION,
   StructuralBackendError,

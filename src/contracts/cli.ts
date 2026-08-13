@@ -12,6 +12,7 @@ import {
   structuralNodeKindSchema,
   structuralNodeIdSchema,
   structuralRelationTypeSchema,
+  structuralSupportSchema,
 } from "./graph.js";
 import {
   contentIdentifierSchema,
@@ -49,6 +50,7 @@ const structuralMapNodeSchema = z.looseObject({
   label: z.string().min(1),
   validity: knowledgeValiditySchema,
   locations: z.array(sourceLocationSchema),
+  support: structuralSupportSchema,
 });
 
 export const businessMapNodeSchema = z.looseObject({
@@ -69,9 +71,15 @@ const unknownBoundarySchema = z.looseObject({
   kind: z.literal("UnknownBoundary"),
   label: z.string().min(1),
   validity: z.literal("unknown"),
+  owner: z.strictObject({
+    domain: z.literal("structural"),
+    id: structuralNodeIdSchema,
+  }),
+  operation: z.string().min(1),
   reason: z.string().min(1),
   location: sourceLocationSchema,
   candidates: z.array(z.string().min(1)),
+  support: structuralSupportSchema,
 });
 
 export const mapNodeSchema = z.union([
@@ -181,6 +189,7 @@ const neighborSchema = z.union([
     certainty: z.null(),
     validity: knowledgeValiditySchema,
     evidence: z.array(evidenceSchema),
+    support: structuralSupportSchema,
   }),
   z.looseObject({
     type: businessRelationTypeSchema,

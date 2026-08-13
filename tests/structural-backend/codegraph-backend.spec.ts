@@ -126,6 +126,35 @@ describe("CodeGraph structural backend", () => {
           support: { status: "exact", provenance: "backend" },
         },
       ]);
+      const roots = await backend.listRoots();
+      expect(roots).toEqual([
+        expect.objectContaining({
+          reference: { id: "module:src" },
+          kind: "Module",
+          name: "src",
+          virtual: true,
+        }),
+      ]);
+      await expect(backend.getNode(roots[0]!.reference)).resolves.toEqual(roots[0]);
+      await expect(backend.traverse({
+        reference: roots[0]!.reference,
+        maxDepth: 1,
+        direction: "outgoing",
+        relationTypes: ["contains"],
+      })).resolves.toMatchObject({
+        nodes: expect.arrayContaining([
+          expect.objectContaining({ reference: { id: "module:src" } }),
+          expect.objectContaining({ reference: { id: "file:src/dep.ts" }, kind: "File" }),
+          expect.objectContaining({ reference: { id: "file:src/entry.ts" }, kind: "File" }),
+        ]),
+        relations: expect.arrayContaining([
+          expect.objectContaining({
+            from: { id: "module:src" },
+            type: "contains",
+            to: { id: "file:src/entry.ts" },
+          }),
+        ]),
+      });
     } finally {
       if (originalDirectory === undefined) {
         delete process.env.CODEGRAPH_DIR;

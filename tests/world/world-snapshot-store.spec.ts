@@ -213,6 +213,29 @@ describe("world snapshot reconciliation", () => {
     expect(database.prepare(`
       SELECT COUNT(*) AS count FROM atlas_repository_snapshots
     `).get()).toEqual({ count: 1 });
+    expect(store.readSemanticChanges()).toBeUndefined();
+
+    await context.fixture.write("src/example.ts", "export const value = 2;\n");
+    const nextSnapshot = await createRepositorySnapshot(context.repository);
+    store.begin(nextSnapshot.snapshotId);
+    store.publish(
+      nextSnapshot,
+      "1.5.0",
+      1,
+      exactResolver(context.evidence.symbolId),
+      {
+        fromSnapshotId: context.snapshot.snapshotId,
+        toSnapshotId: nextSnapshot.snapshotId,
+        structural: { added: [], modified: ["src/example.ts"], removed: [] },
+      },
+    );
+    expect(store.readSemanticChanges()).toEqual({
+      fromSnapshotId: context.snapshot.snapshotId,
+      toSnapshotId: nextSnapshot.snapshotId,
+      nodes: { added: [], changed: ["file:src/example.ts"], removed: [] },
+      relations: { added: [], changed: [], removed: [] },
+      staleAssertions: [],
+    });
   });
 
   it("rebinds a structural relation target independently from its supporting evidence", async () => {

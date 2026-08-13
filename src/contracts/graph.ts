@@ -29,6 +29,7 @@ export const structuralRelationTypeSchema = z.enum([
   "calls",
   "extends",
   "implements",
+  "instantiates",
   "decorated_by",
 ]);
 
@@ -119,6 +120,25 @@ export const assertionCertaintySchema = z.enum([
 ]);
 
 export const knowledgeValiditySchema = z.enum(["valid", "stale"]);
+
+export const structuralSupportStatusSchema = z.enum([
+  "exact",
+  "inferred",
+  "unresolved",
+  "unsupported",
+]);
+
+export const structuralProvenanceSchema = z.enum([
+  "tree-sitter",
+  "scip",
+  "heuristic",
+  "backend",
+]);
+
+export const structuralSupportSchema = z.strictObject({
+  status: structuralSupportStatusSchema,
+  provenance: structuralProvenanceSchema,
+});
 
 const businessNodeSchema = z.strictObject({
   key: businessKeySchema,

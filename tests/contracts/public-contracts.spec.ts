@@ -44,6 +44,7 @@ const structuralNode = {
       range: evidence.range,
     },
   ],
+  support: { status: "exact", provenance: "tree-sitter" },
 };
 
 const staleBusinessNode = {
@@ -73,6 +74,11 @@ const unknownBoundary = {
   kind: "UnknownBoundary",
   label: "Runtime provider lookup",
   validity: "unknown",
+  owner: {
+    domain: "structural",
+    id: "symbol:src/orders/order.module.ts#OrdersModule",
+  },
+  operation: "provider_lookup",
   reason: "Provider token is computed at runtime.",
   location: {
     file: "src/orders/order.module.ts",
@@ -82,6 +88,7 @@ const unknownBoundary = {
     },
   },
   candidates: ["symbol:src/orders/order.service.ts#OrderService"],
+  support: { status: "unresolved", provenance: "backend" },
 };
 
 describe("GraphPatch v1 contract", () => {
@@ -393,6 +400,25 @@ describe("CLI response envelope v1", () => {
     expect(() => cliEnvelopeSchema.parse(response)).toThrow(
       /certainty|evidence/,
     );
+  });
+
+  it("does not allow structural results to hide support provenance", () => {
+    const { support: _support, ...nodeWithoutSupport } = structuralNode;
+    const response = {
+      schemaVersion: 1,
+      repository,
+      snapshot,
+      status: "ok",
+      data: {
+        command: "map.search",
+        query: "place order",
+        limit: 20,
+        results: [{ score: 0.92, node: nodeWithoutSupport }],
+      },
+      warnings: [],
+    };
+
+    expect(() => cliEnvelopeSchema.parse(response)).toThrow(/support/);
   });
 
   it("requires a reason when a language is unsupported", () => {

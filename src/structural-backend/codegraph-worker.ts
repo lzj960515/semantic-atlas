@@ -28,6 +28,7 @@ async function executeRequest(
     case "inspect": return backend.inspect();
     case "build": return backend.build();
     case "sync": return backend.sync();
+    case "listRoots": return backend.listRoots();
     case "search": return backend.search(request.input);
     case "getNode": return backend.getNode(request.input);
     case "traverse": return backend.traverse(request.input);

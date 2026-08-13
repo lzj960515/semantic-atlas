@@ -9,6 +9,7 @@ import type {
   sourceRangeSchema,
   structuralNodeKindSchema,
   structuralRelationTypeSchema,
+  structuralSupportSchema,
 } from "../contracts/graph.js";
 
 export type StructuralNodeKind = z.infer<typeof structuralNodeKindSchema>;
@@ -19,6 +20,7 @@ export type AssertionCertainty = z.infer<typeof assertionCertaintySchema>;
 export type KnowledgeValidity = z.infer<typeof knowledgeValiditySchema>;
 export type SourceRange = z.infer<typeof sourceRangeSchema>;
 export type Evidence = z.infer<typeof evidenceSchema>;
+type StructuralSupport = z.infer<typeof structuralSupportSchema>;
 
 export interface GraphSourceLocation {
   readonly file: string;
@@ -99,6 +101,7 @@ export interface StructuralGraphNode {
   readonly snapshotId: string;
   readonly validity: KnowledgeValidity;
   readonly locations: readonly GraphSourceLocation[];
+  readonly support: StructuralSupport;
 }
 
 export interface UnknownBoundary {
@@ -108,9 +111,12 @@ export interface UnknownBoundary {
   readonly label: string;
   readonly snapshotId: string;
   readonly validity: "unknown";
+  readonly owner: StructuralNodeReference;
+  readonly operation: string;
   readonly reason: string;
   readonly location: GraphSourceLocation;
   readonly candidates: readonly string[];
+  readonly support: StructuralSupport;
 }
 
 export interface BusinessGraphNode {
@@ -137,6 +143,7 @@ export interface StructuralGraphRelation {
   readonly certainty: null;
   readonly validity: KnowledgeValidity;
   readonly evidence: readonly [];
+  readonly support: StructuralSupport;
 }
 
 export interface BusinessGraphRelation extends BusinessRelationSelector {
@@ -172,6 +179,20 @@ export interface GraphSearchOptions {
 export interface GraphSearchResult {
   readonly score: number;
   readonly node: GraphNode;
+}
+
+export interface WorldGraphView {
+  readonly node: GraphNode;
+  readonly depth: number;
+  readonly neighbors: readonly GraphNeighbor[];
+  readonly invariants: readonly BusinessGraphNode[];
+  readonly tests: readonly StructuralGraphNode[];
+  readonly unknowns: readonly UnknownBoundary[];
+}
+
+export interface WorldGraphTraversalResult {
+  readonly neighbors: readonly GraphNeighbor[];
+  readonly unknowns: readonly UnknownBoundary[];
 }
 
 export type EvidenceOwner =

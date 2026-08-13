@@ -148,6 +148,7 @@ function createStructuralBackendFixture(
     inspect: async () => completeState,
     build: async () => ({ ...buildResult, mode: "full" }),
     sync: async () => buildResult,
+    listRoots: async () => [],
     search: async ({ query }) => [
       nodeFor("symbol:src/example.ts#value"),
       nodeFor("symbol:src/stable.ts#stable"),

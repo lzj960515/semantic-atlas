@@ -5,6 +5,7 @@ import type { RepositorySnapshot } from "../snapshots/types.js";
 import { AtlasDatabase } from "../storage/atlas-database.js";
 import type {
   EvidenceLocator,
+  SemanticGraphChanges,
   SemanticChangeMetadata,
   StructuralEvidenceResolver,
   StructuralTargetLocator,
@@ -196,6 +197,48 @@ export class WorldSnapshotStore implements Disposable {
       throw new Error("The current world snapshot record is missing");
     }
     return JSON.parse(row.payload) as RepositorySnapshot;
+  }
+
+  readSemanticChanges(toSnapshotId?: string): SemanticGraphChanges | undefined {
+    const target = toSnapshotId ?? this.readState().currentSnapshotId;
+    if (target === null) {
+      return undefined;
+    }
+    const row = this.connection.prepare(`
+      SELECT
+        from_snapshot_id,
+        to_snapshot_id,
+        added_paths,
+        modified_paths,
+        removed_paths,
+        stale_assertions
+      FROM atlas_semantic_changes
+      WHERE repository_id = ? AND to_snapshot_id = ?
+    `).get(this.#repositoryId, target) as {
+      from_snapshot_id: string | null;
+      to_snapshot_id: string;
+      added_paths: string;
+      modified_paths: string;
+      removed_paths: string;
+      stale_assertions: string;
+    } | undefined;
+    if (row === undefined || row.from_snapshot_id === null) {
+      return undefined;
+    }
+    const fileReferences = (paths: string): string[] => (
+      (JSON.parse(paths) as string[]).map((path) => `file:${path}`)
+    );
+    return {
+      fromSnapshotId: row.from_snapshot_id,
+      toSnapshotId: row.to_snapshot_id,
+      nodes: {
+        added: fileReferences(row.added_paths),
+        changed: fileReferences(row.modified_paths),
+        removed: fileReferences(row.removed_paths),
+      },
+      relations: { added: [], changed: [], removed: [] },
+      staleAssertions: JSON.parse(row.stale_assertions) as string[],
+    };
   }
 
   close(): void {

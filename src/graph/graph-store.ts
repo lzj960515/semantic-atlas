@@ -161,6 +161,27 @@ export class GraphStore implements Disposable {
     return this.readBusinessRelations(snapshotId).map((row) => this.relationFromRow(row));
   }
 
+  listCapabilityRoots(snapshotId: string): readonly BusinessGraphNode[] {
+    contentIdentifierSchema.parse(snapshotId);
+    const rows = this.database.prepare(`
+      SELECT node.node_key
+      FROM atlas_business_nodes AS node
+      WHERE node.repository_id = ?
+        AND node.kind = 'Capability'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM atlas_business_relations AS parent
+          WHERE parent.repository_id = node.repository_id
+            AND parent.from_key = node.node_key
+            AND parent.relation_type = 'part_of'
+            AND parent.to_domain = 'business'
+        )
+      ORDER BY node.node_key ASC
+    `).all(this.#repositoryId) as unknown as { node_key: string }[];
+    return rows.map(({ node_key }) => this.readBusinessNode(node_key, snapshotId))
+      .filter((node): node is BusinessGraphNode => node !== undefined);
+  }
+
   traverse(
     start: GraphNodeReference,
     options: GraphTraversalOptions,

@@ -95,3 +95,7 @@ An `UnknownBoundary` records the unresolved operation, backend reason, location,
 `map roots` returns business capabilities when present and structural module roots otherwise. `map children` follows `part_of` and `contains`. `map show` composes Atlas business neighbors, evidence links, and CodeGraph structural neighbors with depth 1 by default and at most 3.
 
 Lexical search combines Atlas business vocabulary with CodeGraph structural search. The calling AI performs natural-language interpretation; the CLI does not add a language model or pretend lexical scores are business inference.
+
+The two search domains are combined with deterministic reciprocal-rank fusion. Scores express ordering inside the combined result only; they do not convert structural relevance into business certainty.
+
+Structural nodes and relations include normalized `support.status` and `support.provenance`. Business assertions use `certainty`, `validity`, and evidence instead. Unknown boundaries keep their structural owner, unresolved operation, support, reason, source location, and finite candidates.

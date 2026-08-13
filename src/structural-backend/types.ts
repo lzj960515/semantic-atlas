@@ -1,8 +1,16 @@
+import type { z } from "zod";
+
+import type {
+  structuralProvenanceSchema,
+  structuralSupportSchema,
+  structuralSupportStatusSchema,
+} from "../contracts/graph.js";
+
 export const STRUCTURAL_BACKEND_VERSION = "1.5.0";
 
 export type StructuralProjectionCompleteness = "missing" | "complete" | "incomplete";
-export type StructuralSupportStatus = "exact" | "inferred" | "unresolved" | "unsupported";
-export type StructuralProvenance = "tree-sitter" | "scip" | "heuristic" | "backend";
+export type StructuralSupportStatus = z.infer<typeof structuralSupportStatusSchema>;
+export type StructuralProvenance = z.infer<typeof structuralProvenanceSchema>;
 export type BackendStructuralNodeKind = "Module" | "File" | "Symbol" | "Test";
 export type BackendStructuralRelationType =
   | "contains"
@@ -16,10 +24,7 @@ export type BackendStructuralRelationType =
   | "instantiates"
   | "decorated_by";
 
-export interface StructuralSupport {
-  readonly status: StructuralSupportStatus;
-  readonly provenance: StructuralProvenance;
-}
+export type StructuralSupport = z.infer<typeof structuralSupportSchema>;
 
 export interface StructuralReference {
   readonly id: string;
@@ -44,6 +49,7 @@ export interface StructuralNode {
   readonly language: string;
   readonly range: StructuralSourceRange;
   readonly support: StructuralSupport;
+  readonly virtual?: boolean;
 }
 
 export interface StructuralRelation {
@@ -143,6 +149,7 @@ export interface StructuralIndexBackend {
   inspect(): Promise<StructuralIndexState>;
   build(): Promise<StructuralBuildResult>;
   sync(): Promise<StructuralBuildResult>;
+  listRoots(): Promise<readonly StructuralNode[]>;
   search(query: StructuralSearchQuery): Promise<readonly StructuralSearchResult[]>;
   getNode(reference: StructuralReference): Promise<StructuralNode | undefined>;
   traverse(query: StructuralTraversalQuery): Promise<StructuralTraversalResult>;

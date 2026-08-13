@@ -62,3 +62,19 @@ export interface SemanticChangeMetadata {
   readonly structural: StructuralFileChanges;
   readonly staleAssertions: readonly string[];
 }
+
+export interface SemanticGraphChanges {
+  readonly fromSnapshotId: string;
+  readonly toSnapshotId: string;
+  readonly nodes: {
+    readonly added: readonly string[];
+    readonly changed: readonly string[];
+    readonly removed: readonly string[];
+  };
+  readonly relations: {
+    readonly added: readonly string[];
+    readonly changed: readonly string[];
+    readonly removed: readonly string[];
+  };
+  readonly staleAssertions: readonly string[];
+}

@@ -49,13 +49,14 @@ The adapter exposes only the structural operations required by business understa
 ```ts
 interface StructuralIndexBackend {
   inspect(): Promise<StructuralIndexState>;
-  build(options: StructuralBuildOptions): Promise<StructuralBuildResult>;
-  sync(options: StructuralSyncOptions): Promise<StructuralBuildResult>;
-  search(query: StructuralSearchQuery): Promise<StructuralNode[]>;
+  build(): Promise<StructuralBuildResult>;
+  sync(): Promise<StructuralBuildResult>;
+  listRoots(): Promise<StructuralNode[]>;
+  search(query: StructuralSearchQuery): Promise<StructuralSearchResult[]>;
   getNode(reference: StructuralReference): Promise<StructuralNode | undefined>;
-  getNeighbors(query: StructuralTraversalQuery): Promise<StructuralNeighbor[]>;
-  getCallers(reference: StructuralReference): Promise<StructuralReference[]>;
-  getCallees(reference: StructuralReference): Promise<StructuralReference[]>;
+  traverse(query: StructuralTraversalQuery): Promise<StructuralTraversalResult>;
+  getCallers(reference: StructuralReference): Promise<StructuralCallRelation[]>;
+  getCallees(reference: StructuralReference): Promise<StructuralCallRelation[]>;
   getFileDependencies(path: string): Promise<StructuralFileDependency[]>;
 }
 ```
@@ -63,6 +64,12 @@ interface StructuralIndexBackend {
 These are domain-level capabilities rather than a mirror of every CodeGraph API. The adapter may use `CodeGraph.init`, `open`, `indexAll`, `sync`, search, callers, callees, call graph, impact, and file-dependency APIs internally.
 
 `WorldModelService` owns orchestration. `BusinessKnowledgeStore` owns Atlas tables and transactions. `WorldGraphQuery` resolves cross-domain references and returns the existing versioned CLI graph contract.
+
+`WorldGraphQuery` is the only read coordinator used by map and change workflows. It requires one published world snapshot, combines business hierarchy and evidence relations with backend traversal, and verifies that the published snapshot did not change while an asynchronous structural query was running. Structural results retain normalized support and provenance; business results retain certainty, validity, and evidence.
+
+Lexical search uses deterministic reciprocal-rank fusion across Atlas business vocabulary and CodeGraph structural search. Raw backend scores are not compared across domains because their scales are implementation-specific. The query layer performs no embeddings, model calls, or natural-language inference.
+
+When CodeGraph has no explicit module or namespace nodes, the adapter exposes deterministic top-directory module roots with Atlas `module:` references. These roots are computed from the current backend file manifest and traverse to backend file nodes; they are not stored in Atlas tables or presented as business facts.
 
 ## Evidence references
 
@@ -122,6 +129,8 @@ A future physical-database recovery command must copy or export Atlas-owned tabl
 CodeGraph's structural tables represent the current code projection. Atlas snapshots record repository content identity, Git state, relevant file hashes, the CodeGraph package and extraction versions, build outcome, and evidence validity.
 
 Atlas does not preserve a second full historical structural graph. `changes` is derived during index/sync from the previous completed state and persisted as Atlas-owned change metadata. Business assertions remain durable across snapshots and expose validity for the requested current snapshot.
+
+The change query reads that publication metadata and returns stable Atlas `file:` references plus stale assertion identities. It does not query mutable CodeGraph rows as if they were the prior snapshot or reconstruct unsupported historical node and relation changes.
 
 World publication captures the repository snapshot after acquiring the Atlas write lock, verifies it again after structural indexing, and compares its source hashes with CodeGraph's indexed file manifest. If source changes during that interval, including a transient change that restores the same final snapshot, Atlas rolls the structural database back and leaves the prior world snapshot as the last published revision. The first semantic transition published for a snapshot is immutable, so a later no-change sync cannot replace its path-level change metadata.
 

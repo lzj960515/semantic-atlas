@@ -187,6 +187,13 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
     }));
   }
 
+  async listRoots(): Promise<readonly StructuralNode[]> {
+    if (requiresBundledCodeGraphRuntime()) {
+      return runCodeGraphWorker({ operation: "listRoots", repository: this.#repository });
+    }
+    return this.withCurrentGraph((graph) => structuralModuleRoots(graph));
+  }
+
   async search(query: StructuralSearchQuery): Promise<readonly StructuralSearchResult[]> {
     if (requiresBundledCodeGraphRuntime()) {
       return runCodeGraphWorker({
@@ -217,7 +224,9 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
     }
     return this.withCurrentGraph((graph) => {
       const node = findNodeByReference(graph, reference);
-      return node === undefined ? undefined : normalizeNode(node);
+      return node === undefined
+        ? findVirtualModuleRoot(graph, reference)
+        : normalizeNode(node);
     });
   }
 
@@ -230,6 +239,10 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
       });
     }
     return this.withCurrentGraph((graph, queries) => {
+      const virtualModule = findVirtualModuleRoot(graph, query.reference);
+      if (virtualModule !== undefined) {
+        return traverseVirtualModuleRoot(graph, virtualModule, query);
+      }
       const start = requireNodeByReference(graph, query.reference);
       const requestedRelations = query.relationTypes?.map((type) => backendRelationTypes.get(type));
       const subgraph = graph.traverse(start.id, {
@@ -934,6 +947,98 @@ function normalizeNode(node: Node): StructuralNode {
     },
     support: exactBackendSupport(),
   };
+}
+
+function structuralModuleRoots(graph: CodeGraph): StructuralNode[] {
+  const modules = [
+    ...graph.getNodesByKind("module"),
+    ...graph.getNodesByKind("namespace"),
+  ];
+  if (modules.length > 0) {
+    const moduleIds = new Set(modules.map((node) => node.id));
+    const roots = modules.filter((node) => !graph.getIncomingEdges(node.id).some((edge) => (
+      edge.kind === "contains" && moduleIds.has(edge.source)
+    )));
+    return uniqueBy((roots.length === 0 ? modules : roots).map(normalizeNode), (node) => node.reference.id)
+      .sort(compareStructuralNodes);
+  }
+
+  const rootDirectories = new Map<string, string>();
+  for (const file of graph.getFiles()) {
+    const path = normalizeRepositoryPath(file.path);
+    const separator = path.indexOf("/");
+    const root = separator === -1 ? "." : path.slice(0, separator);
+    if (!rootDirectories.has(root)) {
+      rootDirectories.set(root, path);
+    }
+  }
+  return [...rootDirectories.entries()].sort(([left], [right]) => left.localeCompare(right))
+    .map(([root, representativePath]) => virtualModuleRoot(root, representativePath));
+}
+
+function findVirtualModuleRoot(
+  graph: CodeGraph,
+  reference: StructuralReference,
+): StructuralNode | undefined {
+  return structuralModuleRoots(graph).find((root) => (
+    root.virtual === true && root.reference.id === reference.id
+  ));
+}
+
+function traverseVirtualModuleRoot(
+  graph: CodeGraph,
+  module: StructuralNode,
+  query: StructuralTraversalQuery,
+): StructuralTraversalResult {
+  const includesOutgoing = query.direction !== "incoming";
+  const includesContains = query.relationTypes === undefined || query.relationTypes.includes("contains");
+  if (!includesOutgoing || !includesContains || query.maxDepth === 0) {
+    return { roots: [module.reference], nodes: [module], relations: [], boundaries: [] };
+  }
+  const root = decodeURIComponent(module.reference.id.slice("module:".length));
+  const files = graph.getNodesByKind("file")
+    .filter((node) => topLevelDirectory(normalizeRepositoryPath(node.filePath)) === root)
+    .map(normalizeNode)
+    .sort(compareStructuralNodes);
+  return {
+    roots: [module.reference],
+    nodes: [module, ...files],
+    relations: files.map((file): StructuralRelation => ({
+      from: module.reference,
+      type: "contains",
+      to: file.reference,
+      support: exactBackendSupport(),
+    })),
+    boundaries: [],
+  };
+}
+
+function virtualModuleRoot(root: string, representativePath: string): StructuralNode {
+  return {
+    reference: { id: `module:${encodeURIComponent(root)}` },
+    kind: "Module",
+    name: root,
+    qualifiedName: root,
+    path: representativePath,
+    language: "unknown",
+    range: {
+      start: { line: 1, column: 1 },
+      end: { line: 1, column: 1 },
+    },
+    support: exactBackendSupport(),
+    virtual: true,
+  };
+}
+
+function topLevelDirectory(path: string): string {
+  const separator = path.indexOf("/");
+  return separator === -1 ? "." : path.slice(0, separator);
+}
+
+function compareStructuralNodes(left: StructuralNode, right: StructuralNode): number {
+  return left.path.localeCompare(right.path)
+    || left.qualifiedName.localeCompare(right.qualifiedName)
+    || left.reference.id.localeCompare(right.reference.id);
 }
 
 function normalizeNodeKind(node: Node): StructuralNode["kind"] {
