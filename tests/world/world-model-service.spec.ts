@@ -63,9 +63,16 @@ describe("world model publication", () => {
     expect(graph.databasePath).toBe(changed.structural.databasePath);
     using database = new DatabaseSync(graph.databasePath, { readOnly: true });
     expect(database.prepare(`
-      SELECT from_snapshot_id, to_snapshot_id, modified_paths
-      FROM atlas_semantic_changes
-      WHERE to_snapshot_id = ?
+      SELECT
+        previous.snapshot_id AS from_snapshot_id,
+        publication.snapshot_id AS to_snapshot_id,
+        publication.modified_paths
+      FROM atlas_world_publications AS publication
+      LEFT JOIN atlas_world_publications AS previous
+        ON previous.publication_id = publication.previous_publication_id
+      WHERE publication.snapshot_id = ?
+      ORDER BY publication.publication_id DESC
+      LIMIT 1
     `).get(changed.snapshotId)).toEqual({
       from_snapshot_id: initial.snapshotId,
       to_snapshot_id: changed.snapshotId,
@@ -106,7 +113,7 @@ describe("world model publication", () => {
     using failedDatabase = new DatabaseSync(databasePath);
     expect(failedDatabase.prepare(`
       SELECT COUNT(*) AS count
-      FROM atlas_semantic_changes
+      FROM atlas_world_publications
     `).get()).toEqual({ count: 1 });
     failedDatabase.exec("DROP TRIGGER atlas_fixture_reconciliation_failure");
 
@@ -122,11 +129,11 @@ describe("world model publication", () => {
     });
     expect(failedDatabase.prepare(`
       SELECT COUNT(*) AS count
-      FROM atlas_semantic_changes
+      FROM atlas_world_publications
     `).get()).toEqual({ count: 2 });
   });
 
-  it("preserves the first transition when a later sync publishes the same snapshot", async () => {
+  it("appends a publication when a later sync publishes the same snapshot", async () => {
     const fixture = await createGitFixture();
     fixtures.push(fixture);
     const repository = await inspectGitRepository(fixture.directory);
@@ -140,14 +147,16 @@ describe("world model publication", () => {
     expect(unchanged.snapshotId).toBe(changed.snapshotId);
     using database = new DatabaseSync(changed.structural.databasePath, { readOnly: true });
     expect(database.prepare(`
-      SELECT from_snapshot_id, to_snapshot_id, modified_paths
-      FROM atlas_semantic_changes
-      WHERE to_snapshot_id = ?
-    `).get(changed.snapshotId)).toEqual({
-      from_snapshot_id: initial.snapshotId,
-      to_snapshot_id: changed.snapshotId,
-      modified_paths: '["src/example.ts"]',
-    });
+      SELECT previous.snapshot_id AS from_snapshot_id, publication.modified_paths
+      FROM atlas_world_publications AS publication
+      LEFT JOIN atlas_world_publications AS previous
+        ON previous.publication_id = publication.previous_publication_id
+      WHERE publication.snapshot_id = ?
+      ORDER BY publication.publication_id
+    `).all(changed.snapshotId)).toEqual([
+      { from_snapshot_id: initial.snapshotId, modified_paths: '["src/example.ts"]' },
+      { from_snapshot_id: changed.snapshotId, modified_paths: '[]' },
+    ]);
   });
 
   it("detects indexed-source ABA when the repository returns to the captured snapshot", async () => {

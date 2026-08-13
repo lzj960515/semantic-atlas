@@ -6,12 +6,13 @@ import type { GitRepository } from "../repository/types.js";
 import type { RepositorySnapshot } from "../snapshots/types.js";
 import { AtlasDatabase } from "../storage/atlas-database.js";
 import type {
+  CurrentWorldSnapshot,
   EvidenceLocator,
   SemanticGraphChangeOptions,
   SemanticGraphChanges,
-  SemanticChangeMetadata,
   StructuralEvidenceResolver,
   StructuralTargetLocator,
+  WorldPublicationMetadata,
   WorldSnapshotState,
 } from "./types.js";
 
@@ -51,9 +52,10 @@ interface StructuralTargetRow {
   readonly target_backend_locator: string | null;
 }
 
-interface SemanticChangeRow {
-  readonly from_snapshot_id: string | null;
-  readonly to_snapshot_id: string;
+interface WorldPublicationRow {
+  readonly publication_id: number;
+  readonly previous_publication_id: number | null;
+  readonly snapshot_id: string;
   readonly stale_assertions: string;
 }
 
@@ -128,11 +130,25 @@ export class WorldSnapshotStore implements Disposable {
     backendVersion: string,
     extractionVersion: number | null,
     resolver: StructuralEvidenceResolver,
-    changes: Omit<SemanticChangeMetadata, "staleAssertions">,
+    changes: Omit<WorldPublicationMetadata, "staleAssertions">,
   ): ReconciliationResult {
     let result: ReconciliationResult | undefined;
     this.transaction(() => {
       this.requireBuildingSnapshot(snapshot.snapshotId);
+      const previousPublication = this.readCurrentPublication();
+      const previousSnapshotId = previousPublication?.snapshot_id ?? null;
+      if (changes.fromSnapshotId !== previousSnapshotId) {
+        throw new Error(
+          `World publication starts at ${changes.fromSnapshotId ?? "no snapshot"}, ` +
+          `but the current publication is ${previousSnapshotId ?? "missing"}`,
+        );
+      }
+      if (changes.toSnapshotId !== snapshot.snapshotId) {
+        throw new Error(
+          `World publication target ${changes.toSnapshotId} does not match ` +
+          `the active snapshot ${snapshot.snapshotId}`,
+        );
+      }
       this.saveSnapshot(snapshot);
       const staleAssertions = this.rebindEvidence(
         snapshot,
@@ -146,13 +162,18 @@ export class WorldSnapshotStore implements Disposable {
       ));
       const uniqueStaleAssertions = [...new Set(staleAssertions)].sort();
       this.refreshValidity(snapshot.snapshotId);
-      this.saveSemanticChanges({ ...changes, staleAssertions: uniqueStaleAssertions });
       const timestamp = new Date().toISOString();
+      const publicationId = this.saveWorldPublication(
+        previousPublication?.publication_id ?? null,
+        { ...changes, staleAssertions: uniqueStaleAssertions },
+        timestamp,
+      );
       this.connection.prepare(`
         UPDATE atlas_world_state
         SET
           status = 'current',
           current_snapshot_id = ?,
+          current_publication_id = ?,
           target_snapshot_id = NULL,
           backend_version = ?,
           extraction_version = ?,
@@ -162,6 +183,7 @@ export class WorldSnapshotStore implements Disposable {
         WHERE repository_id = ?
       `).run(
         snapshot.snapshotId,
+        publicationId,
         backendVersion,
         extractionVersion,
         timestamp,
@@ -193,9 +215,17 @@ export class WorldSnapshotStore implements Disposable {
   }
 
   requireCurrentSnapshot(): RepositorySnapshot {
+    return this.requireCurrentWorld().snapshot;
+  }
+
+  requireCurrentWorld(): CurrentWorldSnapshot {
     const state = this.readState();
     if (state.status !== "current" || state.currentSnapshotId === null) {
       throw new Error(`World snapshot is ${state.status} and cannot serve map queries`);
+    }
+    const publication = this.readCurrentPublication();
+    if (publication === undefined || publication.snapshot_id !== state.currentSnapshotId) {
+      throw new Error("The current world publication is inconsistent with its snapshot");
     }
     const row = this.connection.prepare(`
       SELECT payload
@@ -205,7 +235,10 @@ export class WorldSnapshotStore implements Disposable {
     if (row === undefined) {
       throw new Error("The current world snapshot record is missing");
     }
-    return JSON.parse(row.payload) as RepositorySnapshot;
+    return {
+      publicationId: publication.publication_id,
+      snapshot: JSON.parse(row.payload) as RepositorySnapshot,
+    };
   }
 
   readSemanticChanges(options: SemanticGraphChangeOptions = {}): SemanticGraphChanges | undefined {
@@ -215,19 +248,34 @@ export class WorldSnapshotStore implements Disposable {
     const requestedTarget = options.toSnapshotId === undefined
       ? undefined
       : contentIdentifierSchema.parse(options.toSnapshotId);
-    const target = requestedTarget ?? this.readState().currentSnapshotId;
-    if (target === null) {
+    const currentPublication = this.readCurrentPublication();
+    if (currentPublication === undefined) {
       return undefined;
     }
-    const targetTransition = this.readSemanticChange(target);
-    if (targetTransition === undefined) {
+    const targetPublication = requestedTarget === undefined
+      ? currentPublication
+      : this.findPublication(currentPublication, requestedTarget);
+    if (targetPublication === undefined) {
       return undefined;
     }
-    const start = requestedStart ?? targetTransition.from_snapshot_id;
-    if (start === null) {
+    const target = targetPublication.snapshot_id;
+    const previousPublication = this.readPreviousPublication(targetPublication);
+    const startPublication = requestedStart === undefined
+      ? previousPublication
+      : requestedStart === target
+        ? targetPublication
+        : previousPublication === undefined
+          ? undefined
+          : this.findPublication(previousPublication, requestedStart);
+    if (startPublication === undefined) {
+      if (requestedStart !== undefined) {
+        throw new Error(
+          `No persisted semantic transition connects ${requestedStart} to ${target}`,
+        );
+      }
       return undefined;
     }
-    this.requireSemanticChangeRange(start, target, targetTransition);
+    const start = startPublication.snapshot_id;
     const nodes = compareSnapshotContents(
       this.readSnapshot(start),
       this.readSnapshot(target),
@@ -237,46 +285,75 @@ export class WorldSnapshotStore implements Disposable {
       toSnapshotId: target,
       nodes,
       relations: { added: [], changed: [], removed: [] },
-      staleAssertions: parseStringArray(targetTransition.stale_assertions),
+      staleAssertions: parseStringArray(targetPublication.stale_assertions),
     };
   }
 
-  private readSemanticChange(toSnapshotId: string): SemanticChangeRow | undefined {
-    return this.connection.prepare(`
-      SELECT
-        from_snapshot_id,
-        to_snapshot_id,
-        stale_assertions
-      FROM atlas_semantic_changes
-      WHERE repository_id = ? AND to_snapshot_id = ?
-    `).get(this.#repositoryId, toSnapshotId) as SemanticChangeRow | undefined;
+  private readCurrentPublication(): WorldPublicationRow | undefined {
+    const row = this.connection.prepare(`
+      SELECT current_publication_id
+      FROM atlas_world_state
+      WHERE repository_id = ?
+    `).get(this.#repositoryId) as { current_publication_id: number | null };
+    return row.current_publication_id === null
+      ? undefined
+      : this.requirePublication(row.current_publication_id);
   }
 
-  private requireSemanticChangeRange(
-    fromSnapshotId: string,
-    toSnapshotId: string,
-    targetTransition: SemanticChangeRow,
-  ): void {
-    if (fromSnapshotId === toSnapshotId) {
-      return;
+  private readPublication(publicationId: number): WorldPublicationRow | undefined {
+    return this.connection.prepare(`
+      SELECT
+        publication_id,
+        previous_publication_id,
+        snapshot_id,
+        stale_assertions
+      FROM atlas_world_publications
+      WHERE repository_id = ? AND publication_id = ?
+    `).get(this.#repositoryId, publicationId) as WorldPublicationRow | undefined;
+  }
+
+  private requirePublication(publicationId: number): WorldPublicationRow {
+    const publication = this.readPublication(publicationId);
+    if (publication === undefined) {
+      throw new Error(`World publication ${publicationId} is not stored`);
     }
-    const visitedSnapshots = new Set<string>();
-    let transition: SemanticChangeRow | undefined = targetTransition;
-    while (transition !== undefined && transition.from_snapshot_id !== null) {
-      if (visitedSnapshots.has(transition.to_snapshot_id)) {
+    return publication;
+  }
+
+  private readPreviousPublication(
+    publication: WorldPublicationRow,
+  ): WorldPublicationRow | undefined {
+    const previousPublicationId = publication.previous_publication_id;
+    if (previousPublicationId === null) {
+      return undefined;
+    }
+    if (previousPublicationId === publication.publication_id) {
+      throw new Error(
+        `Persisted world publication chain contains a cycle at ${publication.publication_id}`,
+      );
+    }
+    return this.requirePublication(previousPublicationId);
+  }
+
+  private findPublication(
+    target: WorldPublicationRow,
+    snapshotId: string,
+  ): WorldPublicationRow | undefined {
+    const visitedPublications = new Set<number>();
+    let publication: WorldPublicationRow | undefined = target;
+    while (publication !== undefined) {
+      if (visitedPublications.has(publication.publication_id)) {
         throw new Error(
-          `Persisted semantic transition chain contains a cycle at ${transition.to_snapshot_id}`,
+          `Persisted world publication chain contains a cycle at ${publication.publication_id}`,
         );
       }
-      visitedSnapshots.add(transition.to_snapshot_id);
-      if (transition.from_snapshot_id === fromSnapshotId) {
-        return;
+      visitedPublications.add(publication.publication_id);
+      if (publication.snapshot_id === snapshotId) {
+        return publication;
       }
-      transition = this.readSemanticChange(transition.from_snapshot_id);
+      publication = this.readPreviousPublication(publication);
     }
-    throw new Error(
-      `No persisted semantic transition connects ${fromSnapshotId} to ${toSnapshotId}`,
-    );
+    return undefined;
   }
 
   private readSnapshot(snapshotId: string): RepositorySnapshot {
@@ -617,29 +694,33 @@ export class WorldSnapshotStore implements Disposable {
     }
   }
 
-  private saveSemanticChanges(changes: SemanticChangeMetadata): void {
-    this.connection.prepare(`
-      INSERT INTO atlas_semantic_changes (
+  private saveWorldPublication(
+    previousPublicationId: number | null,
+    changes: WorldPublicationMetadata,
+    timestamp: string,
+  ): number {
+    const result = this.connection.prepare(`
+      INSERT INTO atlas_world_publications (
         repository_id,
-        from_snapshot_id,
-        to_snapshot_id,
+        previous_publication_id,
+        snapshot_id,
         added_paths,
         modified_paths,
         removed_paths,
         stale_assertions,
-        created_at
+        published_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (repository_id, to_snapshot_id) DO NOTHING
     `).run(
       this.#repositoryId,
-      changes.fromSnapshotId,
+      previousPublicationId,
       changes.toSnapshotId,
       JSON.stringify(changes.structural.added),
       JSON.stringify(changes.structural.modified),
       JSON.stringify(changes.structural.removed),
       JSON.stringify(changes.staleAssertions),
-      new Date().toISOString(),
+      timestamp,
     );
+    return Number(result.lastInsertRowid);
   }
 }
 

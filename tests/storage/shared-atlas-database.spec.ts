@@ -7,6 +7,7 @@ import { inspectGitRepository } from "../../src/repository/repository-inspector.
 import { createRepositorySnapshot } from "../../src/snapshots/repository-snapshot.js";
 import { SnapshotStore } from "../../src/storage/snapshot-store.js";
 import { CodeGraphStructuralBackend } from "../../src/structural-backend/codegraph-backend.js";
+import { WorldSnapshotStore } from "../../src/world/world-snapshot-store.js";
 import { createGitFixture, type GitFixture } from "../support/git-fixture.js";
 
 describe("shared Atlas database", () => {
@@ -106,7 +107,7 @@ describe("shared Atlas database", () => {
     downgradeTargetLocatorSchema(context.databasePath);
 
     using migrated = new GraphStore(context.repository);
-    expect(migrated.schemaVersion).toBe(3);
+    expect(migrated.schemaVersion).toBe(4);
     using database = new DatabaseSync(context.databasePath, { readOnly: true });
     const migratedTargets = database.prepare(`
       SELECT to_key, target_file, target_binding_status
@@ -128,10 +129,79 @@ describe("shared Atlas database", () => {
       target_binding_status: "unresolved",
     });
   });
+
+  it("migrates snapshot-keyed changes into an ordered publication chain", async () => {
+    const context = await createSharedDatabaseContext(fixtures);
+    using world = new WorldSnapshotStore(context.repository);
+    world.begin(context.snapshot.snapshotId);
+    world.publish(context.snapshot, "1.5.0", 1, emptyResolver(), {
+      fromSnapshotId: null,
+      toSnapshotId: context.snapshot.snapshotId,
+      structural: { added: ["src/example.ts"], modified: [], removed: [] },
+    });
+    await context.fixture.write("src/example.ts", "export const value = 2;\n");
+    const changed = await createRepositorySnapshot(context.repository);
+    world.begin(changed.snapshotId);
+    world.publish(changed, "1.5.0", 1, emptyResolver(), {
+      fromSnapshotId: context.snapshot.snapshotId,
+      toSnapshotId: changed.snapshotId,
+      structural: { added: [], modified: ["src/example.ts"], removed: [] },
+    });
+    world.close();
+
+    downgradePublicationSchema(context.databasePath);
+
+    using migrated = new WorldSnapshotStore(context.repository);
+    expect(migrated.readState()).toMatchObject({
+      status: "current",
+      currentSnapshotId: changed.snapshotId,
+    });
+    expect(migrated.readSemanticChanges()).toEqual({
+      fromSnapshotId: context.snapshot.snapshotId,
+      toSnapshotId: changed.snapshotId,
+      nodes: { added: [], changed: ["file:src/example.ts"], removed: [] },
+      relations: { added: [], changed: [], removed: [] },
+      staleAssertions: [],
+    });
+    using database = new DatabaseSync(context.databasePath, { readOnly: true });
+    expect(database.prepare(`
+      SELECT
+        publication.snapshot_id,
+        previous.snapshot_id AS previous_snapshot_id
+      FROM atlas_world_publications AS publication
+      LEFT JOIN atlas_world_publications AS previous
+        ON previous.publication_id = publication.previous_publication_id
+      ORDER BY publication.publication_id
+    `).all()).toEqual([
+      { snapshot_id: context.snapshot.snapshotId, previous_snapshot_id: null },
+      {
+        snapshot_id: changed.snapshotId,
+        previous_snapshot_id: context.snapshot.snapshotId,
+      },
+    ]);
+    expect(database.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+  });
 });
 
 function downgradeTargetLocatorSchema(databasePath: string): void {
   using database = new DatabaseSync(databasePath);
+  database.exec(`
+    ALTER TABLE atlas_world_state DROP COLUMN current_publication_id;
+    DROP TABLE atlas_world_publications;
+    CREATE TABLE atlas_semantic_changes (
+      repository_id TEXT NOT NULL,
+      from_snapshot_id TEXT,
+      to_snapshot_id TEXT NOT NULL,
+      added_paths TEXT NOT NULL,
+      modified_paths TEXT NOT NULL,
+      removed_paths TEXT NOT NULL,
+      stale_assertions TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (repository_id, to_snapshot_id),
+      FOREIGN KEY (repository_id, to_snapshot_id)
+        REFERENCES atlas_repository_snapshots(repository_id, snapshot_id) ON DELETE CASCADE
+    ) STRICT;
+  `);
   for (const column of [
     "target_file",
     "target_qualified_symbol",
@@ -147,7 +217,62 @@ function downgradeTargetLocatorSchema(databasePath: string): void {
   ]) {
     database.exec(`ALTER TABLE atlas_business_relations DROP COLUMN ${column}`);
   }
-  database.prepare("DELETE FROM atlas_schema_migrations WHERE version = 3").run();
+  database.prepare("DELETE FROM atlas_schema_migrations WHERE version >= 3").run();
+}
+
+function downgradePublicationSchema(databasePath: string): void {
+  using database = new DatabaseSync(databasePath);
+  database.exec(`
+    CREATE TABLE atlas_semantic_changes (
+      repository_id TEXT NOT NULL,
+      from_snapshot_id TEXT,
+      to_snapshot_id TEXT NOT NULL,
+      added_paths TEXT NOT NULL,
+      modified_paths TEXT NOT NULL,
+      removed_paths TEXT NOT NULL,
+      stale_assertions TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (repository_id, to_snapshot_id),
+      FOREIGN KEY (repository_id, to_snapshot_id)
+        REFERENCES atlas_repository_snapshots(repository_id, snapshot_id) ON DELETE CASCADE
+    ) STRICT;
+
+    INSERT INTO atlas_semantic_changes (
+      repository_id,
+      from_snapshot_id,
+      to_snapshot_id,
+      added_paths,
+      modified_paths,
+      removed_paths,
+      stale_assertions,
+      created_at
+    )
+    SELECT
+      publication.repository_id,
+      previous.snapshot_id,
+      publication.snapshot_id,
+      publication.added_paths,
+      publication.modified_paths,
+      publication.removed_paths,
+      publication.stale_assertions,
+      publication.published_at
+    FROM atlas_world_publications AS publication
+    LEFT JOIN atlas_world_publications AS previous
+      ON previous.publication_id = publication.previous_publication_id
+    ORDER BY publication.publication_id;
+
+    ALTER TABLE atlas_world_state DROP COLUMN current_publication_id;
+    DROP TABLE atlas_world_publications;
+    DELETE FROM atlas_schema_migrations WHERE version = 4;
+  `);
+}
+
+function emptyResolver() {
+  return {
+    getNode: () => undefined,
+    findCandidates: () => [],
+    backendLocator: () => undefined,
+  };
 }
 
 function readCodeGraphOwnershipCounts(databasePath: string) {

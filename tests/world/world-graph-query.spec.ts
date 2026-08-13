@@ -292,15 +292,105 @@ describe("unified world graph queries", () => {
     })).toThrow(/No persisted semantic transition connects/);
 
     using database = new DatabaseSync(context.graph.databasePath);
+    database.exec("PRAGMA ignore_check_constraints = ON");
     database.prepare(`
-      UPDATE atlas_semantic_changes
-      SET from_snapshot_id = ?
-      WHERE repository_id = ? AND to_snapshot_id = ?
-    `).run(target.snapshotId, context.repository.repositoryId, middle.snapshotId);
+      UPDATE atlas_world_publications
+      SET previous_publication_id = (
+        SELECT publication_id
+        FROM atlas_world_publications
+        WHERE repository_id = ? AND snapshot_id = ?
+      )
+      WHERE repository_id = ? AND snapshot_id = ?
+    `).run(
+      context.repository.repositoryId,
+      target.snapshotId,
+      context.repository.repositoryId,
+      middle.snapshotId,
+    );
     expect(() => query.changes({
       fromSnapshotId: context.snapshot.snapshotId,
       toSnapshotId: target.snapshotId,
-    })).toThrow(/transition chain contains a cycle/);
+    })).toThrow(/publication chain contains a cycle/);
+
+    database.prepare(`
+      UPDATE atlas_world_publications
+      SET previous_publication_id = publication_id
+      WHERE repository_id = ? AND snapshot_id = ?
+    `).run(context.repository.repositoryId, target.snapshotId);
+    expect(() => query.changes()).toThrow(/publication chain contains a cycle/);
+    database.exec("PRAGMA ignore_check_constraints = OFF");
+  });
+
+  it("preserves publication order when a content snapshot is revisited", async () => {
+    const context = await createGraphTestContext();
+    contexts.push(context);
+    const query = createQuery(context);
+    context.graph.mutateBusinessGraph({
+      baseSnapshotId: context.snapshot.snapshotId,
+      upsertNodes: [{
+        key: "fixture/revisited",
+        kind: "Operation",
+        label: "Revisited operation",
+        summary: "Proves publication validity is distinct from content identity.",
+        aliases: [],
+        certainty: "exact",
+        evidence: [context.evidence],
+      }],
+      removeNodeKeys: [],
+      upsertRelations: [],
+      removeRelations: [],
+    });
+
+    await context.fixture.write("src/example.ts", "export const value = 2;\n");
+    const middle = await createRepositorySnapshot(context.repository);
+    publishSnapshot(context, middle, context.snapshot.snapshotId, {
+      added: [],
+      modified: ["src/example.ts"],
+      removed: [],
+    });
+
+    await context.fixture.write("src/example.ts", "export const value = 1;\n");
+    const revisited = await createRepositorySnapshot(context.repository);
+    expect(revisited.snapshotId).toBe(context.snapshot.snapshotId);
+    publishSnapshot(context, revisited, middle.snapshotId, {
+      added: [],
+      modified: ["src/example.ts"],
+      removed: [],
+    });
+
+    expect(query.changes()).toEqual({
+      fromSnapshotId: middle.snapshotId,
+      toSnapshotId: revisited.snapshotId,
+      nodes: { added: [], changed: ["file:src/example.ts"], removed: [] },
+      relations: { added: [], changed: [], removed: [] },
+      staleAssertions: ["fixture/revisited"],
+    });
+
+    await context.fixture.write("src/example.ts", "export const value = 3;\n");
+    const target = await createRepositorySnapshot(context.repository);
+    publishSnapshot(context, target, revisited.snapshotId, {
+      added: [],
+      modified: ["src/example.ts"],
+      removed: [],
+    });
+
+    expect(query.changes({
+      fromSnapshotId: middle.snapshotId,
+      toSnapshotId: target.snapshotId,
+    })).toEqual({
+      fromSnapshotId: middle.snapshotId,
+      toSnapshotId: target.snapshotId,
+      nodes: { added: [], changed: ["file:src/example.ts"], removed: [] },
+      relations: { added: [], changed: [], removed: [] },
+      staleAssertions: ["fixture/revisited"],
+    });
+    expect(query.changes({ toSnapshotId: revisited.snapshotId })).toEqual({
+      fromSnapshotId: middle.snapshotId,
+      toSnapshotId: revisited.snapshotId,
+      nodes: { added: [], changed: ["file:src/example.ts"], removed: [] },
+      relations: { added: [], changed: [], removed: [] },
+      staleAssertions: ["fixture/revisited"],
+    });
   });
 
   it("rejects a result when publication changes during an asynchronous query", async () => {
@@ -323,7 +413,7 @@ describe("unified world graph queries", () => {
       },
     });
 
-    await expect(query.roots()).rejects.toThrow(/World snapshot changed/);
+    await expect(query.roots()).rejects.toThrow(/World publication changed/);
     expect(query.changes()).toEqual({
       fromSnapshotId: context.snapshot.snapshotId,
       toSnapshotId: expect.any(String),
@@ -331,6 +421,27 @@ describe("unified world graph queries", () => {
       relations: { added: [], changed: [], removed: [] },
       staleAssertions: [],
     });
+  });
+
+  it("rejects a result when the same content is republished during a query", async () => {
+    const context = await createGraphTestContext();
+    contexts.push(context);
+    const backend = structuralBackend();
+    const query = new WorldGraphQuery(context.repository, context.graph, {
+      ...backend,
+      listRoots: async () => {
+        using store = new WorldSnapshotStore(context.repository);
+        store.begin(context.snapshot.snapshotId);
+        store.publish(context.snapshot, "1.5.0", 1, emptyResolver(), {
+          fromSnapshotId: context.snapshot.snapshotId,
+          toSnapshotId: context.snapshot.snapshotId,
+          structural: { added: [], modified: [], removed: [] },
+        });
+        return backend.listRoots();
+      },
+    });
+
+    await expect(query.roots()).rejects.toThrow(/World publication changed/);
   });
 });
 

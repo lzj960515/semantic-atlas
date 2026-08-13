@@ -219,20 +219,22 @@ export class WorldGraphQuery implements Disposable {
     this.close();
   }
 
-  private currentSnapshot(): RepositorySnapshot {
+  private currentWorld(): ReturnType<WorldSnapshotStore["requireCurrentWorld"]> {
     using store = new WorldSnapshotStore(this.#repository);
-    return store.requireCurrentSnapshot();
+    return store.requireCurrentWorld();
   }
 
   private async withCurrentWorld<Result>(
     query: (snapshot: RepositorySnapshot) => Promise<Result>,
   ): Promise<Result> {
-    const snapshot = this.currentSnapshot();
+    const currentWorld = this.currentWorld();
+    const snapshot = currentWorld.snapshot;
     const result = await query(snapshot);
-    const verifiedSnapshot = this.currentSnapshot();
-    if (verifiedSnapshot.snapshotId !== snapshot.snapshotId) {
+    const verifiedWorld = this.currentWorld();
+    if (verifiedWorld.publicationId !== currentWorld.publicationId) {
       throw new Error(
-        `World snapshot changed from ${snapshot.snapshotId} to ${verifiedSnapshot.snapshotId} during the query`,
+        `World publication changed from ${currentWorld.publicationId} ` +
+        `to ${verifiedWorld.publicationId} during the query`,
       );
     }
     return result;

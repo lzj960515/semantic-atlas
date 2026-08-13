@@ -5,7 +5,7 @@ import type { DatabaseSync as NodeDatabaseSync } from "node:sqlite";
 
 import type { GitRepository } from "../repository/types.js";
 
-export const CURRENT_ATLAS_SCHEMA_VERSION = 3;
+export const CURRENT_ATLAS_SCHEMA_VERSION = 4;
 
 const require = createRequire(import.meta.url);
 
@@ -245,6 +245,87 @@ const migrations: readonly SchemaMigration[] = [
           WHERE candidate.relation_id = atlas_business_relations.relation_id
             AND candidate.structural_reference = atlas_business_relations.to_key
         );
+    `,
+  },
+  {
+    version: 4,
+    sql: `
+      CREATE TABLE atlas_world_publications (
+        publication_id INTEGER PRIMARY KEY,
+        repository_id TEXT NOT NULL,
+        previous_publication_id INTEGER CHECK (
+          previous_publication_id IS NULL OR previous_publication_id < publication_id
+        ),
+        snapshot_id TEXT NOT NULL,
+        added_paths TEXT NOT NULL,
+        modified_paths TEXT NOT NULL,
+        removed_paths TEXT NOT NULL,
+        stale_assertions TEXT NOT NULL,
+        published_at TEXT NOT NULL,
+        UNIQUE (repository_id, publication_id),
+        FOREIGN KEY (repository_id)
+          REFERENCES atlas_repositories(repository_id) ON DELETE CASCADE,
+        FOREIGN KEY (repository_id, snapshot_id)
+          REFERENCES atlas_repository_snapshots(repository_id, snapshot_id) ON DELETE CASCADE,
+        FOREIGN KEY (repository_id, previous_publication_id)
+          REFERENCES atlas_world_publications(repository_id, publication_id)
+      ) STRICT;
+
+      INSERT INTO atlas_world_publications (
+        publication_id,
+        repository_id,
+        previous_publication_id,
+        snapshot_id,
+        added_paths,
+        modified_paths,
+        removed_paths,
+        stale_assertions,
+        published_at
+      )
+      SELECT
+        rowid,
+        repository_id,
+        NULL,
+        to_snapshot_id,
+        added_paths,
+        modified_paths,
+        removed_paths,
+        stale_assertions,
+        created_at
+      FROM atlas_semantic_changes
+      ORDER BY rowid;
+
+      UPDATE atlas_world_publications AS publication
+      SET previous_publication_id = (
+        SELECT previous.publication_id
+        FROM atlas_semantic_changes AS legacy
+        JOIN atlas_world_publications AS previous
+          ON previous.repository_id = legacy.repository_id
+          AND previous.snapshot_id = legacy.from_snapshot_id
+          AND previous.publication_id < publication.publication_id
+        WHERE legacy.rowid = publication.publication_id
+        ORDER BY previous.publication_id DESC
+        LIMIT 1
+      );
+
+      CREATE INDEX atlas_world_publications_repository_order_index
+        ON atlas_world_publications (repository_id, publication_id DESC);
+      CREATE INDEX atlas_world_publications_snapshot_index
+        ON atlas_world_publications (repository_id, snapshot_id, publication_id DESC);
+
+      ALTER TABLE atlas_world_state
+        ADD COLUMN current_publication_id INTEGER REFERENCES atlas_world_publications(publication_id);
+      UPDATE atlas_world_state
+      SET current_publication_id = (
+        SELECT publication.publication_id
+        FROM atlas_world_publications AS publication
+        WHERE publication.repository_id = atlas_world_state.repository_id
+          AND publication.snapshot_id = atlas_world_state.current_snapshot_id
+        ORDER BY publication.publication_id DESC
+        LIMIT 1
+      );
+
+      DROP TABLE atlas_semantic_changes;
     `,
   },
 ];

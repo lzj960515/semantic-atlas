@@ -54,7 +54,7 @@ describe("business graph storage", () => {
 
     graph.mutateBusinessGraph(mutation(snapshot.snapshotId, businessNodes, businessRelations));
 
-    expect(graph.schemaVersion).toBe(3);
+    expect(graph.schemaVersion).toBe(4);
     using schema = new DatabaseSync(graph.databasePath);
     const atlasObjects = schema.prepare(`
       SELECT name

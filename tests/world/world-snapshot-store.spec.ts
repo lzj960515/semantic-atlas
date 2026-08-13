@@ -29,7 +29,11 @@ describe("world snapshot reconciliation", () => {
     using database = new DatabaseSync(context.graph.databasePath);
     database.prepare(`
       UPDATE atlas_world_state
-      SET status = 'missing', current_snapshot_id = NULL, target_snapshot_id = NULL
+      SET
+        status = 'missing',
+        current_snapshot_id = NULL,
+        current_publication_id = NULL,
+        target_snapshot_id = NULL
     `).run();
 
     expect(store.readState()).toMatchObject({
@@ -115,7 +119,7 @@ describe("world snapshot reconciliation", () => {
       1,
       candidateResolver([rebound]),
       {
-        fromSnapshotId: null,
+        fromSnapshotId: context.snapshot.snapshotId,
         toSnapshotId: context.snapshot.snapshotId,
         structural: { added: [], modified: [], removed: [] },
       },
@@ -186,11 +190,11 @@ describe("world snapshot reconciliation", () => {
     )).toMatchObject({ certainty: "hypothesis", validity: "stale" });
   });
 
-  it("retries the same target idempotently and keeps one semantic change record", async () => {
+  it("reuses content snapshots while preserving every successful publication", async () => {
     const context = await createContext(contexts);
     using store = new WorldSnapshotStore(context.repository);
     const changes = {
-      fromSnapshotId: null,
+      fromSnapshotId: context.snapshot.snapshotId,
       toSnapshotId: context.snapshot.snapshotId,
       structural: { added: ["src/example.ts"], modified: [], removed: [] },
     } as const;
@@ -208,12 +212,18 @@ describe("world snapshot reconciliation", () => {
 
     using database = new DatabaseSync(context.graph.databasePath, { readOnly: true });
     expect(database.prepare(`
-      SELECT COUNT(*) AS count FROM atlas_semantic_changes
-    `).get()).toEqual({ count: 1 });
+      SELECT COUNT(*) AS count FROM atlas_world_publications
+    `).get()).toEqual({ count: 3 });
     expect(database.prepare(`
       SELECT COUNT(*) AS count FROM atlas_repository_snapshots
     `).get()).toEqual({ count: 1 });
-    expect(store.readSemanticChanges()).toBeUndefined();
+    expect(store.readSemanticChanges()).toEqual({
+      fromSnapshotId: context.snapshot.snapshotId,
+      toSnapshotId: context.snapshot.snapshotId,
+      nodes: { added: [], changed: [], removed: [] },
+      relations: { added: [], changed: [], removed: [] },
+      staleAssertions: [],
+    });
 
     await context.fixture.write("src/example.ts", "export const value = 2;\n");
     const nextSnapshot = await createRepositorySnapshot(context.repository);
@@ -235,6 +245,50 @@ describe("world snapshot reconciliation", () => {
       nodes: { added: [], changed: ["file:src/example.ts"], removed: [] },
       relations: { added: [], changed: [], removed: [] },
       staleAssertions: [],
+    });
+  });
+
+  it("publishes only metadata that connects the current and target snapshots", async () => {
+    const context = await createContext(contexts);
+    using store = new WorldSnapshotStore(context.repository);
+    await context.fixture.write("src/example.ts", "export const value = 2;\n");
+    const target = await createRepositorySnapshot(context.repository);
+    const publicationCount = () => {
+      using database = new DatabaseSync(context.graph.databasePath, { readOnly: true });
+      return database.prepare(`
+        SELECT COUNT(*) AS count FROM atlas_world_publications
+      `).get() as { count: number };
+    };
+    store.begin(target.snapshotId);
+
+    expect(() => store.publish(
+      target,
+      "1.5.0",
+      1,
+      exactResolver(context.evidence.symbolId),
+      {
+        fromSnapshotId: null,
+        toSnapshotId: target.snapshotId,
+        structural: { added: [], modified: ["src/example.ts"], removed: [] },
+      },
+    )).toThrow(/current publication/);
+    expect(() => store.publish(
+      target,
+      "1.5.0",
+      1,
+      exactResolver(context.evidence.symbolId),
+      {
+        fromSnapshotId: context.snapshot.snapshotId,
+        toSnapshotId: context.snapshot.snapshotId,
+        structural: { added: [], modified: ["src/example.ts"], removed: [] },
+      },
+    )).toThrow(/publication target/);
+
+    expect(publicationCount()).toEqual({ count: 1 });
+    expect(store.readState()).toMatchObject({
+      status: "building",
+      currentSnapshotId: context.snapshot.snapshotId,
+      targetSnapshotId: target.snapshotId,
     });
   });
 

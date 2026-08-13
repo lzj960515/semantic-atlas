@@ -3,6 +3,7 @@ import type {
   StructuralIndexState,
   StructuralNode,
 } from "../structural-backend/types.js";
+import type { RepositorySnapshot } from "../snapshots/types.js";
 
 export type WorldSnapshotStatus = "missing" | "building" | "current" | "failed";
 
@@ -16,6 +17,11 @@ export interface WorldSnapshotState {
   readonly startedAt: string | null;
   readonly publishedAt: string | null;
   readonly updatedAt: string;
+}
+
+export interface CurrentWorldSnapshot {
+  readonly publicationId: number;
+  readonly snapshot: RepositorySnapshot;
 }
 
 export interface StructuralLocator {
@@ -56,7 +62,7 @@ export interface WorldWriteCoordinator {
   ): Promise<T>;
 }
 
-export interface SemanticChangeMetadata {
+export interface WorldPublicationMetadata {
   readonly fromSnapshotId: string | null;
   readonly toSnapshotId: string;
   readonly structural: StructuralFileChanges;
