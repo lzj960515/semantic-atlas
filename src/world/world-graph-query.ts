@@ -66,8 +66,11 @@ export class WorldGraphQuery implements Disposable {
     });
   }
 
-  async children(reference: GraphNodeReference): Promise<readonly GraphNode[]> {
+  async children(reference: GraphNodeReference): Promise<readonly GraphNode[] | undefined> {
     return this.withCurrentWorld(async (snapshot) => {
+      if (await this.getNode(reference, snapshot) === undefined) {
+        return undefined;
+      }
       const direction = reference.domain === "business" ? "incoming" : "outgoing";
       const relationTypes = reference.domain === "business"
         ? ["part_of"] as const

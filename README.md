@@ -23,6 +23,22 @@ The project is under active development toward v0.1. The first release focuses o
 
 The runtime foundation now embeds CodeGraph behind an Atlas adapter and stores snapshots and business knowledge in namespaced `atlas_*` objects in the same worktree-local database. Structural and business results are composed through APIs rather than copied into a second structural schema.
 
+## CLI
+
+The package installs the `semantic-atlas` executable. Commands discover the target Git worktree from the current directory or `--repo <path>` and write one versioned JSON envelope to standard output.
+
+```sh
+semantic-atlas status
+semantic-atlas index --repo /workspace/project
+semantic-atlas map roots --pretty
+semantic-atlas map search checkout --limit 10
+semantic-atlas map show commerce/orders --depth 2
+semantic-atlas learn --stdin < graph-patch.json
+semantic-atlas changes
+```
+
+The CLI performs deterministic lexical and graph operations. The calling agent interprets natural language, inspects source when evidence is insufficient, and submits verified knowledge through GraphPatch v1.
+
 ## License
 
 MIT

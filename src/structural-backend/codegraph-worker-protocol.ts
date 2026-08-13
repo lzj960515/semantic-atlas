@@ -10,6 +10,7 @@ export type CodeGraphWorkerRequest =
   | WorkerRequest<"inspect">
   | WorkerRequest<"build">
   | WorkerRequest<"sync">
+  | WorkerRequest<"listUnknownBoundaries">
   | WorkerRequest<"listRoots">
   | WorkerRequest<"search", StructuralSearchQuery>
   | WorkerRequest<"getNode", StructuralReference>

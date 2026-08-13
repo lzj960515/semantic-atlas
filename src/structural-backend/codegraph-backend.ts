@@ -151,6 +151,18 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
     }
   }
 
+  async listUnknownBoundaries(): Promise<readonly StructuralUnknownBoundary[]> {
+    if (requiresBundledCodeGraphRuntime()) {
+      return runCodeGraphWorker({
+        operation: "listUnknownBoundaries",
+        repository: this.#repository,
+      });
+    }
+    return this.withCurrentGraph((graph, queries) => (
+      normalizeUnresolvedReferences(graph, queries)
+    ));
+  }
+
   async publishWorld(
     requestedMode: "full" | "incremental",
     hooks: StructuralWorldPublicationHooks,
