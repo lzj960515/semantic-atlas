@@ -1,5 +1,8 @@
 import { stdin, stdout } from "node:process";
 
+import { GraphStore } from "../graph/graph-store.js";
+import { BusinessKnowledgeService } from "../knowledge/business-knowledge-service.js";
+import { WorldModelService } from "../world/world-model-service.js";
 import { CodeGraphStructuralBackend } from "./codegraph-backend.js";
 import type {
   CodeGraphWorkerRequest,
@@ -30,6 +33,12 @@ function executeRequest(
     case "getCallers": return backend.getCallers(request.input);
     case "getCallees": return backend.getCallees(request.input);
     case "getFileDependencies": return backend.getFileDependencies(request.input);
+    case "worldBuild": return new WorldModelService(request.repository).build();
+    case "worldSync": return new WorldModelService(request.repository).sync();
+    case "learn": {
+      using graph = new GraphStore(request.repository);
+      return new BusinessKnowledgeService(request.repository, graph, backend).learn(request.input);
+    }
   }
 }
 

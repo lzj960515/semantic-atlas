@@ -17,6 +17,12 @@ import type {
   StructuralIndexBackend,
   StructuralNode,
 } from "../../src/structural-backend/types.js";
+import type {
+  EvidenceLocator,
+  StructuralEvidenceResolver,
+  WorldWriteCoordinator,
+} from "../../src/world/types.js";
+import { WorldSnapshotStore } from "../../src/world/world-snapshot-store.js";
 import { createGitFixture, type GitFixture } from "../support/git-fixture.js";
 
 export interface GraphTestContext {
@@ -24,7 +30,7 @@ export interface GraphTestContext {
   readonly repository: GitRepository;
   readonly snapshot: RepositorySnapshot;
   readonly graph: GraphStore;
-  readonly structuralBackend: StructuralIndexBackend;
+  readonly structuralBackend: StructuralIndexBackend & WorldWriteCoordinator;
   readonly evidence: Evidence;
   cleanup(): Promise<void>;
 }
@@ -49,6 +55,21 @@ export async function createGraphTestContext(): Promise<GraphTestContext> {
   saveSnapshot(repository, snapshot);
   const graph = new GraphStore(repository);
   graph.reconcileSnapshot(snapshot.snapshotId);
+  using world = new WorldSnapshotStore(repository);
+  world.begin(snapshot.snapshotId);
+  world.publish(snapshot, "1.5.0", 1, {
+    getNode: (reference) => (
+      reference === structuralNode.reference.id ? structuralNode : undefined
+    ),
+    findCandidates: (locator) => (
+      structuralNode.path === locator.file ? [structuralNode] : []
+    ),
+    backendLocator: (node) => `backend:${node.reference.id}`,
+  }, {
+    fromSnapshotId: null,
+    toSnapshotId: snapshot.snapshotId,
+    structural: { added: [], modified: [], removed: [] },
+  });
 
   return {
     fixture,
@@ -75,7 +96,9 @@ async function initializeSharedDatabaseFixture(worktreeRoot: string): Promise<vo
   `);
 }
 
-function createStructuralBackendFixture(worktreeRoot: string): StructuralIndexBackend {
+function createStructuralBackendFixture(
+  worktreeRoot: string,
+): StructuralIndexBackend & WorldWriteCoordinator {
   const nodeFor = (id: string): StructuralNode | undefined => {
     if (id === "symbol:src/example.ts#value") {
       return structuralNode(id, "value", "src/example.ts", 24);
@@ -107,6 +130,20 @@ function createStructuralBackendFixture(worktreeRoot: string): StructuralIndexBa
     changes: { added: [], modified: [], removed: [] },
     boundaries: [],
   };
+  const candidatesFor = (locator: EvidenceLocator): StructuralNode[] => [
+    nodeFor("symbol:src/example.ts#value"),
+    nodeFor("symbol:src/stable.ts#stable"),
+  ].filter((node): node is StructuralNode => (
+    node !== undefined
+      && node.path === locator.file
+      && (locator.qualifiedSymbol === null || node.qualifiedName === locator.qualifiedSymbol)
+      && (locator.structuralKind === null || node.kind === locator.structuralKind)
+  ));
+  const resolver: StructuralEvidenceResolver = {
+    getNode: (reference) => nodeFor(reference),
+    findCandidates: candidatesFor,
+    backendLocator: (node) => `backend:${node.reference.id}`,
+  };
   return {
     inspect: async () => completeState,
     build: async () => ({ ...buildResult, mode: "full" }),
@@ -127,6 +164,7 @@ function createStructuralBackendFixture(worktreeRoot: string): StructuralIndexBa
     getCallers: async () => [],
     getCallees: async () => [],
     getFileDependencies: async () => [],
+    withWorldWriteLock: async (operation) => operation(completeState, resolver),
   };
 }
 

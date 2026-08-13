@@ -16,6 +16,7 @@ import {
   saveSnapshot,
   type GraphTestContext,
 } from "../graph/graph-fixture.js";
+import { WorldSnapshotStore } from "../../src/world/world-snapshot-store.js";
 
 describe("business knowledge learning", () => {
   const contexts: GraphTestContext[] = [];
@@ -88,6 +89,19 @@ describe("business knowledge learning", () => {
       code: "BASE_SNAPSHOT_MISMATCH",
       baseSnapshotId: snapshot.snapshotId,
     } satisfies Partial<GraphPatchConflictError>);
+    expect(graph.getNode(business(node.key), snapshot.snapshotId)).toBeUndefined();
+  });
+
+  it("rejects learning while the combined world snapshot is failed", async () => {
+    const context = await graphContext(contexts);
+    const { graph, repository, snapshot } = context;
+    using world = new WorldSnapshotStore(repository);
+    world.fail(snapshot.snapshotId, new Error("world reconciliation failed"));
+    const service = new BusinessKnowledgeService(repository, graph, context.structuralBackend);
+    const node = businessNode("fixture/failed-world", "Operation", context.evidence);
+
+    await expect(service.learn(patch(snapshot.snapshotId, [node])))
+      .rejects.toThrow(/world snapshot is failed/iu);
     expect(graph.getNode(business(node.key), snapshot.snapshotId)).toBeUndefined();
   });
 
@@ -255,6 +269,21 @@ describe("business knowledge learning", () => {
     if (changingNode === undefined || stableNode === undefined) {
       throw new Error("Expected current structural evidence nodes");
     }
+    using world = new WorldSnapshotStore(repository);
+    world.begin(baseSnapshot.snapshotId);
+    world.publish(baseSnapshot, "1.5.0", 1, {
+      getNode: (reference) => {
+        if (reference === changingNode.reference.id) return changingNode;
+        if (reference === stableNode.reference.id) return stableNode;
+        return undefined;
+      },
+      findCandidates: ({ file }) => [changingNode, stableNode].filter((node) => node.path === file),
+      backendLocator: (node) => `backend:${node.reference.id}`,
+    }, {
+      fromSnapshotId: context.snapshot.snapshotId,
+      toSnapshotId: baseSnapshot.snapshotId,
+      structural: { added: ["src/stable.ts"], modified: [], removed: [] },
+    });
     const changingEvidence = evidenceAtNode(baseSnapshot, changingNode);
     const stableEvidence = evidenceAtNode(baseSnapshot, stableNode);
     const service = new BusinessKnowledgeService(repository, graph, context.structuralBackend);

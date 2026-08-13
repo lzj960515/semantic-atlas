@@ -16,6 +16,11 @@ import type {
 
 import type { GitRepository } from "../repository/types.js";
 import { runGit } from "../repository/git-command.js";
+import type {
+  EvidenceLocator,
+  StructuralEvidenceResolver,
+  WorldWriteCoordinator,
+} from "../world/types.js";
 import {
   requiresBundledCodeGraphRuntime,
   runCodeGraphWorker,
@@ -81,7 +86,16 @@ const backendRelationTypes = new Map<BackendStructuralRelationType, EdgeKind>([
   ["decorated_by", "decorates"],
 ]);
 
-export class CodeGraphStructuralBackend implements StructuralIndexBackend {
+export interface StructuralWorldPublicationHooks {
+  onBuilding(): void;
+  publish(
+    result: StructuralBuildResult,
+    resolver: StructuralEvidenceResolver,
+  ): void | Promise<void>;
+  fail(error: unknown): void;
+}
+
+export class CodeGraphStructuralBackend implements StructuralIndexBackend, WorldWriteCoordinator {
   readonly #repository: GitRepository;
   readonly #databasePath: string;
 
@@ -133,6 +147,42 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
     } catch (error) {
       return this.failedBuildResult("incremental", error);
     }
+  }
+
+  async publishWorld(
+    requestedMode: "full" | "incremental",
+    hooks: StructuralWorldPublicationHooks,
+  ): Promise<StructuralBuildResult> {
+    if (requiresBundledCodeGraphRuntime()) {
+      throw new Error("World publication must run inside the bundled CodeGraph worker");
+    }
+    try {
+      return await this.runBuild(requestedMode, hooks);
+    } catch (error) {
+      hooks.fail(error);
+      return this.failedBuildResult(requestedMode, error);
+    }
+  }
+
+  async withWorldWriteLock<T>(
+    operation: (
+      state: StructuralIndexState,
+      resolver: StructuralEvidenceResolver,
+    ) => Promise<T>,
+  ): Promise<T> {
+    if (requiresBundledCodeGraphRuntime()) {
+      throw new Error("Atlas writes must run inside the bundled CodeGraph worker");
+    }
+    return withCodeGraphSdk((sdk) => this.withPublishedGraph(sdk, (graph) => {
+      const state = this.readState(graph);
+      if (state.completeness !== "complete") {
+        throw new StructuralBackendError(
+          "STRUCTURAL_INDEX_INCOMPLETE",
+          "The structural index is incomplete and cannot accept Atlas writes",
+        );
+      }
+      return operation(state, structuralEvidenceResolver(graph));
+    }));
   }
 
   async search(query: StructuralSearchQuery): Promise<readonly StructuralSearchResult[]> {
@@ -290,7 +340,10 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
     });
   }
 
-  private async runBuild(requestedMode: "full" | "incremental"): Promise<StructuralBuildResult> {
+  private async runBuild(
+    requestedMode: "full" | "incremental",
+    worldHooks?: StructuralWorldPublicationHooks,
+  ): Promise<StructuralBuildResult> {
     return withCodeGraphSdk(async (sdk) => {
       this.verifyDatabasePath(sdk.getDatabasePath(this.#repository.worktreeRoot));
       await this.prepareAtlasDirectory();
@@ -314,7 +367,7 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
 
         try {
           await StructuralPublication.recoverAbandoned(this.#databasePath);
-          return await this.runLockedBuild(sdk, requestedMode);
+          return await this.runLockedBuild(sdk, requestedMode, worldHooks);
         } finally {
           writeLock.release();
         }
@@ -327,16 +380,24 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
   private async runLockedBuild(
     sdk: CodeGraphModule,
     requestedMode: "full" | "incremental",
+    worldHooks?: StructuralWorldPublicationHooks,
   ): Promise<StructuralBuildResult> {
     const initialized = sdk.CodeGraph.isInitialized(this.#repository.worktreeRoot);
     const mode = initialized ? requestedMode : "initial";
     let graph: CodeGraph | undefined;
     let publication: StructuralPublication | undefined;
     try {
-      publication = await StructuralPublication.begin(this.#databasePath, initialized);
-      graph = initialized
-        ? await sdk.CodeGraph.open(this.#repository.worktreeRoot, { sync: false })
-        : await sdk.CodeGraph.init(this.#repository.worktreeRoot, { index: false });
+      if (!initialized && worldHooks !== undefined) {
+        graph = await sdk.CodeGraph.init(this.#repository.worktreeRoot, { index: false });
+        worldHooks.onBuilding();
+        publication = await StructuralPublication.begin(this.#databasePath, false);
+      } else {
+        worldHooks?.onBuilding();
+        publication = await StructuralPublication.begin(this.#databasePath, initialized);
+        graph = initialized
+          ? await sdk.CodeGraph.open(this.#repository.worktreeRoot, { sync: false })
+          : await sdk.CodeGraph.init(this.#repository.worktreeRoot, { index: false });
+      }
       useHeldCodeGraphWriteLock(graph);
 
       const buildResult = mode === "incremental"
@@ -345,8 +406,11 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
       if (buildResult.completeness === "incomplete") {
         graph.close();
         graph = undefined;
-        return await this.restorePublishedGraph(publication, buildResult);
+        const restored = await this.restorePublishedGraph(publication, buildResult);
+        await this.persistWorldFailure(sdk, initialized, worldHooks, restored.diagnostics[0]?.message);
+        return restored;
       }
+      await worldHooks?.publish(buildResult, structuralEvidenceResolver(graph));
       await publication.commit();
       return buildResult;
     } catch (error) {
@@ -354,12 +418,31 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend {
       if (publication !== undefined) {
         graph?.close();
         graph = undefined;
-        return await this.restorePublishedGraph(publication, failedResult);
+        const restored = await this.restorePublishedGraph(publication, failedResult);
+        await this.persistWorldFailure(sdk, initialized, worldHooks, error);
+        return restored;
       }
+      worldHooks?.fail(error);
       return failedResult;
     } finally {
       graph?.close();
     }
+  }
+
+  private async persistWorldFailure(
+    sdk: CodeGraphModule,
+    hadPublishedDatabase: boolean,
+    hooks: StructuralWorldPublicationHooks | undefined,
+    error: unknown,
+  ): Promise<void> {
+    if (hooks === undefined) {
+      return;
+    }
+    if (!hadPublishedDatabase) {
+      const emptyGraph = await sdk.CodeGraph.init(this.#repository.worktreeRoot, { index: false });
+      emptyGraph.close();
+    }
+    hooks.fail(error);
   }
 
   private async synchronizeGraph(
@@ -880,6 +963,28 @@ function findNodeByReference(graph: CodeGraph, reference: StructuralReference): 
     return undefined;
   }
   return graph.getNodesInFile(path).find((node) => referenceForNode(node).id === reference.id);
+}
+
+function structuralEvidenceResolver(graph: CodeGraph): StructuralEvidenceResolver {
+  return {
+    getNode(reference) {
+      const node = findNodeByReference(graph, { id: reference });
+      return node === undefined ? undefined : normalizeNode(node);
+    },
+    findCandidates(locator) {
+      return graph.getNodesInFile(locator.file)
+        .map(normalizeNode)
+        .filter((node) => candidateMatchesLocator(node, locator));
+    },
+    backendLocator(node) {
+      return findNodeByReference(graph, node.reference)?.id;
+    },
+  };
+}
+
+function candidateMatchesLocator(node: StructuralNode, locator: EvidenceLocator): boolean {
+  return (locator.qualifiedSymbol === null || node.qualifiedName === locator.qualifiedSymbol)
+    && (locator.structuralKind === null || node.kind === locator.structuralKind);
 }
 
 function pathFromStructuralReference(reference: StructuralReference): string | undefined {

@@ -14,7 +14,10 @@ export type CodeGraphWorkerRequest =
   | WorkerRequest<"traverse", StructuralTraversalQuery>
   | WorkerRequest<"getCallers", StructuralReference>
   | WorkerRequest<"getCallees", StructuralReference>
-  | WorkerRequest<"getFileDependencies", string>;
+  | WorkerRequest<"getFileDependencies", string>
+  | WorkerRequest<"worldBuild">
+  | WorkerRequest<"worldSync">
+  | WorkerRequest<"learn", unknown>;
 
 type WorkerRequest<Operation extends string, Input = undefined> = {
   readonly operation: Operation;

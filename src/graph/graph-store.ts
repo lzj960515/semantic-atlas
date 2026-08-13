@@ -49,6 +49,14 @@ interface BusinessNodeRow {
   readonly validity: KnowledgeValidity;
 }
 
+interface StoredEvidence extends Evidence {
+  readonly qualifiedSymbol?: string;
+  readonly structuralKind?: Exclude<import("./types.js").StructuralNodeKind, "UnknownBoundary">;
+  readonly atlasSnapshotId?: string;
+  readonly backendVersion?: string;
+  readonly backendLocator?: string;
+}
+
 interface EvidenceRow {
   readonly structural_reference: string;
   readonly file: string;
@@ -57,6 +65,12 @@ interface EvidenceRow {
   readonly end_line: number;
   readonly end_column: number;
   readonly content_hash: string;
+  readonly qualified_symbol: string | null;
+  readonly structural_kind: StoredEvidence["structuralKind"] | null;
+  readonly atlas_snapshot_id: string | null;
+  readonly backend_version: string | null;
+  readonly backend_locator: string | null;
+  readonly binding_status: "bound" | "missing" | "ambiguous" | "unresolved";
 }
 
 interface BusinessRelationRow {
@@ -284,7 +298,7 @@ export class GraphStore implements Disposable {
           throw new Error(`Business node ${node.key} has an empty alias`);
         }
       });
-      node.evidence.forEach((evidence) => evidenceSchema.parse(evidence));
+      node.evidence.forEach((evidence) => evidenceSchema.parse(publicEvidence(evidence)));
       if (upsertedKeys.has(node.key)) {
         throw new Error(`Duplicate business node upsert ${node.key}`);
       }
@@ -305,7 +319,7 @@ export class GraphStore implements Disposable {
       if (relation.evidence.length === 0) {
         throw new Error("Business relations require evidence");
       }
-      relation.evidence.forEach((evidence) => evidenceSchema.parse(evidence));
+      relation.evidence.forEach((evidence) => evidenceSchema.parse(publicEvidence(evidence)));
     });
   }
 
@@ -381,7 +395,7 @@ export class GraphStore implements Disposable {
       `).run(nodeId, position, alias);
     });
     node.evidence.forEach((evidence, position) => {
-      this.insertNodeEvidence(nodeId, position, evidence);
+      this.insertNodeEvidence(nodeId, position, evidence as StoredEvidence);
     });
     this.database.prepare(`
       INSERT INTO atlas_graph_search (
@@ -453,7 +467,7 @@ export class GraphStore implements Disposable {
       WHERE relation_id = ?
     `).run(stored.relation_id);
     relation.evidence.forEach((evidence, position) => {
-      this.insertRelationEvidence(stored.relation_id, position, evidence);
+      this.insertRelationEvidence(stored.relation_id, position, evidence as StoredEvidence);
     });
   }
 
@@ -487,7 +501,7 @@ export class GraphStore implements Disposable {
     }
   }
 
-  private insertNodeEvidence(nodeId: number, position: number, evidence: Evidence): void {
+  private insertNodeEvidence(nodeId: number, position: number, evidence: StoredEvidence): void {
     this.database.prepare(`
       INSERT INTO atlas_business_node_evidence (
         node_id,
@@ -498,8 +512,14 @@ export class GraphStore implements Disposable {
         start_column,
         end_line,
         end_column,
-        content_hash
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        content_hash,
+        qualified_symbol,
+        structural_kind,
+        atlas_snapshot_id,
+        backend_version,
+        backend_locator,
+        binding_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'bound')
     `).run(
       nodeId,
       position,
@@ -510,10 +530,15 @@ export class GraphStore implements Disposable {
       evidence.range.end.line,
       evidence.range.end.column,
       evidence.contentHash,
+      evidence.qualifiedSymbol ?? null,
+      evidence.structuralKind ?? null,
+      evidence.atlasSnapshotId ?? null,
+      evidence.backendVersion ?? null,
+      evidence.backendLocator ?? null,
     );
   }
 
-  private insertRelationEvidence(relationId: number, position: number, evidence: Evidence): void {
+  private insertRelationEvidence(relationId: number, position: number, evidence: StoredEvidence): void {
     this.database.prepare(`
       INSERT INTO atlas_business_relation_evidence (
         relation_id,
@@ -524,8 +549,14 @@ export class GraphStore implements Disposable {
         start_column,
         end_line,
         end_column,
-        content_hash
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        content_hash,
+        qualified_symbol,
+        structural_kind,
+        atlas_snapshot_id,
+        backend_version,
+        backend_locator,
+        binding_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'bound')
     `).run(
       relationId,
       position,
@@ -536,6 +567,11 @@ export class GraphStore implements Disposable {
       evidence.range.end.line,
       evidence.range.end.column,
       evidence.contentHash,
+      evidence.qualifiedSymbol ?? null,
+      evidence.structuralKind ?? null,
+      evidence.atlasSnapshotId ?? null,
+      evidence.backendVersion ?? null,
+      evidence.backendLocator ?? null,
     );
   }
 
@@ -567,7 +603,9 @@ export class GraphStore implements Disposable {
       WHERE repository_id = ?
     `).all(this.#repositoryId) as unknown as { node_id: number }[];
     for (const { node_id } of nodeRows) {
-      const validity = allEvidenceMatches(this.readNodeEvidence(node_id), snapshot) ? "valid" : "stale";
+      const validity = allEvidenceMatches(this.readNodeEvidenceRows(node_id), snapshot)
+        ? "valid"
+        : "stale";
       this.database.prepare(`
         INSERT INTO atlas_business_node_validity (
           node_id,
@@ -586,7 +624,7 @@ export class GraphStore implements Disposable {
       WHERE repository_id = ?
     `).all(this.#repositoryId) as unknown as { relation_id: number }[];
     for (const { relation_id } of relationRows) {
-      const validity = allEvidenceMatches(this.readRelationEvidence(relation_id), snapshot)
+      const validity = allEvidenceMatches(this.readRelationEvidenceRows(relation_id), snapshot)
         ? "valid"
         : "stale";
       this.database.prepare(`
@@ -642,7 +680,11 @@ export class GraphStore implements Disposable {
   }
 
   private readNodeEvidence(nodeId: number): readonly Evidence[] {
-    const rows = this.database.prepare(`
+    return this.readNodeEvidenceRows(nodeId).map(evidenceFromRow);
+  }
+
+  private readNodeEvidenceRows(nodeId: number): readonly EvidenceRow[] {
+    return this.database.prepare(`
       SELECT
         structural_reference,
         file,
@@ -650,16 +692,25 @@ export class GraphStore implements Disposable {
         start_column,
         end_line,
         end_column,
-        content_hash
+        content_hash,
+        qualified_symbol,
+        structural_kind,
+        atlas_snapshot_id,
+        backend_version,
+        backend_locator,
+        binding_status
       FROM atlas_business_node_evidence
       WHERE node_id = ?
       ORDER BY position ASC
     `).all(nodeId) as unknown as EvidenceRow[];
-    return rows.map(evidenceFromRow);
   }
 
   private readRelationEvidence(relationId: number): readonly Evidence[] {
-    const rows = this.database.prepare(`
+    return this.readRelationEvidenceRows(relationId).map(evidenceFromRow);
+  }
+
+  private readRelationEvidenceRows(relationId: number): readonly EvidenceRow[] {
+    return this.database.prepare(`
       SELECT
         structural_reference,
         file,
@@ -667,12 +718,17 @@ export class GraphStore implements Disposable {
         start_column,
         end_line,
         end_column,
-        content_hash
+        content_hash,
+        qualified_symbol,
+        structural_kind,
+        atlas_snapshot_id,
+        backend_version,
+        backend_locator,
+        binding_status
       FROM atlas_business_relation_evidence
       WHERE relation_id = ?
       ORDER BY position ASC
     `).all(relationId) as unknown as EvidenceRow[];
-    return rows.map(evidenceFromRow);
   }
 
   private readBusinessRelations(snapshotId: string): readonly BusinessRelationRow[] {
@@ -795,6 +851,15 @@ function evidenceFromRow(row: EvidenceRow): Evidence {
   };
 }
 
+function publicEvidence(evidence: Evidence): Evidence {
+  return {
+    symbolId: evidence.symbolId,
+    file: evidence.file,
+    range: evidence.range,
+    contentHash: evidence.contentHash,
+  };
+}
+
 function evidenceMatchesSnapshot(evidence: Evidence, snapshot: RepositorySnapshot): boolean {
   return snapshot.files.some((file) => (
     file.path === evidence.file
@@ -802,8 +867,11 @@ function evidenceMatchesSnapshot(evidence: Evidence, snapshot: RepositorySnapsho
   ));
 }
 
-function allEvidenceMatches(evidence: readonly Evidence[], snapshot: RepositorySnapshot): boolean {
-  return evidence.length > 0 && evidence.every((item) => evidenceMatchesSnapshot(item, snapshot));
+function allEvidenceMatches(rows: readonly EvidenceRow[], snapshot: RepositorySnapshot): boolean {
+  return rows.length > 0 && rows.every((row) => (
+    row.binding_status === "bound"
+    && evidenceMatchesSnapshot(evidenceFromRow(row), snapshot)
+  ));
 }
 
 function lexicalScore(terms: readonly string[], fields: readonly string[]): number {

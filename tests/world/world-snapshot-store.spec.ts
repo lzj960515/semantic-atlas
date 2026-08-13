@@ -1,0 +1,270 @@
+import { DatabaseSync } from "node:sqlite";
+import { afterEach, describe, expect, it } from "vitest";
+
+import { GraphStore } from "../../src/graph/graph-store.js";
+import type { StructuralNode } from "../../src/structural-backend/types.js";
+import type {
+  EvidenceLocator,
+  StructuralEvidenceResolver,
+} from "../../src/world/types.js";
+import { WorldSnapshotStore } from "../../src/world/world-snapshot-store.js";
+import {
+  createGraphTestContext,
+  evidenceFor,
+  type GraphTestContext,
+} from "../graph/graph-fixture.js";
+
+describe("world snapshot reconciliation", () => {
+  const contexts: GraphTestContext[] = [];
+
+  afterEach(async () => {
+    await Promise.all(contexts.splice(0).map((context) => context.cleanup()));
+  });
+
+  it("persists missing, building, failed, and current without serving an unfinished snapshot", async () => {
+    const context = await createContext(contexts);
+    using store = new WorldSnapshotStore(context.repository);
+    using database = new DatabaseSync(context.graph.databasePath);
+    database.prepare(`
+      UPDATE atlas_world_state
+      SET status = 'missing', current_snapshot_id = NULL, target_snapshot_id = NULL
+    `).run();
+
+    expect(store.readState()).toMatchObject({
+      status: "missing",
+      currentSnapshotId: null,
+    });
+    store.begin(context.snapshot.snapshotId);
+    expect(store.readState()).toMatchObject({
+      status: "building",
+      targetSnapshotId: context.snapshot.snapshotId,
+      currentSnapshotId: null,
+    });
+    expect(() => store.requireCurrentSnapshot()).toThrow(/building/iu);
+
+    store.fail(context.snapshot.snapshotId, new Error("reconciliation failed"));
+    expect(store.readState()).toMatchObject({
+      status: "failed",
+      currentSnapshotId: null,
+      targetSnapshotId: context.snapshot.snapshotId,
+      failureMessage: "reconciliation failed",
+    });
+    expect(() => store.requireCurrentSnapshot()).toThrow(/failed/iu);
+
+    store.begin(context.snapshot.snapshotId);
+    store.publish(
+      context.snapshot,
+      "1.5.0",
+      1,
+      exactResolver(context.evidence.symbolId),
+      {
+        fromSnapshotId: null,
+        toSnapshotId: context.snapshot.snapshotId,
+        structural: { added: [], modified: [], removed: [] },
+      },
+    );
+    expect(store.readState()).toMatchObject({
+      status: "current",
+      currentSnapshotId: context.snapshot.snapshotId,
+      targetSnapshotId: null,
+      backendVersion: "1.5.0",
+      extractionVersion: 1,
+    });
+    expect(store.requireCurrentSnapshot()).toEqual(context.snapshot);
+  });
+
+  it("uniquely rebinds changed backend identifiers and stales ambiguous evidence", async () => {
+    const context = await createContext(contexts);
+    const evidence = {
+      ...evidenceFor(context.snapshot),
+      qualifiedSymbol: "value",
+      structuralKind: "Symbol" as const,
+      atlasSnapshotId: context.snapshot.snapshotId,
+      backendVersion: "1.5.0",
+      backendLocator: "backend:old",
+    };
+    context.graph.mutateBusinessGraph({
+      baseSnapshotId: context.snapshot.snapshotId,
+      upsertNodes: [{
+        key: "fixture/read-value",
+        kind: "Operation",
+        label: "Read value",
+        summary: "Returns the fixture value.",
+        aliases: [],
+        certainty: "hypothesis",
+        evidence: [evidence],
+      }],
+      removeNodeKeys: [],
+      upsertRelations: [{
+        from: { domain: "business", key: "fixture/read-value" },
+        type: "realized_by",
+        to: { domain: "structural", id: evidence.symbolId },
+        certainty: "exact",
+        evidence: [evidence],
+      }],
+      removeRelations: [],
+    });
+    using store = new WorldSnapshotStore(context.repository);
+    store.begin(context.snapshot.snapshotId);
+    const rebound = structuralNode("symbol:new-id");
+    expect(store.publish(
+      context.snapshot,
+      "1.5.0",
+      1,
+      candidateResolver([rebound]),
+      {
+        fromSnapshotId: null,
+        toSnapshotId: context.snapshot.snapshotId,
+        structural: { added: [], modified: [], removed: [] },
+      },
+    ).staleAssertions).toEqual([]);
+
+    expect(readEvidenceRow(context.graph.databasePath)).toMatchObject({
+      structural_reference: "symbol:new-id",
+      backend_locator: "backend:symbol:new-id",
+      qualified_symbol: "value",
+      structural_kind: "Symbol",
+      atlas_snapshot_id: context.snapshot.snapshotId,
+      backend_version: "1.5.0",
+      binding_status: "bound",
+    });
+    expect(context.graph.getNode(
+      { domain: "business", key: "fixture/read-value" },
+      context.snapshot.snapshotId,
+    )).toMatchObject({ certainty: "hypothesis", validity: "valid" });
+    expect(context.graph.listBusinessRelations(context.snapshot.snapshotId))
+      .toEqual([expect.objectContaining({
+        to: { domain: "structural", id: "symbol:new-id" },
+        validity: "valid",
+      })]);
+
+    store.begin(context.snapshot.snapshotId);
+    const ambiguous = store.publish(
+      context.snapshot,
+      "1.5.0",
+      1,
+      candidateResolver([rebound, { ...rebound, reference: { id: "symbol:other-id" } }]),
+      {
+        fromSnapshotId: context.snapshot.snapshotId,
+        toSnapshotId: context.snapshot.snapshotId,
+        structural: { added: [], modified: [], removed: [] },
+      },
+    );
+    expect(ambiguous.staleAssertions).toEqual([
+      "fixture/read-value",
+      "fixture/read-value:realized_by:structural:symbol:new-id",
+    ]);
+    expect(readEvidenceRow(context.graph.databasePath)).toMatchObject({
+      structural_reference: "symbol:new-id",
+      binding_status: "ambiguous",
+    });
+    expect(context.graph.getNode(
+      { domain: "business", key: "fixture/read-value" },
+      context.snapshot.snapshotId,
+    )).toMatchObject({ certainty: "hypothesis", validity: "stale" });
+
+    context.graph.mutateBusinessGraph({
+      baseSnapshotId: context.snapshot.snapshotId,
+      upsertNodes: [{
+        key: "fixture/unrelated",
+        kind: "Invariant",
+        label: "Unrelated",
+        summary: "Does not change the ambiguous evidence.",
+        aliases: [],
+        certainty: "exact",
+        evidence: [evidenceFor(context.snapshot)],
+      }],
+      removeNodeKeys: [],
+      upsertRelations: [],
+      removeRelations: [],
+    });
+    expect(context.graph.getNode(
+      { domain: "business", key: "fixture/read-value" },
+      context.snapshot.snapshotId,
+    )).toMatchObject({ certainty: "hypothesis", validity: "stale" });
+  });
+
+  it("retries the same target idempotently and keeps one semantic change record", async () => {
+    const context = await createContext(contexts);
+    using store = new WorldSnapshotStore(context.repository);
+    const changes = {
+      fromSnapshotId: null,
+      toSnapshotId: context.snapshot.snapshotId,
+      structural: { added: ["src/example.ts"], modified: [], removed: [] },
+    } as const;
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      store.begin(context.snapshot.snapshotId);
+      store.publish(
+        context.snapshot,
+        "1.5.0",
+        1,
+        exactResolver(context.evidence.symbolId),
+        changes,
+      );
+    }
+
+    using database = new DatabaseSync(context.graph.databasePath, { readOnly: true });
+    expect(database.prepare(`
+      SELECT COUNT(*) AS count FROM atlas_semantic_changes
+    `).get()).toEqual({ count: 1 });
+    expect(database.prepare(`
+      SELECT COUNT(*) AS count FROM atlas_repository_snapshots
+    `).get()).toEqual({ count: 1 });
+  });
+});
+
+async function createContext(contexts: GraphTestContext[]): Promise<GraphTestContext> {
+  const context = await createGraphTestContext();
+  contexts.push(context);
+  return context;
+}
+
+function exactResolver(reference: string): StructuralEvidenceResolver {
+  const node = structuralNode(reference);
+  return {
+    getNode: (candidate) => candidate === reference ? node : undefined,
+    findCandidates: () => [node],
+    backendLocator: (candidate) => `backend:${candidate.reference.id}`,
+  };
+}
+
+function candidateResolver(candidates: readonly StructuralNode[]): StructuralEvidenceResolver {
+  return {
+    getNode: () => undefined,
+    findCandidates: (_locator: EvidenceLocator) => candidates,
+    backendLocator: (candidate) => `backend:${candidate.reference.id}`,
+  };
+}
+
+function structuralNode(reference: string): StructuralNode {
+  return {
+    reference: { id: reference },
+    kind: "Symbol",
+    name: "value",
+    qualifiedName: "value",
+    path: "src/example.ts",
+    language: "typescript",
+    range: {
+      start: { line: 1, column: 1 },
+      end: { line: 1, column: 24 },
+    },
+    support: { status: "exact", provenance: "backend" },
+  };
+}
+
+function readEvidenceRow(databasePath: string): Record<string, unknown> {
+  using database = new DatabaseSync(databasePath, { readOnly: true });
+  return database.prepare(`
+    SELECT
+      structural_reference,
+      qualified_symbol,
+      structural_kind,
+      atlas_snapshot_id,
+      backend_version,
+      backend_locator,
+      binding_status
+    FROM atlas_business_node_evidence
+    LIMIT 1
+  `).get() as Record<string, unknown>;
+}

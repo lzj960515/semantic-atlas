@@ -5,7 +5,7 @@ import type { DatabaseSync as NodeDatabaseSync } from "node:sqlite";
 
 import type { GitRepository } from "../repository/types.js";
 
-export const CURRENT_ATLAS_SCHEMA_VERSION = 1;
+export const CURRENT_ATLAS_SCHEMA_VERSION = 2;
 
 const require = createRequire(import.meta.url);
 
@@ -152,6 +152,60 @@ const migrations: readonly SchemaMigration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 2,
+    sql: `
+      CREATE TABLE atlas_world_state (
+        repository_id TEXT PRIMARY KEY,
+        status TEXT NOT NULL CHECK (status IN ('missing', 'building', 'current', 'failed')),
+        current_snapshot_id TEXT,
+        target_snapshot_id TEXT,
+        backend_version TEXT,
+        extraction_version INTEGER,
+        failure_message TEXT,
+        started_at TEXT,
+        published_at TEXT,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (repository_id) REFERENCES atlas_repositories(repository_id) ON DELETE CASCADE,
+        FOREIGN KEY (repository_id, current_snapshot_id)
+          REFERENCES atlas_repository_snapshots(repository_id, snapshot_id)
+      ) STRICT;
+
+      CREATE TABLE atlas_semantic_changes (
+        repository_id TEXT NOT NULL,
+        from_snapshot_id TEXT,
+        to_snapshot_id TEXT NOT NULL,
+        added_paths TEXT NOT NULL,
+        modified_paths TEXT NOT NULL,
+        removed_paths TEXT NOT NULL,
+        stale_assertions TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (repository_id, to_snapshot_id),
+        FOREIGN KEY (repository_id, to_snapshot_id)
+          REFERENCES atlas_repository_snapshots(repository_id, snapshot_id) ON DELETE CASCADE
+      ) STRICT;
+
+      ALTER TABLE atlas_business_node_evidence ADD COLUMN qualified_symbol TEXT;
+      ALTER TABLE atlas_business_node_evidence ADD COLUMN structural_kind TEXT;
+      ALTER TABLE atlas_business_node_evidence ADD COLUMN atlas_snapshot_id TEXT;
+      ALTER TABLE atlas_business_node_evidence ADD COLUMN backend_version TEXT;
+      ALTER TABLE atlas_business_node_evidence ADD COLUMN backend_locator TEXT;
+      ALTER TABLE atlas_business_node_evidence ADD COLUMN binding_status TEXT NOT NULL DEFAULT 'unresolved'
+        CHECK (binding_status IN ('bound', 'missing', 'ambiguous', 'unresolved'));
+
+      ALTER TABLE atlas_business_relation_evidence ADD COLUMN qualified_symbol TEXT;
+      ALTER TABLE atlas_business_relation_evidence ADD COLUMN structural_kind TEXT;
+      ALTER TABLE atlas_business_relation_evidence ADD COLUMN atlas_snapshot_id TEXT;
+      ALTER TABLE atlas_business_relation_evidence ADD COLUMN backend_version TEXT;
+      ALTER TABLE atlas_business_relation_evidence ADD COLUMN backend_locator TEXT;
+      ALTER TABLE atlas_business_relation_evidence ADD COLUMN binding_status TEXT NOT NULL DEFAULT 'unresolved'
+        CHECK (binding_status IN ('bound', 'missing', 'ambiguous', 'unresolved'));
+
+      INSERT INTO atlas_world_state (repository_id, status, updated_at)
+      SELECT repository_id, 'missing', updated_at
+      FROM atlas_repositories;
+    `,
+  },
 ];
 
 export class AtlasDatabase implements Disposable {
@@ -187,6 +241,11 @@ export class AtlasDatabase implements Disposable {
         repository.worktreeRoot,
         new Date().toISOString(),
       );
+      this.connection.prepare(`
+        INSERT INTO atlas_world_state (repository_id, status, updated_at)
+        VALUES (?, 'missing', ?)
+        ON CONFLICT (repository_id) DO NOTHING
+      `).run(repository.repositoryId, new Date().toISOString());
     } catch (error) {
       this.connection.close();
       throw error;
