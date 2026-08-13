@@ -19,7 +19,7 @@ try {
   writeResponse({ ok: false, error: serializeError(error) });
 }
 
-function executeRequest(
+async function executeRequest(
   backend: CodeGraphStructuralBackend,
   request: CodeGraphWorkerRequest,
 ): Promise<unknown> {
@@ -37,7 +37,11 @@ function executeRequest(
     case "worldSync": return new WorldModelService(request.repository).sync();
     case "learn": {
       using graph = new GraphStore(request.repository);
-      return new BusinessKnowledgeService(request.repository, graph, backend).learn(request.input);
+      return await new BusinessKnowledgeService(
+        request.repository,
+        graph,
+        backend,
+      ).learn(request.input);
     }
   }
 }

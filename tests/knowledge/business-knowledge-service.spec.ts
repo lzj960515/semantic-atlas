@@ -1,11 +1,19 @@
+import { execFile } from "node:child_process";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { GraphStore } from "../../src/graph/graph-store.js";
 import {
   BusinessKnowledgeService,
   GraphPatchConflictError,
 } from "../../src/knowledge/business-knowledge-service.js";
+import { inspectGitRepository } from "../../src/repository/repository-inspector.js";
 import { createRepositorySnapshot } from "../../src/snapshots/repository-snapshot.js";
 import type { RepositorySnapshot } from "../../src/snapshots/types.js";
+import { CodeGraphStructuralBackend } from "../../src/structural-backend/codegraph-backend.js";
+import { WorldModelService } from "../../src/world/world-model-service.js";
 import type {
   BusinessNodeInput,
   BusinessRelationInput,
@@ -17,6 +25,9 @@ import {
   type GraphTestContext,
 } from "../graph/graph-fixture.js";
 import { WorldSnapshotStore } from "../../src/world/world-snapshot-store.js";
+import { createGitFixture } from "../support/git-fixture.js";
+
+const executeFile = promisify(execFile);
 
 describe("business knowledge learning", () => {
   const contexts: GraphTestContext[] = [];
@@ -75,6 +86,61 @@ describe("business knowledge learning", () => {
         evidence: [evidence],
       });
   });
+
+  it("keeps the graph store open until private-worker learning commits", async () => {
+    const fixture = await createGitFixture();
+    try {
+      await fixture.write("src/stable.ts", "export const stable = true;\n");
+      await fixture.git("add", "src/stable.ts");
+      await fixture.git("commit", "-m", "test: add independent structural target");
+      const repository = await inspectGitRepository(fixture.directory);
+      const world = await new WorldModelService(repository).build();
+      const backend = new CodeGraphStructuralBackend(repository);
+      const support = (await backend.search({ query: "value", limit: 10 }))
+        .find(({ node }) => node.name === "value")?.node;
+      const target = (await backend.search({ query: "stable", limit: 10 }))
+        .find(({ node }) => node.name === "stable")?.node;
+      const snapshot = await createRepositorySnapshot(repository);
+      if (support === undefined || target === undefined) {
+        throw new Error("Expected distinct support and target nodes in the private-worker fixture");
+      }
+      const supportEvidence = evidenceAtNode(snapshot, support);
+      const operation = businessNode("fixture/private-worker", "Operation", supportEvidence);
+      await executeFile("pnpm", ["build"], { cwd: projectRoot() });
+
+      await expect(runBuiltPrivateLearn(repository, patch(
+        world.snapshotId,
+        [operation],
+        [businessRelation(
+          operation.key,
+          "realized_by",
+          structural(target.reference.id),
+          supportEvidence,
+        )],
+      ))).resolves.toMatchObject({
+        baseSnapshotId: world.snapshotId,
+        snapshotId: world.snapshotId,
+        applied: { nodeOperations: 1, relationOperations: 1 },
+      });
+
+      using graph = new GraphStore(repository);
+      expect(graph.getNode(business(operation.key), world.snapshotId)).toMatchObject({
+        key: operation.key,
+        validity: "valid",
+        evidence: [supportEvidence],
+      });
+      expect(graph.listBusinessRelations(world.snapshotId)).toEqual([
+        expect.objectContaining({
+          from: business(operation.key),
+          to: structural(target.reference.id),
+          validity: "valid",
+          evidence: [supportEvidence],
+        }),
+      ]);
+    } finally {
+      await fixture.cleanup();
+    }
+  }, 60_000);
 
   it("rejects an old base snapshot before writing any operation", async () => {
     const context = await graphContext(contexts);
@@ -383,4 +449,24 @@ function evidenceAtNode(
     range: node.range,
     contentHash: source.worktree.contentHash,
   };
+}
+
+function projectRoot(): string {
+  return join(import.meta.dirname, "..", "..");
+}
+
+async function runBuiltPrivateLearn(
+  repository: import("../../src/repository/types.js").GitRepository,
+  input: unknown,
+): Promise<unknown> {
+  const clientModule = pathToFileURL(join(
+    projectRoot(),
+    "dist",
+    "structural-backend",
+    "codegraph-worker-client.js",
+  )).href;
+  const client = await import(clientModule) as {
+    runCodeGraphWorker(request: unknown): Promise<unknown>;
+  };
+  return client.runCodeGraphWorker({ operation: "learn", repository, input });
 }
