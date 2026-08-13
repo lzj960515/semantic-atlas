@@ -100,7 +100,7 @@ describe("business flow derivation", () => {
     expect(graphPatchV1Schema.parse(result.patch)).toEqual(result.patch);
   });
 
-  it("derives NestJS and GraphQL entry points from the real CodeGraph adapter", async () => {
+  it("keeps unresolved injected service calls visible in real CodeGraph flows", async () => {
     const fixture = await createGitFixture();
     gitFixtures.push(fixture);
     await fixture.write("package.json", JSON.stringify({
@@ -114,17 +114,29 @@ describe("business flow derivation", () => {
     }));
     await fixture.write("src/orders.controller.ts", [
       "import { Controller, Post } from '@nestjs/common';",
+      "import { OrdersService } from './orders.service.js';",
       "@Controller('orders')",
       "export class OrdersController {",
-      "  @Post() create() { return true; }",
+      "  constructor(private readonly orders: OrdersService) {}",
+      "  @Post() create() { return this.orders.create(); }",
       "}",
       "",
     ].join("\n"));
     await fixture.write("src/orders.resolver.ts", [
       "import { Resolver, Mutation } from '@nestjs/graphql';",
+      "import { OrdersService } from './orders.service.js';",
       "@Resolver()",
       "export class OrdersResolver {",
-      "  @Mutation() createOrder() { return true; }",
+      "  constructor(private readonly orders: OrdersService) {}",
+      "  @Mutation() createOrder() { return this.orders.create(); }",
+      "}",
+      "",
+    ].join("\n"));
+    await fixture.write("src/orders.service.ts", [
+      "import { Injectable } from '@nestjs/common';",
+      "@Injectable()",
+      "export class OrdersService {",
+      "  create() { return true; }",
       "}",
       "",
     ].join("\n"));
@@ -163,6 +175,16 @@ describe("business flow derivation", () => {
       }
       return matches[0]!.reference;
     };
+    const rootAt = (path: string, name: string): StructuralNode["reference"] => {
+      const matches = graph.nodes.filter((node) => node.path === path && node.name === name);
+      if (matches.length !== 1) {
+        throw new Error(`Expected one real framework root ${path}#${name}`);
+      }
+      return matches[0]!.reference;
+    };
+    const serviceOperation = rootAt("src/orders.service.ts", "create");
+    const controllerOperation = rootAt("src/orders.controller.ts", "create");
+    const resolverOperation = rootAt("src/orders.resolver.ts", "createOrder");
     const result = await new BusinessFlowDerivationService(repository, structural).derive({
       capability: {
         key: "commerce/orders",
@@ -171,6 +193,7 @@ describe("business flow derivation", () => {
         roots: [
           root("POST /orders"),
           root("MUTATION createOrder"),
+          serviceOperation,
           root("Order"),
           root("handleCreated"),
         ],
@@ -182,12 +205,42 @@ describe("business flow derivation", () => {
       expect.objectContaining({ kind: "Interface", label: "MUTATION createOrder" }),
       expect.objectContaining({ kind: "Data", label: "Order" }),
     ]));
-    expect(result.boundaries).toEqual([
+    expect(result.boundaries).toEqual(expect.arrayContaining([
       expect.objectContaining({
         framework: "bullmq",
         reason: expect.stringContaining("OrdersProcessor::handleCreated"),
       }),
-    ]);
+    ]));
+    const serviceBusinessOperation = upsertedRelations(result.patch).find((relation) => (
+      relation.type === "realized_by"
+      && relation.to.domain === "structural"
+      && relation.to.id === serviceOperation.id
+    ))?.from;
+    for (const [framework, handler] of [
+      ["nestjs", controllerOperation],
+      ["graphql", resolverOperation],
+    ] as const) {
+      const handlerBusinessOperation = upsertedRelations(result.patch).find((relation) => (
+        relation.type === "realized_by"
+        && relation.to.domain === "structural"
+        && relation.to.id === handler.id
+      ))?.from;
+      const invokesService = serviceBusinessOperation !== undefined
+        && handlerBusinessOperation !== undefined
+        && upsertedRelations(result.patch).some((relation) => (
+          relation.type === "invokes"
+          && relation.from.key === handlerBusinessOperation.key
+          && relation.to.domain === "business"
+          && relation.to.key === serviceBusinessOperation.key
+        ));
+      const requiresSourceFallback = result.boundaries.some((boundary) => (
+        boundary.framework === framework
+        && boundary.operation === "resolve_called_operation"
+        && boundary.owner.id === handler.id
+        && boundary.candidates.includes(serviceOperation.id)
+      ));
+      expect(invokesService || requiresSourceFallback).toBe(true);
+    }
   });
 
   it("preserves real TypeORM repository reads and writes as source fallbacks", async () => {

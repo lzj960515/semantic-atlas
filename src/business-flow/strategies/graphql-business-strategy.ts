@@ -3,11 +3,11 @@ import type { BusinessFlowDraft } from "../business-flow-draft.js";
 import type { FrameworkBusinessStrategy } from "../framework-business-strategy.js";
 import type { StructuralFlowCatalog } from "../structural-flow-catalog.js";
 import type { BusinessFlowDerivationOptions } from "../types.js";
+import { deriveCalledBusinessOperations } from "./called-operation-derivation.js";
 import {
   addBusinessNode,
   addBusinessRelation,
   addStructuralRelation,
-  hasBusinessOperationEvidence,
   nodeKey,
 } from "./strategy-helpers.js";
 
@@ -83,35 +83,14 @@ export class GraphqlBusinessStrategy implements FrameworkBusinessStrategy {
         to: handler,
       });
 
-      for (const call of catalog.outgoing(handler.reference.id, "calls")) {
-        const target = catalog.exactTarget(call);
-        if (
-          target === undefined
-          || target.reference.id === handler.reference.id
-          || !hasBusinessOperationEvidence(target, catalog)
-        ) {
-          continue;
-        }
-        const targetKey = nodeKey(options.capability.key, "operations", target);
-        addBusinessNode(draft, {
-          key: targetKey,
-          kind: "Operation",
-          label: target.name,
-          summary: `Performs ${target.qualifiedName}.`,
-          evidence: target,
-        });
-        addBusinessRelation(draft, {
-          from: operationKey,
-          type: "invokes",
-          to: targetKey,
-          evidence: handler,
-        });
-        addStructuralRelation(draft, {
-          from: targetKey,
-          type: "realized_by",
-          to: target,
-        });
-      }
+      deriveCalledBusinessOperations({
+        framework: "graphql",
+        handler,
+        handlerKey: operationKey,
+        catalog,
+        options,
+        draft,
+      });
     }
   }
 }

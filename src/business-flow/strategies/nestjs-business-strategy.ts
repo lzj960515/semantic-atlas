@@ -3,11 +3,11 @@ import type { BusinessFlowDraft } from "../business-flow-draft.js";
 import type { FrameworkBusinessStrategy } from "../framework-business-strategy.js";
 import type { StructuralFlowCatalog } from "../structural-flow-catalog.js";
 import type { BusinessFlowDerivationOptions } from "../types.js";
+import { deriveCalledBusinessOperations } from "./called-operation-derivation.js";
 import {
   addBusinessNode,
   addBusinessRelation,
   addStructuralRelation,
-  hasBusinessOperationEvidence,
   nodeKey,
 } from "./strategy-helpers.js";
 
@@ -80,46 +80,15 @@ export class NestJsBusinessStrategy implements FrameworkBusinessStrategy {
         type: "realized_by",
         to: handler,
       });
-      linkCalledOperations(handler, operationKey, catalog, options, draft);
+      deriveCalledBusinessOperations({
+        framework: "nestjs",
+        handler,
+        handlerKey: operationKey,
+        catalog,
+        options,
+        draft,
+      });
     }
-  }
-}
-
-function linkCalledOperations(
-  handler: StructuralNode,
-  handlerKey: string,
-  catalog: StructuralFlowCatalog,
-  options: BusinessFlowDerivationOptions,
-  draft: BusinessFlowDraft,
-): void {
-  for (const call of catalog.outgoing(handler.reference.id, "calls")) {
-    const target = catalog.exactTarget(call);
-    if (
-      target === undefined
-      || target.reference.id === handler.reference.id
-      || !hasBusinessOperationEvidence(target, catalog)
-    ) {
-      continue;
-    }
-    const targetKey = nodeKey(options.capability.key, "operations", target);
-    addBusinessNode(draft, {
-      key: targetKey,
-      kind: "Operation",
-      label: target.name,
-      summary: `Performs ${target.qualifiedName}.`,
-      evidence: target,
-    });
-    addBusinessRelation(draft, {
-      from: handlerKey,
-      type: "invokes",
-      to: targetKey,
-      evidence: handler,
-    });
-    addStructuralRelation(draft, {
-      from: targetKey,
-      type: "realized_by",
-      to: target,
-    });
   }
 }
 
