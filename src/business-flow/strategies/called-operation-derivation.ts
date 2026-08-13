@@ -4,42 +4,20 @@ import type {
 } from "../../structural-backend/types.js";
 import type { BusinessFlowDraft } from "../business-flow-draft.js";
 import type { StructuralFlowCatalog } from "../structural-flow-catalog.js";
-import type {
-  BusinessFlowDerivationOptions,
-  SupportedBusinessFramework,
-} from "../types.js";
-import {
-  addBusinessNode,
-  addBusinessRelation,
-  addStructuralRelation,
-  hasBusinessOperationEvidence,
-  nodeKey,
-} from "./strategy-helpers.js";
+import type { SupportedBusinessFramework } from "../types.js";
+import { hasBusinessOperationEvidence } from "./strategy-helpers.js";
 
 interface CalledOperationDerivationInput {
   readonly framework: Extract<SupportedBusinessFramework, "nestjs" | "graphql">;
   readonly handler: StructuralNode;
-  readonly handlerKey: string;
   readonly catalog: StructuralFlowCatalog;
-  readonly options: BusinessFlowDerivationOptions;
   readonly draft: BusinessFlowDraft;
 }
 
-export function deriveCalledBusinessOperations(input: CalledOperationDerivationInput): void {
+export function deriveCalledOperationBoundaries(input: CalledOperationDerivationInput): void {
   for (const call of input.catalog.outgoing(input.handler.reference.id, "calls")) {
     const target = input.catalog.node(call.to.id);
     const candidates = calledOperationCandidates(target?.name, input.handler, input.catalog);
-    if (
-      call.support.status === "exact"
-      && target !== undefined
-      && target.reference.id !== input.handler.reference.id
-      && target.declarationKind === "function"
-      && hasBusinessOperationEvidence(target, input.catalog)
-      && hasReceiverlessFunctionBinding(input.handler, target, input.catalog)
-    ) {
-      addCalledOperation(input, target);
-      continue;
-    }
     addResolutionBoundary(input, target?.name, target, call.support.status, candidates);
   }
 
@@ -48,31 +26,6 @@ export function deriveCalledBusinessOperations(input: CalledOperationDerivationI
   ))) {
     addResolutionBoundary(input, boundary.target);
   }
-}
-
-function addCalledOperation(
-  input: CalledOperationDerivationInput,
-  target: StructuralNode,
-): void {
-  const targetKey = nodeKey(input.options.capability.key, "operations", target);
-  addBusinessNode(input.draft, {
-    key: targetKey,
-    kind: "Operation",
-    label: target.name,
-    summary: `Performs ${target.qualifiedName}.`,
-    evidence: target,
-  });
-  addBusinessRelation(input.draft, {
-    from: input.handlerKey,
-    type: "invokes",
-    to: targetKey,
-    evidence: input.handler,
-  });
-  addStructuralRelation(input.draft, {
-    from: targetKey,
-    type: "realized_by",
-    to: target,
-  });
 }
 
 function addResolutionBoundary(
@@ -112,26 +65,6 @@ function calledOperationCandidates(
     && (node.declarationKind === "method" || node.declarationKind === "function")
     && hasBusinessOperationEvidence(node, catalog)
   ));
-}
-
-function hasReceiverlessFunctionBinding(
-  handler: StructuralNode,
-  target: StructuralNode,
-  catalog: StructuralFlowCatalog,
-): boolean {
-  if (handler.path === target.path) {
-    const sameFileFunctions = catalog.contextNodes(handler.path).filter((node) => (
-      node.declarationKind === "function" && node.name === target.name
-    ));
-    return sameFileFunctions.length === 1
-      && sameFileFunctions[0]!.reference.id === target.reference.id;
-  }
-  return catalog.contextNodes(handler.path)
-    .filter((node) => node.declarationKind === "file")
-    .some((file) => catalog.contextOutgoing(file.reference.id, "imports")
-      .some((relation) => (
-        relation.support.status === "exact" && relation.to.id === target.reference.id
-      )));
 }
 
 function calledOperationResolutionReason(

@@ -661,52 +661,85 @@ describe("business flow derivation", () => {
     }
   });
 
-  it("promotes a receiverless same-file business function", async () => {
-    const context = await createGraphTestContext();
-    contexts.push(context);
-    const route = nodeAt(
-      "route",
-      "POST /orders",
-      "POST /orders",
-      "route",
-      "src/example.ts",
-    );
-    const handler = nodeAt(
-      "handler",
-      "create",
-      "create",
-      "function",
-      "src/example.ts",
-    );
-    const serviceOperation = nodeAt(
-      "service-operation",
-      "createOrder",
-      "createOrder",
-      "function",
-      "src/example.ts",
-    );
-    const structural = structuralBackend(
-      [route, handler, serviceOperation],
-      [
-        relation(route, handler, "references"),
-        relation(handler, serviceOperation, "calls"),
+  it("does not trust a same-file function as an injected call target", async () => {
+    const probe = await deriveRealGraphqlFixture(gitFixtures, {
+      "src/orders.resolver.ts": [
+        "import { Resolver, Mutation } from '@nestjs/graphql';",
+        "import { OrdersService } from './orders.service.js';",
+        "export function create() { return 'same-file decoy'; }",
+        "@Resolver()",
+        "export class OrdersResolver {",
+        "  constructor(private readonly orders: OrdersService) {}",
+        "  @Mutation() createOrder() { return this.orders.create(); }",
+        "}",
+        "",
       ],
-    );
+      "src/orders.service.ts": [
+        "export class OrdersService { create() { return 'order'; } }",
+        "",
+      ],
+    }, [
+      { path: "src/orders.resolver.ts", name: "MUTATION createOrder" },
+      { path: "src/orders.resolver.ts", name: "create" },
+      { path: "src/orders.service.ts", name: "create" },
+    ]);
+    const resolver = probe.referenceAt("src/orders.resolver.ts", "createOrder");
+    const decoy = probe.referenceAt("src/orders.resolver.ts", "create");
+    const service = probe.referenceAt("src/orders.service.ts", "create");
+    expect(probe.exactCallTarget(resolver)).toEqual(decoy);
 
-    const result = await new BusinessFlowDerivationService(context.repository, structural).derive({
-      capability: {
-        key: "commerce/orders",
-        label: "Orders",
-        summary: "Accepts customer orders.",
-        roots: [route.reference, serviceOperation.reference],
-      },
-    });
-
-    expect(upsertedNodes(result.patch)).toEqual(expect.arrayContaining([
-      expect.objectContaining({ kind: "Operation", label: "createOrder" }),
+    const resolverBusiness = realizedBusinessOperation(probe.result.patch, resolver);
+    expect(operationInvocationsFrom(probe.result.patch, resolverBusiness.key)).toEqual([]);
+    expect(probe.result.boundaries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        framework: "graphql",
+        operation: "resolve_called_operation",
+        owner: expect.objectContaining(resolver),
+        candidates: [decoy.id, service.id].sort(),
+      }),
     ]));
-    expect(result.boundaries).not.toEqual(expect.arrayContaining([
-      expect.objectContaining({ operation: "resolve_called_operation" }),
+  });
+
+  it("does not trust an imported function as an injected call target", async () => {
+    const probe = await deriveRealGraphqlFixture(gitFixtures, {
+      "src/orders.resolver.ts": [
+        "import { Resolver, Mutation } from '@nestjs/graphql';",
+        "import { OrdersService } from './orders.service.js';",
+        "import { create } from './create.js';",
+        "@Resolver()",
+        "export class OrdersResolver {",
+        "  constructor(private readonly orders: OrdersService) {}",
+        "  @Mutation() createOrder() { return this.orders.create(); }",
+        "}",
+        "",
+      ],
+      "src/create.ts": [
+        "export function create() { return 'imported decoy'; }",
+        "",
+      ],
+      "src/orders.service.ts": [
+        "export class OrdersService { create() { return 'order'; } }",
+        "",
+      ],
+    }, [
+      { path: "src/orders.resolver.ts", name: "MUTATION createOrder" },
+      { path: "src/create.ts", name: "create" },
+      { path: "src/orders.service.ts", name: "create" },
+    ]);
+    const resolver = probe.referenceAt("src/orders.resolver.ts", "createOrder");
+    const decoy = probe.referenceAt("src/create.ts", "create");
+    const service = probe.referenceAt("src/orders.service.ts", "create");
+    expect(probe.exactCallTarget(resolver)).toEqual(decoy);
+
+    const resolverBusiness = realizedBusinessOperation(probe.result.patch, resolver);
+    expect(operationInvocationsFrom(probe.result.patch, resolverBusiness.key)).toEqual([]);
+    expect(probe.result.boundaries).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        framework: "graphql",
+        operation: "resolve_called_operation",
+        owner: expect.objectContaining(resolver),
+        candidates: [decoy.id, service.id].sort(),
+      }),
     ]));
   });
 

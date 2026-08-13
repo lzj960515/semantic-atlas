@@ -3,7 +3,7 @@ import type { BusinessFlowDraft } from "../business-flow-draft.js";
 import type { FrameworkBusinessStrategy } from "../framework-business-strategy.js";
 import type { StructuralFlowCatalog } from "../structural-flow-catalog.js";
 import type { BusinessFlowDerivationOptions } from "../types.js";
-import { deriveCalledBusinessOperations } from "./called-operation-derivation.js";
+import { deriveCalledOperationBoundaries } from "./called-operation-derivation.js";
 import {
   addBusinessNode,
   addBusinessRelation,
@@ -83,12 +83,10 @@ export class GraphqlBusinessStrategy implements FrameworkBusinessStrategy {
         to: handler,
       });
 
-      deriveCalledBusinessOperations({
+      deriveCalledOperationBoundaries({
         framework: "graphql",
         handler,
-        handlerKey: operationKey,
         catalog,
-        options,
         draft,
       });
     }
