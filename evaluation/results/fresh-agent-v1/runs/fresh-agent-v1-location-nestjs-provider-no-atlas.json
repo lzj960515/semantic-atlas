@@ -15,7 +15,17 @@
     "instructionsHash": "53515a2b94031aaffe62f42fb63d93751f649a915ac203fa39aa071ce5e118ec",
     "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
     "oracleHidden": true,
-    "commandAuditPassed": true
+    "commandAuditPassed": true,
+    "commandAudit": {
+      "policy": "fresh-agent-shell-allowlist-v2",
+      "commands": [
+        "/bin/zsh -lc 'rg --files'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'place|createOrder|OrderService|providers|exports' src/orders test/orders\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/order.service.ts 1 240'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/orders.module.ts 1 240'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/order.entity.ts 1 240'"
+      ]
+    }
   },
   "startedAt": "2026-08-14T05:26:27.686Z",
   "finishedAt": "2026-08-14T05:27:24.654Z",

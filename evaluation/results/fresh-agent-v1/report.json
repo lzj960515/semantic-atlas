@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "evaluationId": "fresh-agent-v1",
-  "generatedAt": "2026-08-14T05:44:23.600Z",
+  "generatedAt": "2026-08-14T06:44:41.241Z",
   "fixture": {
     "repository": "framework-evaluation",
     "revision": "fixture-v1",
@@ -12,9 +12,18 @@
     "model": "gpt-5.6-sol"
   },
   "protocol": {
-    "runnerVersion": "fresh-agent-runner-v1",
+    "runnerVersions": [
+      "fresh-agent-runner-v1",
+      "fresh-agent-runner-v2"
+    ],
     "sourceTokenMethod": "tiktoken-o200k_base-v1",
-    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "commandAuditPolicies": [
+      "fresh-agent-shell-allowlist-v2"
+    ],
+    "toolPolicyHashes": [
+      "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+      "69c5adc571c298c283fc4449b481e97ff2dac2f87087d6efb5b805394c4de292"
+    ],
     "freshContextPerRun": true,
     "oracleHiddenDuringRuns": true,
     "independentAdjudication": true
@@ -212,8 +221,8 @@
           "correct": true,
           "requiredFileRecall": 1,
           "requiredSymbolRecall": 1,
-          "openedFileCount": 5,
-          "sourceTokens": 1480,
+          "openedFileCount": 6,
+          "sourceTokens": 1531,
           "atlasCallCount": 0,
           "atlasHandlingCount": 0,
           "failureClassifications": []
@@ -226,9 +235,9 @@
           "requiredFileRecall": 1,
           "requiredSymbolRecall": 1,
           "openedFileCount": 5,
-          "sourceTokens": 1346,
-          "atlasCallCount": 5,
-          "atlasHandlingCount": 4,
+          "sourceTokens": 1274,
+          "atlasCallCount": 6,
+          "atlasHandlingCount": 3,
           "failureClassifications": []
         },
         "noRegression": true

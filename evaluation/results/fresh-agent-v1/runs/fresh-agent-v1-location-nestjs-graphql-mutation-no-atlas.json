@@ -15,7 +15,17 @@
     "instructionsHash": "bbc9aae6a3886e13042c5866566f34c9de7e15b26e6d60d0fbc6071431bf1b9d",
     "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
     "oracleHidden": true,
-    "commandAuditPassed": true
+    "commandAuditPassed": true,
+    "commandAudit": {
+      "policy": "fresh-agent-shell-allowlist-v2",
+      "commands": [
+        "/bin/zsh -lc \"printf '%s\\\\n' \\\"\"'$EVALUATION_OBSERVER\" && rg --files -g '\"'\"'!node_modules'\"' | sed -n '1,240p'\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'createOrder|CreateOrder|create-order' src test\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/order.resolver.ts 1 220'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/orders.module.ts 1 220'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/order.service.ts 1 260'"
+      ]
+    }
   },
   "startedAt": "2026-08-14T05:29:32.146Z",
   "finishedAt": "2026-08-14T05:30:23.535Z",

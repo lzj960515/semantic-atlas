@@ -15,7 +15,19 @@
     "instructionsHash": "c0afe68f46748ebf675cb582a0a0ea30ea35ac999e5699f06b8e01d721a3e5cb",
     "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
     "oracleHidden": true,
-    "commandAuditPassed": true
+    "commandAuditPassed": true,
+    "commandAudit": {
+      "policy": "fresh-agent-shell-allowlist-v2",
+      "commands": [
+        "/bin/zsh -lc 'semantic-atlas status'",
+        "/bin/zsh -lc 'semantic-atlas map search invoice --limit 10'",
+        "/bin/zsh -lc \"semantic-atlas map show 'symbol:src%2Fbilling%2Finvoice.processor.ts#eaea8ff9324a375ba3696de7779811e1f13c69118233d8625970c04e22849f7b' --depth 2\"",
+        "/bin/zsh -lc '$EVALUATION_OBSERVER read src/billing/invoice.processor.ts 1 21'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/billing/invoice.processor.ts 1 21'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/billing/invoice.service.ts 1 27'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search InvoiceProcessor src'"
+      ]
+    }
   },
   "startedAt": "2026-08-14T05:31:00.941Z",
   "finishedAt": "2026-08-14T05:33:07.673Z",

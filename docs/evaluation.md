@@ -24,23 +24,27 @@ The official planned cases are in `evaluation/cases/plan.json`. `evaluation/exam
 For each case and mode:
 
 1. Check out the exact fixture revision recorded by the case.
-2. Start a new agent conversation with no prior task or repository context. Record the agent product and model. Do not reuse source summaries between runs.
+2. Start a new agent conversation with no prior task or repository context. Record the agent product and model. Disable host Skills, plugins, apps, hooks, MCP servers, memory, multi-agent delegation, and Skill search while preserving the local Codex authentication and model-provider configuration needed to execute the run.
 3. Give the agent the case prompt and repository only. Keep the oracle and the other mode's result outside the agent context.
 4. Keep model, agent instructions, tool policy, fixture revision, and task prompt identical for the paired runs. The only workflow difference is whether the Semantic Atlas Skill and CLI are available.
 5. In `no-atlas` mode, use normal source and shell tools and record zero Atlas calls. In `atlas` mode, record each Semantic Atlas command.
 6. Record a `sourceOpens` event whenever repository source text is returned to the agent, including file reads and search snippets. Split multi-file tool output into one event per file.
 7. Record the number of source tokens exposed by each event using the execution environment's source-input accounting. Put the stable method/version in `sourceTokenMethod`. Count repeated reads again in token totals.
 8. Save the agent's reported files and symbols. An evaluator who did not guide the run compares the answer with the oracle and records correctness plus notes.
-9. Validate and summarize the published baseline with `pnpm evaluation:validate` or pass additional run paths to `scripts/validate-evaluation.ts --baseline`.
+9. Publish the complete Codex shell-command sequence with the run, then validate and summarize the baseline with `pnpm evaluation:validate` or pass additional run paths to `scripts/validate-evaluation.ts --baseline`.
 
-A run is invalid when it lacks exact source-token accounting, is not a fresh context, uses a different fixture revision, sees its oracle, or contains an Atlas call in `no-atlas` mode. Invalid runs are repeated rather than estimated.
+A run is invalid when it lacks exact source-token accounting, is not a fresh context, uses a different fixture revision, sees its oracle, contains an Atlas call in `no-atlas` mode, reads a host instruction, or uses a shell command outside the versioned allowlist. Invalid runs are repeated rather than estimated.
 
 The published `fresh-agent-v1` run uses the repository-owned source observer and
 `tiktoken-o200k_base-v1`. Every observer invocation appends one JSONL record per
 returned file. The runner normalizes those atomically appended records to a
-strict event sequence, audits Codex command events for unobserved fixture source
-reads or writes, and rejects the run before adjudication when the audit fails.
-Host Skill instruction reads are not fixture source observations.
+strict event sequence. The `fresh-agent-shell-allowlist-v2` policy accepts only
+observer reads/searches, read-only Semantic Atlas status/map/changes commands,
+bounded file-name listings, and content-free availability probes. It rejects
+alternative readers, arbitrary executables and wrappers, external instruction
+paths, command substitution, redirection, and unsupported command composition.
+The runner rejects failed audits before adjudication, and published-result
+validation re-audits every recorded command sequence and its derived Atlas calls.
 
 ## Metrics
 
@@ -62,12 +66,15 @@ The measured `fresh-agent-v1` artifacts are in
 runs over the frozen 12-case matrix. Both modes use Codex CLI 0.146.0 with
 `gpt-5.6-sol`, fresh ephemeral contexts, the same fixture commit and task input,
 and the same command policy. Atlas mode differs only by the availability of the
-Semantic Atlas Skill, CLI, and current worktree-local index.
+Semantic Atlas Skill, CLI, and current worktree-local index. The retained 22
+`fresh-agent-runner-v1` records were re-audited from preserved raw command logs;
+the affected NestJS provider-contract pair was replaced under
+`fresh-agent-runner-v2` with host capabilities explicitly disabled.
 
 All 12 pairs retained 100 percent required-file recall, required-symbol recall,
 and answer correctness. Median unique opened source files fell from 6.5 to 4
 (38.46 percent), and median source tokens fell from 1,351 to 688 (49.07
-percent). Atlas runs recorded 62 routed partial, unknown, or related boundary
+percent). Atlas runs recorded 61 routed partial, unknown, or related boundary
 events and no uncertainty-handling failure. The fixed gate passed without being
 changed after results were collected.
 
@@ -81,6 +88,14 @@ pnpm evaluation:results
 new ephemeral Codex contexts plus an independent adjudication context, and
 replaces the published run records and report. It requires a working local
 Codex login and incurs model usage.
+
+A protocol repair can replace one independently adjudicated pair and recompute
+the complete report while retaining only records that pass the current schema
+and command audit:
+
+```sh
+pnpm evaluation:run -- --case <case-id> --publish-selected
+```
 
 ## Planned case matrix
 

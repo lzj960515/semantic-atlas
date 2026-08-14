@@ -26,19 +26,19 @@
       "$ref": "#/$defs/__schema6"
     },
     "startedAt": {
-      "$ref": "#/$defs/__schema8"
-    },
-    "finishedAt": {
       "$ref": "#/$defs/__schema9"
     },
-    "observations": {
+    "finishedAt": {
       "$ref": "#/$defs/__schema10"
     },
+    "observations": {
+      "$ref": "#/$defs/__schema11"
+    },
     "answer": {
-      "$ref": "#/$defs/__schema13"
+      "$ref": "#/$defs/__schema14"
     },
     "adjudication": {
-      "$ref": "#/$defs/__schema14"
+      "$ref": "#/$defs/__schema15"
     }
   },
   "required": [
@@ -127,6 +127,27 @@
         "commandAuditPassed": {
           "type": "boolean",
           "const": true
+        },
+        "commandAudit": {
+          "type": "object",
+          "properties": {
+            "policy": {
+              "type": "string",
+              "const": "fresh-agent-shell-allowlist-v2"
+            },
+            "commands": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/__schema8"
+              }
+            }
+          },
+          "required": [
+            "policy",
+            "commands"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -135,7 +156,8 @@
         "instructionsHash",
         "toolPolicyHash",
         "oracleHidden",
-        "commandAuditPassed"
+        "commandAuditPassed",
+        "commandAudit"
       ],
       "additionalProperties": false
     },
@@ -145,8 +167,7 @@
     },
     "__schema8": {
       "type": "string",
-      "format": "date-time",
-      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+      "minLength": 1
     },
     "__schema9": {
       "type": "string",
@@ -154,6 +175,11 @@
       "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
     },
     "__schema10": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+    },
+    "__schema11": {
       "type": "object",
       "properties": {
         "sourceTokenMethod": {
@@ -164,7 +190,7 @@
           "minItems": 1,
           "type": "array",
           "items": {
-            "$ref": "#/$defs/__schema11"
+            "$ref": "#/$defs/__schema12"
           }
         },
         "atlasCalls": {
@@ -232,7 +258,7 @@
       ],
       "additionalProperties": false
     },
-    "__schema11": {
+    "__schema12": {
       "type": "object",
       "properties": {
         "sequence": {
@@ -241,7 +267,7 @@
           "maximum": 9007199254740991
         },
         "file": {
-          "$ref": "#/$defs/__schema12"
+          "$ref": "#/$defs/__schema13"
         },
         "sourceTokens": {
           "type": "integer",
@@ -256,12 +282,12 @@
       ],
       "additionalProperties": false
     },
-    "__schema12": {
+    "__schema13": {
       "type": "string",
       "minLength": 1,
       "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
     },
-    "__schema13": {
+    "__schema14": {
       "type": "object",
       "properties": {
         "response": {
@@ -271,7 +297,7 @@
         "reportedFiles": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/__schema12"
+            "$ref": "#/$defs/__schema13"
           }
         },
         "reportedSymbols": {
@@ -280,7 +306,7 @@
             "type": "object",
             "properties": {
               "file": {
-                "$ref": "#/$defs/__schema12"
+                "$ref": "#/$defs/__schema13"
               },
               "name": {
                 "type": "string",
@@ -302,7 +328,7 @@
       ],
       "additionalProperties": false
     },
-    "__schema14": {
+    "__schema15": {
       "type": "object",
       "properties": {
         "correct": {

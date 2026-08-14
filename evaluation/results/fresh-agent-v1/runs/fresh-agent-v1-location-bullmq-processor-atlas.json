@@ -15,7 +15,20 @@
     "instructionsHash": "8f4d028ccaae30d07d461c88ea8bcc0b8cac7bccafd9adfed64d8def088510ba",
     "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
     "oracleHidden": true,
-    "commandAuditPassed": true
+    "commandAuditPassed": true,
+    "commandAudit": {
+      "policy": "fresh-agent-shell-allowlist-v2",
+      "commands": [
+        "/bin/zsh -lc 'semantic-atlas status'",
+        "/bin/zsh -lc 'semantic-atlas map search send-email --limit 10'",
+        "/bin/zsh -lc 'semantic-atlas map search email --limit 10'",
+        "/bin/zsh -lc \"semantic-atlas map show 'symbol:src%2Fnotifications%2Femail.processor.ts#fae30d23bcc114b3972705b75e0deba6033fc69fa084b0acab8950e6b6ff8653' --depth 1\"",
+        "/bin/zsh -lc '$EVALUATION_OBSERVER read src/notifications/email.processor.ts 1 17'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/notifications/email.processor.ts 1 17'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'send-email' .\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/notifications/email.producer.ts 1 15'"
+      ]
+    }
   },
   "startedAt": "2026-08-14T05:29:17.861Z",
   "finishedAt": "2026-08-14T05:31:00.913Z",

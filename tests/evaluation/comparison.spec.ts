@@ -114,6 +114,12 @@ function evaluationRun(
       toolPolicyHash: "b".repeat(64),
       oracleHidden: true as const,
       commandAuditPassed: true as const,
+      commandAudit: {
+        policy: "fresh-agent-shell-allowlist-v2" as const,
+        commands: [mode === "atlas"
+          ? "/bin/zsh -lc 'semantic-atlas status'"
+          : "/bin/zsh -lc 'node $EVALUATION_OBSERVER read src/invoices/invoice.service.ts'"],
+      },
     },
     startedAt: "2026-08-14T00:00:00.000Z",
     finishedAt: "2026-08-14T00:01:00.000Z",

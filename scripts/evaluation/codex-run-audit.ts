@@ -15,25 +15,38 @@ interface CodexTurnCompletedEvent {
 
 export interface CodexRunAudit {
   readonly commandCount: number;
+  readonly commands: string[];
   readonly atlasCalls: EvaluationRun["observations"]["atlasCalls"];
 }
 
-const SOURCE_OBSERVER_MARKERS = [
-  "$EVALUATION_OBSERVER",
-  "evaluation-source-observer.mjs",
-];
+type CommandKind =
+  | "atlas"
+  | "command-lookup"
+  | "file-list"
+  | "file-list-filter"
+  | "observer"
+  | "observer-environment"
+  | "true";
+
+type ShellOperator = "&&" | "||" | ";" | "|" | "newline";
+
+interface ShellCommand {
+  readonly text: string;
+  readonly operatorBefore: ShellOperator | null;
+}
 
 const EXTERNAL_INSTRUCTION_MARKERS = [
   "/.agents/skills/",
   "/.codex/skills/",
   "/.codex/plugins/",
+  "/etc/codex/skills/",
 ];
 
-const DIRECT_SOURCE_COMMANDS = [
-  /\b(?:cat|sed|head|tail|less|more|awk|perl|python\d*|ruby)\b/u,
-  /\b(?:grep|git\s+(?:show|diff|grep|blame))\b/u,
-  /\bnode\s+(?:--eval|-e)\b/u,
-];
+const COMMAND_LOOKUP_TARGETS = new Set([
+  "$EVALUATION_OBSERVER",
+  "atlas",
+  "semantic-atlas",
+]);
 
 export function auditCodexRun(
   mode: EvaluationRun["mode"],
@@ -51,16 +64,24 @@ export function auditCodexRun(
   }
 
   const commands = events.filter(isCompletedCommandEvent).map((event) => event.item.command);
-  const atlasCommands = commands.flatMap(extractAtlasCommand);
+  return auditCodexCommands(mode, commands);
+}
+
+export function auditCodexCommands(
+  mode: EvaluationRun["mode"],
+  commands: readonly string[],
+): CodexRunAudit {
+  const atlasCommands: string[] = [];
+  for (const command of commands) {
+    atlasCommands.push(...auditShellCommand(command));
+  }
   if (mode === "no-atlas" && atlasCommands.length > 0) {
     throw new Error("A no-atlas run invoked Semantic Atlas");
-  }
-  for (const command of commands) {
-    requireObservedSourceAccess(command);
   }
 
   return {
     commandCount: commands.length,
+    commands: [...commands],
     atlasCalls: atlasCommands.map((command, index) => ({
       sequence: index + 1,
       command,
@@ -101,34 +122,255 @@ function isFileChangeEvent(event: unknown): boolean {
     && event.item.type === "file_change";
 }
 
-function extractAtlasCommand(command: string): string[] {
-  const match = command.match(/semantic-atlas\s+(?:(?:--repo|--pretty)\s+(?:'[^']*'|"[^"]*"|\S+)\s+)*(?:status|index|map|changes|learn)\b[^;&|]*/u);
-  if (match === null) return [];
-  return [match[0]!.replace(/["']+$/u, "").trim()];
+function auditShellCommand(command: string): string[] {
+  if (EXTERNAL_INSTRUCTION_MARKERS.some((marker) => command.includes(marker))) {
+    throw new Error(`Fresh Agent command read an external instruction: ${command}`);
+  }
+
+  try {
+    const shellCommands = splitShellCommands(unwrapCodexShellCommand(command));
+    const kinds = shellCommands.map(({ text }) => classifyCommand(parseShellWords(text)));
+    for (const [index, shellCommand] of shellCommands.entries()) {
+      validateComposition(shellCommand.operatorBefore, kinds[index - 1], kinds[index]!);
+    }
+
+    return shellCommands.flatMap((shellCommand, index) => (
+      kinds[index] === "atlas" ? [shellCommand.text.trim()] : []
+    ));
+  } catch (error) {
+    throw commandPolicyError(command, error);
+  }
 }
 
-function requireObservedSourceAccess(command: string): void {
-  const composesShellCommands = /[;&|]/u.test(command);
-  if (
-    !composesShellCommands
-    && SOURCE_OBSERVER_MARKERS.some((marker) => command.includes(marker))
-  ) return;
-  if (
-    !composesShellCommands
-    && EXTERNAL_INSTRUCTION_MARKERS.some((marker) => command.includes(marker))
-  ) return;
-  const usesRipgrep = /\brg\b/u.test(command);
-  const ripgrepSegments = command
-    .split(/[;&|]+/u)
-    .filter((segment) => /\brg\b/u.test(segment));
-  const listsFilesOnly = ripgrepSegments.length > 0
-    && ripgrepSegments.every((segment) => /\brg\b[^;&|]*\s--files(?:\s|['"]|$)/u.test(segment));
-  const expandsListedFiles = /\b(?:xargs|cat|awk|perl|python\d*|ruby)\b/u.test(command);
-  if (listsFilesOnly && !expandsListedFiles) return;
-  if (usesRipgrep) {
-    throw new Error(`Fresh Agent command produced unobserved source output: ${command}`);
+function unwrapCodexShellCommand(command: string): string {
+  const words = parseShellWords(command);
+  if (words.length !== 3 || words[0] !== "/bin/zsh" || words[1] !== "-lc") {
+    throw new Error("expected the Codex /bin/zsh -lc wrapper");
   }
-  if (DIRECT_SOURCE_COMMANDS.some((pattern) => pattern.test(command))) {
-    throw new Error(`Fresh Agent command produced unobserved source output: ${command}`);
+  return words[2]!;
+}
+
+function splitShellCommands(script: string): readonly ShellCommand[] {
+  const commands: ShellCommand[] = [];
+  let current = "";
+  let quote: "single" | "double" | null = null;
+  let escaped = false;
+  let nextOperator: ShellOperator | null = null;
+
+  const finishCommand = (operator: ShellOperator): void => {
+    if (current.trim().length > 0) {
+      commands.push({ text: current.trim(), operatorBefore: nextOperator });
+      current = "";
+    }
+    nextOperator = operator;
+  };
+
+  for (let index = 0; index < script.length; index += 1) {
+    const character = script[index]!;
+    if (escaped) {
+      current += character;
+      escaped = false;
+      continue;
+    }
+    if (character === "\\" && quote !== "single") {
+      current += character;
+      escaped = true;
+      continue;
+    }
+    if (character === "'" && quote !== "double") {
+      quote = quote === "single" ? null : "single";
+      current += character;
+      continue;
+    }
+    if (character === '"' && quote !== "single") {
+      quote = quote === "double" ? null : "double";
+      current += character;
+      continue;
+    }
+    if (quote !== null) {
+      if (quote === "double" && character === "$" && script[index + 1] === "(") {
+        throw new Error("command substitution is not allowed");
+      }
+      if (quote === "double" && character === "`") {
+        throw new Error("command substitution is not allowed");
+      }
+      current += character;
+      continue;
+    }
+    if (character === "$" && script[index + 1] === "(") {
+      throw new Error("command substitution is not allowed");
+    }
+    if (character === "`" || character === "<" || character === ">") {
+      throw new Error("redirection and command substitution are not allowed");
+    }
+    if (character === "\n") {
+      finishCommand("newline");
+      continue;
+    }
+    if (character === ";") {
+      finishCommand(";");
+      continue;
+    }
+    if (character === "&") {
+      if (script[index + 1] !== "&") throw new Error("background commands are not allowed");
+      finishCommand("&&");
+      index += 1;
+      continue;
+    }
+    if (character === "|") {
+      if (script[index + 1] === "|") {
+        finishCommand("||");
+        index += 1;
+      } else {
+        finishCommand("|");
+      }
+      continue;
+    }
+    current += character;
   }
+  if (quote !== null || escaped) throw new Error("shell quoting is incomplete");
+  if (current.trim().length > 0) {
+    commands.push({ text: current.trim(), operatorBefore: nextOperator });
+  }
+  if (commands.length === 0) throw new Error("empty shell command");
+  return commands;
+}
+
+function classifyCommand(words: readonly string[]): CommandKind {
+  if (isObserverCommand(words)) return "observer";
+  if (isAtlasCommand(words)) return "atlas";
+  if (isFileListing(words)) return "file-list";
+  if (isFileListingFilter(words)) return "file-list-filter";
+  if (words.length === 3 && words[0] === "command" && words[1] === "-v"
+    && COMMAND_LOOKUP_TARGETS.has(words[2]!)) return "command-lookup";
+  if (words.length === 2 && words[0] === "printenv" && words[1] === "EVALUATION_OBSERVER") {
+    return "observer-environment";
+  }
+  if (words.length === 3 && words[0] === "printf" && words[1] === "%s\\n"
+    && words[2] === "$EVALUATION_OBSERVER") return "observer-environment";
+  if (words.length === 1 && words[0] === "true") return "true";
+  throw new Error("unsupported command");
+}
+
+function isObserverCommand(words: readonly string[]): boolean {
+  const offset = words[0] === "node" ? 1 : 0;
+  if (words[offset] !== "$EVALUATION_OBSERVER") return false;
+  const operation = words[offset + 1];
+  if (operation === "read") {
+    const path = words[offset + 2];
+    const lineValues = words.slice(offset + 3);
+    return path !== undefined
+      && isFixturePath(path)
+      && lineValues.length <= 2
+      && lineValues.every((value) => /^\d+$/u.test(value));
+  }
+  if (operation === "search") {
+    const pattern = words[offset + 2];
+    const paths = words.slice(offset + 3);
+    return pattern !== undefined
+      && pattern.length > 0
+      && paths.every(isFixturePath);
+  }
+  return false;
+}
+
+function isAtlasCommand(words: readonly string[]): boolean {
+  if (words[0] !== "semantic-atlas") return false;
+  const firstArgument = words[1];
+  if (firstArgument === "status" || firstArgument === "changes") return true;
+  return firstArgument === "map"
+    && ["children", "roots", "search", "show"].includes(words[2] ?? "");
+}
+
+function isFileListing(words: readonly string[]): boolean {
+  if (words[0] !== "rg" || words[1] !== "--files") return false;
+  for (let index = 2; index < words.length; index += 2) {
+    if (!["-g", "--glob"].includes(words[index] ?? "") || words[index + 1] === undefined) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isFileListingFilter(words: readonly string[]): boolean {
+  return words.length === 3
+    && words[0] === "sed"
+    && words[1] === "-n"
+    && /^\d+,\d+p$/u.test(words[2] ?? "");
+}
+
+function isFixturePath(value: string): boolean {
+  return !value.startsWith("/")
+    && !value.split("/").includes("..");
+}
+
+function validateComposition(
+  operator: ShellOperator | null,
+  previous: CommandKind | undefined,
+  current: CommandKind,
+): void {
+  if (operator === null) {
+    if (current === "file-list-filter" || current === "true") throw new Error("orphan helper command");
+    return;
+  }
+  if (operator === "|") {
+    if (previous !== "file-list" || current !== "file-list-filter") {
+      throw new Error("only file-name listing may be piped through sed");
+    }
+    return;
+  }
+  if (operator === "||") {
+    if (previous !== "command-lookup" || current !== "true") {
+      throw new Error("only command lookup may fall back to true");
+    }
+    return;
+  }
+  if (current === "file-list-filter" || current === "true") throw new Error("orphan helper command");
+}
+
+function parseShellWords(value: string): readonly string[] {
+  const words: string[] = [];
+  let current = "";
+  let active = false;
+  let quote: "single" | "double" | null = null;
+  let escaped = false;
+  for (const character of value) {
+    if (escaped) {
+      current += character;
+      active = true;
+      escaped = false;
+      continue;
+    }
+    if (character === "\\" && quote !== "single") {
+      escaped = true;
+      active = true;
+      continue;
+    }
+    if (character === "'" && quote !== "double") {
+      quote = quote === "single" ? null : "single";
+      active = true;
+      continue;
+    }
+    if (character === '"' && quote !== "single") {
+      quote = quote === "double" ? null : "double";
+      active = true;
+      continue;
+    }
+    if (/\s/u.test(character) && quote === null) {
+      if (active) words.push(current);
+      current = "";
+      active = false;
+      continue;
+    }
+    current += character;
+    active = true;
+  }
+  if (quote !== null || escaped) throw new Error("shell quoting is incomplete");
+  if (active) words.push(current);
+  return words;
+}
+
+function commandPolicyError(command: string, cause: unknown): Error {
+  const detail = cause instanceof Error ? cause.message : String(cause);
+  return new Error(`Fresh Agent command is not allowed by the evaluation command policy: ${command} (${detail})`);
 }

@@ -15,7 +15,26 @@
     "instructionsHash": "7100f9dbd06bfb28733225230b250a83fd2ad012a8bb5b8a63f5b030d3ef6b48",
     "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
     "oracleHidden": true,
-    "commandAuditPassed": true
+    "commandAuditPassed": true,
+    "commandAudit": {
+      "policy": "fresh-agent-shell-allowlist-v2",
+      "commands": [
+        "/bin/zsh -lc 'rg --files'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'OrderService|orderRepository|TypeOrmModule|Repository|DataSource|transaction' src/orders test/orders package.json\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read test/orders/order.service.test.ts 1 300'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/order.service.ts 1 240'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/orders.module.ts 1 200'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/order.entity.ts 1 240'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'transaction|EntityManager|DataSource|manager\\\\.getRepository|manager\\\\.save' src test\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read package.json 1 240'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/orders.controller.ts 1 200'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/order.resolver.ts 1 200'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'OrderService|\\\\bOrder\\\\b|OrdersModule|placeOrder' src test\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'\\\\.save\\\\(|\\\\.insert\\\\(|\\\\.update\\\\(|\\\\.remove\\\\(|\\\\.delete\\\\(' src/orders test/orders\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'TypeOrmModule|InjectRepository|Repository<' src test\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'from \\\"\\\\.\\\\/orders\\\\/|from \\\"\\\\.\\\\.\\\\/.*orders|orders\\\\.module|order\\\\.service|order\\\\.entity' src test\""
+      ]
+    }
   },
   "startedAt": "2026-08-14T05:37:42.320Z",
   "finishedAt": "2026-08-14T05:40:01.231Z",

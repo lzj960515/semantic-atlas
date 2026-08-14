@@ -15,7 +15,19 @@
     "instructionsHash": "bbc9aae6a3886e13042c5866566f34c9de7e15b26e6d60d0fbc6071431bf1b9d",
     "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
     "oracleHidden": true,
-    "commandAuditPassed": true
+    "commandAuditPassed": true,
+    "commandAudit": {
+      "policy": "fresh-agent-shell-allowlist-v2",
+      "commands": [
+        "/bin/zsh -lc 'command -v semantic-atlas\nprintenv EVALUATION_OBSERVER'",
+        "/bin/zsh -lc 'semantic-atlas status'",
+        "/bin/zsh -lc 'semantic-atlas map search createOrder --limit 10'",
+        "/bin/zsh -lc \"semantic-atlas map show 'symbol:src%2Forders%2Forder.resolver.ts#b31abcce011a1376d46ea5e82658f3e2dc5c4e45bd3e5353cae899a1a87311af' --depth 2\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/order.resolver.ts 1 17'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/order.service.ts 1 26'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/orders.module.ts 1 16'"
+      ]
+    }
   },
   "startedAt": "2026-08-14T05:29:33.372Z",
   "finishedAt": "2026-08-14T05:31:17.624Z",

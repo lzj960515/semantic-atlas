@@ -5,6 +5,7 @@ import {
   cp,
   mkdir,
   mkdtemp,
+  readdir,
   readFile,
   writeFile,
 } from "node:fs/promises";
@@ -13,12 +14,20 @@ import { basename, join, resolve } from "node:path";
 
 import { z } from "zod";
 
-import { auditCodexRun } from "./evaluation/codex-run-audit.js";
+import {
+  auditCodexCommands,
+  auditCodexRun,
+} from "./evaluation/codex-run-audit.js";
+import {
+  buildCodexIsolationArguments,
+  discoverHostSkillFiles,
+} from "./evaluation/codex-agent-isolation.js";
 import { summarizeEvaluationComparison } from "../src/evaluation/comparison.js";
 import {
   baselineEvaluationPlanSchema,
   evaluationFailureClassificationSchema,
   evaluationRunSchema,
+  FRESH_AGENT_COMMAND_AUDIT_POLICY,
   type EvaluationCase,
   type EvaluationRun,
 } from "../src/evaluation/contracts.js";
@@ -28,7 +37,7 @@ import {
   parseEvaluationSourceTrace,
 } from "./evaluation/source-trace.js";
 
-const RUNNER_VERSION = "fresh-agent-runner-v1";
+const RUNNER_VERSION = "fresh-agent-runner-v2";
 const SOURCE_TOKEN_METHOD = EVALUATION_SOURCE_TOKEN_METHOD;
 const AGENT_MODEL = "gpt-5.6-sol";
 const EVALUATION_ID = "fresh-agent-v1";
@@ -74,6 +83,10 @@ const answerSchemaPath = join(repositoryRoot, "evaluation/agent-answer.schema.js
 const adjudicationSchemaPath = join(repositoryRoot, "evaluation/adjudication.schema.json");
 const observerPath = join(repositoryRoot, "scripts/evaluation-source-observer.mjs");
 const selectedCaseId = readOption("--case");
+const publishSelectedCase = process.argv.includes("--publish-selected");
+if (publishSelectedCase && selectedCaseId === undefined) {
+  throw new Error("--publish-selected requires --case <case-id>");
+}
 
 const plan = baselineEvaluationPlanSchema.parse(JSON.parse(await readFile(planPath, "utf8")));
 validateEvaluationFixture(plan, fixtureTemplate);
@@ -88,10 +101,14 @@ await buildSemanticAtlas();
 const fixture = await prepareFixture(runtimeRoot);
 const codexVersion = (await runProcess("codex", ["--version"], { cwd: repositoryRoot })).stdout.trim();
 const skill = await readAtlasSkill();
+const hostSkillFiles = await discoverHostSkillFiles();
+const mcpServerIds = await discoverMcpServerIds();
+const codexIsolationArguments = buildCodexIsolationArguments(hostSkillFiles, mcpServerIds);
 const toolPolicyHash = sha256(JSON.stringify({
   sandbox: "workspace-write",
   sourceObserver: SOURCE_TOKEN_METHOD,
-  directSourceOutput: "rejected",
+  commandAudit: FRESH_AGENT_COMMAND_AUDIT_POLICY,
+  hostInstructions: "disabled",
   fixtureMutation: "rejected",
 }));
 
@@ -153,7 +170,17 @@ if (selectedCaseId === undefined) {
     comparison,
     fixtureCommit: fixture.commit,
     codexVersion,
-    toolPolicyHash,
+  });
+  process.stdout.write(`${JSON.stringify(comparison.gate)}\n`);
+} else if (publishSelectedCase) {
+  const retainedRuns = await readPublishedRunsExcept(selectedCaseId);
+  const publishedRuns = [...retainedRuns, ...runs];
+  const comparison = summarizeEvaluationComparison(plan, publishedRuns);
+  await publishResults({
+    runs: publishedRuns,
+    comparison,
+    fixtureCommit: fixture.commit,
+    codexVersion,
   });
   process.stdout.write(`${JSON.stringify(comparison.gate)}\n`);
 } else {
@@ -274,6 +301,7 @@ async function runFreshAgent(options: {
   }
   const result = await runProcess("codex", [
     "exec",
+    ...codexIsolationArguments,
     "--ephemeral",
     "--disable",
     "multi_agent",
@@ -324,6 +352,10 @@ async function runFreshAgent(options: {
       toolPolicyHash: options.toolPolicyHash,
       oracleHidden: true,
       commandAuditPassed: true,
+      commandAudit: {
+        policy: FRESH_AGENT_COMMAND_AUDIT_POLICY,
+        commands: audit.commands,
+      },
     },
     startedAt,
     finishedAt,
@@ -370,6 +402,7 @@ async function adjudicateRuns(
   delete environment.OPENAI_API_KEY;
   const result = await runProcess("codex", [
     "exec",
+    ...codexIsolationArguments,
     "--ephemeral",
     "--disable",
     "multi_agent",
@@ -417,7 +450,6 @@ async function publishResults(options: {
   readonly comparison: ReturnType<typeof summarizeEvaluationComparison>;
   readonly fixtureCommit: string;
   readonly codexVersion: string;
-  readonly toolPolicyHash: string;
 }): Promise<void> {
   const resultRoot = join(repositoryRoot, "evaluation/results", EVALUATION_ID);
   const runRoot = join(resultRoot, "runs");
@@ -439,9 +471,12 @@ async function publishResults(options: {
       model: AGENT_MODEL,
     },
     protocol: {
-      runnerVersion: RUNNER_VERSION,
+      runnerVersions: uniqueSorted(options.runs.map((run) => run.protocol.runnerVersion)),
       sourceTokenMethod: SOURCE_TOKEN_METHOD,
-      toolPolicyHash: options.toolPolicyHash,
+      commandAuditPolicies: uniqueSorted(
+        options.runs.map((run) => run.protocol.commandAudit.policy),
+      ),
+      toolPolicyHashes: uniqueSorted(options.runs.map((run) => run.protocol.toolPolicyHash)),
       freshContextPerRun: true,
       oracleHiddenDuringRuns: true,
       independentAdjudication: true,
@@ -452,6 +487,27 @@ async function publishResults(options: {
   };
   await writeFile(join(resultRoot, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(`Published ${options.runs.length} run records to ${resultRoot}\n`);
+}
+
+async function readPublishedRunsExcept(caseId: string): Promise<EvaluationRun[]> {
+  const runRoot = join(repositoryRoot, "evaluation/results", EVALUATION_ID, "runs");
+  const files = (await readdir(runRoot)).filter((file) => file.endsWith(".json")).sort();
+  const runs: EvaluationRun[] = [];
+  for (const file of files) {
+    const value = JSON.parse(await readFile(join(runRoot, file), "utf8")) as { caseId?: unknown };
+    if (value.caseId === caseId) continue;
+    const run = evaluationRunSchema.parse(value);
+    const audit = auditCodexCommands(run.mode, run.protocol.commandAudit.commands);
+    if (!sameAtlasCalls(audit.atlasCalls, run.observations.atlasCalls)) {
+      throw new Error(`Published command evidence disagrees with Atlas calls for ${run.runId}`);
+    }
+    runs.push(run);
+  }
+  const expectedCount = plan.cases.length * 2 - 2;
+  if (runs.length !== expectedCount) {
+    throw new Error(`Expected ${expectedCount} retained published runs, received ${runs.length}`);
+  }
+  return runs;
 }
 
 async function readSourceTrace(path: string): Promise<EvaluationRun["observations"]["sourceOpens"]> {
@@ -482,6 +538,16 @@ async function readAtlasSkill(): Promise<string> {
   return `${skill}\n\n${routing}`;
 }
 
+async function discoverMcpServerIds(): Promise<readonly string[]> {
+  const result = await runProcess("codex", ["mcp", "list", "--json"], {
+    cwd: repositoryRoot,
+  });
+  const servers = z.array(z.object({ name: z.string().min(1) })).parse(
+    JSON.parse(result.stdout),
+  );
+  return servers.map((server) => server.name);
+}
+
 function commonAgentInstructions(taskPrompt: string): string {
   return [
     "This is one measured Fresh Agent repository-understanding run.",
@@ -506,6 +572,19 @@ function sha256(value: string): string {
 
 function oneLine(value: string): string {
   return value.trim().replace(/\s+/gu, " ").slice(0, 240);
+}
+
+function uniqueSorted(values: readonly string[]): string[] {
+  return [...new Set(values)].sort();
+}
+
+function sameAtlasCalls(
+  left: EvaluationRun["observations"]["atlasCalls"],
+  right: EvaluationRun["observations"]["atlasCalls"],
+): boolean {
+  return left.length === right.length && left.every((call, index) => (
+    call.sequence === right[index]?.sequence && call.command === right[index]?.command
+  ));
 }
 
 function readOption(name: string): string | undefined {

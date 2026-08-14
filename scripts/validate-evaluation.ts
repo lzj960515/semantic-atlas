@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 
+import { auditCodexCommands } from "./evaluation/codex-run-audit.js";
 import {
   baselineEvaluationPlanSchema,
   evaluationPlanSchema,
@@ -43,9 +44,14 @@ const plan = planSchema.parse(await readJson(planPath));
 const casesById = new Map(
   plan.cases.map((evaluationCase) => [evaluationCase.id, evaluationCase]),
 );
-const runs = (await Promise.all(runPaths.map(readJson))).map((rawRun) => (
-  evaluationRunSchema.parse(rawRun)
-));
+const runs = (await Promise.all(runPaths.map(readJson))).map((rawRun) => {
+  const run = evaluationRunSchema.parse(rawRun);
+  const commandAudit = auditCodexCommands(run.mode, run.protocol.commandAudit.commands);
+  if (!isDeepStrictEqual(commandAudit.atlasCalls, run.observations.atlasCalls)) {
+    throw new Error(`Published command evidence disagrees with Atlas calls for ${run.runId}`);
+  }
+  return run;
+});
 const summaries = runs.map((run) => {
   const evaluationCase = casesById.get(run.caseId);
 
@@ -116,21 +122,34 @@ function verifyPublishedReport(
   const protocol = isRecord(rawReport.protocol) ? rawReport.protocol : undefined;
   const firstRun = parsedRuns[0];
   const fixtureRevisions = new Set(plan.cases.map((item) => item.fixture.revision));
+  const runnerVersions = uniqueSorted(parsedRuns.map((run) => run.protocol.runnerVersion));
+  const commandAuditPolicies = uniqueSorted(
+    parsedRuns.map((run) => run.protocol.commandAudit.policy),
+  );
+  const toolPolicyHashes = uniqueSorted(parsedRuns.map((run) => run.protocol.toolPolicyHash));
   const matches = rawReport.schemaVersion === 1
     && rawReport.caseCount === plan.cases.length
     && rawReport.runCount === parsedRuns.length
     && fixtureRevisions.size === 1
     && fixture?.revision === [...fixtureRevisions][0]
-    && fixture?.commit === firstRun?.protocol.fixtureCommit
-    && agent?.product === firstRun?.agent.product
-    && agent?.model === firstRun?.agent.model
-    && protocol?.runnerVersion === firstRun?.protocol.runnerVersion
+    && parsedRuns.every((run) => fixture?.commit === run.protocol.fixtureCommit)
+    && parsedRuns.every((run) => agent?.product === run.agent.product)
+    && parsedRuns.every((run) => agent?.model === run.agent.model)
+    && isDeepStrictEqual(protocol?.runnerVersions, runnerVersions)
+    && isDeepStrictEqual(protocol?.commandAuditPolicies, commandAuditPolicies)
+    && isDeepStrictEqual(protocol?.toolPolicyHashes, toolPolicyHashes)
     && protocol?.sourceTokenMethod === firstRun?.observations.sourceTokenMethod
-    && protocol?.toolPolicyHash === firstRun?.protocol.toolPolicyHash
+    && parsedRuns.every(
+      (run) => protocol?.sourceTokenMethod === run.observations.sourceTokenMethod,
+    )
     && isDeepStrictEqual(rawReport.comparison, comparison);
   if (!matches) {
     throw new Error("Published evaluation report does not match the validated runs");
   }
+}
+
+function uniqueSorted(values: readonly string[]): string[] {
+  return [...new Set(values)].sort();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

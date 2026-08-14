@@ -10,15 +10,37 @@
     "freshContext": true
   },
   "protocol": {
-    "runnerVersion": "fresh-agent-runner-v1",
+    "runnerVersion": "fresh-agent-runner-v2",
     "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
     "instructionsHash": "27c054619463ba6837155f2decf5b451ea45b4fbb5867d948601d6f6e6ca183d",
-    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "toolPolicyHash": "69c5adc571c298c283fc4449b481e97ff2dac2f87087d6efb5b805394c4de292",
     "oracleHidden": true,
-    "commandAuditPassed": true
+    "commandAuditPassed": true,
+    "commandAudit": {
+      "policy": "fresh-agent-shell-allowlist-v2",
+      "commands": [
+        "/bin/zsh -lc 'semantic-atlas status'",
+        "/bin/zsh -lc \"semantic-atlas map search 'OrderService.placeOrder' --limit 10\"",
+        "/bin/zsh -lc \"semantic-atlas map show 'symbol:src%2Forders%2Forder.service.ts#65cc93a5c2c217104aa7364ede560d465a2b8759f261ac3941b559a4f66bfefe' --depth 3\"",
+        "/bin/zsh -lc '$EVALUATION_OBSERVER search '\"'placeOrder' .\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'placeOrder' .\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'OrderService' .\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'OrdersModule' .\"",
+        "/bin/zsh -lc 'rg --files'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/order.resolver.ts'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/order.service.ts'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/orders.module.ts'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read test/orders/order.service.test.ts'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/orders/orders.controller.ts'",
+        "/bin/zsh -lc \"semantic-atlas map search 'OrdersModule' --limit 10\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'providers:' src test\"",
+        "/bin/zsh -lc \"semantic-atlas map show 'symbol:src%2Forders%2Forder.service.ts#65cc93a5c2c217104aa7364ede560d465a2b8759f261ac3941b559a4f66bfefe' --depth 1\"",
+        "/bin/zsh -lc 'semantic-atlas map roots'"
+      ]
+    }
   },
-  "startedAt": "2026-08-14T05:31:42.076Z",
-  "finishedAt": "2026-08-14T05:34:59.582Z",
+  "startedAt": "2026-08-14T06:40:50.828Z",
+  "finishedAt": "2026-08-14T06:44:31.812Z",
   "observations": {
     "sourceTokenMethod": "tiktoken-o200k_base-v1",
     "sourceOpens": [
@@ -44,68 +66,63 @@
       },
       {
         "sequence": 5,
-        "file": "src/orders/order.service.ts",
-        "sourceTokens": 205
-      },
-      {
-        "sequence": 6,
-        "file": "src/orders/orders.controller.ts",
-        "sourceTokens": 115
-      },
-      {
-        "sequence": 7,
-        "file": "src/orders/order.resolver.ts",
-        "sourceTokens": 148
-      },
-      {
-        "sequence": 8,
-        "file": "test/orders/order.service.test.ts",
-        "sourceTokens": 209
-      },
-      {
-        "sequence": 9,
-        "file": "src/orders/orders.module.ts",
-        "sourceTokens": 154
-      },
-      {
-        "sequence": 10,
         "file": "src/orders/order.resolver.ts",
         "sourceTokens": 50
       },
       {
-        "sequence": 11,
+        "sequence": 6,
         "file": "src/orders/order.service.ts",
         "sourceTokens": 23
       },
       {
-        "sequence": 12,
+        "sequence": 7,
         "file": "src/orders/orders.controller.ts",
         "sourceTokens": 52
       },
       {
-        "sequence": 13,
+        "sequence": 8,
         "file": "src/orders/orders.module.ts",
         "sourceTokens": 62
       },
       {
-        "sequence": 14,
+        "sequence": 9,
         "file": "test/orders/order.service.test.ts",
         "sourceTokens": 70
       },
       {
-        "sequence": 15,
+        "sequence": 10,
         "file": "src/orders/orders.module.ts",
         "sourceTokens": 23
       },
       {
-        "sequence": 16,
-        "file": "src/orders/order.service.ts",
-        "sourceTokens": 46
+        "sequence": 11,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 148
       },
       {
-        "sequence": 17,
+        "sequence": 12,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 205
+      },
+      {
+        "sequence": 13,
+        "file": "src/orders/orders.module.ts",
+        "sourceTokens": 154
+      },
+      {
+        "sequence": 14,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 209
+      },
+      {
+        "sequence": 15,
         "file": "src/orders/orders.controller.ts",
-        "sourceTokens": 54
+        "sourceTokens": 115
+      },
+      {
+        "sequence": 16,
+        "file": "src/orders/orders.module.ts",
+        "sourceTokens": 28
       }
     ],
     "atlasCalls": [
@@ -115,7 +132,7 @@
       },
       {
         "sequence": 2,
-        "command": "semantic-atlas map search OrderService --limit 20"
+        "command": "semantic-atlas map search 'OrderService.placeOrder' --limit 10"
       },
       {
         "sequence": 3,
@@ -123,42 +140,41 @@
       },
       {
         "sequence": 4,
-        "command": "semantic-atlas map search OrdersModule --limit 20"
+        "command": "semantic-atlas map search 'OrdersModule' --limit 10"
       },
       {
         "sequence": 5,
-        "command": "semantic-atlas map show 'symbol:src%2Forders%2Forders.module.ts#9690a447fccc343ca26d7a86e8163ac5d89620340e075fecbb56386369e97888' --depth 1"
+        "command": "semantic-atlas map show 'symbol:src%2Forders%2Forder.service.ts#65cc93a5c2c217104aa7364ede560d465a2b8759f261ac3941b559a4f66bfefe' --depth 1"
+      },
+      {
+        "sequence": 6,
+        "command": "semantic-atlas map roots"
       }
     ],
     "atlasHandling": [
       {
         "sequence": 1,
         "classification": "partial",
-        "action": "`map show` for `OrderService.placeOrder` returned a partial graph. Used the source observer to search every `placeOrder` occurrence and read the declaration, controller, resolver, and test."
+        "action": "The depth-3 placeOrder traversal returned partial with UNKNOWN_BOUNDARY warnings and traversed unrelated deeper nodes; used it only for seeds, then used observer searches for `placeOrder` and `OrderService` plus bounded file reads."
       },
       {
         "sequence": 2,
-        "classification": "unknown",
-        "action": "That graph contained unresolved NestJS/Vitest framework operations and could only attribute the test call to its file. The source observer resolved the exact controller, resolver, and test invocation sites."
+        "classification": "partial",
+        "action": "The depth-1 placeOrder traversal was partial and reported OrdersController.create in both incoming and outgoing directions; the observer read established that OrdersController.create is an incoming caller."
       },
       {
         "sequence": 3,
-        "classification": "partial",
-        "action": "`map show` for `OrdersModule` returned partial structural data. Read `src/orders/orders.module.ts` through the source observer to inspect the complete module metadata."
-      },
-      {
-        "sequence": 4,
         "classification": "unknown",
-        "action": "Atlas could not resolve the `@Module` decorator, provider/controller references, or `TypeOrmModule.forFeature`. The source observer confirmed the imports, controllers, providers, export, and repository registration; searches confirmed no other in-repository module or service consumers."
+        "action": "Atlas could not resolve relevant Nest decorators, TypeORM save/Promise references, Vitest internals, and module metadata behavior; observer reads of the service, controller, resolver, module, and test established the caller and composition conclusions without relying on those unresolved framework edges."
       }
     ]
   },
   "answer": {
-    "response": "Assuming “new argument” means a required `placeOrder` method parameter rather than a constructor-injected dependency, there are three direct in-repository callers:\n\n- `OrdersController.create` — `src/orders/orders.controller.ts:10-11`. The REST boundary must obtain and forward the new value. If it is added to `PlaceOrderInput`, the invocation can remain `placeOrder(input)`, but the HTTP body contract changes.\n- `OrderResolver.createOrder` — `src/orders/order.resolver.ts:10-14`. The GraphQL mutation needs a corresponding `@Args` value and must include/pass it.\n- The `OrderService` unit test — `test/orders/order.service.test.ts:6-14`. Its direct invocation must supply the new argument and should assert any resulting behavior.\n\nThe declaration and shared input contract are in `src/orders/order.service.ts:7-10,19-24`; these must reflect the new requirement.\n\nThe NestJS composition point is `OrdersModule` in `src/orders/orders.module.ts:9-15`. It registers `OrdersController`, `OrderService`, and `OrderResolver`, provisions the `Order` repository, and exports `OrderService`. A method argument alone does not require changing this module because Nest DI composes constructor dependencies, not method parameters. Likewise, the test’s manual `new OrderService(repository)` construction is unchanged. If the intended “argument” is actually a new injected service dependency, then `OrdersModule` would need the corresponding provider/import.\n\nNo other `placeOrder`, `OrderService`, or `OrdersModule` usages exist in this fixture. The export permits possible consumers outside the repository, but those cannot be identified here. No files were edited and no tests were run, per fixture instructions.",
+    "response": "Repository-local impact is limited to three direct call sites:\n\n- `src/orders/orders.controller.ts:10-11` — `OrdersController.create` passes the HTTP body to `placeOrder`; it must obtain and pass the new argument.\n- `src/orders/order.resolver.ts:10-14` — `OrderResolver.createOrder` builds the input from GraphQL arguments; it must expose or derive the new value and pass it.\n- `test/orders/order.service.test.ts:6-15` — the service unit test invokes `placeOrder` directly and must update its fixture/call.\n\nThe current contract is `OrderService.placeOrder(input: PlaceOrderInput)` in `src/orders/order.service.ts:7-24`. If the change is a new required field inside `PlaceOrderInput`, the resolver and test object literals need that field; the controller still forwards its body but its HTTP request contract changes. If it is a second positional parameter, all three calls require a syntactic update.\n\nThe relevant Nest composition point is `OrdersModule` in `src/orders/orders.module.ts:9-15`: it registers `OrdersController`, `OrderService`, and `OrderResolver`, supplies the `Order` repository, and exports `OrderService`. A method-only argument does not require changing this module metadata or the controller/resolver constructor injection. The test’s manual `new OrderService(repository)` composition is likewise unchanged. If the intended change is actually a new injected constructor dependency, then `OrdersModule` provider/import wiring and the test constructor setup would also need modification.\n\nAn observer-wide `placeOrder` search found no additional repository callers, including none under billing. `OrderService` is exported, so consumers outside this fixture cannot be enumerated here. No files were changed and no tests were run.",
     "reportedFiles": [
       "src/orders/order.service.ts",
-      "src/orders/orders.controller.ts",
       "src/orders/order.resolver.ts",
+      "src/orders/orders.controller.ts",
       "src/orders/orders.module.ts",
       "test/orders/order.service.test.ts"
     ],
@@ -169,6 +185,10 @@
       },
       {
         "file": "src/orders/order.service.ts",
+        "name": "OrderService"
+      },
+      {
+        "file": "src/orders/order.service.ts",
         "name": "OrderService.constructor"
       },
       {
@@ -176,12 +196,8 @@
         "name": "OrderService.placeOrder"
       },
       {
-        "file": "src/orders/orders.controller.ts",
-        "name": "OrdersController.constructor"
-      },
-      {
-        "file": "src/orders/orders.controller.ts",
-        "name": "OrdersController.create"
+        "file": "src/orders/order.resolver.ts",
+        "name": "OrderResolver"
       },
       {
         "file": "src/orders/order.resolver.ts",
@@ -192,18 +208,30 @@
         "name": "OrderResolver.createOrder"
       },
       {
+        "file": "src/orders/orders.controller.ts",
+        "name": "OrdersController"
+      },
+      {
+        "file": "src/orders/orders.controller.ts",
+        "name": "OrdersController.constructor"
+      },
+      {
+        "file": "src/orders/orders.controller.ts",
+        "name": "OrdersController.create"
+      },
+      {
         "file": "src/orders/orders.module.ts",
         "name": "OrdersModule"
       },
       {
         "file": "test/orders/order.service.test.ts",
-        "name": "OrderService > persists a newly placed order"
+        "name": "describe(\"OrderService\") > it(\"persists a newly placed order\")"
       }
     ]
   },
   "adjudication": {
     "correct": true,
-    "notes": "Correctly enumerates the controller, resolver, test, service declaration, and OrdersModule composition point, while distinguishing method arguments from injected dependencies.",
+    "notes": "Identifies both required entry-point callers, the OrderService.placeOrder contract, and OrdersModule as the relevant NestJS composition point. It also handles partial and unknown Atlas results conservatively by verifying conclusions through repository reads and bounded searches.",
     "failureClassifications": []
   }
 }

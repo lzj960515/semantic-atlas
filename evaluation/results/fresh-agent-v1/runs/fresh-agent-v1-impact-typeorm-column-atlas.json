@@ -15,7 +15,27 @@
     "instructionsHash": "5fd790ec7c3fd63edaee07aa3569f83d7958808533db09516acecec306ca6e6f",
     "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
     "oracleHidden": true,
-    "commandAuditPassed": true
+    "commandAuditPassed": true,
+    "commandAudit": {
+      "policy": "fresh-agent-shell-allowlist-v2",
+      "commands": [
+        "/bin/zsh -lc 'semantic-atlas status'",
+        "/bin/zsh -lc 'semantic-atlas map roots'",
+        "/bin/zsh -lc 'semantic-atlas map search totalCents --limit 20'",
+        "/bin/zsh -lc \"semantic-atlas map show 'symbol:src%2Fbilling%2Finvoice.entity.ts#29dda768c2c9022e3d8c53217c60083f2698d2dd852d61faed715a2cc76e61fe' --depth 3\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search totalCents .'",
+        "/bin/zsh -lc 'rg --files'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/billing/invoice.resolver.ts 1 80'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/billing/invoice.entity.ts 1 80'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/billing/invoice.processor.ts 1 80'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/billing/invoice.service.ts 1 100'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read test/billing/invoice.service.test.ts 1 100'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search Invoice .'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'\\\"invoices\\\"' .\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search createInvoice .'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search findById .'"
+      ]
+    }
   },
   "startedAt": "2026-08-14T05:34:59.620Z",
   "finishedAt": "2026-08-14T05:38:25.354Z",

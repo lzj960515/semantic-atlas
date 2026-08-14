@@ -15,7 +15,20 @@
     "instructionsHash": "14d4bd1332f78734a0eeee8217b97f12b4e0c17abcbc1fc56f48c833f01fd35a",
     "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
     "oracleHidden": true,
-    "commandAuditPassed": true
+    "commandAuditPassed": true,
+    "commandAudit": {
+      "policy": "fresh-agent-shell-allowlist-v2",
+      "commands": [
+        "/bin/zsh -lc 'rg --files'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search \"product|Product\" src/catalog test/catalog/product.resolver.test.ts'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/catalog/product.resolver.ts 1 200'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/catalog/dto/product.dto.ts 1 120'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/catalog/product.service.ts 1 200'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/catalog/product.mapper.ts 1 120'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search \"@Query\" src'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search \"findById\" src test'"
+      ]
+    }
   },
   "startedAt": "2026-08-14T05:26:27.695Z",
   "finishedAt": "2026-08-14T05:27:52.106Z",

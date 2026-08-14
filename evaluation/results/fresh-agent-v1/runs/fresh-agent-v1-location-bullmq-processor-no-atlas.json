@@ -15,7 +15,18 @@
     "instructionsHash": "8f4d028ccaae30d07d461c88ea8bcc0b8cac7bccafd9adfed64d8def088510ba",
     "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
     "oracleHidden": true,
-    "commandAuditPassed": true
+    "commandAuditPassed": true,
+    "commandAudit": {
+      "policy": "fresh-agent-shell-allowlist-v2",
+      "commands": [
+        "/bin/zsh -lc 'command -v semantic-atlas || true\ncommand -v atlas || true\ncommand -v \"$EVALUATION_OBSERVER\" || true\nrg --files -g '\"'\"'!node_modules'\"' | sed -n '1,160p'\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'send-email' src test\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read '\"'src/notifications/email.processor.ts' 1 240\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read '\"'src/notifications/jobs/email.job.ts' 1 200\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read '\"'src/notifications/email.producer.ts' 1 160\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read '\"'test/notifications/email.processor.test.ts' 1 220\""
+      ]
+    }
   },
   "startedAt": "2026-08-14T05:28:40.842Z",
   "finishedAt": "2026-08-14T05:29:33.343Z",

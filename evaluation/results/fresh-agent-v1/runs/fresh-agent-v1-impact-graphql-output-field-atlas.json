@@ -15,7 +15,26 @@
     "instructionsHash": "88a21d4d1b12d63d75bdcdbd52fda1771c1bab94c942a7a8a359afba39961ce3",
     "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
     "oracleHidden": true,
-    "commandAuditPassed": true
+    "commandAuditPassed": true,
+    "commandAudit": {
+      "policy": "fresh-agent-shell-allowlist-v2",
+      "commands": [
+        "/bin/zsh -lc 'semantic-atlas status'",
+        "/bin/zsh -lc 'semantic-atlas map search ProductDto --limit 20'",
+        "/bin/zsh -lc \"semantic-atlas map show 'symbol:src%2Fcatalog%2Fdto%2Fproduct.dto.ts#daeb017cd60cb4f452085f7b3746d99778b84efec000d6c7ad93a9f1566790d9' --depth 2\"",
+        "/bin/zsh -lc 'semantic-atlas map search displayName --limit 30'",
+        "/bin/zsh -lc 'semantic-atlas map search ProductResolver --limit 20'",
+        "/bin/zsh -lc \"semantic-atlas map show 'symbol:src%2Fcatalog%2Fproduct.resolver.ts#ebf355878950f7bc20304b3c6238d868651701b635f7b51b8a5856219ef793b7' --depth 2\"",
+        "/bin/zsh -lc '$EVALUATION_OBSERVER search displayName .'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search displayName .'",
+        "/bin/zsh -lc 'rg --files'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/catalog/dto/product.dto.ts 1 30'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/catalog/product.mapper.ts 1 30'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/catalog/product.resolver.ts 1 40'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read test/catalog/product.resolver.test.ts 1 50'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search ProductDto .'"
+      ]
+    }
   },
   "startedAt": "2026-08-14T05:33:40.599Z",
   "finishedAt": "2026-08-14T05:37:40.142Z",

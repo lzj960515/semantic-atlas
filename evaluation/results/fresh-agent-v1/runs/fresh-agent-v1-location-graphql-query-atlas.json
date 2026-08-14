@@ -15,7 +15,19 @@
     "instructionsHash": "14d4bd1332f78734a0eeee8217b97f12b4e0c17abcbc1fc56f48c833f01fd35a",
     "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
     "oracleHidden": true,
-    "commandAuditPassed": true
+    "commandAuditPassed": true,
+    "commandAudit": {
+      "policy": "fresh-agent-shell-allowlist-v2",
+      "commands": [
+        "/bin/zsh -lc 'semantic-atlas status'",
+        "/bin/zsh -lc 'semantic-atlas map search product --limit 10'",
+        "/bin/zsh -lc \"semantic-atlas map show 'symbol:src%2Fcatalog%2Fproduct.resolver.ts#16dfbc3deddd2a3f5166f559dcd5c8422a9be348f3a9c52bdec76687f18279ed' --depth 2\"",
+        "/bin/zsh -lc '$EVALUATION_OBSERVER read src/catalog/product.resolver.ts 1 17'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/catalog/product.resolver.ts 1 17'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/catalog/product.service.ts 1 17'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/catalog/product.mapper.ts 1 11'"
+      ]
+    }
   },
   "startedAt": "2026-08-14T05:27:24.685Z",
   "finishedAt": "2026-08-14T05:29:17.842Z",

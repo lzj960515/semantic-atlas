@@ -15,7 +15,17 @@
     "instructionsHash": "af56c7150f895493adb95aecc5277b1ae6393448b226459633331df763278cfd",
     "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
     "oracleHidden": true,
-    "commandAuditPassed": true
+    "commandAuditPassed": true,
+    "commandAudit": {
+      "policy": "fresh-agent-shell-allowlist-v2",
+      "commands": [
+        "/bin/zsh -lc \"rg --files -g '\"'!*node_modules*'\"' | sed -n '1,240p'\ncommand -v \\\"\"'$EVALUATION_OBSERVER\"\ncommand -v semantic-atlas || true\ncommand -v atlas || true'",
+        "/bin/zsh -lc 'printenv EVALUATION_OBSERVER'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'export|Export' src test package.json\"",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/exports/export.resolver.ts 1 200\nnode \"$EVALUATION_OBSERVER\" read src/exports/export.producer.ts 1 200\nnode \"$EVALUATION_OBSERVER\" read src/exports/jobs/export.job.ts 1 200\nnode \"$EVALUATION_OBSERVER\" read src/exports/export.processor.ts 1 200\nnode \"$EVALUATION_OBSERVER\" read src/exports/export.service.ts 1 200\nnode \"$EVALUATION_OBSERVER\" read test/exports/export-flow.test.ts 1 240'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'requestExport|ExportJob|generate-export|@Processor\\\\(\\\"exports\\\"\\\\)|InjectQueue\\\\(\\\"exports\\\"\\\\)|requestedBy' src test\""
+      ]
+    }
   },
   "startedAt": "2026-08-14T05:40:01.254Z",
   "finishedAt": "2026-08-14T05:41:37.695Z",

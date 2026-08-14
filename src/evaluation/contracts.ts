@@ -166,6 +166,8 @@ export const evaluationFailureClassificationSchema = z.enum([
 
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
 
+export const FRESH_AGENT_COMMAND_AUDIT_POLICY = "fresh-agent-shell-allowlist-v2";
+
 export const evaluationRunSchema = z
   .strictObject({
     schemaVersion: z.literal(1),
@@ -185,6 +187,10 @@ export const evaluationRunSchema = z
       toolPolicyHash: sha256Schema,
       oracleHidden: z.literal(true),
       commandAuditPassed: z.literal(true),
+      commandAudit: z.strictObject({
+        policy: z.literal(FRESH_AGENT_COMMAND_AUDIT_POLICY),
+        commands: z.array(z.string().min(1)).min(1),
+      }),
     }),
     startedAt: z.iso.datetime(),
     finishedAt: z.iso.datetime(),

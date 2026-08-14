@@ -15,7 +15,29 @@
     "instructionsHash": "af56c7150f895493adb95aecc5277b1ae6393448b226459633331df763278cfd",
     "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
     "oracleHidden": true,
-    "commandAuditPassed": true
+    "commandAuditPassed": true,
+    "commandAudit": {
+      "policy": "fresh-agent-shell-allowlist-v2",
+      "commands": [
+        "/bin/zsh -lc 'semantic-atlas status'",
+        "/bin/zsh -lc 'semantic-atlas map search \"export request\" --limit 20'",
+        "/bin/zsh -lc \"semantic-atlas map show 'symbol:src%2Fexports%2Fexport.resolver.ts#8b964f6cb13c5f54337a02488c28f05ce4d0aecbd09ba5ca4c3f837d467d3061' --depth 3\"",
+        "/bin/zsh -lc 'printenv EVALUATION_OBSERVER'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/exports/export.resolver.ts'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/exports/export.producer.ts'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read test/exports/export-flow.test.ts'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/exports/export.service.ts'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/exports/export.processor.ts'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" read src/exports/jobs/export.job.ts'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search generate-export src test'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search requestExport src test'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search requestedBy src test'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search ExportJob src test'",
+        "/bin/zsh -lc 'rg --files'",
+        "/bin/zsh -lc 'semantic-atlas map search \"queues and processes one export request\" --limit 10'",
+        "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search format src/exports test/exports'"
+      ]
+    }
   },
   "startedAt": "2026-08-14T05:40:50.947Z",
   "finishedAt": "2026-08-14T05:43:47.728Z",

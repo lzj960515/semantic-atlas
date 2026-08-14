@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { auditCodexRun } from "../../scripts/evaluation/codex-run-audit.js";
+import {
+  auditCodexCommands,
+  auditCodexRun,
+} from "../../scripts/evaluation/codex-run-audit.js";
 
 describe("Fresh Agent Codex command audit", () => {
   it("accepts observed source reads and records Atlas commands", () => {
@@ -16,20 +19,50 @@ describe("Fresh Agent Codex command audit", () => {
       command: "semantic-atlas map search placeOrder --limit 5",
     }]);
     expect(audit.commandCount).toBe(3);
+    expect(audit.commands).toEqual([
+      "/bin/zsh -lc 'rg --files'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/order.ts 1 20'",
+      "/bin/zsh -lc 'semantic-atlas map search placeOrder --limit 5'",
+    ]);
   });
 
   it("rejects direct commands that return source text", () => {
     expect(() => auditCodexRun("no-atlas", jsonLines([
       completedCommand("/bin/zsh -lc \"rg -n 'placeOrder' src\""),
       { type: "turn.completed", usage: {} },
-    ]))).toThrow(/unobserved source output/);
+    ]))).toThrow(/not allowed by the evaluation command policy/);
   });
 
-  it("allows host Skill instructions outside the fixture", () => {
-    expect(() => auditCodexRun("no-atlas", jsonLines([
-      completedCommand("/bin/zsh -lc \"sed -n '1,240p' /Users/test/.agents/skills/typeorm/SKILL.md\""),
-      { type: "turn.completed", usage: {} },
-    ]))).not.toThrow();
+  it("re-audits commands retained in published run records", () => {
+    expect(() => auditCodexCommands("no-atlas", [
+      "/bin/zsh -lc 'node $EVALUATION_OBSERVER read src/order.ts'",
+      "/bin/zsh -lc 'nl -ba src/secret.ts'",
+    ])).toThrow(/not allowed by the evaluation command policy/);
+  });
+
+  it("rejects alternative readers, command wrappers, and input redirection", () => {
+    for (const command of [
+      "/bin/zsh -lc 'nl -ba src/order.ts'",
+      "/bin/zsh -lc \"sh -c 'cat src/order.ts'\"",
+      "/bin/zsh -lc 'sort < src/order.ts'",
+    ]) {
+      expect(() => auditCodexRun("no-atlas", jsonLines([
+        completedCommand(command),
+        { type: "turn.completed", usage: {} },
+      ]))).toThrow(/not allowed by the evaluation command policy/);
+    }
+  });
+
+  it("rejects host Skill and plugin instruction reads", () => {
+    for (const command of [
+      "/bin/zsh -lc \"sed -n '1,240p' /Users/test/.agents/skills/typeorm/SKILL.md\"",
+      "/bin/zsh -lc 'cat /Users/test/.codex/plugins/cache/example/SKILL.md'",
+    ]) {
+      expect(() => auditCodexRun("no-atlas", jsonLines([
+        completedCommand(command),
+        { type: "turn.completed", usage: {} },
+      ]))).toThrow(/external instruction/);
+    }
   });
 
   it("allows filtering an rg file-name listing without opening source", () => {
@@ -39,15 +72,14 @@ describe("Fresh Agent Codex command audit", () => {
     ]))).not.toThrow();
   });
 
-  it("does not let an observer or host Skill read mask a chained source read", () => {
+  it("does not let an observer mask a chained source read", () => {
     for (const command of [
       "/bin/zsh -lc '$EVALUATION_OBSERVER read src/order.ts; cat src/secret.ts'",
-      "/bin/zsh -lc \"sed -n '1,40p' /Users/test/.agents/skills/typeorm/SKILL.md; cat src/secret.ts\"",
     ]) {
       expect(() => auditCodexRun("no-atlas", jsonLines([
         completedCommand(command),
         { type: "turn.completed", usage: {} },
-      ]))).toThrow(/unobserved source output/);
+      ]))).toThrow(/not allowed by the evaluation command policy/);
     }
   });
 
