@@ -250,7 +250,7 @@ describe("CodeGraph structural backend", () => {
     expect(packageDocument.exports).toHaveProperty(".");
     expect(packageDocument.files).toContain("dist");
     expect(packageDocument.bin).toEqual({
-      "semantic-atlas": "./dist/cli/bin.js",
+      "semantic-atlas": "dist/cli/bin.js",
     });
     for (const backendExport of [
       "CodeGraphStructuralBackend",
