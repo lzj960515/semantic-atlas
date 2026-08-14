@@ -266,11 +266,23 @@ async function packAtlas(root: string): Promise<PackageArtifact> {
     ["pack", "--pack-destination", packageDirectory, "--json"],
     projectRoot,
   );
-  const packageResult = JSON.parse(packed.stdout) as { readonly filename: string };
+  const packageResult = parsePackOutput(packed.stdout);
   return {
     filename: packageResult.filename,
     tarballName: basename(packageResult.filename),
   };
+}
+
+function parsePackOutput(output: string): { readonly filename: string } {
+  const objectStart = output.lastIndexOf("\n{");
+  const arrayStart = output.lastIndexOf("\n[");
+  const jsonStart = Math.max(objectStart, arrayStart);
+  const parsed = JSON.parse(output.slice(jsonStart < 0 ? 0 : jsonStart + 1)) as
+    | { readonly filename: string }
+    | readonly [{ readonly filename: string }];
+  const result = Array.isArray(parsed) ? parsed[0] : parsed;
+  assert.ok(result?.filename, "pnpm pack did not report a tarball filename");
+  return result;
 }
 
 async function installPackagedAtlas(

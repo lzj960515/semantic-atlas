@@ -1,7 +1,27 @@
 {
   "name": "semantic-atlas",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A local, revision-aware project world model for AI coding agents.",
+  "keywords": [
+    "ai-agents",
+    "code-analysis",
+    "knowledge-graph",
+    "typescript",
+    "cli"
+  ],
+  "homepage": "https://github.com/lzj960515/semantic-atlas#readme",
+  "bugs": {
+    "url": "https://github.com/lzj960515/semantic-atlas/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lzj960515/semantic-atlas.git"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Zijian Liao",
+    "email": "lzj960515@163.com"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -15,6 +35,7 @@
     }
   },
   "files": [
+    ".agents/skills/semantic-atlas",
     "dist",
     "docs",
     "schemas",
@@ -25,6 +46,10 @@
     "node": ">=22.12.0 <25"
   },
   "packageManager": "pnpm@11.5.1",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
@@ -32,8 +57,10 @@
     "typecheck": "tsc -p tsconfig.json",
     "evaluation:validate": "tsx scripts/validate-evaluation.ts --baseline evaluation/cases/plan.json evaluation/examples/no-atlas-run.json",
     "validation:backend": "tsx scripts/validate-embedded-backend.ts",
+    "package:verify": "tsx scripts/verify-package.ts",
     "contracts:generate": "tsx scripts/generate-contracts.ts",
-    "contracts:check": "tsx scripts/generate-contracts.ts --check"
+    "contracts:check": "tsx scripts/generate-contracts.ts --check",
+    "prepack": "tsx scripts/generate-contracts.ts --check && tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "@colbymchenry/codegraph": "1.5.0",
