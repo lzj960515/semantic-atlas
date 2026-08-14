@@ -1,3 +1,4 @@
+import { parseCliArguments } from "../../src/cli/argument-parser.js";
 import type { EvaluationRun } from "../../src/evaluation/contracts.js";
 
 interface CodexCommandEvent {
@@ -46,6 +47,15 @@ const COMMAND_LOOKUP_TARGETS = new Set([
   "$EVALUATION_OBSERVER",
   "atlas",
   "semantic-atlas",
+]);
+
+const FIXTURE_LOCAL_ATLAS_COMMANDS = new Set([
+  "status",
+  "changes",
+  "map.roots",
+  "map.children",
+  "map.search",
+  "map.show",
 ]);
 
 export function auditCodexRun(
@@ -276,10 +286,14 @@ function isObserverCommand(words: readonly string[]): boolean {
 
 function isAtlasCommand(words: readonly string[]): boolean {
   if (words[0] !== "semantic-atlas") return false;
-  const firstArgument = words[1];
-  if (firstArgument === "status" || firstArgument === "changes") return true;
-  return firstArgument === "map"
-    && ["children", "roots", "search", "show"].includes(words[2] ?? "");
+  const arguments_ = words.slice(1);
+  if (arguments_.includes("--repo")) return false;
+  try {
+    const invocation = parseCliArguments(arguments_, ".");
+    return FIXTURE_LOCAL_ATLAS_COMMANDS.has(invocation.command.name);
+  } catch {
+    return false;
+  }
 }
 
 function isFileListing(words: readonly string[]): boolean {

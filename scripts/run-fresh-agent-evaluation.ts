@@ -37,7 +37,7 @@ import {
   parseEvaluationSourceTrace,
 } from "./evaluation/source-trace.js";
 
-const RUNNER_VERSION = "fresh-agent-runner-v2";
+const RUNNER_VERSION = "fresh-agent-runner-v3";
 const SOURCE_TOKEN_METHOD = EVALUATION_SOURCE_TOKEN_METHOD;
 const AGENT_MODEL = "gpt-5.6-sol";
 const EVALUATION_ID = "fresh-agent-v1";

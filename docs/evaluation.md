@@ -38,13 +38,16 @@ A run is invalid when it lacks exact source-token accounting, is not a fresh con
 The published `fresh-agent-v1` run uses the repository-owned source observer and
 `tiktoken-o200k_base-v1`. Every observer invocation appends one JSONL record per
 returned file. The runner normalizes those atomically appended records to a
-strict event sequence. The `fresh-agent-shell-allowlist-v2` policy accepts only
+strict event sequence. The `fresh-agent-shell-allowlist-v3` policy accepts only
 observer reads/searches, read-only Semantic Atlas status/map/changes commands,
-bounded file-name listings, and content-free availability probes. It rejects
-alternative readers, arbitrary executables and wrappers, external instruction
-paths, command substitution, redirection, and unsupported command composition.
-The runner rejects failed audits before adjudication, and published-result
-validation re-audits every recorded command sequence and its derived Atlas calls.
+bounded file-name listings, and content-free availability probes. Atlas commands
+must satisfy the product CLI's complete argument grammar, and `--repo` is
+prohibited because each process already runs from its measured fixture. The
+policy rejects alternative readers, arbitrary executables and wrappers, external
+instruction paths, command substitution, redirection, and unsupported command
+composition. The runner rejects failed audits before adjudication, and
+published-result validation re-audits every recorded command sequence and its
+derived Atlas calls.
 
 ## Metrics
 
@@ -69,7 +72,9 @@ and the same command policy. Atlas mode differs only by the availability of the
 Semantic Atlas Skill, CLI, and current worktree-local index. The retained 22
 `fresh-agent-runner-v1` records were re-audited from preserved raw command logs;
 the affected NestJS provider-contract pair was replaced under
-`fresh-agent-runner-v2` with host capabilities explicitly disabled.
+`fresh-agent-runner-v2` with host capabilities explicitly disabled. All 24
+published command sequences were subsequently re-audited under the v3
+fixture-local Atlas grammar.
 
 All 12 pairs retained 100 percent required-file recall, required-symbol recall,
 and answer correctness. Median unique opened source files fell from 6.5 to 4

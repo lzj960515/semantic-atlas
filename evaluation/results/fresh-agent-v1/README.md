@@ -17,11 +17,14 @@ The official run used:
 - fixture `framework-evaluation@fixture-v1`, deterministic commit
   `5a7bf9ec5c4a52148410b71c68d753a7f74ff47d`;
 - Codex CLI 0.146.0 and `gpt-5.6-sol` in one ephemeral context per run;
-- `fresh-agent-shell-allowlist-v2` and `tiktoken-o200k_base-v1` per-file
-  source accounting for every published run;
+- `fresh-agent-shell-allowlist-v3` and `tiktoken-o200k_base-v1` per-file
+  source accounting for every published run; v3 validates the complete
+  read-only Atlas CLI grammar and rejects every explicit `--repo` override;
 - 22 retained `fresh-agent-runner-v1` records re-audited from preserved raw
   command logs, plus an isolated `fresh-agent-runner-v2` rerun of the affected
   `impact-nestjs-provider-contract` pair;
+- all 24 published command sequences re-audited under the v3 fixture-local
+  policy;
 - host Skills, plugins, apps, hooks, MCP servers, memory, multi-agent
   delegation, and Skill search disabled for the replacement pair;
 - one separate fresh adjudication context that received the frozen oracle only

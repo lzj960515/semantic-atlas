@@ -83,7 +83,7 @@ describe("evaluation artifact contracts", () => {
         oracleHidden: true,
         commandAuditPassed: true,
         commandAudit: {
-          policy: "fresh-agent-shell-allowlist-v2",
+          policy: "fresh-agent-shell-allowlist-v3",
           commands: ["/bin/zsh -lc 'node $EVALUATION_OBSERVER read src/invoices/invoice.service.ts'"],
         },
       },
@@ -155,7 +155,7 @@ describe("evaluation artifact contracts", () => {
         oracleHidden: true,
         commandAuditPassed: true,
         commandAudit: {
-          policy: "fresh-agent-shell-allowlist-v2",
+          policy: "fresh-agent-shell-allowlist-v3",
           commands: ["/bin/zsh -lc 'semantic-atlas status'"],
         },
       },

@@ -90,6 +90,46 @@ describe("Fresh Agent Codex command audit", () => {
     ]))).toThrow(/no-atlas run invoked Semantic Atlas/);
   });
 
+  it("rejects Atlas repository overrides in every CLI position", () => {
+    for (const command of [
+      "/bin/zsh -lc 'semantic-atlas status --repo /tmp/other-repository'",
+      "/bin/zsh -lc 'semantic-atlas map search Order --repo ../no-atlas --limit 10'",
+      "/bin/zsh -lc 'semantic-atlas --repo sibling status'",
+    ]) {
+      expect(() => auditCodexCommands("atlas", [command])).toThrow(
+        /not allowed by the evaluation command policy/,
+      );
+    }
+  });
+
+  it("rejects malformed or mutating Atlas CLI grammar", () => {
+    for (const command of [
+      "/bin/zsh -lc 'semantic-atlas status unexpected'",
+      "/bin/zsh -lc 'semantic-atlas map roots --limit 1'",
+      "/bin/zsh -lc 'semantic-atlas changes --from invalid'",
+      "/bin/zsh -lc 'semantic-atlas map show orders --depth 4'",
+      "/bin/zsh -lc 'semantic-atlas index'",
+    ]) {
+      expect(() => auditCodexCommands("atlas", [command])).toThrow(
+        /not allowed by the evaluation command policy/,
+      );
+    }
+  });
+
+  it("accepts every fixture-local read-only Atlas command shape", () => {
+    const snapshot = "a".repeat(64);
+    const commands = [
+      "/bin/zsh -lc 'semantic-atlas status --pretty'",
+      `/bin/zsh -lc 'semantic-atlas changes --from ${snapshot} --to ${snapshot}'`,
+      "/bin/zsh -lc 'semantic-atlas map roots'",
+      "/bin/zsh -lc 'semantic-atlas map children orders'",
+      `/bin/zsh -lc 'semantic-atlas map search "Order service" --limit 10'`,
+      "/bin/zsh -lc 'semantic-atlas map show orders --depth 3'",
+    ];
+
+    expect(auditCodexCommands("atlas", commands).atlasCalls).toHaveLength(commands.length);
+  });
+
   it("rejects an incomplete Codex turn", () => {
     expect(() => auditCodexRun("atlas", jsonLines([
       completedCommand("/bin/zsh -lc 'rg --files'"),

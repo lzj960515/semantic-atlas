@@ -17,7 +17,7 @@
     "oracleHidden": true,
     "commandAuditPassed": true,
     "commandAudit": {
-      "policy": "fresh-agent-shell-allowlist-v2",
+      "policy": "fresh-agent-shell-allowlist-v3",
       "commands": [
         "/bin/zsh -lc 'command -v semantic-atlas\nprintenv EVALUATION_OBSERVER'",
         "/bin/zsh -lc 'semantic-atlas status'",
