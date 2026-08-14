@@ -61,7 +61,7 @@ for (const contract of contracts) {
 
   if (checkOnly) {
     const existing = await readFile(outputPath, "utf8").catch(() => undefined);
-    if (existing !== content) {
+    if (!matchesGeneratedContent(existing, content)) {
       throw new Error(
         `${contract.path} is stale; run pnpm contracts:generate`,
       );
@@ -78,3 +78,15 @@ process.stdout.write(
     ? `Verified ${contracts.length} generated contracts.\n`
     : `Generated ${contracts.length} contracts.\n`,
 );
+
+function matchesGeneratedContent(
+  existing: string | undefined,
+  generated: string,
+): boolean {
+  return existing !== undefined
+    && normalizeLineEndings(existing) === normalizeLineEndings(generated);
+}
+
+function normalizeLineEndings(content: string): string {
+  return content.replace(/\r\n?/gu, "\n");
+}
