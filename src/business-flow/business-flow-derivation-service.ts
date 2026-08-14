@@ -49,7 +49,7 @@ export class BusinessFlowDerivationService {
     ) {
       throw new Error("The repository or world publication changed during business flow derivation");
     }
-    const draft = new BusinessFlowDraft(snapshot);
+    const draft = new BusinessFlowDraft(snapshot, options.capability.key);
     const roots = derivationRoots(options);
     const catalog = projectCatalog.scopeTo(roots);
     const capabilityEvidence = options.capability.roots.map((root) => requireNode(projectCatalog, root));

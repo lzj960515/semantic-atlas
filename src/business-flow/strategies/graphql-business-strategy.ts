@@ -61,12 +61,6 @@ export class GraphqlBusinessStrategy implements FrameworkBusinessStrategy {
       });
       addBusinessRelation(draft, {
         from: scenarioKey,
-        type: "part_of",
-        to: options.capability.key,
-        evidence: route,
-      });
-      addBusinessRelation(draft, {
-        from: scenarioKey,
         type: "consumes",
         to: interfaceKey,
         evidence: route,

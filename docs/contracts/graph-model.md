@@ -93,7 +93,7 @@ An `UnknownBoundary` records the unresolved operation, backend reason, location,
 
 ## Traversal
 
-`map roots` returns business capabilities when present and structural module roots otherwise. `map children` follows `part_of` and `contains`. `map show` composes Atlas business neighbors, evidence links, and CodeGraph structural neighbors with depth 1 by default and at most 3.
+`map roots` returns business capabilities when present and structural module roots otherwise. Every business concept produced by one capability-scoped derivation has a direct `part_of` relation to that capability, so entry scenarios, operations, invariants, interfaces, and data remain reachable even when the flow has no route. `map children` follows `part_of` and `contains`. `map show` composes Atlas business neighbors, evidence links, and CodeGraph structural neighbors with depth 1 by default and at most 3.
 
 Lexical search combines Atlas business vocabulary with CodeGraph structural search. The calling AI performs natural-language interpretation; the CLI does not add a language model or pretend lexical scores are business inference.
 

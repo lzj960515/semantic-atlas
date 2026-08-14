@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { BusinessFlowDerivationService } from "../../src/business-flow/business-flow-derivation-service.js";
+import type { BusinessFlowDerivationOptions } from "../../src/business-flow/types.js";
 import { graphPatchV1Schema } from "../../src/contracts/graph.js";
 import type { GraphPatchV1 } from "../../src/contracts/graph.js";
+import { BusinessKnowledgeService } from "../../src/knowledge/business-knowledge-service.js";
 import type {
   StructuralIndexBackend,
   StructuralNode,
@@ -10,6 +12,11 @@ import type {
   StructuralUnknownBoundary,
 } from "../../src/structural-backend/types.js";
 import { inspectGitRepository } from "../../src/repository/repository-inspector.js";
+import type {
+  StructuralEvidenceResolver,
+  WorldWriteCoordinator,
+} from "../../src/world/types.js";
+import { WorldGraphQuery } from "../../src/world/world-graph-query.js";
 import {
   createGraphTestContext,
   type GraphTestContext,
@@ -111,6 +118,51 @@ describe("business flow derivation", () => {
       }),
     ]));
     expect(graphPatchV1Schema.parse(result.patch)).toEqual(result.patch);
+  });
+
+  it("keeps a BullMQ-only flow navigable from its capability", async () => {
+    const catalog = frameworkCatalog({ includeAmbiguousDataAccess: false });
+    await expectCapabilityNavigation(contexts, catalog, {
+      capability: capabilityFor(catalog, ["publishCreated", "handleCreated"]),
+      messageFlows: [{
+        channel: "orders.created",
+        producer: catalog.byName("publishCreated").reference,
+        consumer: catalog.byName("handleCreated").reference,
+        certainty: "exact",
+      }],
+    });
+  });
+
+  it("keeps a TypeORM-only flow navigable from its capability", async () => {
+    const catalog = frameworkCatalog({ includeAmbiguousDataAccess: false });
+    await expectCapabilityNavigation(contexts, catalog, {
+      capability: capabilityFor(catalog, ["Order"], ["OrdersService::createOrder"]),
+    });
+  });
+
+  it("keeps an invariant-only flow navigable from its capability", async () => {
+    const catalog = frameworkCatalog({ includeAmbiguousDataAccess: false });
+    await expectCapabilityNavigation(contexts, catalog, {
+      capability: capabilityFor(catalog, ["assertValid"]),
+      invariants: [{
+        key: "commerce/orders/valid-order",
+        label: "Valid order",
+        summary: "Only valid orders can be persisted.",
+        evidence: catalog.byName("assertValid").reference,
+        constrains: [catalog.byQualifiedName("OrdersService::createOrder").reference],
+      }],
+    });
+  });
+
+  it("keeps a verification-only flow navigable from its capability", async () => {
+    const catalog = frameworkCatalog({ includeAmbiguousDataAccess: false });
+    await expectCapabilityNavigation(contexts, catalog, {
+      capability: capabilityFor(catalog, [], ["OrdersService::createOrder"]),
+      verifications: [{
+        operation: catalog.byQualifiedName("OrdersService::createOrder").reference,
+        test: catalog.byName("creates an order").reference,
+      }],
+    });
   });
 
   it("keeps unresolved injected service calls visible in real CodeGraph flows", async () => {
@@ -1153,8 +1205,25 @@ function structuralBackend(
   nodes: readonly StructuralNode[],
   relations: readonly StructuralRelation[],
   boundaries: readonly StructuralUnknownBoundary[] = [],
-): StructuralIndexBackend {
+): StructuralIndexBackend & WorldWriteCoordinator {
   const byId = new Map(nodes.map((candidate) => [candidate.reference.id, candidate]));
+  const state = {
+    completeness: "complete" as const,
+    databasePath: "/fixture/.atlas/codegraph.db",
+    backendVersion: "1.5.0",
+    extractionVersion: 1,
+    indexedAt: "2026-08-14T00:00:00.000Z",
+    diagnostics: [],
+  };
+  const resolver: StructuralEvidenceResolver = {
+    getNode: (id) => byId.get(id),
+    findCandidates: (locator) => nodes.filter((candidate) => (
+      candidate.path === locator.file
+      && (locator.qualifiedSymbol === null || candidate.qualifiedName === locator.qualifiedSymbol)
+      && (locator.structuralKind === null || candidate.kind === locator.structuralKind)
+    )),
+    backendLocator: (candidate) => `backend:${candidate.reference.id}`,
+  };
   return {
     inspect: async () => { throw new Error("Not used"); },
     build: async () => { throw new Error("Not used"); },
@@ -1195,6 +1264,61 @@ function structuralBackend(
     getCallers: async () => [],
     getCallees: async () => [],
     getFileDependencies: async () => [],
+    withWorldWriteLock: async (operation) => operation(state, resolver),
+  };
+}
+
+async function expectCapabilityNavigation(
+  contexts: GraphTestContext[],
+  catalog: ReturnType<typeof frameworkCatalog>,
+  options: BusinessFlowDerivationOptions,
+): Promise<void> {
+  const context = await createGraphTestContext();
+  contexts.push(context);
+  const structural = structuralBackend(catalog.nodes, catalog.relations);
+  const result = await new BusinessFlowDerivationService(context.repository, structural)
+    .derive(options);
+  await new BusinessKnowledgeService(context.repository, context.graph, structural)
+    .learn(result.patch);
+
+  using query = new WorldGraphQuery(context.repository, context.graph, structural);
+  const capability = { domain: "business" as const, key: options.capability.key };
+  await expect(query.roots()).resolves.toEqual([
+    expect.objectContaining(capability),
+  ]);
+
+  const expectedChildren = upsertedNodes(result.patch)
+    .filter((node) => node.kind !== "Capability")
+    .map((node) => node.key)
+    .sort();
+  const children = await query.children(capability);
+  expect(children.flatMap((node) => (
+    node.domain === "business" ? [node.key] : []
+  )).sort()).toEqual(expectedChildren);
+  expect(upsertedRelations(result.patch).filter((relation) => (
+    relation.type === "part_of"
+  )).every((relation) => relation.certainty !== "exact")).toBe(true);
+
+  const view = await query.show(capability, { maxDepth: 3 });
+  expect(view).toBeDefined();
+  expect(view?.neighbors.flatMap(({ node }) => (
+    node.domain === "business" ? [node.key] : []
+  ))).toEqual(expect.arrayContaining(expectedChildren));
+}
+
+function capabilityFor(
+  catalog: ReturnType<typeof frameworkCatalog>,
+  names: readonly string[],
+  qualifiedNames: readonly string[] = [],
+): BusinessFlowDerivationOptions["capability"] {
+  return {
+    key: "commerce/orders",
+    label: "Orders",
+    summary: "Owns the derived order flow.",
+    roots: [
+      ...names.map((name) => catalog.byName(name).reference),
+      ...qualifiedNames.map((name) => catalog.byQualifiedName(name).reference),
+    ],
   };
 }
 

@@ -17,12 +17,14 @@ import type {
 
 export class BusinessFlowDraft {
   readonly #snapshot: RepositorySnapshot;
+  readonly #capabilityKey: string;
   readonly #nodes = new Map<string, BusinessNodeInput>();
   readonly #relations = new Map<string, BusinessRelationInput>();
   readonly #boundaries = new Map<string, BusinessFlowBoundary>();
 
-  constructor(snapshot: RepositorySnapshot) {
+  constructor(snapshot: RepositorySnapshot, capabilityKey: string) {
     this.#snapshot = snapshot;
+    this.#capabilityKey = capabilityKey;
   }
 
   addNode(node: BusinessNodeInput): void {
@@ -95,6 +97,7 @@ export class BusinessFlowDraft {
   }
 
   finish(): DerivedBusinessFlow {
+    this.addCapabilityOwnership();
     const patch = graphPatchV1Schema.parse({
       schemaVersion: 1,
       baseSnapshotId: this.#snapshot.snapshotId,
@@ -110,6 +113,25 @@ export class BusinessFlowDraft {
       boundaries: [...this.#boundaries.values()]
         .sort((left, right) => left.id.localeCompare(right.id)),
     };
+  }
+
+  private addCapabilityOwnership(): void {
+    const capability = this.#nodes.get(this.#capabilityKey);
+    if (capability?.kind !== "Capability") {
+      throw new Error(`Business flow capability ${this.#capabilityKey} is missing from its draft`);
+    }
+    for (const node of this.#nodes.values()) {
+      if (node.key === this.#capabilityKey) {
+        continue;
+      }
+      this.addRelation({
+        from: { domain: "business", key: node.key },
+        type: "part_of",
+        to: { domain: "business", key: this.#capabilityKey },
+        certainty: lowerCertainty(node.certainty, capability.certainty),
+        evidence: node.evidence,
+      });
+    }
   }
 }
 
