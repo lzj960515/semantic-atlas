@@ -115,7 +115,7 @@ function evaluationRun(
       oracleHidden: true as const,
       commandAuditPassed: true as const,
       commandAudit: {
-        policy: "fresh-agent-shell-allowlist-v3" as const,
+        policy: "fresh-agent-shell-allowlist-v4" as const,
         commands: [mode === "atlas"
           ? "/bin/zsh -lc 'semantic-atlas status'"
           : "/bin/zsh -lc 'node $EVALUATION_OBSERVER read src/invoices/invoice.service.ts'"],

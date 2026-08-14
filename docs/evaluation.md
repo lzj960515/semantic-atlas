@@ -38,16 +38,18 @@ A run is invalid when it lacks exact source-token accounting, is not a fresh con
 The published `fresh-agent-v1` run uses the repository-owned source observer and
 `tiktoken-o200k_base-v1`. Every observer invocation appends one JSONL record per
 returned file. The runner normalizes those atomically appended records to a
-strict event sequence. The `fresh-agent-shell-allowlist-v3` policy accepts only
+strict event sequence. The `fresh-agent-shell-allowlist-v4` policy accepts only
 observer reads/searches, read-only Semantic Atlas status/map/changes commands,
 bounded file-name listings, and content-free availability probes. Atlas commands
 must satisfy the product CLI's complete argument grammar, and `--repo` is
 prohibited because each process already runs from its measured fixture. The
 policy rejects alternative readers, arbitrary executables and wrappers, external
-instruction paths, command substitution, redirection, and unsupported command
-composition. The runner rejects failed audits before adjudication, and
-published-result validation re-audits every recorded command sequence and its
-derived Atlas calls.
+instruction paths, command substitution, redirection, unsupported command
+composition, and unquoted shell word generation such as brace, parameter, tilde,
+or filename expansion. The fixed `$EVALUATION_OBSERVER` parameter is the only
+permitted shell expansion. The runner rejects failed audits before adjudication,
+and published-result validation re-audits every recorded command sequence and
+its derived Atlas calls.
 
 ## Metrics
 

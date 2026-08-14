@@ -17,7 +17,7 @@
     "oracleHidden": true,
     "commandAuditPassed": true,
     "commandAudit": {
-      "policy": "fresh-agent-shell-allowlist-v3",
+      "policy": "fresh-agent-shell-allowlist-v4",
       "commands": [
         "/bin/zsh -lc 'rg --files'",
         "/bin/zsh -lc 'node \"$EVALUATION_OBSERVER\" search '\"'place|createOrder|OrderService|providers|exports' src/orders test/orders\"",

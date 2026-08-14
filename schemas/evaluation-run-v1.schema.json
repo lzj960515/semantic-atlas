@@ -133,7 +133,7 @@
           "properties": {
             "policy": {
               "type": "string",
-              "const": "fresh-agent-shell-allowlist-v3"
+              "const": "fresh-agent-shell-allowlist-v4"
             },
             "commands": {
               "minItems": 1,

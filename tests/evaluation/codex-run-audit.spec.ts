@@ -102,6 +102,24 @@ describe("Fresh Agent Codex command audit", () => {
     }
   });
 
+  it.each([
+    "/bin/zsh -lc 'semantic-atlas map search {Order,--repo,/tmp/other-repository}'",
+    "/bin/zsh -lc 'semantic-atlas map search ${=ATLAS_ARGUMENTS}'",
+    "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/*.ts'",
+    "/bin/zsh -lc 'semantic-atlas map search ~'",
+  ])("rejects shell word generation before commands are classified: %s", (command) => {
+    expect(() => auditCodexCommands("atlas", [command])).toThrow(
+      /not allowed by the evaluation command policy/,
+    );
+  });
+
+  it("accepts quoted shell metacharacters as literal query patterns", () => {
+    expect(() => auditCodexCommands("atlas", [
+      "/bin/zsh -lc \"semantic-atlas map search '{Order,--repo}'\"",
+      "/bin/zsh -lc \"$EVALUATION_OBSERVER search '*Service' src\"",
+    ])).not.toThrow();
+  });
+
   it("rejects malformed or mutating Atlas CLI grammar", () => {
     for (const command of [
       "/bin/zsh -lc 'semantic-atlas status unexpected'",

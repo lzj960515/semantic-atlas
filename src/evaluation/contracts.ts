@@ -166,7 +166,7 @@ export const evaluationFailureClassificationSchema = z.enum([
 
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
 
-export const FRESH_AGENT_COMMAND_AUDIT_POLICY = "fresh-agent-shell-allowlist-v3";
+export const FRESH_AGENT_COMMAND_AUDIT_POLICY = "fresh-agent-shell-allowlist-v4";
 
 export const evaluationRunSchema = z
   .strictObject({

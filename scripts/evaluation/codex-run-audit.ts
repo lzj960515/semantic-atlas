@@ -58,6 +58,22 @@ const FIXTURE_LOCAL_ATLAS_COMMANDS = new Set([
   "map.show",
 ]);
 
+const EVALUATION_OBSERVER_PARAMETER = "$EVALUATION_OBSERVER";
+const UNQUOTED_WORD_GENERATION_CHARACTERS = new Set([
+  "!",
+  "#",
+  "(",
+  ")",
+  "*",
+  "?",
+  "[",
+  "]",
+  "^",
+  "{",
+  "}",
+  "~",
+]);
+
 export function auditCodexRun(
   mode: EvaluationRun["mode"],
   jsonLines: string,
@@ -138,7 +154,9 @@ function auditShellCommand(command: string): string[] {
   }
 
   try {
-    const shellCommands = splitShellCommands(unwrapCodexShellCommand(command));
+    const script = unwrapCodexShellCommand(command);
+    rejectShellWordGeneration(script);
+    const shellCommands = splitShellCommands(script);
     const kinds = shellCommands.map(({ text }) => classifyCommand(parseShellWords(text)));
     for (const [index, shellCommand] of shellCommands.entries()) {
       validateComposition(shellCommand.operatorBefore, kinds[index - 1], kinds[index]!);
@@ -149,6 +167,59 @@ function auditShellCommand(command: string): string[] {
     ));
   } catch (error) {
     throw commandPolicyError(command, error);
+  }
+}
+
+function rejectShellWordGeneration(script: string): void {
+  let quote: "single" | "double" | null = null;
+  let escaped = false;
+  let wordStarted = false;
+
+  for (let index = 0; index < script.length; index += 1) {
+    const character = script[index]!;
+    if (escaped) {
+      escaped = false;
+      wordStarted = true;
+      continue;
+    }
+    if (character === "\\" && quote !== "single") {
+      escaped = true;
+      wordStarted = true;
+      continue;
+    }
+    if (character === "'" && quote !== "double") {
+      quote = quote === "single" ? null : "single";
+      wordStarted = true;
+      continue;
+    }
+    if (character === '"' && quote !== "single") {
+      quote = quote === "double" ? null : "double";
+      wordStarted = true;
+      continue;
+    }
+    if (quote === "single") continue;
+    if (character === "$") {
+      if (!script.startsWith(EVALUATION_OBSERVER_PARAMETER, index)) {
+        throw new Error("shell parameter, command, and arithmetic expansion are not allowed");
+      }
+      const nextCharacter = script[index + EVALUATION_OBSERVER_PARAMETER.length];
+      if (nextCharacter !== undefined && /[A-Za-z0-9_]/u.test(nextCharacter)) {
+        throw new Error("only the evaluation observer parameter may be expanded");
+      }
+      index += EVALUATION_OBSERVER_PARAMETER.length - 1;
+      wordStarted = true;
+      continue;
+    }
+    if (quote === "double") continue;
+    if (/\s/u.test(character) || character === ";" || character === "|" || character === "&") {
+      wordStarted = false;
+      continue;
+    }
+    if ((character === "=" && !wordStarted)
+      || UNQUOTED_WORD_GENERATION_CHARACTERS.has(character)) {
+      throw new Error("shell word generation is not allowed");
+    }
+    wordStarted = true;
   }
 }
 
