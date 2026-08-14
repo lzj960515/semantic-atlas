@@ -155,9 +155,13 @@ Run `pnpm validation:backend` to validate the installed tarball against the
 current exact dependency. To evaluate a new release before changing the pin,
 run `pnpm validation:backend -- --candidate <version> --allow-network`. The
 isolated consumer overrides only its installed candidate; the source manifest
-and lockfile remain unchanged. The command rejects candidates that change the
-database location, SDK lifecycle, schema ownership, normalized support,
-business-data preservation, evidence rebinding, recovery, or worktree
+and lockfile remain unchanged. A pinned consumer first creates the database and
+learns business knowledge; after it closes, a separate candidate consumer must
+open and preserve that same store through incremental and full operations. The
+command also compares required structural endpoints and bounded false exact
+links with the pinned baseline. It rejects candidates that change the database
+location, SDK lifecycle, schema ownership, normalized support, business data,
+evidence, prior publications, recovery, structural quality, or worktree
 isolation contracts, and prints the measured index, database, and query costs.
 
 ## Pre-release storage transition

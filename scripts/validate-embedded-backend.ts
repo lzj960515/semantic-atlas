@@ -17,19 +17,101 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import type { CliEnvelope } from "../src/contracts/cli.js";
-import type { StructuralGraphNode, WorldGraphView } from "../src/graph/types.js";
+import type {
+  StructuralGraphNode,
+  StructuralRelationType,
+  WorldGraphView,
+} from "../src/graph/types.js";
 
 const executeFile = promisify(execFile);
 const projectRoot = resolve(import.meta.dirname, "..");
 const sourceFiles = representativeFixtureSources();
 const ordersServiceSource = fixtureSource("src/orders.service.ts");
+const structuralProbes = {
+  graphqlRoute: {
+    query: "MUTATION createOrder",
+    file: "src/orders.resolver.ts",
+    label: "MUTATION createOrder",
+  },
+  graphqlHandler: {
+    query: "createOrder",
+    file: "src/orders.resolver.ts",
+    label: "createOrder",
+  },
+  httpRoute: {
+    query: "POST orders",
+    file: "src/orders.controller.ts",
+    label: "POST /orders",
+  },
+  httpHandler: {
+    query: "create",
+    file: "src/orders.controller.ts",
+    label: "create",
+  },
+  service: {
+    query: "createOrder",
+    file: "src/orders.service.ts",
+    label: "createOrder",
+  },
+  entity: { query: "Order", file: "src/order.entity.ts", label: "Order" },
+  producer: {
+    query: "publishCreated",
+    file: "src/orders.service.ts",
+    label: "publishCreated",
+  },
+  consumer: {
+    query: "handleCreated",
+    file: "src/orders.processor.ts",
+    label: "handleCreated",
+  },
+  invariant: {
+    query: "assertValid",
+    file: "src/orders.service.ts",
+    label: "assertValid",
+  },
+  test: {
+    query: "createsOrder",
+    file: "tests/orders.service.spec.ts",
+    label: "createsOrder",
+  },
+} as const satisfies Readonly<Record<string, StructuralProbe>>;
+const requiredStructuralRelations = [
+  { from: "graphqlRoute", type: "references", to: "graphqlHandler" },
+  { from: "httpRoute", type: "references", to: "httpHandler" },
+  { from: "service", type: "calls", to: "invariant" },
+] as const satisfies readonly StructuralRelationExpectation[];
+const allowedExactCallRelations = [
+  { from: "graphqlHandler", type: "calls", to: "service" },
+  { from: "httpHandler", type: "calls", to: "service" },
+  { from: "service", type: "calls", to: "invariant" },
+] as const satisfies readonly StructuralRelationExpectation[];
 const options = await validationOptions();
 const sourceDependencyState = await readSourceDependencyState();
 const temporaryRoot = await mkdtemp(join(tmpdir(), "semantic-atlas-backend-validation-"));
 
 try {
-  const installation = await installPackagedAtlas(temporaryRoot, options);
-  const report = await validateInstalledPackage(installation, temporaryRoot, options);
+  const artifact = await packAtlas(temporaryRoot);
+  const pinnedInstallation = await installPackagedAtlas(
+    temporaryRoot,
+    "pinned",
+    artifact,
+    options.pinnedVersion,
+    options.allowNetwork,
+  );
+  const seededFixture = await seedPinnedFixture(pinnedInstallation, temporaryRoot, options);
+  const candidateInstallation = await installPackagedAtlas(
+    temporaryRoot,
+    "candidate",
+    artifact,
+    options.candidateSpecifier,
+    options.allowNetwork,
+  );
+  const report = await validateCandidateUpgrade(
+    candidateInstallation,
+    seededFixture,
+    temporaryRoot,
+    options,
+  );
   assert.deepEqual(
     await readSourceDependencyState(),
     sourceDependencyState,
@@ -54,6 +136,21 @@ interface PackageInstallation {
   readonly resolvedBackendVersion: string;
 }
 
+interface PackageArtifact {
+  readonly filename: string;
+  readonly tarballName: string;
+}
+
+interface SeededFixture {
+  readonly repositoryRoot: string;
+  readonly databasePath: string;
+  readonly initialGitStatus: string;
+  readonly initialIndex: CliResult;
+  readonly business: RepresentativeBusinessFlow;
+  readonly structuralQuality: StructuralQualityReport;
+  readonly persistedState: PersistedAtlasState;
+}
+
 interface CliResult {
   readonly exitCode: number;
   readonly stdout: string;
@@ -66,6 +163,61 @@ interface StructuralProbe {
   readonly query: string;
   readonly file: string;
   readonly label: string;
+}
+
+type StructuralProbeKey = keyof typeof structuralProbes;
+type StructuralProbeNodes = Readonly<Record<StructuralProbeKey, StructuralGraphNode>>;
+
+interface StructuralRelationExpectation {
+  readonly from: StructuralProbeKey;
+  readonly type: StructuralRelationType;
+  readonly to: StructuralProbeKey;
+}
+
+interface StructuralRelationEndpoint extends StructuralRelationExpectation {
+  readonly fromId: string;
+  readonly toId: string;
+}
+
+interface StructuralQualityFinding extends StructuralRelationEndpoint {
+  readonly support: {
+    readonly status: string;
+    readonly provenance: string;
+  };
+}
+
+type StructuralMiss =
+  | { readonly kind: "node"; readonly key: StructuralProbeKey; readonly file: string; readonly label: string }
+  | ({ readonly kind: "relation" } & StructuralRelationEndpoint);
+
+interface StructuralQualityReport {
+  readonly structuralMisses: {
+    readonly count: number;
+    readonly details: readonly StructuralMiss[];
+  };
+  readonly falseLinks: {
+    readonly count: number;
+    readonly details: readonly StructuralQualityFinding[];
+  };
+  readonly observedRelations: readonly StructuralQualityFinding[];
+}
+
+interface RepresentativeBusinessFlow {
+  readonly businessKinds: readonly string[];
+  readonly relationTypes: readonly string[];
+  readonly boundaryCount: number;
+  readonly sourceEvidenceCount: number;
+}
+
+type PersistedRow = Readonly<Record<string, string | number | null>>;
+
+interface PersistedAtlasState {
+  readonly businessNodes: readonly PersistedRow[];
+  readonly evidence: readonly PersistedRow[];
+  readonly publications: readonly PersistedRow[];
+  readonly worldState: PersistedRow;
+  readonly atlasSchema: readonly PersistedRow[];
+  readonly foreignKeyViolations: readonly PersistedRow[];
 }
 
 async function readSourceDependencyState() {
@@ -105,10 +257,7 @@ async function validationOptions(): Promise<ValidationOptions> {
   return { pinnedVersion, candidateSpecifier, allowNetwork };
 }
 
-async function installPackagedAtlas(
-  root: string,
-  validation: ValidationOptions,
-): Promise<PackageInstallation> {
+async function packAtlas(root: string): Promise<PackageArtifact> {
   await run("pnpm", ["build"], projectRoot);
   const packageDirectory = join(root, "package");
   await mkdir(packageDirectory, { recursive: true });
@@ -118,25 +267,38 @@ async function installPackagedAtlas(
     projectRoot,
   );
   const packageResult = JSON.parse(packed.stdout) as { readonly filename: string };
-  const consumerRoot = join(root, "consumer");
+  return {
+    filename: packageResult.filename,
+    tarballName: basename(packageResult.filename),
+  };
+}
+
+async function installPackagedAtlas(
+  root: string,
+  phase: "pinned" | "candidate",
+  artifact: PackageArtifact,
+  backendSpecifier: string,
+  allowNetwork: boolean,
+): Promise<PackageInstallation> {
+  const consumerRoot = join(root, `${phase}-consumer`);
   await mkdir(consumerRoot, { recursive: true });
   await writeFile(join(consumerRoot, "package.json"), `${JSON.stringify({
     private: true,
     type: "module",
     dependencies: {
-      "@colbymchenry/codegraph": validation.candidateSpecifier,
-      "semantic-atlas": `file:${packageResult.filename}`,
+      "@colbymchenry/codegraph": backendSpecifier,
+      "semantic-atlas": `file:${artifact.filename}`,
     },
     pnpm: {
       overrides: {
-        "@colbymchenry/codegraph": validation.candidateSpecifier,
+        "@colbymchenry/codegraph": backendSpecifier,
       },
     },
   }, null, 2)}\n`);
   await run("pnpm", [
     "install",
     "--frozen-lockfile=false",
-    ...validation.allowNetwork ? [] : ["--offline"],
+    ...allowNetwork ? [] : ["--offline"],
   ], consumerRoot);
 
   const codeGraphPackage = JSON.parse(await readFile(join(
@@ -149,7 +311,7 @@ async function installPackagedAtlas(
   const packageEntry = join(consumerRoot, "node_modules", "semantic-atlas", "dist", "index.js");
   const api = await import(pathToFileURL(packageEntry).href) as typeof import("../src/index.js");
   return {
-    tarballName: basename(packageResult.filename),
+    tarballName: artifact.tarballName,
     consumerRoot,
     cliPath: join(consumerRoot, "node_modules", ".bin", "semantic-atlas"),
     api,
@@ -157,11 +319,12 @@ async function installPackagedAtlas(
   };
 }
 
-async function validateInstalledPackage(
+async function seedPinnedFixture(
   installation: PackageInstallation,
   root: string,
   validation: ValidationOptions,
-) {
+): Promise<SeededFixture> {
+  assert.equal(installation.resolvedBackendVersion, validation.pinnedVersion);
   const fixtureRoot = join(root, "representative-pietra-fixture");
   await createRepresentativeFixture(fixtureRoot);
   const repositoryRoot = await realpath(fixtureRoot);
@@ -182,7 +345,36 @@ async function validateInstalledPackage(
   assert.equal(initialIndex.envelope.repository?.root, repositoryRoot);
   assert.equal(await git(repositoryRoot, "status", "--porcelain=v1", "--untracked-files=all"), initialGitStatus);
 
+  const repository = await installation.api.inspectGitRepository(repositoryRoot);
+  const structure = await inspectRepresentativeStructure(installation.api, repository);
+  const business = await deriveAndLearnRepresentativeFlow(installation.api, repository, structure.nodes);
+  const initialView = await showCapability(installation.api, repository);
+  assertRepresentativeBusinessView(initialView);
+  return {
+    repositoryRoot,
+    databasePath,
+    initialGitStatus,
+    initialIndex,
+    business,
+    structuralQuality: structure.quality,
+    persistedState: capturePersistedAtlasState(databasePath),
+  };
+}
+
+async function validateCandidateUpgrade(
+  installation: PackageInstallation,
+  seeded: SeededFixture,
+  root: string,
+  validation: ValidationOptions,
+) {
+  const { repositoryRoot, databasePath, initialGitStatus } = seeded;
+  const preUpgradeStatus = await runCli(installation.cliPath, ["status"], repositoryRoot);
+  assert.equal(preUpgradeStatus.exitCode, 0, preUpgradeStatus.stderr);
+  assert.equal(commandData(preUpgradeStatus, "status").freshness, "current");
+
   const unchangedIndex = await runCli(installation.cliPath, ["index"], repositoryRoot, 120_000);
+  const unchangedData = commandData(unchangedIndex, "index");
+  assert.equal(unchangedData.backendVersion, installation.resolvedBackendVersion);
   const unchangedFacts = factCounts(commandData(unchangedIndex, "index"));
   assert.deepEqual({
     added: unchangedFacts.added,
@@ -191,6 +383,17 @@ async function validateInstalledPackage(
   }, { added: 0, changed: 0, removed: 0 });
   assert.ok(unchangedFacts.reused > 0);
 
+  const repository = await installation.api.inspectGitRepository(repositoryRoot);
+  const structure = await inspectRepresentativeStructure(installation.api, repository);
+  assertStructuralQualityNotRegressed(seeded.structuralQuality, structure.quality);
+  const upgradedView = await showCapability(installation.api, repository);
+  assertRepresentativeBusinessView(upgradedView);
+  assertPersistedAtlasStatePreserved(
+    seeded.persistedState,
+    capturePersistedAtlasState(databasePath),
+    "candidate incremental index",
+  );
+
   await writeFile(join(repositoryRoot, "src", "temporary.ts"), "export const temporary = true;\n");
   const addedIndex = await runCli(installation.cliPath, ["index"], repositoryRoot, 120_000);
   assert.ok(factCounts(commandData(addedIndex, "index")).added > 0);
@@ -198,15 +401,15 @@ async function validateInstalledPackage(
   const removedIndex = await runCli(installation.cliPath, ["index"], repositoryRoot, 120_000);
   assert.ok(factCounts(commandData(removedIndex, "index")).removed > 0);
 
-  const repository = await installation.api.inspectGitRepository(repositoryRoot);
-  const business = await deriveAndLearnRepresentativeFlow(installation.api, repository);
-  const initialView = await showCapability(installation.api, repository);
-  assertRepresentativeBusinessView(initialView);
-
   const rebuilt = await new installation.api.WorldModelService(repository).build();
   assert.equal(rebuilt.structural.completeness, "complete");
   assert.equal(rebuilt.structural.mode, "full");
   assert.equal((await showCapability(installation.api, repository)).node.validity, "valid");
+  assertPersistedAtlasStatePreserved(
+    seeded.persistedState,
+    capturePersistedAtlasState(databasePath),
+    "candidate full rebuild",
+  );
 
   await writeFile(
     join(repositoryRoot, "src", "orders.service.ts"),
@@ -258,6 +461,7 @@ async function validateInstalledPackage(
     package: {
       tarball: installation.tarballName,
       pinnedBackendVersion: validation.pinnedVersion,
+      seededBackendVersion: validation.pinnedVersion,
       candidateSpecifier: validation.candidateSpecifier,
       resolvedBackendVersion: installation.resolvedBackendVersion,
       pinUnchanged: true,
@@ -266,8 +470,21 @@ async function validateInstalledPackage(
       directoryPlacement: true,
       sdkOperations: ["initial", "incremental", "full", "search", "traverse"],
       schemaCoexistence: schema,
+      upgradeFromPinnedStore: true,
+      upgradeState: {
+        businessKeysPreserved: seeded.persistedState.businessNodes.length,
+        evidenceRecordsPreserved: seeded.persistedState.evidence.length,
+        priorPublicationsPreserved: seeded.persistedState.publications.length,
+        atlasSchemaObjectsPreserved: seeded.persistedState.atlasSchema.length,
+        falseLinkRegression: false,
+        incrementalIndex: "preserved",
+        fullRebuild: "preserved",
+      },
       businessKnowledgePreserved: true,
-      normalizedSupport: business.normalizedSupport,
+      normalizedSupport: Object.values(structure.nodes).every((node) => (
+        ["exact", "inferred", "unresolved", "unsupported"].includes(node.support.status)
+        && ["tree-sitter", "scip", "heuristic", "backend"].includes(node.support.provenance)
+      )),
       evidenceRebinding: {
         structuralRebuild: "valid",
         changedEvidence: "stale",
@@ -278,19 +495,30 @@ async function validateInstalledPackage(
       trackedRepositoryIntrusion: false,
     },
     representativeFlow: {
-      requiredFiles: business.requiredFiles,
-      requiredSymbols: business.requiredSymbols,
-      businessKinds: business.businessKinds,
-      relationTypes: business.relationTypes,
-      unresolvedBoundaries: business.boundaryCount,
-      sourceEvidenceCount: business.sourceEvidenceCount,
-      repeatedTaskReusedBusinessNodes: initialView.neighbors.filter(({ node }) => (
+      requiredFiles: [...new Set(Object.values(structure.nodes).flatMap((node) => (
+        node.locations.map((item) => item.file)
+      )))].sort(),
+      requiredSymbols: Object.entries(structure.nodes).map(([key, node]) => ({
+        key,
+        file: node.locations[0]!.file,
+        label: node.label,
+        id: node.id,
+      })),
+      structuralMisses: structure.quality.structuralMisses,
+      pinnedFalseLinks: seeded.structuralQuality.falseLinks,
+      falseLinks: structure.quality.falseLinks,
+      observedRelations: structure.quality.observedRelations,
+      businessKinds: seeded.business.businessKinds,
+      relationTypes: seeded.business.relationTypes,
+      unresolvedBoundaries: seeded.business.boundaryCount,
+      sourceEvidenceCount: seeded.business.sourceEvidenceCount,
+      repeatedTaskReusedBusinessNodes: upgradedView.neighbors.filter(({ node }) => (
         node.domain === "business"
       )).length,
     },
     measurements: {
       indexMilliseconds: {
-        initial: rounded(initialIndex.durationMs),
+        initial: rounded(seeded.initialIndex.durationMs),
         unchanged: rounded(unchangedIndex.durationMs),
         recovered: rounded(recoveredIndex.durationMs),
       },
@@ -303,32 +531,16 @@ async function validateInstalledPackage(
 async function deriveAndLearnRepresentativeFlow(
   api: typeof import("../src/index.js"),
   repository: import("../src/repository/types.js").GitRepository,
-) {
-  const query = new api.WorldGraphQuery(repository);
-  let probes: readonly StructuralGraphNode[];
-  try {
-    probes = await Promise.all([
-      { query: "MUTATION createOrder", file: "src/orders.resolver.ts", label: "MUTATION createOrder" },
-      { query: "POST orders", file: "src/orders.controller.ts", label: "POST /orders" },
-      { query: "createOrder", file: "src/orders.service.ts", label: "createOrder" },
-      { query: "Order", file: "src/order.entity.ts", label: "Order" },
-      { query: "publishCreated", file: "src/orders.service.ts", label: "publishCreated" },
-      { query: "handleCreated", file: "src/orders.processor.ts", label: "handleCreated" },
-      { query: "assertValid", file: "src/orders.service.ts", label: "assertValid" },
-      { query: "createsOrder", file: "tests/orders.service.spec.ts", label: "createsOrder" },
-    ].map((probe) => findStructuralNode(query, probe)));
-  } finally {
-    query.close();
-  }
-  const [graphqlRoute, httpRoute, service, entity, producer, consumer, invariant, test] = probes;
-  assert.ok(graphqlRoute && httpRoute && service && entity && producer && consumer && invariant && test);
+  probes: StructuralProbeNodes,
+): Promise<RepresentativeBusinessFlow> {
+  const { graphqlRoute, httpRoute, service, entity, producer, consumer, invariant, test } = probes;
   const reference = (node: StructuralGraphNode) => ({ id: node.id });
   const derived = await new api.BusinessFlowDerivationService(repository).derive({
     capability: {
       key: "commerce/orders",
       label: "Orders",
       summary: "Creates, validates, persists, publishes, and verifies customer orders.",
-      roots: probes.map(reference),
+      roots: Object.values(probes).map(reference),
     },
     messageFlows: [{
       channel: "orders.created",
@@ -375,36 +587,132 @@ async function deriveAndLearnRepresentativeFlow(
     graph.close();
   }
   return {
-    requiredFiles: [...new Set(probes.flatMap((node) => node.locations.map((item) => item.file)))].sort(),
-    requiredSymbols: probes.map((node) => ({
-      file: node.locations[0]!.file,
-      label: node.label,
-      id: node.id,
-    })),
     businessKinds,
     relationTypes,
     boundaryCount: derived.boundaries.length,
     sourceEvidenceCount: nodes.reduce((total, node) => total + node.evidence.length, 0),
-    normalizedSupport: probes.every((node) => (
-      ["exact", "inferred", "unresolved", "unsupported"].includes(node.support.status)
-      && ["tree-sitter", "scip", "heuristic", "backend"].includes(node.support.provenance)
-    )),
   };
+}
+
+async function inspectRepresentativeStructure(
+  api: typeof import("../src/index.js"),
+  repository: import("../src/repository/types.js").GitRepository,
+): Promise<{ readonly nodes: StructuralProbeNodes; readonly quality: StructuralQualityReport }> {
+  const query = new api.WorldGraphQuery(repository);
+  try {
+    const probeEntries = Object.entries(structuralProbes) as [StructuralProbeKey, StructuralProbe][];
+    const discovered: Partial<Record<StructuralProbeKey, StructuralGraphNode>> = {};
+    const nodeMisses: StructuralMiss[] = [];
+    for (const [key, probe] of probeEntries) {
+      const node = await findStructuralNode(query, probe);
+      if (node === undefined) {
+        nodeMisses.push({ kind: "node", key, file: probe.file, label: probe.label });
+      } else {
+        discovered[key] = node;
+      }
+    }
+    assert.equal(nodeMisses.length, 0, `Structural node misses: ${JSON.stringify(nodeMisses)}`);
+    const nodes = discovered as StructuralProbeNodes;
+    const keysById = new Map(Object.entries(nodes).map(([key, node]) => (
+      [node.id, key as StructuralProbeKey] as const
+    )));
+    const observedByIdentity = new Map<string, StructuralQualityFinding>();
+    for (const [from, node] of Object.entries(nodes) as [StructuralProbeKey, StructuralGraphNode][]) {
+      const traversal = await query.traverse(
+        { domain: "structural", id: node.id },
+        { maxDepth: 1, direction: "outgoing" },
+      );
+      for (const neighbor of traversal.neighbors) {
+        if (neighbor.relation.domain !== "structural" || neighbor.relation.from.id !== node.id) {
+          continue;
+        }
+        const to = keysById.get(neighbor.relation.to.id);
+        if (to === undefined) {
+          continue;
+        }
+        const finding: StructuralQualityFinding = {
+          from,
+          type: neighbor.relation.type,
+          to,
+          fromId: node.id,
+          toId: neighbor.relation.to.id,
+          support: neighbor.relation.support,
+        };
+        observedByIdentity.set(relationExpectationIdentity(finding), finding);
+      }
+    }
+    const relationMisses = requiredStructuralRelations.flatMap((expectation) => {
+      const endpoint = structuralRelationEndpoint(expectation, nodes);
+      const observed = observedByIdentity.get(relationExpectationIdentity(endpoint));
+      return observed?.support.status === "exact"
+        ? []
+        : [{ kind: "relation" as const, ...endpoint }];
+    });
+    const allowedExactCalls = new Set(allowedExactCallRelations.map(relationExpectationIdentity));
+    const falseLinks = [...observedByIdentity.values()].filter((observed) => (
+      observed.type === "calls"
+      && observed.support.status === "exact"
+      && !allowedExactCalls.has(relationExpectationIdentity(observed))
+    ));
+    const structuralMisses = [...nodeMisses, ...relationMisses];
+    const quality = {
+      structuralMisses: { count: structuralMisses.length, details: structuralMisses },
+      falseLinks: { count: falseLinks.length, details: falseLinks },
+      observedRelations: [...observedByIdentity.values()].sort(compareStructuralFindings),
+    } satisfies StructuralQualityReport;
+    assert.equal(quality.structuralMisses.count, 0,
+      `Structural misses: ${JSON.stringify(quality.structuralMisses.details)}`);
+    return { nodes, quality };
+  } finally {
+    query.close();
+  }
 }
 
 async function findStructuralNode(
   query: import("../src/world/world-graph-query.js").WorldGraphQuery,
   probe: StructuralProbe,
-): Promise<StructuralGraphNode> {
+): Promise<StructuralGraphNode | undefined> {
   const results = await query.search(probe.query, { limit: 50 });
-  const match = results.map((result) => result.node).find((node): node is StructuralGraphNode => (
+  return results.map((result) => result.node).find((node): node is StructuralGraphNode => (
     node.domain === "structural"
     && node.kind !== "UnknownBoundary"
     && node.label === probe.label
     && node.locations.some((location) => location.file === probe.file)
   ));
-  assert.ok(match, `Missing ${probe.file}#${probe.label} for query ${probe.query}`);
-  return match;
+}
+
+function structuralRelationEndpoint(
+  expectation: StructuralRelationExpectation,
+  nodes: StructuralProbeNodes,
+): StructuralRelationEndpoint {
+  return {
+    ...expectation,
+    fromId: nodes[expectation.from].id,
+    toId: nodes[expectation.to].id,
+  };
+}
+
+function relationExpectationIdentity(expectation: StructuralRelationExpectation): string {
+  return `${expectation.from}\u0000${expectation.type}\u0000${expectation.to}`;
+}
+
+function compareStructuralFindings(
+  left: StructuralQualityFinding,
+  right: StructuralQualityFinding,
+): number {
+  return relationExpectationIdentity(left).localeCompare(relationExpectationIdentity(right));
+}
+
+function assertStructuralQualityNotRegressed(
+  pinned: StructuralQualityReport,
+  candidate: StructuralQualityReport,
+): void {
+  const pinnedFalseLinks = new Set(pinned.falseLinks.details.map(relationExpectationIdentity));
+  const addedFalseLinks = candidate.falseLinks.details.filter((finding) => (
+    !pinnedFalseLinks.has(relationExpectationIdentity(finding))
+  ));
+  assert.deepEqual(addedFalseLinks, [],
+    `Candidate introduced false exact links: ${JSON.stringify(addedFalseLinks)}`);
 }
 
 async function showCapability(
@@ -454,6 +762,95 @@ async function measureQueries(
     samples: durations.map(rounded),
     median: rounded(sorted[Math.floor(sorted.length / 2)]!),
   };
+}
+
+function capturePersistedAtlasState(databasePath: string): PersistedAtlasState {
+  using database = new DatabaseSync(databasePath, { readOnly: true });
+  const worldStates = databaseRows(database, `
+    SELECT status, current_snapshot_id, current_publication_id
+    FROM atlas_world_state
+    ORDER BY repository_id
+  `);
+  assert.equal(worldStates.length, 1, "Expected one Atlas world state");
+  return {
+    businessNodes: databaseRows(database, `
+      SELECT node_key, kind, label, certainty
+      FROM atlas_business_nodes
+      ORDER BY node_key
+    `),
+    evidence: databaseRows(database, `
+      SELECT
+        'node' AS owner_kind,
+        node.node_key AS owner_key,
+        evidence.position,
+        evidence.file,
+        evidence.qualified_symbol,
+        evidence.content_hash
+      FROM atlas_business_node_evidence AS evidence
+      JOIN atlas_business_nodes AS node ON node.node_id = evidence.node_id
+      UNION ALL
+      SELECT
+        'relation' AS owner_kind,
+        relation.from_key || ':' || relation.relation_type || ':' ||
+          relation.to_domain || ':' || relation.to_key AS owner_key,
+        evidence.position,
+        evidence.file,
+        evidence.qualified_symbol,
+        evidence.content_hash
+      FROM atlas_business_relation_evidence AS evidence
+      JOIN atlas_business_relations AS relation ON relation.relation_id = evidence.relation_id
+      ORDER BY owner_kind, owner_key, position
+    `),
+    publications: databaseRows(database, `
+      SELECT
+        publication_id,
+        previous_publication_id,
+        snapshot_id,
+        added_paths,
+        modified_paths,
+        removed_paths,
+        stale_assertions
+      FROM atlas_world_publications
+      ORDER BY publication_id
+    `),
+    worldState: worldStates[0]!,
+    atlasSchema: databaseRows(database, `
+      SELECT type, name, sql
+      FROM sqlite_master
+      WHERE name LIKE 'atlas_%'
+      ORDER BY type, name
+    `),
+    foreignKeyViolations: databaseRows(database, "PRAGMA foreign_key_check"),
+  };
+}
+
+function assertPersistedAtlasStatePreserved(
+  seeded: PersistedAtlasState,
+  candidate: PersistedAtlasState,
+  phase: string,
+): void {
+  assert.deepEqual(candidate.businessNodes, seeded.businessNodes,
+    `${phase} changed Atlas business keys`);
+  assert.deepEqual(candidate.evidence, seeded.evidence,
+    `${phase} changed durable Atlas evidence`);
+  assert.deepEqual(candidate.atlasSchema, seeded.atlasSchema,
+    `${phase} changed Atlas-owned schema`);
+  assert.deepEqual(candidate.publications.slice(0, seeded.publications.length), seeded.publications,
+    `${phase} changed pre-upgrade publications`);
+  assert.equal(candidate.worldState.status, "current", `${phase} did not publish a current world`);
+  assert.equal(
+    candidate.worldState.current_snapshot_id,
+    seeded.worldState.current_snapshot_id,
+    `${phase} changed the unchanged repository snapshot`,
+  );
+  assert.ok(candidate.publications.some(({ publication_id: publicationId }) => (
+    publicationId === seeded.worldState.current_publication_id
+  )), `${phase} removed the pre-upgrade current publication`);
+  assert.deepEqual(candidate.foreignKeyViolations, [], `${phase} introduced foreign-key violations`);
+}
+
+function databaseRows(database: DatabaseSync, sql: string): readonly PersistedRow[] {
+  return database.prepare(sql).all() as unknown as readonly PersistedRow[];
 }
 
 function createReconciliationFailure(databasePath: string): void {
