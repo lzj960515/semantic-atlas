@@ -50,7 +50,9 @@ describe("unified world graph queries", () => {
     const query = createQuery(context);
 
     const children = await query.children({ domain: "business", key: "fixture" });
-    expect(children.map((node) => node.kind)).toEqual(["Operation"]);
+    expect(children?.map((node) => node.kind)).toEqual(["Operation"]);
+    await expect(query.children({ domain: "business", key: "missing" }))
+      .resolves.toBeUndefined();
 
     const business = await query.show(
       { domain: "business", key: "fixture/checkout" },
@@ -584,6 +586,7 @@ function buildResult() {
       relations: 3,
     },
     changes: { added: [], modified: [], removed: [] },
+    factChanges: { added: 0, changed: 0, reused: 8, removed: 0 },
     boundaries: [],
   };
 }

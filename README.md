@@ -23,14 +23,30 @@ The project is under active development toward v0.1. The first release focuses o
 
 The runtime foundation now embeds CodeGraph behind an Atlas adapter and stores snapshots and business knowledge in namespaced `atlas_*` objects in the same worktree-local database. Structural and business results are composed through APIs rather than copied into a second structural schema.
 
+## CLI
+
+The package installs the `semantic-atlas` executable. Commands discover the target Git worktree from the current directory or `--repo <path>` and write one versioned JSON envelope to standard output.
+
+```sh
+semantic-atlas status
+semantic-atlas index --repo /workspace/project
+semantic-atlas map roots --pretty
+semantic-atlas map search checkout --limit 10
+semantic-atlas map show commerce/orders --depth 2
+semantic-atlas learn --stdin < graph-patch.json
+semantic-atlas changes
+```
+
+The CLI performs deterministic lexical and graph operations. The calling agent interprets natural language, inspects source when evidence is insufficient, and submits verified knowledge through GraphPatch v1.
+
 ## Business Flow Derivation
 
 `BusinessFlowDerivationService` turns a current, normalized structural graph into
 a deterministic GraphPatch draft for a caller-supplied capability with explicit
-structural ownership roots. Its built-in
-strategies recognize representative NestJS HTTP endpoints, GraphQL operations,
-TypeORM entities and provable repository reads/writes, BullMQ producer/consumer
-flows, agent-verified invariants, and agent-verified test declarations. Framework convention is
+structural ownership roots. Its built-in strategies recognize representative
+NestJS HTTP endpoints, GraphQL operations, TypeORM entities and provable
+repository reads/writes, BullMQ producer/consumer flows, agent-verified
+invariants, and agent-verified test declarations. Framework convention is
 reported as `inferred`; dynamic channels, reflection, indirect dispatch, and
 unclassifiable data access return source-fallback boundaries instead of exact
 business claims. The calling agent reviews the draft and submits it through the

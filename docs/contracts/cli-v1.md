@@ -75,6 +75,12 @@ The schema requires these fields while allowing additive fields inside command d
 | `learn` | `baseSnapshotId`, `snapshotId`, applied operation counts |
 | `changes` | source and target snapshot IDs, node/relation change sets, stale assertions |
 
+`index.facts` uses one structural-fact unit across every publication: one backend node or
+relation is one fact. `added`, `changed`, and `reused` partition the facts in the newly
+published graph; `removed` counts facts present only in the previous publication. A fact
+is changed when its stable node identity or relation endpoints remain while its structural
+content, location, or support changes.
+
 Map node and relation objects preserve their evidence lifecycle. When evidence cannot uniquely rebind after indexing, a business node can remain addressable by key while its `summary` is returned with `validity: "stale"`; callers therefore cannot confuse vocabulary identity with a current fact.
 
 Change ranges follow the current publication history and fold the requested endpoints into one content comparison. When a content-addressed snapshot was published more than once, `--to` selects its latest occurrence in that history and `--from` selects the latest matching occurrence at or before the target; equal IDs compare the selected occurrence with itself. Paths that have the same presence and content at both endpoints are omitted even if they changed in between, while `staleAssertions` reports the selected target occurrence's final validity state. An unknown target has no change result.

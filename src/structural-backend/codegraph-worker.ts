@@ -28,6 +28,7 @@ async function executeRequest(
     case "inspect": return backend.inspect();
     case "build": return backend.build();
     case "sync": return backend.sync();
+    case "listUnknownBoundaries": return backend.listUnknownBoundaries();
     case "listRoots": return backend.listRoots();
     case "readProjectGraph": return backend.readProjectGraph(request.input);
     case "search": return backend.search(request.input);

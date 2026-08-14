@@ -27,6 +27,10 @@ import {
   runCodeGraphWorker,
 } from "./codegraph-worker-client.js";
 import { StructuralPublication } from "./structural-publication.js";
+import {
+  captureStructuralFacts,
+  compareStructuralFacts,
+} from "./structural-fact-changes.js";
 import { StructuralWriteLock } from "./structural-write-lock.js";
 import {
   STRUCTURAL_BACKEND_VERSION,
@@ -35,6 +39,7 @@ import {
   type StructuralBuildResult,
   type StructuralCallRelation,
   type StructuralDiagnostic,
+  type StructuralFactChanges,
   type StructuralFileChanges,
   type StructuralFileDependency,
   type StructuralIndexBackend,
@@ -151,6 +156,18 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
     } catch (error) {
       return this.failedBuildResult("incremental", error);
     }
+  }
+
+  async listUnknownBoundaries(): Promise<readonly StructuralUnknownBoundary[]> {
+    if (requiresBundledCodeGraphRuntime()) {
+      return runCodeGraphWorker({
+        operation: "listUnknownBoundaries",
+        repository: this.#repository,
+      });
+    }
+    return this.withCurrentGraph((graph, queries) => (
+      normalizeUnresolvedReferences(graph, queries)
+    ));
   }
 
   async publishWorld(
@@ -430,6 +447,7 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
       }
       useHeldCodeGraphWriteLock(graph);
 
+      const previousFacts = captureStructuralFacts(graph);
       const buildResult = mode === "incremental"
         ? await this.synchronizeGraph(sdk, graph)
         : await this.rebuildGraph(sdk, graph, mode);
@@ -440,8 +458,12 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
         await this.persistWorldFailure(sdk, initialized, worldHooks, restored.diagnostics[0]?.message);
         return restored;
       }
+      const publishedResult = {
+        ...buildResult,
+        factChanges: compareStructuralFacts(previousFacts, captureStructuralFacts(graph)),
+      };
       await worldHooks?.publish(
-        buildResult,
+        publishedResult,
         structuralEvidenceResolver(graph),
         graph.getFiles().map((file) => ({
           path: normalizeRepositoryPath(file.path),
@@ -449,7 +471,7 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
         })),
       );
       await publication.commit();
-      return buildResult;
+      return publishedResult;
     } catch (error) {
       const failedResult = this.failedBuildResult(mode, error);
       if (publication !== undefined) {
@@ -585,6 +607,7 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
         relations: graph.getStats().edgeCount,
       },
       changes: emptyChanges(),
+      factChanges: emptyFactChanges(),
       boundaries,
     };
   }
@@ -612,6 +635,7 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
         relations: stats.edgeCount,
       },
       changes,
+      factChanges: emptyFactChanges(),
       boundaries,
     };
   }
@@ -634,6 +658,7 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
         relations: stats.edgeCount,
       },
       changes,
+      factChanges: emptyFactChanges(),
       boundaries: [],
     };
   }
@@ -649,6 +674,7 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
       mode,
       counts: emptyCounts(),
       changes: emptyChanges(),
+      factChanges: emptyFactChanges(),
       boundaries: [],
     };
   }
@@ -662,6 +688,7 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
       mode,
       counts: emptyCounts(),
       changes: emptyChanges(),
+      factChanges: emptyFactChanges(),
       boundaries: [],
     };
   }
@@ -1368,6 +1395,10 @@ function emptyCounts(): StructuralBuildCounts {
 
 function emptyChanges(): StructuralFileChanges {
   return { added: [], modified: [], removed: [] };
+}
+
+function emptyFactChanges(): StructuralFactChanges {
+  return { added: 0, changed: 0, reused: 0, removed: 0 };
 }
 
 function failureDiagnostic(error: unknown): StructuralDiagnostic {

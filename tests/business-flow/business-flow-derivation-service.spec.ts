@@ -1292,6 +1292,9 @@ async function expectCapabilityNavigation(
     .map((node) => node.key)
     .sort();
   const children = await query.children(capability);
+  if (children === undefined) {
+    throw new Error("Expected the learned capability to remain queryable");
+  }
   expect(children.flatMap((node) => (
     node.domain === "business" ? [node.key] : []
   )).sort()).toEqual(expectedChildren);

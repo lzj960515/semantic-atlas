@@ -2,6 +2,11 @@ import type { GitRepository } from "../repository/types.js";
 import type { RepositorySnapshot } from "../snapshots/types.js";
 import { AtlasDatabase } from "./atlas-database.js";
 
+export interface StoredRepositorySnapshot {
+  readonly snapshot: RepositorySnapshot;
+  readonly createdAt: string;
+}
+
 export class SnapshotStore implements Disposable {
   readonly databasePath: string;
   readonly #atlasDatabase: AtlasDatabase;
@@ -44,24 +49,44 @@ export class SnapshotStore implements Disposable {
   }
 
   find(snapshotId: string): RepositorySnapshot | undefined {
+    return this.findStored(snapshotId)?.snapshot;
+  }
+
+  findStored(snapshotId: string): StoredRepositorySnapshot | undefined {
     const row = this.#atlasDatabase.connection.prepare(`
-      SELECT payload
+      SELECT payload, created_at
       FROM atlas_repository_snapshots
       WHERE repository_id = ? AND snapshot_id = ?
-    `).get(this.#repositoryId, snapshotId) as { payload: string } | undefined;
-    return row === undefined ? undefined : JSON.parse(row.payload) as RepositorySnapshot;
+    `).get(this.#repositoryId, snapshotId) as {
+      payload: string;
+      created_at: string;
+    } | undefined;
+    return row === undefined ? undefined : {
+      snapshot: JSON.parse(row.payload) as RepositorySnapshot,
+      createdAt: row.created_at,
+    };
   }
 
   latest(): RepositorySnapshot | undefined {
+    return this.latestStored()?.snapshot;
+  }
+
+  latestStored(): StoredRepositorySnapshot | undefined {
     const row = this.#atlasDatabase.connection.prepare(`
-      SELECT snapshot.payload
+      SELECT snapshot.payload, snapshot.created_at
       FROM atlas_repositories AS repository
       JOIN atlas_repository_snapshots AS snapshot
         ON snapshot.repository_id = repository.repository_id
         AND snapshot.snapshot_id = repository.latest_snapshot_id
       WHERE repository.repository_id = ?
-    `).get(this.#repositoryId) as { payload: string } | undefined;
-    return row === undefined ? undefined : JSON.parse(row.payload) as RepositorySnapshot;
+    `).get(this.#repositoryId) as {
+      payload: string;
+      created_at: string;
+    } | undefined;
+    return row === undefined ? undefined : {
+      snapshot: JSON.parse(row.payload) as RepositorySnapshot,
+      createdAt: row.created_at,
+    };
   }
 
   close(): void {

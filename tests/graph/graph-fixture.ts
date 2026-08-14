@@ -128,6 +128,7 @@ function createStructuralBackendFixture(
       relations: 0,
     },
     changes: { added: [], modified: [], removed: [] },
+    factChanges: { added: 0, changed: 0, reused: 0, removed: 0 },
     boundaries: [],
   };
   const candidatesFor = (locator: EvidenceLocator): StructuralNode[] => [

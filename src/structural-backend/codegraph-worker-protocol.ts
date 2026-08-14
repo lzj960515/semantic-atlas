@@ -11,6 +11,7 @@ export type CodeGraphWorkerRequest =
   | WorkerRequest<"inspect">
   | WorkerRequest<"build">
   | WorkerRequest<"sync">
+  | WorkerRequest<"listUnknownBoundaries">
   | WorkerRequest<"listRoots">
   | WorkerRequest<"readProjectGraph", StructuralProjectGraphQuery>
   | WorkerRequest<"search", StructuralSearchQuery>

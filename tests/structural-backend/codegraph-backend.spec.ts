@@ -81,6 +81,7 @@ describe("CodeGraph structural backend", () => {
         expect.objectContaining({ target: "beforeEach" }),
         expect.objectContaining({ target: "test" }),
       ]));
+      await expect(backend.listUnknownBoundaries()).resolves.toEqual(result.boundaries);
       expect(await readFile(join(fixture.directory, ".atlas", ".gitignore"), "utf8"))
         .toBe("*\n");
       await expectStructuralPublicationStateCleaned(result.databasePath);
@@ -227,7 +228,7 @@ describe("CodeGraph structural backend", () => {
     expect(process.env.CODEGRAPH_DIR).toBe(originalDirectory);
   });
 
-  it("publishes no destructive, watcher, CLI, MCP, or backend-specific capability", async () => {
+  it("publishes only the Atlas CLI and no destructive, watcher, MCP, or backend capability", async () => {
     const { backend } = await createStructuralFixture(fixtures);
     for (const forbidden of ["recreate", "uninitialize", "clear", "watch", "unwatch", "MCPServer", "cli"]) {
       expect(forbidden in (backend as unknown as object)).toBe(false);
@@ -240,7 +241,7 @@ describe("CodeGraph structural backend", () => {
       readonly types?: string;
       readonly exports?: Record<string, unknown>;
       readonly files?: readonly string[];
-      readonly bin?: unknown;
+      readonly bin?: Record<string, string>;
     };
     expect(packageDocument.dependencies["@colbymchenry/codegraph"]).toBe("1.5.0");
     expect(packageDocument.engines.node).toBe(">=22.12.0 <25");
@@ -248,7 +249,9 @@ describe("CodeGraph structural backend", () => {
     expect(packageDocument.types).toBe("./dist/index.d.ts");
     expect(packageDocument.exports).toHaveProperty(".");
     expect(packageDocument.files).toContain("dist");
-    expect(packageDocument.bin).toBeUndefined();
+    expect(packageDocument.bin).toEqual({
+      "semantic-atlas": "./dist/cli/bin.js",
+    });
     for (const backendExport of [
       "CodeGraphStructuralBackend",
       "CodeGraph",
