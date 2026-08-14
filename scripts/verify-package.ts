@@ -15,13 +15,19 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { cliEnvelopeSchema, type CliEnvelope } from "../src/contracts/cli.js";
+import {
+  resolvePackageManagerInvocation,
+  type PackageManager,
+} from "./package-manager-command.js";
 
 const executeFile = promisify(execFile);
 const projectRoot = resolve(import.meta.dirname, "..");
 const packageManager = selectedPackageManager();
-const packageManagerExecutable = process.platform === "win32"
-  ? `${packageManager}.cmd`
-  : packageManager;
+const packageManagerRuntime = {
+  platform: process.platform,
+  nodeExecutable: process.execPath,
+  packageManagerEntry: process.env.npm_execpath,
+} as const;
 const temporaryRoot = await mkdtemp(join(tmpdir(), "semantic-atlas-package-"));
 
 try {
@@ -59,8 +65,6 @@ interface CliResult {
   readonly stderr: string;
   readonly envelope: CliEnvelope;
 }
-
-type PackageManager = "npm" | "pnpm";
 
 function selectedPackageManager(): PackageManager {
   const configured = process.env.SEMANTIC_ATLAS_PACKAGE_MANAGER ?? "pnpm";
@@ -318,7 +322,12 @@ async function runPackageManager(
   cwd: string,
   timeout: number,
 ) {
-  return executeFile(packageManagerExecutable, arguments_, {
+  const invocation = resolvePackageManagerInvocation(
+    packageManager,
+    arguments_,
+    packageManagerRuntime,
+  );
+  return executeFile(invocation.executable, invocation.arguments, {
     cwd,
     encoding: "utf8",
     maxBuffer: 50 * 1024 * 1024,

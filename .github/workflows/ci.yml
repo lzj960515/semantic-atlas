@@ -43,6 +43,7 @@ jobs:
           tests/contracts/public-contracts.spec.ts
           tests/evaluation/contracts.spec.ts
           tests/repository/repository-inspector.spec.ts
+          tests/scripts/package-manager-command.spec.ts
           tests/skill/semantic-atlas-skill.spec.ts
           tests/snapshots/repository-snapshot.spec.ts
       - name: Run installed-package tests and verification
