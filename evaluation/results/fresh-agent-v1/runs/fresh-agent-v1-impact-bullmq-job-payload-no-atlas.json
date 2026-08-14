@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-impact-bullmq-job-payload-no-atlas",
+  "caseId": "impact-bullmq-job-payload",
+  "mode": "no-atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "366f9f503c351bb3026e0a9ef9a6e24d841410b1bd64d51d5d1773df267944aa",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:36:15.768Z",
+  "finishedAt": "2026-08-14T05:37:42.298Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/notifications/email.processor.ts",
+        "sourceTokens": 54
+      },
+      {
+        "sequence": 2,
+        "file": "src/notifications/email.producer.ts",
+        "sourceTokens": 85
+      },
+      {
+        "sequence": 3,
+        "file": "src/notifications/jobs/email.job.ts",
+        "sourceTokens": 28
+      },
+      {
+        "sequence": 4,
+        "file": "src/notifications/mail-delivery.service.ts",
+        "sourceTokens": 62
+      },
+      {
+        "sequence": 5,
+        "file": "src/notifications/jobs/email.job.ts",
+        "sourceTokens": 59
+      },
+      {
+        "sequence": 6,
+        "file": "src/notifications/email.producer.ts",
+        "sourceTokens": 141
+      },
+      {
+        "sequence": 7,
+        "file": "src/notifications/email.processor.ts",
+        "sourceTokens": 149
+      },
+      {
+        "sequence": 8,
+        "file": "src/notifications/mail-delivery.service.ts",
+        "sourceTokens": 95
+      },
+      {
+        "sequence": 9,
+        "file": "test/notifications/email.processor.test.ts",
+        "sourceTokens": 216
+      },
+      {
+        "sequence": 10,
+        "file": "src/notifications/email.producer.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 11,
+        "file": "src/exports/export.producer.ts",
+        "sourceTokens": 30
+      },
+      {
+        "sequence": 12,
+        "file": "src/exports/export.resolver.ts",
+        "sourceTokens": 39
+      },
+      {
+        "sequence": 13,
+        "file": "src/notifications/email.producer.ts",
+        "sourceTokens": 31
+      },
+      {
+        "sequence": 14,
+        "file": "src/notifications/jobs/email.job.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 15,
+        "file": "src/notifications/mail-delivery.service.ts",
+        "sourceTokens": 34
+      },
+      {
+        "sequence": 16,
+        "file": "test/notifications/email.processor.test.ts",
+        "sourceTokens": 30
+      },
+      {
+        "sequence": 17,
+        "file": "src/notifications/jobs/email.job.ts",
+        "sourceTokens": 35
+      },
+      {
+        "sequence": 18,
+        "file": "test/notifications/email.processor.test.ts",
+        "sourceTokens": 30
+      },
+      {
+        "sequence": 19,
+        "file": "src/notifications/jobs/email.job.ts",
+        "sourceTokens": 35
+      },
+      {
+        "sequence": 20,
+        "file": "src/notifications/email.producer.ts",
+        "sourceTokens": 34
+      },
+      {
+        "sequence": 21,
+        "file": "test/notifications/email.processor.test.ts",
+        "sourceTokens": 37
+      },
+      {
+        "sequence": 22,
+        "file": "src/notifications/email.processor.ts",
+        "sourceTokens": 54
+      },
+      {
+        "sequence": 23,
+        "file": "src/notifications/mail-delivery.service.ts",
+        "sourceTokens": 30
+      },
+      {
+        "sequence": 24,
+        "file": "src/notifications/email.processor.ts",
+        "sourceTokens": 28
+      },
+      {
+        "sequence": 25,
+        "file": "test/notifications/email.processor.test.ts",
+        "sourceTokens": 76
+      }
+    ],
+    "atlasCalls": [],
+    "atlasHandling": []
+  },
+  "answer": {
+    "response": "Impact map:\n\n- Payload contract — `src/notifications/jobs/email.job.ts`: `SendEmailJob` currently contains `recipient`, `template`, and `variables`; `locale` belongs here. The repository does not establish locale’s type or requiredness, though a required `locale: string` would match the existing contract style.\n- Producer — `src/notifications/email.producer.ts`: `EmailProducer.enqueue(payload: SendEmailJob)` adds the payload unchanged to the `email` queue as `send-email`. Its `Queue<SendEmailJob>` typing automatically adopts the new field. No upstream `EmailProducer` call sites or email payload constructors exist in this fixture.\n- Consumer — `src/notifications/email.processor.ts`: `EmailProcessor.process(job: Job<SendEmailJob>)` forwards `job.data` unchanged, so locale will reach delivery without processor transformation. `src/notifications/mail-delivery.service.ts`: `MailDeliveryService.send(message: SendEmailJob)` is the terminal consumer; it currently uses only `template` and `recipient`. It must change only if locale should alter delivery behavior—the repository does not define those semantics.\n- Tests — `test/notifications/email.processor.test.ts`: the sole email-flow test builds an inline payload without locale and verifies that the complete `job.data` object reaches `delivery.send`. Its fixture should include locale to cover propagation. Because the job is cast to `never`, the existing test may continue compiling and passing even after locale becomes required, so it does not currently enforce the payload contract. There are no producer or delivery-service tests in the fixture.",
+    "reportedFiles": [
+      "src/notifications/jobs/email.job.ts",
+      "src/notifications/email.producer.ts",
+      "src/notifications/email.processor.ts",
+      "src/notifications/mail-delivery.service.ts",
+      "test/notifications/email.processor.test.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/notifications/jobs/email.job.ts",
+        "name": "SendEmailJob"
+      },
+      {
+        "file": "src/notifications/email.producer.ts",
+        "name": "EmailProducer.enqueue"
+      },
+      {
+        "file": "src/notifications/email.processor.ts",
+        "name": "EmailProcessor.process"
+      },
+      {
+        "file": "src/notifications/mail-delivery.service.ts",
+        "name": "MailDeliveryService.send"
+      },
+      {
+        "file": "test/notifications/email.processor.test.ts",
+        "name": "describe(\"EmailProcessor\") > it(\"delivers the send-email job payload\")"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Covers the SendEmailJob contract, EmailProducer.enqueue, EmailProcessor.process, and the processor test, with useful downstream delivery context.",
+    "failureClassifications": []
+  }
+}

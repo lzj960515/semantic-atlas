@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-impact-nestjs-provider-contract-atlas",
+  "caseId": "impact-nestjs-provider-contract",
+  "mode": "atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "27c054619463ba6837155f2decf5b451ea45b4fbb5867d948601d6f6e6ca183d",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:31:42.076Z",
+  "finishedAt": "2026-08-14T05:34:59.582Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 34
+      },
+      {
+        "sequence": 2,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 32
+      },
+      {
+        "sequence": 3,
+        "file": "src/orders/orders.controller.ts",
+        "sourceTokens": 26
+      },
+      {
+        "sequence": 4,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 43
+      },
+      {
+        "sequence": 5,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 205
+      },
+      {
+        "sequence": 6,
+        "file": "src/orders/orders.controller.ts",
+        "sourceTokens": 115
+      },
+      {
+        "sequence": 7,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 148
+      },
+      {
+        "sequence": 8,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 209
+      },
+      {
+        "sequence": 9,
+        "file": "src/orders/orders.module.ts",
+        "sourceTokens": 154
+      },
+      {
+        "sequence": 10,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 50
+      },
+      {
+        "sequence": 11,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 23
+      },
+      {
+        "sequence": 12,
+        "file": "src/orders/orders.controller.ts",
+        "sourceTokens": 52
+      },
+      {
+        "sequence": 13,
+        "file": "src/orders/orders.module.ts",
+        "sourceTokens": 62
+      },
+      {
+        "sequence": 14,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 70
+      },
+      {
+        "sequence": 15,
+        "file": "src/orders/orders.module.ts",
+        "sourceTokens": 23
+      },
+      {
+        "sequence": 16,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 46
+      },
+      {
+        "sequence": 17,
+        "file": "src/orders/orders.controller.ts",
+        "sourceTokens": 54
+      }
+    ],
+    "atlasCalls": [
+      {
+        "sequence": 1,
+        "command": "semantic-atlas status"
+      },
+      {
+        "sequence": 2,
+        "command": "semantic-atlas map search OrderService --limit 20"
+      },
+      {
+        "sequence": 3,
+        "command": "semantic-atlas map show 'symbol:src%2Forders%2Forder.service.ts#65cc93a5c2c217104aa7364ede560d465a2b8759f261ac3941b559a4f66bfefe' --depth 3"
+      },
+      {
+        "sequence": 4,
+        "command": "semantic-atlas map search OrdersModule --limit 20"
+      },
+      {
+        "sequence": 5,
+        "command": "semantic-atlas map show 'symbol:src%2Forders%2Forders.module.ts#9690a447fccc343ca26d7a86e8163ac5d89620340e075fecbb56386369e97888' --depth 1"
+      }
+    ],
+    "atlasHandling": [
+      {
+        "sequence": 1,
+        "classification": "partial",
+        "action": "`map show` for `OrderService.placeOrder` returned a partial graph. Used the source observer to search every `placeOrder` occurrence and read the declaration, controller, resolver, and test."
+      },
+      {
+        "sequence": 2,
+        "classification": "unknown",
+        "action": "That graph contained unresolved NestJS/Vitest framework operations and could only attribute the test call to its file. The source observer resolved the exact controller, resolver, and test invocation sites."
+      },
+      {
+        "sequence": 3,
+        "classification": "partial",
+        "action": "`map show` for `OrdersModule` returned partial structural data. Read `src/orders/orders.module.ts` through the source observer to inspect the complete module metadata."
+      },
+      {
+        "sequence": 4,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the `@Module` decorator, provider/controller references, or `TypeOrmModule.forFeature`. The source observer confirmed the imports, controllers, providers, export, and repository registration; searches confirmed no other in-repository module or service consumers."
+      }
+    ]
+  },
+  "answer": {
+    "response": "Assuming “new argument” means a required `placeOrder` method parameter rather than a constructor-injected dependency, there are three direct in-repository callers:\n\n- `OrdersController.create` — `src/orders/orders.controller.ts:10-11`. The REST boundary must obtain and forward the new value. If it is added to `PlaceOrderInput`, the invocation can remain `placeOrder(input)`, but the HTTP body contract changes.\n- `OrderResolver.createOrder` — `src/orders/order.resolver.ts:10-14`. The GraphQL mutation needs a corresponding `@Args` value and must include/pass it.\n- The `OrderService` unit test — `test/orders/order.service.test.ts:6-14`. Its direct invocation must supply the new argument and should assert any resulting behavior.\n\nThe declaration and shared input contract are in `src/orders/order.service.ts:7-10,19-24`; these must reflect the new requirement.\n\nThe NestJS composition point is `OrdersModule` in `src/orders/orders.module.ts:9-15`. It registers `OrdersController`, `OrderService`, and `OrderResolver`, provisions the `Order` repository, and exports `OrderService`. A method argument alone does not require changing this module because Nest DI composes constructor dependencies, not method parameters. Likewise, the test’s manual `new OrderService(repository)` construction is unchanged. If the intended “argument” is actually a new injected service dependency, then `OrdersModule` would need the corresponding provider/import.\n\nNo other `placeOrder`, `OrderService`, or `OrdersModule` usages exist in this fixture. The export permits possible consumers outside the repository, but those cannot be identified here. No files were edited and no tests were run, per fixture instructions.",
+    "reportedFiles": [
+      "src/orders/order.service.ts",
+      "src/orders/orders.controller.ts",
+      "src/orders/order.resolver.ts",
+      "src/orders/orders.module.ts",
+      "test/orders/order.service.test.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/orders/order.service.ts",
+        "name": "PlaceOrderInput"
+      },
+      {
+        "file": "src/orders/order.service.ts",
+        "name": "OrderService.constructor"
+      },
+      {
+        "file": "src/orders/order.service.ts",
+        "name": "OrderService.placeOrder"
+      },
+      {
+        "file": "src/orders/orders.controller.ts",
+        "name": "OrdersController.constructor"
+      },
+      {
+        "file": "src/orders/orders.controller.ts",
+        "name": "OrdersController.create"
+      },
+      {
+        "file": "src/orders/order.resolver.ts",
+        "name": "OrderResolver.constructor"
+      },
+      {
+        "file": "src/orders/order.resolver.ts",
+        "name": "OrderResolver.createOrder"
+      },
+      {
+        "file": "src/orders/orders.module.ts",
+        "name": "OrdersModule"
+      },
+      {
+        "file": "test/orders/order.service.test.ts",
+        "name": "OrderService > persists a newly placed order"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Correctly enumerates the controller, resolver, test, service declaration, and OrdersModule composition point, while distinguishing method arguments from injected dependencies.",
+    "failureClassifications": []
+  }
+}

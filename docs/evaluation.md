@@ -35,6 +35,13 @@ For each case and mode:
 
 A run is invalid when it lacks exact source-token accounting, is not a fresh context, uses a different fixture revision, sees its oracle, or contains an Atlas call in `no-atlas` mode. Invalid runs are repeated rather than estimated.
 
+The published `fresh-agent-v1` run uses the repository-owned source observer and
+`tiktoken-o200k_base-v1`. Every observer invocation appends one JSONL record per
+returned file. The runner normalizes those atomically appended records to a
+strict event sequence, audits Codex command events for unobserved fixture source
+reads or writes, and rejects the run before adjudication when the audit fails.
+Host Skill instruction reads are not fixture source observations.
+
 ## Metrics
 
 - Required-file recall is the fraction of oracle files present in `answer.reportedFiles`.
@@ -47,6 +54,33 @@ A run is invalid when it lacks exact source-token accounting, is not a fresh con
 The comparative report shows per-case results and medians by mode. It also classifies failures such as missed dependency, incorrect answer, stale knowledge, unknown boundary mishandling, unsupported source, or protocol violation.
 
 The release passes this evaluation portion only when every Atlas-assisted case has no lower required-file recall, required-symbol recall, or answer correctness than its paired no-Atlas run; no stale, hypothesis, or unknown fact is represented as exact; and either median unique opened source files or median source input tokens falls by at least 30 percent.
+
+## Published result
+
+The measured `fresh-agent-v1` artifacts are in
+`evaluation/results/fresh-agent-v1/`. They contain 24 independently adjudicated
+runs over the frozen 12-case matrix. Both modes use Codex CLI 0.146.0 with
+`gpt-5.6-sol`, fresh ephemeral contexts, the same fixture commit and task input,
+and the same command policy. Atlas mode differs only by the availability of the
+Semantic Atlas Skill, CLI, and current worktree-local index.
+
+All 12 pairs retained 100 percent required-file recall, required-symbol recall,
+and answer correctness. Median unique opened source files fell from 6.5 to 4
+(38.46 percent), and median source tokens fell from 1,351 to 688 (49.07
+percent). Atlas runs recorded 62 routed partial, unknown, or related boundary
+events and no uncertainty-handling failure. The fixed gate passed without being
+changed after results were collected.
+
+Validate the published records with:
+
+```sh
+pnpm evaluation:results
+```
+
+`pnpm evaluation:run` rebuilds the deterministic fixture repositories, runs 24
+new ephemeral Codex contexts plus an independent adjudication context, and
+replaces the published run records and report. It requires a working local
+Codex login and incurs model usage.
 
 ## Planned case matrix
 

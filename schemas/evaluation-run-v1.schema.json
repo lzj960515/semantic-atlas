@@ -22,20 +22,23 @@
     "agent": {
       "$ref": "#/$defs/__schema5"
     },
-    "startedAt": {
+    "protocol": {
       "$ref": "#/$defs/__schema6"
     },
-    "finishedAt": {
-      "$ref": "#/$defs/__schema7"
-    },
-    "observations": {
+    "startedAt": {
       "$ref": "#/$defs/__schema8"
     },
-    "answer": {
+    "finishedAt": {
+      "$ref": "#/$defs/__schema9"
+    },
+    "observations": {
       "$ref": "#/$defs/__schema10"
     },
+    "answer": {
+      "$ref": "#/$defs/__schema13"
+    },
     "adjudication": {
-      "$ref": "#/$defs/__schema11"
+      "$ref": "#/$defs/__schema14"
     }
   },
   "required": [
@@ -45,6 +48,7 @@
     "mode",
     "fixtureRevision",
     "agent",
+    "protocol",
     "startedAt",
     "finishedAt",
     "observations",
@@ -100,16 +104,56 @@
       "additionalProperties": false
     },
     "__schema6": {
-      "type": "string",
-      "format": "date-time",
-      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+      "type": "object",
+      "properties": {
+        "runnerVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fixtureCommit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "instructionsHash": {
+          "$ref": "#/$defs/__schema7"
+        },
+        "toolPolicyHash": {
+          "$ref": "#/$defs/__schema7"
+        },
+        "oracleHidden": {
+          "type": "boolean",
+          "const": true
+        },
+        "commandAuditPassed": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "runnerVersion",
+        "fixtureCommit",
+        "instructionsHash",
+        "toolPolicyHash",
+        "oracleHidden",
+        "commandAuditPassed"
+      ],
+      "additionalProperties": false
     },
     "__schema7": {
       "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "__schema8": {
+      "type": "string",
       "format": "date-time",
       "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
     },
-    "__schema8": {
+    "__schema9": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+    },
+    "__schema10": {
       "type": "object",
       "properties": {
         "sourceTokenMethod": {
@@ -117,30 +161,10 @@
           "minLength": 1
         },
         "sourceOpens": {
+          "minItems": 1,
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "sequence": {
-                "type": "integer",
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991
-              },
-              "file": {
-                "$ref": "#/$defs/__schema9"
-              },
-              "sourceTokens": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
-              }
-            },
-            "required": [
-              "sequence",
-              "file",
-              "sourceTokens"
-            ],
-            "additionalProperties": false
+            "$ref": "#/$defs/__schema11"
           }
         },
         "atlasCalls": {
@@ -164,21 +188,80 @@
             ],
             "additionalProperties": false
           }
+        },
+        "atlasHandling": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "sequence": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "classification": {
+                "type": "string",
+                "enum": [
+                  "stale",
+                  "hypothesis",
+                  "unknown",
+                  "unsupported",
+                  "partial",
+                  "insufficient"
+                ]
+              },
+              "action": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "sequence",
+              "classification",
+              "action"
+            ],
+            "additionalProperties": false
+          }
         }
       },
       "required": [
         "sourceTokenMethod",
         "sourceOpens",
-        "atlasCalls"
+        "atlasCalls",
+        "atlasHandling"
       ],
       "additionalProperties": false
     },
-    "__schema9": {
+    "__schema11": {
+      "type": "object",
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "file": {
+          "$ref": "#/$defs/__schema12"
+        },
+        "sourceTokens": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "sequence",
+        "file",
+        "sourceTokens"
+      ],
+      "additionalProperties": false
+    },
+    "__schema12": {
       "type": "string",
       "minLength": 1,
       "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
     },
-    "__schema10": {
+    "__schema13": {
       "type": "object",
       "properties": {
         "response": {
@@ -188,7 +271,7 @@
         "reportedFiles": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/__schema9"
+            "$ref": "#/$defs/__schema12"
           }
         },
         "reportedSymbols": {
@@ -197,7 +280,7 @@
             "type": "object",
             "properties": {
               "file": {
-                "$ref": "#/$defs/__schema9"
+                "$ref": "#/$defs/__schema12"
               },
               "name": {
                 "type": "string",
@@ -219,7 +302,7 @@
       ],
       "additionalProperties": false
     },
-    "__schema11": {
+    "__schema14": {
       "type": "object",
       "properties": {
         "correct": {
@@ -228,11 +311,27 @@
         "notes": {
           "type": "string",
           "minLength": 1
+        },
+        "failureClassifications": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "missed-dependency",
+              "incorrect-answer",
+              "stale-knowledge",
+              "hypothesis-mishandled",
+              "unknown-boundary-mishandled",
+              "unsupported-source",
+              "protocol-violation"
+            ]
+          }
         }
       },
       "required": [
         "correct",
-        "notes"
+        "notes",
+        "failureClassifications"
       ],
       "additionalProperties": false
     }

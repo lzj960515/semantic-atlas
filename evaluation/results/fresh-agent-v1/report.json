@@ -1,0 +1,408 @@
+{
+  "schemaVersion": 1,
+  "evaluationId": "fresh-agent-v1",
+  "generatedAt": "2026-08-14T05:44:23.600Z",
+  "fixture": {
+    "repository": "framework-evaluation",
+    "revision": "fixture-v1",
+    "commit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d"
+  },
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol"
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "freshContextPerRun": true,
+    "oracleHiddenDuringRuns": true,
+    "independentAdjudication": true
+  },
+  "caseCount": 12,
+  "runCount": 24,
+  "comparison": {
+    "pairs": [
+      {
+        "caseId": "location-nestjs-provider",
+        "noAtlas": {
+          "caseId": "location-nestjs-provider",
+          "runId": "fresh-agent-v1-location-nestjs-provider-no-atlas",
+          "mode": "no-atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 6,
+          "sourceTokens": 845,
+          "atlasCallCount": 0,
+          "atlasHandlingCount": 0,
+          "failureClassifications": []
+        },
+        "atlas": {
+          "caseId": "location-nestjs-provider",
+          "runId": "fresh-agent-v1-location-nestjs-provider-atlas",
+          "mode": "atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 4,
+          "sourceTokens": 451,
+          "atlasCallCount": 3,
+          "atlasHandlingCount": 5,
+          "failureClassifications": []
+        },
+        "noRegression": true
+      },
+      {
+        "caseId": "location-graphql-query",
+        "noAtlas": {
+          "caseId": "location-graphql-query",
+          "runId": "fresh-agent-v1-location-graphql-query-no-atlas",
+          "mode": "no-atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 8,
+          "sourceTokens": 1401,
+          "atlasCallCount": 0,
+          "atlasHandlingCount": 0,
+          "failureClassifications": []
+        },
+        "atlas": {
+          "caseId": "location-graphql-query",
+          "runId": "fresh-agent-v1-location-graphql-query-atlas",
+          "mode": "atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 3,
+          "sourceTokens": 412,
+          "atlasCallCount": 3,
+          "atlasHandlingCount": 6,
+          "failureClassifications": []
+        },
+        "noRegression": true
+      },
+      {
+        "caseId": "location-typeorm-relation",
+        "noAtlas": {
+          "caseId": "location-typeorm-relation",
+          "runId": "fresh-agent-v1-location-typeorm-relation-no-atlas",
+          "mode": "no-atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 5,
+          "sourceTokens": 920,
+          "atlasCallCount": 0,
+          "atlasHandlingCount": 0,
+          "failureClassifications": []
+        },
+        "atlas": {
+          "caseId": "location-typeorm-relation",
+          "runId": "fresh-agent-v1-location-typeorm-relation-atlas",
+          "mode": "atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 1,
+          "sourceTokens": 137,
+          "atlasCallCount": 3,
+          "atlasHandlingCount": 3,
+          "failureClassifications": []
+        },
+        "noRegression": true
+      },
+      {
+        "caseId": "location-bullmq-processor",
+        "noAtlas": {
+          "caseId": "location-bullmq-processor",
+          "runId": "fresh-agent-v1-location-bullmq-processor-no-atlas",
+          "mode": "no-atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 4,
+          "sourceTokens": 636,
+          "atlasCallCount": 0,
+          "atlasHandlingCount": 0,
+          "failureClassifications": []
+        },
+        "atlas": {
+          "caseId": "location-bullmq-processor",
+          "runId": "fresh-agent-v1-location-bullmq-processor-atlas",
+          "mode": "atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 3,
+          "sourceTokens": 361,
+          "atlasCallCount": 4,
+          "atlasHandlingCount": 3,
+          "failureClassifications": []
+        },
+        "noRegression": true
+      },
+      {
+        "caseId": "location-nestjs-graphql-mutation",
+        "noAtlas": {
+          "caseId": "location-nestjs-graphql-mutation",
+          "runId": "fresh-agent-v1-location-nestjs-graphql-mutation-no-atlas",
+          "mode": "no-atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 3,
+          "sourceTokens": 532,
+          "atlasCallCount": 0,
+          "atlasHandlingCount": 0,
+          "failureClassifications": []
+        },
+        "atlas": {
+          "caseId": "location-nestjs-graphql-mutation",
+          "runId": "fresh-agent-v1-location-nestjs-graphql-mutation-atlas",
+          "mode": "atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 3,
+          "sourceTokens": 505,
+          "atlasCallCount": 3,
+          "atlasHandlingCount": 4,
+          "failureClassifications": []
+        },
+        "noRegression": true
+      },
+      {
+        "caseId": "location-typeorm-bullmq-write",
+        "noAtlas": {
+          "caseId": "location-typeorm-bullmq-write",
+          "runId": "fresh-agent-v1-location-typeorm-bullmq-write-no-atlas",
+          "mode": "no-atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 9,
+          "sourceTokens": 1301,
+          "atlasCallCount": 0,
+          "atlasHandlingCount": 0,
+          "failureClassifications": []
+        },
+        "atlas": {
+          "caseId": "location-typeorm-bullmq-write",
+          "runId": "fresh-agent-v1-location-typeorm-bullmq-write-atlas",
+          "mode": "atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 2,
+          "sourceTokens": 465,
+          "atlasCallCount": 3,
+          "atlasHandlingCount": 15,
+          "failureClassifications": []
+        },
+        "noRegression": true
+      },
+      {
+        "caseId": "impact-nestjs-provider-contract",
+        "noAtlas": {
+          "caseId": "impact-nestjs-provider-contract",
+          "runId": "fresh-agent-v1-impact-nestjs-provider-contract-no-atlas",
+          "mode": "no-atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 5,
+          "sourceTokens": 1480,
+          "atlasCallCount": 0,
+          "atlasHandlingCount": 0,
+          "failureClassifications": []
+        },
+        "atlas": {
+          "caseId": "impact-nestjs-provider-contract",
+          "runId": "fresh-agent-v1-impact-nestjs-provider-contract-atlas",
+          "mode": "atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 5,
+          "sourceTokens": 1346,
+          "atlasCallCount": 5,
+          "atlasHandlingCount": 4,
+          "failureClassifications": []
+        },
+        "noRegression": true
+      },
+      {
+        "caseId": "impact-graphql-output-field",
+        "noAtlas": {
+          "caseId": "impact-graphql-output-field",
+          "runId": "fresh-agent-v1-impact-graphql-output-field-no-atlas",
+          "mode": "no-atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 6,
+          "sourceTokens": 1038,
+          "atlasCallCount": 0,
+          "atlasHandlingCount": 0,
+          "failureClassifications": []
+        },
+        "atlas": {
+          "caseId": "impact-graphql-output-field",
+          "runId": "fresh-agent-v1-impact-graphql-output-field-atlas",
+          "mode": "atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 4,
+          "sourceTokens": 871,
+          "atlasCallCount": 6,
+          "atlasHandlingCount": 7,
+          "failureClassifications": []
+        },
+        "noRegression": true
+      },
+      {
+        "caseId": "impact-typeorm-column",
+        "noAtlas": {
+          "caseId": "impact-typeorm-column",
+          "runId": "fresh-agent-v1-impact-typeorm-column-no-atlas",
+          "mode": "no-atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 11,
+          "sourceTokens": 2944,
+          "atlasCallCount": 0,
+          "atlasHandlingCount": 0,
+          "failureClassifications": []
+        },
+        "atlas": {
+          "caseId": "impact-typeorm-column",
+          "runId": "fresh-agent-v1-impact-typeorm-column-atlas",
+          "mode": "atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 13,
+          "sourceTokens": 2331,
+          "atlasCallCount": 4,
+          "atlasHandlingCount": 4,
+          "failureClassifications": []
+        },
+        "noRegression": true
+      },
+      {
+        "caseId": "impact-bullmq-job-payload",
+        "noAtlas": {
+          "caseId": "impact-bullmq-job-payload",
+          "runId": "fresh-agent-v1-impact-bullmq-job-payload-no-atlas",
+          "mode": "no-atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 7,
+          "sourceTokens": 1466,
+          "atlasCallCount": 0,
+          "atlasHandlingCount": 0,
+          "failureClassifications": []
+        },
+        "atlas": {
+          "caseId": "impact-bullmq-job-payload",
+          "runId": "fresh-agent-v1-impact-bullmq-job-payload-atlas",
+          "mode": "atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 6,
+          "sourceTokens": 1232,
+          "atlasCallCount": 5,
+          "atlasHandlingCount": 2,
+          "failureClassifications": []
+        },
+        "noRegression": true
+      },
+      {
+        "caseId": "impact-nestjs-typeorm-transaction",
+        "noAtlas": {
+          "caseId": "impact-nestjs-typeorm-transaction",
+          "runId": "fresh-agent-v1-impact-nestjs-typeorm-transaction-no-atlas",
+          "mode": "no-atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 7,
+          "sourceTokens": 2190,
+          "atlasCallCount": 0,
+          "atlasHandlingCount": 0,
+          "failureClassifications": []
+        },
+        "atlas": {
+          "caseId": "impact-nestjs-typeorm-transaction",
+          "runId": "fresh-agent-v1-impact-nestjs-typeorm-transaction-atlas",
+          "mode": "atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 7,
+          "sourceTokens": 1584,
+          "atlasCallCount": 7,
+          "atlasHandlingCount": 4,
+          "failureClassifications": []
+        },
+        "noRegression": true
+      },
+      {
+        "caseId": "impact-graphql-bullmq-flow",
+        "noAtlas": {
+          "caseId": "impact-graphql-bullmq-flow",
+          "runId": "fresh-agent-v1-impact-graphql-bullmq-flow-no-atlas",
+          "mode": "no-atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 25,
+          "sourceTokens": 2559,
+          "atlasCallCount": 0,
+          "atlasHandlingCount": 0,
+          "failureClassifications": []
+        },
+        "atlas": {
+          "caseId": "impact-graphql-bullmq-flow",
+          "runId": "fresh-agent-v1-impact-graphql-bullmq-flow-atlas",
+          "mode": "atlas",
+          "correct": true,
+          "requiredFileRecall": 1,
+          "requiredSymbolRecall": 1,
+          "openedFileCount": 6,
+          "sourceTokens": 1502,
+          "atlasCallCount": 4,
+          "atlasHandlingCount": 5,
+          "failureClassifications": []
+        },
+        "noRegression": true
+      }
+    ],
+    "medians": {
+      "noAtlas": {
+        "openedFileCount": 6.5,
+        "sourceTokens": 1351
+      },
+      "atlas": {
+        "openedFileCount": 4,
+        "sourceTokens": 688
+      }
+    },
+    "reductions": {
+      "openedFilePercent": 38.46,
+      "sourceTokenPercent": 49.07
+    },
+    "gate": {
+      "noRegression": true,
+      "uncertaintyHandled": true,
+      "reductionThresholdMet": true,
+      "passed": true
+    }
+  }
+}

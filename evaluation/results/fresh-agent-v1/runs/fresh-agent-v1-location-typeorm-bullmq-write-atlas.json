@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-location-typeorm-bullmq-write-atlas",
+  "caseId": "location-typeorm-bullmq-write",
+  "mode": "atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "c0afe68f46748ebf675cb582a0a0ea30ea35ac999e5699f06b8e01d721a3e5cb",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:31:00.941Z",
+  "finishedAt": "2026-08-14T05:33:07.673Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 171
+      },
+      {
+        "sequence": 2,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 264
+      },
+      {
+        "sequence": 3,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 30
+      }
+    ],
+    "atlasCalls": [
+      {
+        "sequence": 1,
+        "command": "semantic-atlas status"
+      },
+      {
+        "sequence": 2,
+        "command": "semantic-atlas map search invoice --limit 10"
+      },
+      {
+        "sequence": 3,
+        "command": "semantic-atlas map show 'symbol:src%2Fbilling%2Finvoice.processor.ts#eaea8ff9324a375ba3696de7779811e1f13c69118233d8625970c04e22849f7b' --depth 2"
+      }
+    ],
+    "atlasHandling": [
+      {
+        "sequence": 1,
+        "classification": "partial",
+        "action": "Atlas map.show returned a partial result; used source observer reads of src/billing/invoice.processor.ts and src/billing/invoice.service.ts to confirm the complete repository-local call chain."
+      },
+      {
+        "sequence": 2,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the BullMQ Job import; source observer confirmed the import and Job<GenerateInvoiceJob> process parameter, while external implementation details remain outside the fixture."
+      },
+      {
+        "sequence": 3,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the bullmq module; source observer confirmed the type import from bullmq."
+      },
+      {
+        "sequence": 4,
+        "classification": "unknown",
+        "action": "Atlas could not resolve Repository.findOneByOrFail; source observer confirmed InvoiceService.createInvoice invokes it before constructing and saving the invoice."
+      },
+      {
+        "sequence": 5,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the super call; source observer confirmed InvoiceProcessor invokes super() in its constructor."
+      },
+      {
+        "sequence": 6,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the Processor decorator call; source observer confirmed @Processor(\"invoices\") on InvoiceProcessor."
+      },
+      {
+        "sequence": 7,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the @nestjs/bullmq module; source observer confirmed Processor and WorkerHost are imported from it."
+      },
+      {
+        "sequence": 8,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the WorkerHost inheritance edge; source observer confirmed InvoiceProcessor extends WorkerHost."
+      },
+      {
+        "sequence": 9,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the Job reference in process; source observer confirmed process(job: Job<GenerateInvoiceJob>)."
+      },
+      {
+        "sequence": 10,
+        "classification": "unknown",
+        "action": "Atlas could not resolve Repository.save; source observer confirmed invoices is typed Repository<Invoice> from typeorm and createInvoice returns this.invoices.save(invoice)."
+      },
+      {
+        "sequence": 11,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the Processor decoration edge; source observer confirmed the decorator directly annotates InvoiceProcessor."
+      },
+      {
+        "sequence": 12,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the WorkerHost import symbol; source observer confirmed its import and use as the processor base class."
+      },
+      {
+        "sequence": 13,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the Promise return-type reference; source observer confirmed createInvoice returns Promise<Invoice>."
+      },
+      {
+        "sequence": 14,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the Processor import symbol; source observer confirmed it is imported from @nestjs/bullmq."
+      },
+      {
+        "sequence": 15,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the Injectable decoration edge; source observer confirmed @Injectable() on InvoiceService."
+      }
+    ]
+  },
+  "answer": {
+    "response": "The call chain is:\n\n`invoices` BullMQ job → `InvoiceProcessor.process` → `InvoiceService.createInvoice` → TypeORM `Repository<Invoice>.save`\n\n- Consumer: [src/billing/invoice.processor.ts](/privatesrc/billing/invoice.processor.ts:11). `InvoiceProcessor` consumes the `\"invoices\"` queue. Its `process` method passes `job.data.customerId` and `job.data.totalCents` to `InvoiceService.createInvoice`.\n- Write: [src/billing/invoice.service.ts](/privatesrc/billing/invoice.service.ts:11). `InvoiceService` injects `Repository<Invoice>`; `createInvoice` creates an entity and persists it with `return this.invoices.save(invoice)` at line 20.\n\nAtlas was current and exact for the internal processor-to-service call. Its external BullMQ and TypeORM resolutions were partial/unknown, so the decisive code was confirmed through the source observer. External package implementations were not inspected.",
+    "reportedFiles": [
+      "src/billing/invoice.processor.ts",
+      "src/billing/invoice.service.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/billing/invoice.processor.ts",
+        "name": "GenerateInvoiceJob"
+      },
+      {
+        "file": "src/billing/invoice.processor.ts",
+        "name": "InvoiceProcessor"
+      },
+      {
+        "file": "src/billing/invoice.processor.ts",
+        "name": "InvoiceProcessor.process"
+      },
+      {
+        "file": "src/billing/invoice.service.ts",
+        "name": "InvoiceService"
+      },
+      {
+        "file": "src/billing/invoice.service.ts",
+        "name": "InvoiceService.createInvoice"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Covers the complete processor-to-service-to-save chain; all partial or unknown Atlas boundaries affecting the answer were source-confirmed.",
+    "failureClassifications": []
+  }
+}

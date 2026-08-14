@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-location-typeorm-bullmq-write-no-atlas",
+  "caseId": "location-typeorm-bullmq-write",
+  "mode": "no-atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "c0afe68f46748ebf675cb582a0a0ea30ea35ac999e5699f06b8e01d721a3e5cb",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:30:23.552Z",
+  "finishedAt": "2026-08-14T05:31:42.040Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/billing/customer.entity.ts",
+        "sourceTokens": 69
+      },
+      {
+        "sequence": 2,
+        "file": "src/billing/invoice.entity.ts",
+        "sourceTokens": 59
+      },
+      {
+        "sequence": 3,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 96
+      },
+      {
+        "sequence": 4,
+        "file": "src/billing/invoice.resolver.ts",
+        "sourceTokens": 149
+      },
+      {
+        "sequence": 5,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 125
+      },
+      {
+        "sequence": 6,
+        "file": "src/notifications/jobs/email.job.ts",
+        "sourceTokens": 35
+      },
+      {
+        "sequence": 7,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 171
+      },
+      {
+        "sequence": 8,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 264
+      },
+      {
+        "sequence": 9,
+        "file": "src/billing/invoice.entity.ts",
+        "sourceTokens": 137
+      },
+      {
+        "sequence": 10,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 11,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 40
+      },
+      {
+        "sequence": 12,
+        "file": "src/exports/export.processor.ts",
+        "sourceTokens": 24
+      },
+      {
+        "sequence": 13,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 42
+      },
+      {
+        "sequence": 14,
+        "file": "src/notifications/email.processor.ts",
+        "sourceTokens": 24
+      },
+      {
+        "sequence": 15,
+        "file": "test/billing/invoice.service.test.ts",
+        "sourceTokens": 39
+      }
+    ],
+    "atlasCalls": [],
+    "atlasHandling": []
+  },
+  "answer": {
+    "response": "The consumer is `InvoiceProcessor` in `src/billing/invoice.processor.ts`, registered for the BullMQ `invoices` queue via `@Processor(\"invoices\")`. Its `process` method passes `customerId` and `totalCents` to `InvoiceService.createInvoice`.\n\nCall path:\n\n`InvoiceProcessor.process` → `InvoiceService.createInvoice` → `Repository<Invoice>.save(invoice)`\n\n`createInvoice` first loads the customer, constructs an `Invoice` with `Repository.create`, then performs the actual TypeORM write with `this.invoices.save(invoice)`. The `Invoice` entity maps to the `invoices` table.",
+    "reportedFiles": [
+      "src/billing/invoice.processor.ts",
+      "src/billing/invoice.service.ts",
+      "src/billing/invoice.entity.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/billing/invoice.processor.ts",
+        "name": "InvoiceProcessor"
+      },
+      {
+        "file": "src/billing/invoice.processor.ts",
+        "name": "InvoiceProcessor.process"
+      },
+      {
+        "file": "src/billing/invoice.service.ts",
+        "name": "InvoiceService.createInvoice"
+      },
+      {
+        "file": "src/billing/invoice.entity.ts",
+        "name": "Invoice"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Correctly traces InvoiceProcessor.process through InvoiceService.createInvoice to Repository.save.",
+    "failureClassifications": []
+  }
+}

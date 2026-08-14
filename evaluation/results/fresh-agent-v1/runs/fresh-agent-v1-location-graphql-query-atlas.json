@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-location-graphql-query-atlas",
+  "caseId": "location-graphql-query",
+  "mode": "atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "14d4bd1332f78734a0eeee8217b97f12b4e0c17abcbc1fc56f48c833f01fd35a",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:27:24.685Z",
+  "finishedAt": "2026-08-14T05:29:17.842Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/catalog/product.resolver.ts",
+        "sourceTokens": 176
+      },
+      {
+        "sequence": 2,
+        "file": "src/catalog/product.service.ts",
+        "sourceTokens": 141
+      },
+      {
+        "sequence": 3,
+        "file": "src/catalog/product.mapper.ts",
+        "sourceTokens": 95
+      }
+    ],
+    "atlasCalls": [
+      {
+        "sequence": 1,
+        "command": "semantic-atlas status"
+      },
+      {
+        "sequence": 2,
+        "command": "semantic-atlas map search product --limit 10"
+      },
+      {
+        "sequence": 3,
+        "command": "semantic-atlas map show 'symbol:src%2Fcatalog%2Fproduct.resolver.ts#16dfbc3deddd2a3f5166f559dcd5c8422a9be348f3a9c52bdec76687f18279ed' --depth 2"
+      }
+    ],
+    "atlasHandling": [
+      {
+        "sequence": 1,
+        "classification": "partial",
+        "action": "`map show` returned `UNKNOWN_BOUNDARY` warnings alongside exact resolver-to-service and resolver-to-mapper call edges. Used those exact edges as seeds, then confirmed the complete return path with observer reads of the resolver, service, and mapper."
+      },
+      {
+        "sequence": 2,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the NestJS `Query` decorator/import/call. Observer inspection of `src/catalog/product.resolver.ts` lines 1 and 11–14 confirmed that `ProductResolver.product` is the nullable GraphQL query and accepts the `id` argument."
+      },
+      {
+        "sequence": 3,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the NestJS `Resolver` and `Args` framework constructs. Observer inspection of `src/catalog/product.resolver.ts` lines 1 and 7–12 confirmed the resolver ownership and query argument."
+      },
+      {
+        "sequence": 4,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the `Injectable` decorator. Observer inspection of `src/catalog/product.service.ts` lines 1 and 5–6 confirmed `ProductService` as the injected service."
+      },
+      {
+        "sequence": 5,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the array `find` call inside `ProductService.findById`. Observer inspection of `src/catalog/product.service.ts` lines 7–15 confirmed the in-memory ID lookup and `undefined` result when unmatched."
+      },
+      {
+        "sequence": 6,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the local `product` reference in the resolver’s return expression. Observer inspection of `src/catalog/product.resolver.ts` lines 13–14 and `src/catalog/product.mapper.ts` lines 4–9 confirmed the undefined branch and DTO mapping."
+      }
+    ]
+  },
+  "answer": {
+    "response": "The GraphQL query is `ProductResolver.product` in `src/catalog/product.resolver.ts:11`. It accepts an `id`, calls `ProductService.findById(id)`, and returns either `undefined` or a mapped `ProductDto`. The query is nullable.\n\nThe supplying service operation is `ProductService.findById` in `src/catalog/product.service.ts:13`. It searches the in-memory `products` collection for a matching ID. `toProductDto` in `src/catalog/product.mapper.ts:4` converts the service entity into the GraphQL DTO (`name → displayName`, `shortDescription → description`).\n\nCall path: `ProductResolver.product → ProductService.findById → toProductDto`.",
+    "reportedFiles": [
+      "src/catalog/product.resolver.ts",
+      "src/catalog/product.service.ts",
+      "src/catalog/product.mapper.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/catalog/product.resolver.ts",
+        "name": "ProductResolver.product"
+      },
+      {
+        "file": "src/catalog/product.service.ts",
+        "name": "ProductService.findById"
+      },
+      {
+        "file": "src/catalog/product.service.ts",
+        "name": "ProductService.products"
+      },
+      {
+        "file": "src/catalog/product.mapper.ts",
+        "name": "toProductDto"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Correctly traces ProductResolver.product to ProductService.findById; partial and unknown Atlas results were appropriately confirmed from source.",
+    "failureClassifications": []
+  }
+}

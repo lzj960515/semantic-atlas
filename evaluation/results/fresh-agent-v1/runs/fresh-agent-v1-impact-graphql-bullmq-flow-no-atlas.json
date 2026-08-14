@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-impact-graphql-bullmq-flow-no-atlas",
+  "caseId": "impact-graphql-bullmq-flow",
+  "mode": "no-atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "af56c7150f895493adb95aecc5277b1ae6393448b226459633331df763278cfd",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:40:01.254Z",
+  "finishedAt": "2026-08-14T05:41:37.695Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/billing/customer.entity.ts",
+        "sourceTokens": 24
+      },
+      {
+        "sequence": 2,
+        "file": "src/billing/invoice.entity.ts",
+        "sourceTokens": 26
+      },
+      {
+        "sequence": 3,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 46
+      },
+      {
+        "sequence": 4,
+        "file": "src/billing/invoice.resolver.ts",
+        "sourceTokens": 29
+      },
+      {
+        "sequence": 5,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 6,
+        "file": "src/catalog/dto/product.dto.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 7,
+        "file": "src/catalog/product.entity.ts",
+        "sourceTokens": 22
+      },
+      {
+        "sequence": 8,
+        "file": "src/catalog/product.mapper.ts",
+        "sourceTokens": 30
+      },
+      {
+        "sequence": 9,
+        "file": "src/catalog/product.resolver.ts",
+        "sourceTokens": 25
+      },
+      {
+        "sequence": 10,
+        "file": "src/catalog/product.service.ts",
+        "sourceTokens": 23
+      },
+      {
+        "sequence": 11,
+        "file": "src/exports/export.processor.ts",
+        "sourceTokens": 138
+      },
+      {
+        "sequence": 12,
+        "file": "src/exports/export.producer.ts",
+        "sourceTokens": 119
+      },
+      {
+        "sequence": 13,
+        "file": "src/exports/export.resolver.ts",
+        "sourceTokens": 125
+      },
+      {
+        "sequence": 14,
+        "file": "src/exports/export.service.ts",
+        "sourceTokens": 89
+      },
+      {
+        "sequence": 15,
+        "file": "src/exports/jobs/export.job.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 16,
+        "file": "src/notifications/email.processor.ts",
+        "sourceTokens": 28
+      },
+      {
+        "sequence": 17,
+        "file": "src/notifications/email.producer.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 18,
+        "file": "src/notifications/jobs/email.job.ts",
+        "sourceTokens": 28
+      },
+      {
+        "sequence": 19,
+        "file": "src/notifications/mail-delivery.service.ts",
+        "sourceTokens": 30
+      },
+      {
+        "sequence": 20,
+        "file": "src/orders/order.entity.ts",
+        "sourceTokens": 22
+      },
+      {
+        "sequence": 21,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 25
+      },
+      {
+        "sequence": 22,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 37
+      },
+      {
+        "sequence": 23,
+        "file": "src/orders/orders.controller.ts",
+        "sourceTokens": 23
+      },
+      {
+        "sequence": 24,
+        "file": "src/orders/orders.module.ts",
+        "sourceTokens": 38
+      },
+      {
+        "sequence": 25,
+        "file": "test/exports/export-flow.test.ts",
+        "sourceTokens": 233
+      },
+      {
+        "sequence": 26,
+        "file": "src/exports/export.resolver.ts",
+        "sourceTokens": 175
+      },
+      {
+        "sequence": 27,
+        "file": "src/exports/export.producer.ts",
+        "sourceTokens": 138
+      },
+      {
+        "sequence": 28,
+        "file": "src/exports/jobs/export.job.ts",
+        "sourceTokens": 54
+      },
+      {
+        "sequence": 29,
+        "file": "src/exports/export.processor.ts",
+        "sourceTokens": 143
+      },
+      {
+        "sequence": 30,
+        "file": "src/exports/export.service.ts",
+        "sourceTokens": 92
+      },
+      {
+        "sequence": 31,
+        "file": "test/exports/export-flow.test.ts",
+        "sourceTokens": 269
+      },
+      {
+        "sequence": 32,
+        "file": "src/exports/export.processor.ts",
+        "sourceTokens": 65
+      },
+      {
+        "sequence": 33,
+        "file": "src/exports/export.producer.ts",
+        "sourceTokens": 104
+      },
+      {
+        "sequence": 34,
+        "file": "src/exports/export.resolver.ts",
+        "sourceTokens": 76
+      },
+      {
+        "sequence": 35,
+        "file": "src/exports/export.service.ts",
+        "sourceTokens": 54
+      },
+      {
+        "sequence": 36,
+        "file": "src/exports/jobs/export.job.ts",
+        "sourceTokens": 43
+      },
+      {
+        "sequence": 37,
+        "file": "test/exports/export-flow.test.ts",
+        "sourceTokens": 78
+      }
+    ],
+    "atlasCalls": [],
+    "atlasHandling": []
+  },
+  "answer": {
+    "response": "The export request flows unchanged through GraphQL and BullMQ:\n\n`ExportResolver.requestExport` → `ExportProducer.enqueue` → `ExportJob` payload → `ExportProcessor.process` → `ExportService.generate`.\n\n- Mutation — `src/exports/export.resolver.ts`: `ExportResolver.requestExport` accepts positional `accountId`, `format`, and `requestedBy` GraphQL arguments, constructs the request object, enqueues it, and returns the job ID.\n- Queue producer — `src/exports/export.producer.ts`: `ExportProducer.enqueue` accepts `ExportJob` and adds it unchanged to queue `exports` under job name `generate-export`.\n- Job contract — `src/exports/jobs/export.job.ts`: `ExportJob` defines the shared payload: `{ accountId: string; format: \"csv\" | \"json\"; requestedBy: string }`.\n- Consumer — `src/exports/export.processor.ts`: `ExportProcessor.process` consumes `Job<ExportJob>` from queue `exports` and forwards `job.data` unchanged.\n- Terminal field consumer — `src/exports/export.service.ts`: `ExportService.generate` reads `accountId` and `format` to build `/exports/{accountId}.{format}`. It is affected if fields move/rename or format semantics change.\n- Tests — `test/exports/export-flow.test.ts`: the sole export-flow test directly calls the mutation with the old positional format and constructs the old BullMQ `data` payload. Its invocation, fixture, and expected output path must track the new format. It does not currently assert the payload passed to `producer.enqueue`.\n\nThus, a request-shape change directly requires updating the resolver, `ExportJob`, service field access where applicable, and the flow test. The producer and processor are behaviorally opaque pass-through layers, but their `ExportJob`-typed signatures make them part of the affected compile-time contract.",
+    "reportedFiles": [
+      "src/exports/export.resolver.ts",
+      "src/exports/export.producer.ts",
+      "src/exports/jobs/export.job.ts",
+      "src/exports/export.processor.ts",
+      "src/exports/export.service.ts",
+      "test/exports/export-flow.test.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/exports/export.resolver.ts",
+        "name": "ExportResolver.requestExport"
+      },
+      {
+        "file": "src/exports/export.producer.ts",
+        "name": "ExportProducer.constructor"
+      },
+      {
+        "file": "src/exports/export.producer.ts",
+        "name": "ExportProducer.enqueue"
+      },
+      {
+        "file": "src/exports/jobs/export.job.ts",
+        "name": "ExportJob"
+      },
+      {
+        "file": "src/exports/export.processor.ts",
+        "name": "ExportProcessor.process"
+      },
+      {
+        "file": "src/exports/export.service.ts",
+        "name": "ExportService.generate"
+      },
+      {
+        "file": "test/exports/export-flow.test.ts",
+        "name": "export request flow > queues and processes one export request"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Traces the full resolver-to-producer-to-contract-to-processor flow and includes the end-to-end regression test and terminal service consumer.",
+    "failureClassifications": []
+  }
+}

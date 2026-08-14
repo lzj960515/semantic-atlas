@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-location-bullmq-processor-no-atlas",
+  "caseId": "location-bullmq-processor",
+  "mode": "no-atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "8f4d028ccaae30d07d461c88ea8bcc0b8cac7bccafd9adfed64d8def088510ba",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:28:40.842Z",
+  "finishedAt": "2026-08-14T05:29:33.343Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/notifications/email.producer.ts",
+        "sourceTokens": 34
+      },
+      {
+        "sequence": 2,
+        "file": "test/notifications/email.processor.test.ts",
+        "sourceTokens": 37
+      },
+      {
+        "sequence": 3,
+        "file": "src/notifications/email.processor.ts",
+        "sourceTokens": 149
+      },
+      {
+        "sequence": 4,
+        "file": "src/notifications/jobs/email.job.ts",
+        "sourceTokens": 59
+      },
+      {
+        "sequence": 5,
+        "file": "src/notifications/email.producer.ts",
+        "sourceTokens": 141
+      },
+      {
+        "sequence": 6,
+        "file": "test/notifications/email.processor.test.ts",
+        "sourceTokens": 216
+      }
+    ],
+    "atlasCalls": [],
+    "atlasHandling": []
+  },
+  "answer": {
+    "response": "The `send-email` job is added to the `email` queue by `EmailProducer.enqueue`. Its consumer is `EmailProcessor`, registered with `@Processor(\"email\")`. The processing method is `EmailProcessor.process(job)`, which passes `job.data` to `MailDeliveryService.send`.",
+    "reportedFiles": [
+      "src/notifications/email.producer.ts",
+      "src/notifications/email.processor.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/notifications/email.producer.ts",
+        "name": "EmailProducer.enqueue"
+      },
+      {
+        "file": "src/notifications/email.processor.ts",
+        "name": "EmailProcessor"
+      },
+      {
+        "file": "src/notifications/email.processor.ts",
+        "name": "EmailProcessor.process"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Identifies EmailProcessor and EmailProcessor.process as the send-email consumer and processing method.",
+    "failureClassifications": []
+  }
+}

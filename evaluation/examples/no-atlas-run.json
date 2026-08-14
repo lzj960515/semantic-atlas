@@ -9,6 +9,14 @@
     "model": "example-model",
     "freshContext": true
   },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "0123456789abcdef0123456789abcdef01234567",
+    "instructionsHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "toolPolicyHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
   "startedAt": "2026-08-10T00:00:00.000Z",
   "finishedAt": "2026-08-10T00:01:00.000Z",
   "observations": {
@@ -25,7 +33,8 @@
         "sourceTokens": 120
       }
     ],
-    "atlasCalls": []
+    "atlasCalls": [],
+    "atlasHandling": []
   },
   "answer": {
     "response": "OrderService.placeOrder implements order placement, and OrdersModule registers OrderService as an injectable provider.",
@@ -46,6 +55,7 @@
   },
   "adjudication": {
     "correct": true,
-    "notes": "Format example only; this is not a measured product result."
+    "notes": "Format example only; this is not a measured product result.",
+    "failureClassifications": []
   }
 }

@@ -75,6 +75,14 @@ describe("evaluation artifact contracts", () => {
         model: "gpt-5",
         freshContext: true,
       },
+      protocol: {
+        runnerVersion: "fresh-agent-runner-v1",
+        fixtureCommit: "0123456789abcdef0123456789abcdef01234567",
+        instructionsHash: "a".repeat(64),
+        toolPolicyHash: "b".repeat(64),
+        oracleHidden: true,
+        commandAuditPassed: true,
+      },
       startedAt: "2026-08-10T00:00:00.000Z",
       finishedAt: "2026-08-10T00:01:00.000Z",
       observations: {
@@ -92,6 +100,7 @@ describe("evaluation artifact contracts", () => {
           },
         ],
         atlasCalls: [],
+        atlasHandling: [],
       },
       answer: {
         response:
@@ -107,6 +116,7 @@ describe("evaluation artifact contracts", () => {
       adjudication: {
         correct: true,
         notes: "The answer identifies the implementation and its file.",
+        failureClassifications: [],
       },
     });
 
@@ -120,6 +130,8 @@ describe("evaluation artifact contracts", () => {
       openedFileCount: 2,
       sourceTokens: 200,
       atlasCallCount: 0,
+      atlasHandlingCount: 0,
+      failureClassifications: [],
     });
   });
 
@@ -131,19 +143,32 @@ describe("evaluation artifact contracts", () => {
       mode: "no-atlas",
       fixtureRevision: "fixture-v1",
       agent: { product: "codex", model: "gpt-5", freshContext: true },
+      protocol: {
+        runnerVersion: "fresh-agent-runner-v1",
+        fixtureCommit: "0123456789abcdef0123456789abcdef01234567",
+        instructionsHash: "a".repeat(64),
+        toolPolicyHash: "b".repeat(64),
+        oracleHidden: true,
+        commandAuditPassed: true,
+      },
       startedAt: "2026-08-10T00:00:00.000Z",
       finishedAt: "2026-08-10T00:01:00.000Z",
       observations: {
         sourceTokenMethod: "codex-source-input-v1",
-        sourceOpens: [],
+        sourceOpens: [{ sequence: 1, file: "src/example.ts", sourceTokens: 1 }],
         atlasCalls: [{ sequence: 1, command: "map search invoice" }],
+        atlasHandling: [],
       },
       answer: {
         response: "No answer was produced.",
         reportedFiles: [],
         reportedSymbols: [],
       },
-      adjudication: { correct: false, notes: "Atlas was used." },
+      adjudication: {
+        correct: false,
+        notes: "Atlas was used.",
+        failureClassifications: ["protocol-violation"],
+      },
     };
 
     expect(() => evaluationRunSchema.parse(invalidRun)).toThrow(/no-atlas/);

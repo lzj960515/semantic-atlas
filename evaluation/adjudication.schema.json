@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["adjudications"],
+  "properties": {
+    "adjudications": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["runId", "correct", "notes", "failureClassifications"],
+        "properties": {
+          "runId": { "type": "string", "minLength": 1 },
+          "correct": { "type": "boolean" },
+          "notes": { "type": "string", "minLength": 1 },
+          "failureClassifications": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "missed-dependency",
+                "incorrect-answer",
+                "stale-knowledge",
+                "hypothesis-mishandled",
+                "unknown-boundary-mishandled",
+                "unsupported-source",
+                "protocol-violation"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

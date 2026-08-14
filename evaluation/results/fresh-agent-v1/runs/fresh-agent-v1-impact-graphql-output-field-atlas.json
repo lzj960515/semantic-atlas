@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-impact-graphql-output-field-atlas",
+  "caseId": "impact-graphql-output-field",
+  "mode": "atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "88a21d4d1b12d63d75bdcdbd52fda1771c1bab94c942a7a8a359afba39961ce3",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:33:40.599Z",
+  "finishedAt": "2026-08-14T05:37:40.142Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/catalog/dto/product.dto.ts",
+        "sourceTokens": 28
+      },
+      {
+        "sequence": 2,
+        "file": "src/catalog/product.mapper.ts",
+        "sourceTokens": 25
+      },
+      {
+        "sequence": 3,
+        "file": "test/catalog/product.resolver.test.ts",
+        "sourceTokens": 30
+      },
+      {
+        "sequence": 4,
+        "file": "src/catalog/dto/product.dto.ts",
+        "sourceTokens": 91
+      },
+      {
+        "sequence": 5,
+        "file": "src/catalog/product.mapper.ts",
+        "sourceTokens": 95
+      },
+      {
+        "sequence": 6,
+        "file": "src/catalog/product.resolver.ts",
+        "sourceTokens": 176
+      },
+      {
+        "sequence": 7,
+        "file": "test/catalog/product.resolver.test.ts",
+        "sourceTokens": 209
+      },
+      {
+        "sequence": 8,
+        "file": "src/catalog/dto/product.dto.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 9,
+        "file": "src/catalog/product.mapper.ts",
+        "sourceTokens": 50
+      },
+      {
+        "sequence": 10,
+        "file": "src/catalog/product.resolver.ts",
+        "sourceTokens": 140
+      }
+    ],
+    "atlasCalls": [
+      {
+        "sequence": 1,
+        "command": "semantic-atlas status"
+      },
+      {
+        "sequence": 2,
+        "command": "semantic-atlas map search ProductDto --limit 20"
+      },
+      {
+        "sequence": 3,
+        "command": "semantic-atlas map show 'symbol:src%2Fcatalog%2Fdto%2Fproduct.dto.ts#daeb017cd60cb4f452085f7b3746d99778b84efec000d6c7ad93a9f1566790d9' --depth 2"
+      },
+      {
+        "sequence": 4,
+        "command": "semantic-atlas map search displayName --limit 30"
+      },
+      {
+        "sequence": 5,
+        "command": "semantic-atlas map search ProductResolver --limit 20"
+      },
+      {
+        "sequence": 6,
+        "command": "semantic-atlas map show 'symbol:src%2Fcatalog%2Fproduct.resolver.ts#ebf355878950f7bc20304b3c6238d868651701b635f7b51b8a5856219ef793b7' --depth 2"
+      }
+    ],
+    "atlasHandling": [
+      {
+        "sequence": 1,
+        "classification": "partial",
+        "action": "`map show ProductDto.displayName --depth 2` returned partial with 16 unknown boundaries; answer-controlling behavior was checked through observer reads of the DTO and resolver."
+      },
+      {
+        "sequence": 2,
+        "classification": "unknown",
+        "action": "All eight DTO/schema unknowns concerned unresolved `@nestjs/graphql`, `ObjectType`, or `Field` imports, calls, and decorations. Observer read `src/catalog/dto/product.dto.ts` and confirmed the bare `@ObjectType()`/`@Field()` declarations, including the target field."
+      },
+      {
+        "sequence": 3,
+        "classification": "unknown",
+        "action": "All eight resolver unknowns concerned unresolved `@nestjs/graphql`, `Resolver`, `Query`, `Args`, `Promise`, or the local `product` reference. Observer read `src/catalog/product.resolver.ts` and confirmed the `ProductDto` query contract and `toProductDto` call."
+      },
+      {
+        "sequence": 4,
+        "classification": "partial",
+        "action": "`map show ProductResolver --depth 2` returned partial with 22 unknown boundaries, nine repeating previously handled resolver boundaries. Observer reads and exact identifier searches were used for the remaining areas."
+      },
+      {
+        "sequence": 5,
+        "classification": "unknown",
+        "action": "The two newly surfaced resolver unknowns were the `Resolver` decoration and `Query` call. The resolver source read confirmed both relationships."
+      },
+      {
+        "sequence": 6,
+        "classification": "unknown",
+        "action": "All eight Vitest unknowns concerned unresolved `vitest`, `describe`, `it`, `expect`, or `toEqual` imports/calls. Observer read `test/catalog/product.resolver.test.ts` and confirmed the exact `displayName` assertion."
+      },
+      {
+        "sequence": 7,
+        "classification": "unknown",
+        "action": "Three depth-two service unknowns concerned `Injectable`, `find`, and `Promise`; the observer-wide `displayName` search confirmed that the service contains no direct reference and is outside this rename’s edit set."
+      }
+    ]
+  },
+  "answer": {
+    "response": "Renaming `ProductDto.displayName` affects four files. The resolver is transitively affected but does not directly reference the property.\n\n- **Schema:** `src/catalog/dto/product.dto.ts:3-9` — `ProductDto.displayName` has a bare `@Field()`, so its TypeScript name is also the code-first GraphQL field name. Renaming it changes the public `Product` output field. There is no generated SDL file in the fixture.\n- **Mapping:** `src/catalog/product.mapper.ts:4-9` — `toProductDto` must rename the `displayName: product.name` result key. The domain source property remains `Product.name`.\n- **Resolver:** `src/catalog/product.resolver.ts:7-14` — `ProductResolver.product` exposes `ProductDto` through `@Resolver` and `@Query`, then returns `toProductDto(product)`. A coordinated property rename requires no resolver-body edit, but it changes this query’s output contract automatically.\n- **Test:** `test/catalog/product.resolver.test.ts:5-20` — the test `maps the product to its GraphQL output` directly expects `displayName: \"Travel Mug\"`; that expected key must be renamed.\n\nThe observer-wide `displayName` search found only the DTO declaration, mapper key, and this test assertion. A separate `ProductDto` search confirmed the resolver linkage, so no other in-repository direct uses were found. Tests were not run, per the read-only fixture constraint.",
+    "reportedFiles": [
+      "src/catalog/dto/product.dto.ts",
+      "src/catalog/product.mapper.ts",
+      "src/catalog/product.resolver.ts",
+      "test/catalog/product.resolver.test.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/catalog/dto/product.dto.ts",
+        "name": "ProductDto"
+      },
+      {
+        "file": "src/catalog/dto/product.dto.ts",
+        "name": "ProductDto.displayName"
+      },
+      {
+        "file": "src/catalog/product.mapper.ts",
+        "name": "toProductDto"
+      },
+      {
+        "file": "src/catalog/product.resolver.ts",
+        "name": "ProductResolver"
+      },
+      {
+        "file": "src/catalog/product.resolver.ts",
+        "name": "ProductResolver.product"
+      },
+      {
+        "file": "test/catalog/product.resolver.test.ts",
+        "name": "describe(\"ProductResolver\") > it(\"maps the product to its GraphQL output\")"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Correctly covers all required schema, mapper, resolver, and test surfaces, with Atlas framework unknowns verified from source.",
+    "failureClassifications": []
+  }
+}

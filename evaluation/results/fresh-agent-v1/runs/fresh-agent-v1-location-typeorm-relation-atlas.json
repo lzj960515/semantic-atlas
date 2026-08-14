@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-location-typeorm-relation-atlas",
+  "caseId": "location-typeorm-relation",
+  "mode": "atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "9b56e349f90a3e054a4825a3cc5319c2793254e3cb74e6b4a706284b01346baf",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:28:12.181Z",
+  "finishedAt": "2026-08-14T05:29:32.116Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/billing/invoice.entity.ts",
+        "sourceTokens": 137
+      }
+    ],
+    "atlasCalls": [
+      {
+        "sequence": 1,
+        "command": "semantic-atlas status"
+      },
+      {
+        "sequence": 2,
+        "command": "semantic-atlas map search Invoice --limit 10"
+      },
+      {
+        "sequence": 3,
+        "command": "semantic-atlas map show 'symbol:src%2Fbilling%2Finvoice.entity.ts#133ee9a63cd7ceb6affa8a77f5e587d9abdf56b1977695dc4880718f4cc4f79e' --depth 2"
+      }
+    ],
+    "atlasHandling": [
+      {
+        "sequence": 1,
+        "classification": "partial",
+        "action": "`semantic-atlas map show` returned a partial result because some external TypeORM symbols were unresolved; confirmed the complete entity and relation declaration with `$EVALUATION_OBSERVER read src/billing/invoice.entity.ts 1 16`."
+      },
+      {
+        "sequence": 2,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the external TypeORM `Entity` decorator; source lines 1 and 5–6 confirm `@Entity(\"invoices\")` on `Invoice`."
+      },
+      {
+        "sequence": 3,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the external TypeORM `ManyToOne` decorator; source lines 1, 3, and 13–14 confirm the relation from `Invoice.customer` to `Customer`."
+      }
+    ]
+  },
+  "answer": {
+    "response": "The invoice entity is `Invoice` in `src/billing/invoice.entity.ts:5`.\n\nThe customer link is `Invoice.customer` at lines 13–14:\n\n```ts\n@ManyToOne(() => Customer, (customer) => customer.invoices, { nullable: false })\ncustomer!: Customer;\n```\n\nThis declares a non-nullable many-to-one relation from each invoice to a `Customer`, with `Customer.invoices` as the inverse side.",
+    "reportedFiles": [
+      "src/billing/invoice.entity.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/billing/invoice.entity.ts",
+        "name": "Invoice"
+      },
+      {
+        "file": "src/billing/invoice.entity.ts",
+        "name": "Invoice.customer"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Correctly identifies Invoice and Invoice.customer, with unresolved TypeORM decorator facts verified through source inspection.",
+    "failureClassifications": []
+  }
+}

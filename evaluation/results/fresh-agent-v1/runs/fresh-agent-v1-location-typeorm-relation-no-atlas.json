@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-location-typeorm-relation-no-atlas",
+  "caseId": "location-typeorm-relation",
+  "mode": "no-atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "9b56e349f90a3e054a4825a3cc5319c2793254e3cb74e6b4a706284b01346baf",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:27:52.148Z",
+  "finishedAt": "2026-08-14T05:28:40.816Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/billing/customer.entity.ts",
+        "sourceTokens": 82
+      },
+      {
+        "sequence": 2,
+        "file": "src/billing/invoice.entity.ts",
+        "sourceTokens": 93
+      },
+      {
+        "sequence": 3,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 152
+      },
+      {
+        "sequence": 4,
+        "file": "src/billing/invoice.resolver.ts",
+        "sourceTokens": 87
+      },
+      {
+        "sequence": 5,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 261
+      },
+      {
+        "sequence": 6,
+        "file": "src/billing/invoice.entity.ts",
+        "sourceTokens": 137
+      },
+      {
+        "sequence": 7,
+        "file": "src/billing/customer.entity.ts",
+        "sourceTokens": 108
+      }
+    ],
+    "atlasCalls": [],
+    "atlasHandling": []
+  },
+  "answer": {
+    "response": "The invoice entity is `Invoice` in `src/billing/invoice.entity.ts`, mapped to the `invoices` table with `@Entity(\"invoices\")`.\n\nIts customer link is `Invoice.customer`:\n\n```ts\n@ManyToOne(() => Customer, (customer) => customer.invoices, { nullable: false })\ncustomer!: Customer;\n```\n\nThis defines a required many-to-one relationship. The inverse side is `Customer.invoices`, declared with `@OneToMany(() => Invoice, (invoice) => invoice.customer)` in `src/billing/customer.entity.ts`.",
+    "reportedFiles": [
+      "src/billing/invoice.entity.ts",
+      "src/billing/customer.entity.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/billing/invoice.entity.ts",
+        "name": "Invoice"
+      },
+      {
+        "file": "src/billing/invoice.entity.ts",
+        "name": "Invoice.customer"
+      },
+      {
+        "file": "src/billing/customer.entity.ts",
+        "name": "Customer.invoices"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Identifies the Invoice entity and its Invoice.customer ManyToOne declaration in the required file.",
+    "failureClassifications": []
+  }
+}

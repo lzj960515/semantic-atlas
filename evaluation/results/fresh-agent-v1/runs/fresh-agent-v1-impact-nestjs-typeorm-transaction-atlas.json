@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-impact-nestjs-typeorm-transaction-atlas",
+  "caseId": "impact-nestjs-typeorm-transaction",
+  "mode": "atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "7100f9dbd06bfb28733225230b250a83fd2ad012a8bb5b8a63f5b030d3ef6b48",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:38:25.376Z",
+  "finishedAt": "2026-08-14T05:43:15.231Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 205
+      },
+      {
+        "sequence": 2,
+        "file": "src/orders/order.entity.ts",
+        "sourceTokens": 99
+      },
+      {
+        "sequence": 3,
+        "file": "src/orders/orders.module.ts",
+        "sourceTokens": 154
+      },
+      {
+        "sequence": 4,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 209
+      },
+      {
+        "sequence": 5,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 50
+      },
+      {
+        "sequence": 6,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 23
+      },
+      {
+        "sequence": 7,
+        "file": "src/orders/orders.controller.ts",
+        "sourceTokens": 52
+      },
+      {
+        "sequence": 8,
+        "file": "src/orders/orders.module.ts",
+        "sourceTokens": 62
+      },
+      {
+        "sequence": 9,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 70
+      },
+      {
+        "sequence": 10,
+        "file": "src/orders/orders.controller.ts",
+        "sourceTokens": 115
+      },
+      {
+        "sequence": 11,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 148
+      },
+      {
+        "sequence": 12,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 34
+      },
+      {
+        "sequence": 13,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 32
+      },
+      {
+        "sequence": 14,
+        "file": "src/orders/orders.controller.ts",
+        "sourceTokens": 26
+      },
+      {
+        "sequence": 15,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 43
+      },
+      {
+        "sequence": 16,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 66
+      },
+      {
+        "sequence": 17,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 43
+      },
+      {
+        "sequence": 18,
+        "file": "src/orders/orders.module.ts",
+        "sourceTokens": 51
+      },
+      {
+        "sequence": 19,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 102
+      }
+    ],
+    "atlasCalls": [
+      {
+        "sequence": 1,
+        "command": "semantic-atlas status"
+      },
+      {
+        "sequence": 2,
+        "command": "semantic-atlas map roots"
+      },
+      {
+        "sequence": 3,
+        "command": "semantic-atlas map search order --limit 20"
+      },
+      {
+        "sequence": 4,
+        "command": "semantic-atlas map show 'symbol:src%2Forders%2Forder.service.ts#390cf96965596b997c742245aa4cc05526b46af7f9b278b50f611a153e638ef3' --depth 2"
+      },
+      {
+        "sequence": 5,
+        "command": "semantic-atlas map search transaction --limit 20"
+      },
+      {
+        "sequence": 6,
+        "command": "semantic-atlas map search DataSource --limit 20"
+      },
+      {
+        "sequence": 7,
+        "command": "semantic-atlas map show 'symbol:src%2Forders%2Forder.service.ts#65cc93a5c2c217104aa7364ede560d465a2b8759f261ac3941b559a4f66bfefe' --depth 1"
+      }
+    ],
+    "atlasHandling": [
+      {
+        "sequence": 1,
+        "classification": "partial",
+        "action": "The depth-2 OrderService map contained unresolved Nest, TypeORM, and Vitest external boundaries. Used its exact local symbol/file seeds, then confirmed constructor injection, module metadata, entity definition, callers, and test mocks with EVALUATION_OBSERVER reads."
+      },
+      {
+        "sequence": 2,
+        "classification": "insufficient",
+        "action": "Atlas search for `transaction` returned no results. EVALUATION_OBSERVER search confirmed no current transaction implementation in src or test, and the current placeOrder body was read directly."
+      },
+      {
+        "sequence": 3,
+        "classification": "insufficient",
+        "action": "Atlas search for `DataSource` returned no results. EVALUATION_OBSERVER searches confirmed no current DataSource or root TypeORM `forRoot` wiring in the fixture; OrdersModule was read to bound the conditional module conclusion."
+      },
+      {
+        "sequence": 4,
+        "classification": "partial",
+        "action": "The depth-1 placeOrder map left repository `save`, framework decorators, and Vitest operations unresolved. EVALUATION_OBSERVER reads of the service, entity, controller, resolver, and unit test confirmed the answer-controlling behavior."
+      }
+    ]
+  },
+  "answer": {
+    "response": "Transactional order placement has one direct implementation change, one test rewrite, and one conditional module-wiring decision.\n\n- **Provider — `src/orders/order.service.ts:13`:** `OrderService` currently injects `Repository<Order>` with `@InjectRepository(Order)`. Replace that dependency with TypeORM’s default `DataSource` provider. `OrderService.placeOrder` should call `DataSource.transaction(...)`.\n- **Entity access — `src/orders/order.service.ts:19`:** obtain the repository inside the transaction callback with `manager.getRepository(Order)`, then call that transaction-scoped repository’s `create` and `save`. Reusing the currently injected repository would execute outside the transaction manager. `src/orders/order.entity.ts` requires no schema change.\n- **Module wiring — `src/orders/orders.module.ts:9`:** `OrderService`, `OrderResolver`, the controller, and the service export remain unchanged. No feature-local `DataSource` provider should be added; it comes from the application’s root TypeORM setup. Keep `TypeOrmModule.forFeature([Order])` if it is responsible for registering `Order` through `autoLoadEntities`. It is removable only if the root configuration registers `Order` independently. This fixture contains no `forRoot`/`forRootAsync` configuration, so removal cannot be proven safe from repository evidence.\n- **Tests — `test/orders/order.service.test.ts:5`:** the existing test constructs `OrderService` with a repository mock and will break. Replace it with a fake `DataSource.transaction` that invokes its callback with a fake manager; the manager’s `getRepository(Order)` should return the existing `create`/`save` mock. Assert the transaction is entered once, `Order` is requested from the manager, persistence uses that repository, and the result is returned. A rejection case should verify save failures propagate through the transaction; actual rollback behavior would require a database-backed integration test, which this fixture does not contain.\n- **Caller boundary:** `OrdersController.create` and `OrderResolver.createOrder` only forward to `placeOrder`; they need no changes if its input and `Promise<Order>` contract stay intact.\n\nNo files were edited and no tests were run, as required by the fixture.",
+    "reportedFiles": [
+      "src/orders/order.service.ts",
+      "src/orders/order.entity.ts",
+      "src/orders/orders.module.ts",
+      "test/orders/order.service.test.ts",
+      "src/orders/orders.controller.ts",
+      "src/orders/order.resolver.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/orders/order.service.ts",
+        "name": "OrderService"
+      },
+      {
+        "file": "src/orders/order.service.ts",
+        "name": "OrderService.constructor"
+      },
+      {
+        "file": "src/orders/order.service.ts",
+        "name": "OrderService.placeOrder"
+      },
+      {
+        "file": "src/orders/order.service.ts",
+        "name": "PlaceOrderInput"
+      },
+      {
+        "file": "src/orders/order.entity.ts",
+        "name": "Order"
+      },
+      {
+        "file": "src/orders/orders.module.ts",
+        "name": "OrdersModule"
+      },
+      {
+        "file": "test/orders/order.service.test.ts",
+        "name": "describe(\"OrderService\") > it(\"persists a newly placed order\")"
+      },
+      {
+        "file": "src/orders/orders.controller.ts",
+        "name": "OrdersController.create"
+      },
+      {
+        "file": "src/orders/order.resolver.ts",
+        "name": "OrderResolver.createOrder"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Correctly analyzes the provider, entity access, module wiring, and tests, while preserving uncertainty about absent root TypeORM configuration.",
+    "failureClassifications": []
+  }
+}

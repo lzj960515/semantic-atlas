@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-location-bullmq-processor-atlas",
+  "caseId": "location-bullmq-processor",
+  "mode": "atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "8f4d028ccaae30d07d461c88ea8bcc0b8cac7bccafd9adfed64d8def088510ba",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:29:17.861Z",
+  "finishedAt": "2026-08-14T05:31:00.913Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/notifications/email.processor.ts",
+        "sourceTokens": 149
+      },
+      {
+        "sequence": 2,
+        "file": "src/notifications/email.producer.ts",
+        "sourceTokens": 34
+      },
+      {
+        "sequence": 3,
+        "file": "test/notifications/email.processor.test.ts",
+        "sourceTokens": 37
+      },
+      {
+        "sequence": 4,
+        "file": "src/notifications/email.producer.ts",
+        "sourceTokens": 141
+      }
+    ],
+    "atlasCalls": [
+      {
+        "sequence": 1,
+        "command": "semantic-atlas status"
+      },
+      {
+        "sequence": 2,
+        "command": "semantic-atlas map search send-email --limit 10"
+      },
+      {
+        "sequence": 3,
+        "command": "semantic-atlas map search email --limit 10"
+      },
+      {
+        "sequence": 4,
+        "command": "semantic-atlas map show 'symbol:src%2Fnotifications%2Femail.processor.ts#fae30d23bcc114b3972705b75e0deba6033fc69fa084b0acab8950e6b6ff8653' --depth 1"
+      }
+    ],
+    "atlasHandling": [
+      {
+        "sequence": 1,
+        "classification": "insufficient",
+        "action": "Atlas search for `send-email` returned no results. Source-observer search located `EmailProducer.enqueue`, and a refined Atlas search for `email` located the processor."
+      },
+      {
+        "sequence": 2,
+        "classification": "partial",
+        "action": "`map show EmailProcessor` returned partial structural data because of unresolved external framework and test symbols. The exact local `EmailProcessor` and `process` nodes remained usable."
+      },
+      {
+        "sequence": 3,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the NestJS/BullMQ `Processor`, `WorkerHost`, `Job`, decorator, inheritance, and related external edges. Source-observer reads of `email.processor.ts` and `email.producer.ts` confirmed the queue binding, job name, processing method, and delegation."
+      }
+    ]
+  },
+  "answer": {
+    "response": "The `send-email` job is consumed by `EmailProcessor` in `src/notifications/email.processor.ts`. It is registered for the `email` queue with `@Processor(\"email\")`.\n\nThe processing method is `EmailProcessor.process(job: Job<SendEmailJob>)`; it forwards `job.data` to `MailDeliveryService.send`. `EmailProducer.enqueue` confirms that `send-email` jobs are added to the same `email` queue.",
+    "reportedFiles": [
+      "src/notifications/email.processor.ts",
+      "src/notifications/email.producer.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/notifications/email.processor.ts",
+        "name": "EmailProcessor"
+      },
+      {
+        "file": "src/notifications/email.processor.ts",
+        "name": "EmailProcessor.process"
+      },
+      {
+        "file": "src/notifications/email.producer.ts",
+        "name": "EmailProducer.enqueue"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Correctly identifies EmailProcessor.process and its queue binding; Atlas insufficiency and framework boundaries were handled with source evidence.",
+    "failureClassifications": []
+  }
+}

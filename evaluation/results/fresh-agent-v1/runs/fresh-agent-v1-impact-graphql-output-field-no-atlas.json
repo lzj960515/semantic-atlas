@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-impact-graphql-output-field-no-atlas",
+  "caseId": "impact-graphql-output-field",
+  "mode": "no-atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "88a21d4d1b12d63d75bdcdbd52fda1771c1bab94c942a7a8a359afba39961ce3",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:33:07.703Z",
+  "finishedAt": "2026-08-14T05:34:31.044Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/catalog/dto/product.dto.ts",
+        "sourceTokens": 28
+      },
+      {
+        "sequence": 2,
+        "file": "src/catalog/product.mapper.ts",
+        "sourceTokens": 25
+      },
+      {
+        "sequence": 3,
+        "file": "test/catalog/product.resolver.test.ts",
+        "sourceTokens": 30
+      },
+      {
+        "sequence": 4,
+        "file": "src/catalog/dto/product.dto.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 5,
+        "file": "src/catalog/product.mapper.ts",
+        "sourceTokens": 50
+      },
+      {
+        "sequence": 6,
+        "file": "src/catalog/product.resolver.ts",
+        "sourceTokens": 140
+      },
+      {
+        "sequence": 7,
+        "file": "src/catalog/product.resolver.ts",
+        "sourceTokens": 176
+      },
+      {
+        "sequence": 8,
+        "file": "src/catalog/dto/product.dto.ts",
+        "sourceTokens": 91
+      },
+      {
+        "sequence": 9,
+        "file": "test/catalog/product.resolver.test.ts",
+        "sourceTokens": 209
+      },
+      {
+        "sequence": 10,
+        "file": "src/catalog/product.mapper.ts",
+        "sourceTokens": 95
+      },
+      {
+        "sequence": 11,
+        "file": "src/catalog/product.entity.ts",
+        "sourceTokens": 37
+      },
+      {
+        "sequence": 12,
+        "file": "src/catalog/product.mapper.ts",
+        "sourceTokens": 40
+      },
+      {
+        "sequence": 13,
+        "file": "src/catalog/product.service.ts",
+        "sourceTokens": 42
+      },
+      {
+        "sequence": 14,
+        "file": "test/catalog/product.resolver.test.ts",
+        "sourceTokens": 48
+      }
+    ],
+    "atlasCalls": [],
+    "atlasHandling": []
+  },
+  "answer": {
+    "response": "Rename impact:\n\n- Schema — `src/catalog/dto/product.dto.ts:9`, `ProductDto.displayName`: `@Field()` exposes the property name directly in the code-first GraphQL schema, so this is the schema-defining rename.\n- Resolver — `src/catalog/product.resolver.ts:12`, `ProductResolver.product`: it returns `ProductDto` via `toProductDto`. It contains no `displayName` reference and likely needs no direct edit, but its GraphQL output contract changes with the DTO.\n- Mapping — `src/catalog/product.mapper.ts:4`, `toProductDto`: rename the returned object key `displayName`. The source remains `product.name`; this is an API-output rename, not an entity-field rename.\n- Test — `test/catalog/product.resolver.test.ts:6`, `ProductResolver › maps the product to its GraphQL output`: rename the expected `displayName` key.\n\nAn exhaustive observer search found `displayName` only in the DTO, mapper, and this test. There is no separate SDL schema file. No files were edited or tests run, per fixture instructions.",
+    "reportedFiles": [
+      "src/catalog/dto/product.dto.ts",
+      "src/catalog/product.resolver.ts",
+      "src/catalog/product.mapper.ts",
+      "test/catalog/product.resolver.test.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/catalog/dto/product.dto.ts",
+        "name": "ProductDto.displayName"
+      },
+      {
+        "file": "src/catalog/product.resolver.ts",
+        "name": "ProductResolver.product"
+      },
+      {
+        "file": "src/catalog/product.mapper.ts",
+        "name": "toProductDto"
+      },
+      {
+        "file": "test/catalog/product.resolver.test.ts",
+        "name": "ProductResolver › maps the product to its GraphQL output"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Covers ProductDto.displayName, the resolver path, toProductDto, and the resolver regression test.",
+    "failureClassifications": []
+  }
+}

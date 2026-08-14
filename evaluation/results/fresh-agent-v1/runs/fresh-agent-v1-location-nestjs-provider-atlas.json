@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-location-nestjs-provider-atlas",
+  "caseId": "location-nestjs-provider",
+  "mode": "atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "53515a2b94031aaffe62f42fb63d93751f649a915ac203fa39aa071ce5e118ec",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:26:27.689Z",
+  "finishedAt": "2026-08-14T05:28:12.146Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 205
+      },
+      {
+        "sequence": 2,
+        "file": "src/orders/orders.module.ts",
+        "sourceTokens": 154
+      },
+      {
+        "sequence": 3,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 34
+      },
+      {
+        "sequence": 4,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 32
+      },
+      {
+        "sequence": 5,
+        "file": "src/orders/orders.controller.ts",
+        "sourceTokens": 26
+      }
+    ],
+    "atlasCalls": [
+      {
+        "sequence": 1,
+        "command": "semantic-atlas status"
+      },
+      {
+        "sequence": 2,
+        "command": "semantic-atlas map search order --limit 10"
+      },
+      {
+        "sequence": 3,
+        "command": "semantic-atlas map show 'symbol:src%2Forders%2Forder.service.ts#390cf96965596b997c742245aa4cc05526b46af7f9b278b50f611a153e638ef3' --depth 2"
+      }
+    ],
+    "atlasHandling": [
+      {
+        "sequence": 1,
+        "classification": "partial",
+        "action": "`map show` for `OrderService` returned partial because neighboring framework behavior contained unresolved structural boundaries; confirmed the answer-controlling service and module code through source-observer reads."
+      },
+      {
+        "sequence": 2,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the external NestJS `Injectable` decorator; source observer confirmed `@Injectable()` on `OrderService`."
+      },
+      {
+        "sequence": 3,
+        "classification": "unknown",
+        "action": "Atlas could not resolve `InjectRepository` and TypeORM `Repository`; source observer confirmed constructor injection of `Repository<Order>` and its use by `placeOrder`."
+      },
+      {
+        "sequence": 4,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the NestJS `Module` decorator; source observer confirmed the `OrdersModule` metadata and `OrderService` provider/export entries."
+      },
+      {
+        "sequence": 5,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the dynamic `TypeOrmModule.forFeature` call; source observer confirmed `TypeOrmModule.forFeature([Order])` in `OrdersModule.imports`."
+      }
+    ]
+  },
+  "answer": {
+    "response": "The order-placement implementation is `OrderService.placeOrder` in `src/orders/order.service.ts:19`. It creates an `Order` from `customerId` and `totalCents` with `Repository.create()`, then persists it with `Repository.save()`.\n\n`OrdersModule` in `src/orders/orders.module.ts:9` makes the service injectable by registering `OrderService` in `providers`. It also imports `TypeOrmModule.forFeature([Order])`, which supplies the injected `Repository<Order>`, and exports `OrderService` for modules that import `OrdersModule`. The service class itself is marked `@Injectable()` at line 12.",
+    "reportedFiles": [
+      "src/orders/order.service.ts",
+      "src/orders/orders.module.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/orders/order.service.ts",
+        "name": "OrderService"
+      },
+      {
+        "file": "src/orders/order.service.ts",
+        "name": "OrderService.constructor"
+      },
+      {
+        "file": "src/orders/order.service.ts",
+        "name": "OrderService.placeOrder"
+      },
+      {
+        "file": "src/orders/orders.module.ts",
+        "name": "OrdersModule"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Correctly locates OrderService.placeOrder and the OrdersModule provider registration; Atlas unknown boundaries were explicitly resolved through source reads.",
+    "failureClassifications": []
+  }
+}

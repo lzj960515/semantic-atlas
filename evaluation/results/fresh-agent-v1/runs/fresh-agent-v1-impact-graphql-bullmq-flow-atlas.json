@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-impact-graphql-bullmq-flow-atlas",
+  "caseId": "impact-graphql-bullmq-flow",
+  "mode": "atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "af56c7150f895493adb95aecc5277b1ae6393448b226459633331df763278cfd",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:40:50.947Z",
+  "finishedAt": "2026-08-14T05:43:47.728Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/exports/export.resolver.ts",
+        "sourceTokens": 175
+      },
+      {
+        "sequence": 2,
+        "file": "src/exports/export.producer.ts",
+        "sourceTokens": 138
+      },
+      {
+        "sequence": 3,
+        "file": "test/exports/export-flow.test.ts",
+        "sourceTokens": 269
+      },
+      {
+        "sequence": 4,
+        "file": "src/exports/jobs/export.job.ts",
+        "sourceTokens": 54
+      },
+      {
+        "sequence": 5,
+        "file": "src/exports/export.processor.ts",
+        "sourceTokens": 143
+      },
+      {
+        "sequence": 6,
+        "file": "src/exports/export.service.ts",
+        "sourceTokens": 92
+      },
+      {
+        "sequence": 7,
+        "file": "src/exports/export.resolver.ts",
+        "sourceTokens": 61
+      },
+      {
+        "sequence": 8,
+        "file": "src/exports/export.producer.ts",
+        "sourceTokens": 34
+      },
+      {
+        "sequence": 9,
+        "file": "src/exports/export.resolver.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 10,
+        "file": "src/exports/export.processor.ts",
+        "sourceTokens": 52
+      },
+      {
+        "sequence": 11,
+        "file": "test/exports/export-flow.test.ts",
+        "sourceTokens": 42
+      },
+      {
+        "sequence": 12,
+        "file": "src/exports/export.producer.ts",
+        "sourceTokens": 82
+      },
+      {
+        "sequence": 13,
+        "file": "src/exports/jobs/export.job.ts",
+        "sourceTokens": 28
+      },
+      {
+        "sequence": 14,
+        "file": "src/exports/export.service.ts",
+        "sourceTokens": 54
+      },
+      {
+        "sequence": 15,
+        "file": "test/exports/export-flow.test.ts",
+        "sourceTokens": 48
+      },
+      {
+        "sequence": 16,
+        "file": "src/exports/jobs/export.job.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 17,
+        "file": "src/exports/export.resolver.ts",
+        "sourceTokens": 64
+      },
+      {
+        "sequence": 18,
+        "file": "src/exports/export.service.ts",
+        "sourceTokens": 32
+      },
+      {
+        "sequence": 19,
+        "file": "src/exports/jobs/export.job.ts",
+        "sourceTokens": 32
+      },
+      {
+        "sequence": 20,
+        "file": "test/exports/export-flow.test.ts",
+        "sourceTokens": 48
+      }
+    ],
+    "atlasCalls": [
+      {
+        "sequence": 1,
+        "command": "semantic-atlas status"
+      },
+      {
+        "sequence": 2,
+        "command": "semantic-atlas map search \"export request\" --limit 20"
+      },
+      {
+        "sequence": 3,
+        "command": "semantic-atlas map show 'symbol:src%2Fexports%2Fexport.resolver.ts#8b964f6cb13c5f54337a02488c28f05ce4d0aecbd09ba5ca4c3f837d467d3061' --depth 3"
+      },
+      {
+        "sequence": 4,
+        "command": "semantic-atlas map search \"queues and processes one export request\" --limit 10"
+      }
+    ],
+    "atlasHandling": [
+      {
+        "sequence": 1,
+        "classification": "partial",
+        "action": "The depth-3 `map show` traversal returned a partial envelope. Used its exact internal edges as seeds, then confirmed the complete resolver → producer → contract → processor → service path through observer reads."
+      },
+      {
+        "sequence": 2,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the external NestJS GraphQL `Resolver`, `Mutation`, and `Args` behavior. Read `src/exports/export.resolver.ts` through the observer to confirm the mutation signature and payload construction."
+      },
+      {
+        "sequence": 3,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the external BullMQ producer symbols `InjectQueue`, `Queue`, and `add`. Read `src/exports/export.producer.ts` and `src/exports/jobs/export.job.ts` through the observer to confirm queue name, job name, and payload type."
+      },
+      {
+        "sequence": 4,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the external BullMQ consumer symbols `Processor` and `Job`. Read `src/exports/export.processor.ts` and `src/exports/export.service.ts` through the observer to confirm consumption of `Job<ExportJob>` and downstream format use."
+      },
+      {
+        "sequence": 5,
+        "classification": "unknown",
+        "action": "Atlas could not resolve Vitest imports and calls such as `describe`, `it`, `expect`, and `vi.fn`. Read `test/exports/export-flow.test.ts` and used observer searches across `src/exports` and `test/exports` to confirm the affected test and the absence of another export test."
+      }
+    ]
+  },
+  "answer": {
+    "response": "The affected path is:\n\n`requestExport` mutation → `ExportProducer.enqueue` → `ExportJob` → `ExportProcessor.process` → `ExportService.generate`\n\n- Mutation: [`src/exports/export.resolver.ts`](/privatesrc/exports/export.resolver.ts:9), `ExportResolver.requestExport`. It currently accepts `accountId`, `format: \"csv\" | \"json\"`, and `requestedBy`, constructs the job payload, enqueues it, and returns the job ID.\n\n- Queue producer: [`src/exports/export.producer.ts`](/privatesrc/exports/export.producer.ts:9), `ExportProducer.enqueue`. It injects queue `exports` as `Queue<ExportJob>` and submits the payload under job name `generate-export`. It forwards the payload opaquely, so a field-only contract change may require only type-level review here.\n\n- Job contract: [`src/exports/jobs/export.job.ts`](/privatesrc/exports/jobs/export.job.ts:1), `ExportJob`. This is the shared request contract: `accountId`, `format`, and `requestedBy`.\n\n- Consumer: [`src/exports/export.processor.ts`](/privatesrc/exports/export.processor.ts:7), `ExportProcessor.process`. It consumes `Job<ExportJob>` from queue `exports` and passes `job.data` to `ExportService.generate`.\n\n- Behavioral downstream consumer: [`src/exports/export.service.ts`](/privatesrc/exports/export.service.ts:7), `ExportService.generate`. It reads `accountId` and `format` to produce `/exports/{accountId}.{format}`, so changing the format field’s shape or meaning affects this logic directly.\n\n- Test: [`test/exports/export-flow.test.ts`](/privatetest/exports/export-flow.test.ts:6), `export request flow > queues and processes one export request`. Update its resolver invocation, constructed `job.data`, and expected export path as applicable. This is the only export test found. It mocks the producer and service and does not currently assert the exact payload passed to `enqueue`.\n\nAtlas was current with a complete backend. Observer searches for `ExportJob`, `requestExport`, `generate-export`, `requestedBy`, and `format` confirmed the impact set. No files were changed and tests were not run, per fixture rules.",
+    "reportedFiles": [
+      "src/exports/export.resolver.ts",
+      "src/exports/export.producer.ts",
+      "src/exports/jobs/export.job.ts",
+      "src/exports/export.processor.ts",
+      "src/exports/export.service.ts",
+      "test/exports/export-flow.test.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/exports/export.resolver.ts",
+        "name": "ExportResolver.requestExport"
+      },
+      {
+        "file": "src/exports/export.producer.ts",
+        "name": "ExportProducer.constructor"
+      },
+      {
+        "file": "src/exports/export.producer.ts",
+        "name": "ExportProducer.enqueue"
+      },
+      {
+        "file": "src/exports/jobs/export.job.ts",
+        "name": "ExportJob"
+      },
+      {
+        "file": "src/exports/export.processor.ts",
+        "name": "ExportProcessor"
+      },
+      {
+        "file": "src/exports/export.processor.ts",
+        "name": "ExportProcessor.process"
+      },
+      {
+        "file": "src/exports/export.service.ts",
+        "name": "ExportService.generate"
+      },
+      {
+        "file": "test/exports/export-flow.test.ts",
+        "name": "describe(\"export request flow\") > it(\"queues and processes one export request\")"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Correctly traces the entire GraphQL-to-BullMQ workflow and identifies the sole flow test; external framework boundaries were verified through source reads.",
+    "failureClassifications": []
+  }
+}

@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-impact-typeorm-column-atlas",
+  "caseId": "impact-typeorm-column",
+  "mode": "atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "5fd790ec7c3fd63edaee07aa3569f83d7958808533db09516acecec306ca6e6f",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:34:59.620Z",
+  "finishedAt": "2026-08-14T05:38:25.354Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/billing/invoice.entity.ts",
+        "sourceTokens": 29
+      },
+      {
+        "sequence": 2,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 57
+      },
+      {
+        "sequence": 3,
+        "file": "src/billing/invoice.resolver.ts",
+        "sourceTokens": 41
+      },
+      {
+        "sequence": 4,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 67
+      },
+      {
+        "sequence": 5,
+        "file": "src/orders/order.entity.ts",
+        "sourceTokens": 25
+      },
+      {
+        "sequence": 6,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 57
+      },
+      {
+        "sequence": 7,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 43
+      },
+      {
+        "sequence": 8,
+        "file": "test/billing/invoice.service.test.ts",
+        "sourceTokens": 47
+      },
+      {
+        "sequence": 9,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 75
+      },
+      {
+        "sequence": 10,
+        "file": "src/billing/invoice.resolver.ts",
+        "sourceTokens": 160
+      },
+      {
+        "sequence": 11,
+        "file": "src/billing/invoice.entity.ts",
+        "sourceTokens": 137
+      },
+      {
+        "sequence": 12,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 171
+      },
+      {
+        "sequence": 13,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 264
+      },
+      {
+        "sequence": 14,
+        "file": "test/billing/invoice.service.test.ts",
+        "sourceTokens": 246
+      },
+      {
+        "sequence": 15,
+        "file": "src/billing/customer.entity.ts",
+        "sourceTokens": 69
+      },
+      {
+        "sequence": 16,
+        "file": "src/billing/invoice.entity.ts",
+        "sourceTokens": 26
+      },
+      {
+        "sequence": 17,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 136
+      },
+      {
+        "sequence": 18,
+        "file": "src/billing/invoice.resolver.ts",
+        "sourceTokens": 87
+      },
+      {
+        "sequence": 19,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 138
+      },
+      {
+        "sequence": 20,
+        "file": "test/billing/invoice.service.test.ts",
+        "sourceTokens": 111
+      },
+      {
+        "sequence": 21,
+        "file": "src/billing/invoice.entity.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 22,
+        "file": "src/billing/invoice.resolver.ts",
+        "sourceTokens": 37
+      },
+      {
+        "sequence": 23,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 40
+      },
+      {
+        "sequence": 24,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 25,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 37
+      },
+      {
+        "sequence": 26,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 42
+      },
+      {
+        "sequence": 27,
+        "file": "src/catalog/product.resolver.ts",
+        "sourceTokens": 32
+      },
+      {
+        "sequence": 28,
+        "file": "test/billing/invoice.service.test.ts",
+        "sourceTokens": 39
+      },
+      {
+        "sequence": 29,
+        "file": "src/catalog/product.service.ts",
+        "sourceTokens": 33
+      },
+      {
+        "sequence": 30,
+        "file": "test/catalog/product.resolver.test.ts",
+        "sourceTokens": 31
+      }
+    ],
+    "atlasCalls": [
+      {
+        "sequence": 1,
+        "command": "semantic-atlas status"
+      },
+      {
+        "sequence": 2,
+        "command": "semantic-atlas map roots"
+      },
+      {
+        "sequence": 3,
+        "command": "semantic-atlas map search totalCents --limit 20"
+      },
+      {
+        "sequence": 4,
+        "command": "semantic-atlas map show 'symbol:src%2Fbilling%2Finvoice.entity.ts#29dda768c2c9022e3d8c53217c60083f2698d2dd852d61faed715a2cc76e61fe' --depth 3"
+      }
+    ],
+    "atlasHandling": [
+      {
+        "sequence": 1,
+        "classification": "partial",
+        "action": "`map show` for `Invoice.totalCents` returned `partial` with `UNKNOWN_BOUNDARY`; used its billing entity, service, processor, resolver, and test locations as bounded seeds, then confirmed every answer-controlling occurrence with source-observer searches and reads."
+      },
+      {
+        "sequence": 2,
+        "classification": "unknown",
+        "action": "Atlas could not resolve the TypeORM `Column` decorator. Source observer confirmed `Invoice.totalCents` is decorated with `@Column(\"integer\")` in `src/billing/invoice.entity.ts`."
+      },
+      {
+        "sequence": 3,
+        "classification": "unknown",
+        "action": "Atlas could not resolve TypeORM repository methods including `create`, `save`, and related reads. Source observer confirmed the complete write and read paths in `InvoiceService.createInvoice` and `InvoiceService.findById`."
+      },
+      {
+        "sequence": 4,
+        "classification": "unknown",
+        "action": "Atlas could not resolve external Nest/BullMQ/Vitest decorators, job types, and assertions. Source observer confirmed `GenerateInvoiceJob`, `InvoiceProcessor.process`, `InvoiceResolver.invoice`, and the sole billing invoice test, plus an exact repository-wide `totalCents` search."
+      }
+    ]
+  },
+  "answer": {
+    "response": "Changing the name, TypeScript type, or representation of `Invoice.totalCents` affects five files across persistence, queue ingress, service writes, query reads, and tests.\n\n- Persistence: `src/billing/invoice.entity.ts:10` maps `Invoice.totalCents: number` to the `invoices` table as an integer column. A database-type or column-name change also requires schema/migration handling, but this fixture contains no migration files.\n- Writes: `InvoiceService.createInvoice` accepts `totalCents: number`, passes it to `Repository<Invoice>.create({ customer, totalCents })`, then saves the entity. Its signature and object mapping must follow any rename or representation change.\n- Reads: `InvoiceService.findById` loads an `Invoice`; `InvoiceResolver.invoice` explicitly reads `invoice.totalCents` and copies it into the returned API object.\n- API/contract mapping: `GenerateInvoiceJob.totalCents` is the asynchronous input contract, and `InvoiceProcessor.process` forwards it to `createInvoice`. The GraphQL resolver manually maps `{ id, totalCents }`, so it is not automatically insulated from an entity-field change. Its decorator currently declares `@Query(() => String)` despite returning that object, so the declared GraphQL type is already not aligned with the mapping and must be reviewed during the change. No in-repository producer for `GenerateInvoiceJob` was found.\n- Tests: `test/billing/invoice.service.test.ts` passes `4200`, expects the returned invoice to contain `totalCents: 4200`, and verifies one save. It will need updating for a rename/type/representation change. It mocks persistence and does not verify column metadata, processor forwarding, or resolver output; no corresponding coverage exists in the fixture.\n\nIf the change is limited to TypeORM column options while the runtime field remains a numeric `totalCents`, only the entity/database schema is necessarily changed; the other four files remain behavioral regression points but may require no edits.\n\nAtlas was current and complete at snapshot `e4a7140c…`. Its exact search located the field and service, while the deeper impact result was partial because external TypeORM, Nest, BullMQ, and Vitest symbols were unresolved. All conclusions above were therefore confirmed through exact observer searches and bounded source reads. Tests were not run, as required by the immutable fixture instructions.",
+    "reportedFiles": [
+      "src/billing/invoice.entity.ts",
+      "src/billing/invoice.service.ts",
+      "src/billing/invoice.processor.ts",
+      "src/billing/invoice.resolver.ts",
+      "test/billing/invoice.service.test.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/billing/invoice.entity.ts",
+        "name": "Invoice.totalCents"
+      },
+      {
+        "file": "src/billing/invoice.service.ts",
+        "name": "InvoiceService.constructor"
+      },
+      {
+        "file": "src/billing/invoice.service.ts",
+        "name": "InvoiceService.createInvoice"
+      },
+      {
+        "file": "src/billing/invoice.service.ts",
+        "name": "InvoiceService.findById"
+      },
+      {
+        "file": "src/billing/invoice.processor.ts",
+        "name": "GenerateInvoiceJob.totalCents"
+      },
+      {
+        "file": "src/billing/invoice.processor.ts",
+        "name": "InvoiceProcessor.process"
+      },
+      {
+        "file": "src/billing/invoice.resolver.ts",
+        "name": "InvoiceResolver.invoice"
+      },
+      {
+        "file": "test/billing/invoice.service.test.ts",
+        "name": "InvoiceService > writes an invoice for an existing customer"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Correctly identifies the required entity, persistence, API, and test impacts; Atlas partial and external-framework boundaries were appropriately corroborated.",
+    "failureClassifications": []
+  }
+}

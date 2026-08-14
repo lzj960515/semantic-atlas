@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-location-graphql-query-no-atlas",
+  "caseId": "location-graphql-query",
+  "mode": "no-atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "14d4bd1332f78734a0eeee8217b97f12b4e0c17abcbc1fc56f48c833f01fd35a",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:26:27.695Z",
+  "finishedAt": "2026-08-14T05:27:52.106Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/catalog/dto/product.dto.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 2,
+        "file": "src/catalog/product.entity.ts",
+        "sourceTokens": 22
+      },
+      {
+        "sequence": 3,
+        "file": "src/catalog/product.mapper.ts",
+        "sourceTokens": 113
+      },
+      {
+        "sequence": 4,
+        "file": "src/catalog/product.resolver.ts",
+        "sourceTokens": 214
+      },
+      {
+        "sequence": 5,
+        "file": "src/catalog/product.service.ts",
+        "sourceTokens": 120
+      },
+      {
+        "sequence": 6,
+        "file": "test/catalog/product.resolver.test.ts",
+        "sourceTokens": 163
+      },
+      {
+        "sequence": 7,
+        "file": "src/catalog/product.resolver.ts",
+        "sourceTokens": 176
+      },
+      {
+        "sequence": 8,
+        "file": "src/catalog/dto/product.dto.ts",
+        "sourceTokens": 91
+      },
+      {
+        "sequence": 9,
+        "file": "src/catalog/product.service.ts",
+        "sourceTokens": 141
+      },
+      {
+        "sequence": 10,
+        "file": "src/catalog/product.mapper.ts",
+        "sourceTokens": 95
+      },
+      {
+        "sequence": 11,
+        "file": "src/billing/invoice.resolver.ts",
+        "sourceTokens": 37
+      },
+      {
+        "sequence": 12,
+        "file": "src/billing/invoice.resolver.ts",
+        "sourceTokens": 36
+      },
+      {
+        "sequence": 13,
+        "file": "src/catalog/product.resolver.ts",
+        "sourceTokens": 33
+      },
+      {
+        "sequence": 14,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 37
+      },
+      {
+        "sequence": 15,
+        "file": "src/catalog/product.resolver.ts",
+        "sourceTokens": 32
+      },
+      {
+        "sequence": 16,
+        "file": "src/catalog/product.service.ts",
+        "sourceTokens": 33
+      },
+      {
+        "sequence": 17,
+        "file": "test/catalog/product.resolver.test.ts",
+        "sourceTokens": 31
+      }
+    ],
+    "atlasCalls": [],
+    "atlasHandling": []
+  },
+  "answer": {
+    "response": "The GraphQL query is `ProductResolver.product` in `src/catalog/product.resolver.ts:12`. It exposes a nullable `ProductDto` query named `product`, accepts an `id`, and calls `ProductService.findById(id)`.\n\nThe supplying service operation is `ProductService.findById` in `src/catalog/product.service.ts:13`, returning the matching `Product` or `undefined`. The resolver converts a found product through `toProductDto` before returning it.\n\nCall path: `ProductResolver.product` → `ProductService.findById` → `toProductDto`.",
+    "reportedFiles": [
+      "src/catalog/product.resolver.ts",
+      "src/catalog/product.service.ts",
+      "src/catalog/product.mapper.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/catalog/product.resolver.ts",
+        "name": "ProductResolver.product"
+      },
+      {
+        "file": "src/catalog/product.service.ts",
+        "name": "ProductService.findById"
+      },
+      {
+        "file": "src/catalog/product.mapper.ts",
+        "name": "toProductDto"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Correctly connects ProductResolver.product to ProductService.findById and reports both required files and symbols.",
+    "failureClassifications": []
+  }
+}

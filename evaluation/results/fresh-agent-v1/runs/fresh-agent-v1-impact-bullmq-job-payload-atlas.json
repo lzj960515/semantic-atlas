@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-impact-bullmq-job-payload-atlas",
+  "caseId": "impact-bullmq-job-payload",
+  "mode": "atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "366f9f503c351bb3026e0a9ef9a6e24d841410b1bd64d51d5d1773df267944aa",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:37:40.170Z",
+  "finishedAt": "2026-08-14T05:40:50.916Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/notifications/email.processor.ts",
+        "sourceTokens": 54
+      },
+      {
+        "sequence": 2,
+        "file": "src/notifications/email.producer.ts",
+        "sourceTokens": 85
+      },
+      {
+        "sequence": 3,
+        "file": "src/notifications/jobs/email.job.ts",
+        "sourceTokens": 28
+      },
+      {
+        "sequence": 4,
+        "file": "src/notifications/mail-delivery.service.ts",
+        "sourceTokens": 62
+      },
+      {
+        "sequence": 5,
+        "file": "src/notifications/jobs/email.job.ts",
+        "sourceTokens": 59
+      },
+      {
+        "sequence": 6,
+        "file": "src/notifications/email.processor.ts",
+        "sourceTokens": 149
+      },
+      {
+        "sequence": 7,
+        "file": "src/notifications/email.producer.ts",
+        "sourceTokens": 141
+      },
+      {
+        "sequence": 8,
+        "file": "test/notifications/email.processor.test.ts",
+        "sourceTokens": 216
+      },
+      {
+        "sequence": 9,
+        "file": "src/notifications/mail-delivery.service.ts",
+        "sourceTokens": 95
+      },
+      {
+        "sequence": 10,
+        "file": "src/notifications/email.producer.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 11,
+        "file": "src/exports/export.resolver.ts",
+        "sourceTokens": 39
+      },
+      {
+        "sequence": 12,
+        "file": "src/notifications/email.producer.ts",
+        "sourceTokens": 34
+      },
+      {
+        "sequence": 13,
+        "file": "test/notifications/email.processor.test.ts",
+        "sourceTokens": 37
+      },
+      {
+        "sequence": 14,
+        "file": "src/notifications/jobs/email.job.ts",
+        "sourceTokens": 27
+      },
+      {
+        "sequence": 15,
+        "file": "test/notifications/email.processor.test.ts",
+        "sourceTokens": 30
+      },
+      {
+        "sequence": 16,
+        "file": "src/notifications/jobs/email.job.ts",
+        "sourceTokens": 35
+      },
+      {
+        "sequence": 17,
+        "file": "test/notifications/email.processor.test.ts",
+        "sourceTokens": 30
+      },
+      {
+        "sequence": 18,
+        "file": "src/notifications/email.processor.ts",
+        "sourceTokens": 54
+      },
+      {
+        "sequence": 19,
+        "file": "src/notifications/mail-delivery.service.ts",
+        "sourceTokens": 30
+      }
+    ],
+    "atlasCalls": [
+      {
+        "sequence": 1,
+        "command": "semantic-atlas status"
+      },
+      {
+        "sequence": 2,
+        "command": "semantic-atlas map search SendEmailJob --limit 10"
+      },
+      {
+        "sequence": 3,
+        "command": "semantic-atlas map show 'symbol:src%2Fnotifications%2Fjobs%2Femail.job.ts#09a7d6a38a14f0895f7ec3f36d51bbfd0a83bab58dc13d0c934f4e3b26f35a63' --depth 2"
+      },
+      {
+        "sequence": 4,
+        "command": "semantic-atlas map search locale --limit 10"
+      },
+      {
+        "sequence": 5,
+        "command": "semantic-atlas map search 'email producer' --limit 10"
+      }
+    ],
+    "atlasHandling": [
+      {
+        "sequence": 1,
+        "classification": "partial",
+        "action": "`map show` found the relevant internal files and exact symbols but returned `UNKNOWN_BOUNDARY` for TypeScript globals and external NestJS, BullMQ, and Vitest symbols. Confirmed the payload fields, queue/job names, forwarding path, delivery behavior, and test assertions by reading the bounded files through the source observer."
+      },
+      {
+        "sequence": 2,
+        "classification": "insufficient",
+        "action": "`map search locale` returned no results. A source-observer search also found no locale occurrence, so the repository cannot establish the new field's exact type or allowed values; that boundary is preserved in the answer."
+      }
+    ]
+  },
+  "answer": {
+    "response": "Impact chain: caller → `EmailProducer.enqueue` → BullMQ queue `email` / job `send-email` → `EmailProcessor.process` → `MailDeliveryService.send`.\n\n- Payload contract: `SendEmailJob` currently contains `recipient`, the `template` union, and `variables` in `src/notifications/jobs/email.job.ts:1`. `locale` belongs in this shared interface. The fixture contains no locale definition, so its exact type or allowed values cannot be determined from repository evidence.\n- Producer: `EmailProducer.enqueue` accepts `SendEmailJob` and passes the payload unchanged to `emailQueue.add(\"send-email\", payload)` in `src/notifications/email.producer.ts:8`. A required locale will therefore be enforced at typed call sites automatically. No producer callers exist inside this fixture.\n- Consumer: `EmailProcessor` consumes `Job<SendEmailJob>` from the `email` queue and forwards `job.data` unchanged to `MailDeliveryService.send` in `src/notifications/email.processor.ts:7`. The delivery service also accepts `SendEmailJob`, but currently reads only `template` and `recipient`; adding locale to the contract alone will not create localized behavior (`src/notifications/mail-delivery.service.ts:6`).\n- Tests: the only existing affected test is `test/notifications/email.processor.test.ts:5`. Its job fixture omits locale and should be updated to include it so the existing whole-payload assertion verifies forwarding. Because the fixture is cast with `job as never`, adding a required interface field may not make this test fail at compile time. There are no producer or delivery-service tests; those would be needed to verify queue serialization or locale-dependent delivery behavior respectively.\n\nThis was a read-only impact analysis; no files were changed or tests run.",
+    "reportedFiles": [
+      "src/notifications/jobs/email.job.ts",
+      "src/notifications/email.producer.ts",
+      "src/notifications/email.processor.ts",
+      "src/notifications/mail-delivery.service.ts",
+      "test/notifications/email.processor.test.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/notifications/jobs/email.job.ts",
+        "name": "SendEmailJob"
+      },
+      {
+        "file": "src/notifications/email.producer.ts",
+        "name": "EmailProducer"
+      },
+      {
+        "file": "src/notifications/email.producer.ts",
+        "name": "EmailProducer.enqueue"
+      },
+      {
+        "file": "src/notifications/email.processor.ts",
+        "name": "EmailProcessor"
+      },
+      {
+        "file": "src/notifications/email.processor.ts",
+        "name": "EmailProcessor.process"
+      },
+      {
+        "file": "src/notifications/mail-delivery.service.ts",
+        "name": "MailDeliveryService.send"
+      },
+      {
+        "file": "test/notifications/email.processor.test.ts",
+        "name": "EmailProcessor > delivers the send-email job payload"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Correctly covers the complete required impact set and preserves the unknown boundary around locale’s exact type and semantics.",
+    "failureClassifications": []
+  }
+}

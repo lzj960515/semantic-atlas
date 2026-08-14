@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-impact-typeorm-column-no-atlas",
+  "caseId": "impact-typeorm-column",
+  "mode": "no-atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "5fd790ec7c3fd63edaee07aa3569f83d7958808533db09516acecec306ca6e6f",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:34:31.082Z",
+  "finishedAt": "2026-08-14T05:36:15.750Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/billing/invoice.entity.ts",
+        "sourceTokens": 29
+      },
+      {
+        "sequence": 2,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 57
+      },
+      {
+        "sequence": 3,
+        "file": "src/billing/invoice.resolver.ts",
+        "sourceTokens": 41
+      },
+      {
+        "sequence": 4,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 67
+      },
+      {
+        "sequence": 5,
+        "file": "src/orders/order.entity.ts",
+        "sourceTokens": 25
+      },
+      {
+        "sequence": 6,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 57
+      },
+      {
+        "sequence": 7,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 43
+      },
+      {
+        "sequence": 8,
+        "file": "test/billing/invoice.service.test.ts",
+        "sourceTokens": 47
+      },
+      {
+        "sequence": 9,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 75
+      },
+      {
+        "sequence": 10,
+        "file": "src/billing/customer.entity.ts",
+        "sourceTokens": 69
+      },
+      {
+        "sequence": 11,
+        "file": "src/billing/customer.entity.ts",
+        "sourceTokens": 69
+      },
+      {
+        "sequence": 12,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 40
+      },
+      {
+        "sequence": 13,
+        "file": "src/billing/invoice.entity.ts",
+        "sourceTokens": 26
+      },
+      {
+        "sequence": 14,
+        "file": "src/billing/invoice.entity.ts",
+        "sourceTokens": 59
+      },
+      {
+        "sequence": 15,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 136
+      },
+      {
+        "sequence": 16,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 42
+      },
+      {
+        "sequence": 17,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 96
+      },
+      {
+        "sequence": 18,
+        "file": "src/billing/invoice.resolver.ts",
+        "sourceTokens": 87
+      },
+      {
+        "sequence": 19,
+        "file": "test/billing/invoice.service.test.ts",
+        "sourceTokens": 39
+      },
+      {
+        "sequence": 20,
+        "file": "src/billing/invoice.resolver.ts",
+        "sourceTokens": 149
+      },
+      {
+        "sequence": 21,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 138
+      },
+      {
+        "sequence": 22,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 125
+      },
+      {
+        "sequence": 23,
+        "file": "test/billing/invoice.service.test.ts",
+        "sourceTokens": 111
+      },
+      {
+        "sequence": 24,
+        "file": "src/notifications/jobs/email.job.ts",
+        "sourceTokens": 35
+      },
+      {
+        "sequence": 25,
+        "file": "test/billing/invoice.service.test.ts",
+        "sourceTokens": 196
+      },
+      {
+        "sequence": 26,
+        "file": "src/billing/invoice.entity.ts",
+        "sourceTokens": 137
+      },
+      {
+        "sequence": 27,
+        "file": "src/billing/invoice.processor.ts",
+        "sourceTokens": 171
+      },
+      {
+        "sequence": 28,
+        "file": "test/billing/invoice.service.test.ts",
+        "sourceTokens": 246
+      },
+      {
+        "sequence": 29,
+        "file": "src/billing/invoice.resolver.ts",
+        "sourceTokens": 160
+      },
+      {
+        "sequence": 30,
+        "file": "src/billing/customer.entity.ts",
+        "sourceTokens": 108
+      },
+      {
+        "sequence": 31,
+        "file": "src/billing/invoice.service.ts",
+        "sourceTokens": 264
+      }
+    ],
+    "atlasCalls": [],
+    "atlasHandling": []
+  },
+  "answer": {
+    "response": "`Invoice.totalCents` has one persistence definition, one write path, one explicit read/API path, one queue input mapping, and one direct test.\n\n- Persistence: `Invoice.totalCents` is a TypeORM `integer` column on `invoices`. A database type/name change requires the corresponding schema migration, although no migration files exist in this fixture.\n- Write path: `InvoiceProcessor.process` reads `GenerateInvoiceJob.totalCents` and passes it to `InvoiceService.createInvoice`. The service creates `{ customer, totalCents }` and saves it through `Repository<Invoice>`.\n- Read path: `InvoiceService.findById` loads the invoice with `findOne`; because no projection excludes the column, `totalCents` is hydrated with the entity. `InvoiceResolver.invoice` then explicitly reads it.\n- API mapping: `InvoiceResolver.invoice` manually maps the entity to `{ id, totalCents }`. A rename or representation change must be reflected here. The existing query decorator declares `String` while returning this object, an existing GraphQL contract mismatch worth resolving when changing the field.\n- Queue contract: `GenerateInvoiceJob.totalCents` is an upstream serialized contract. Renaming or changing its type requires coordinated producers and existing queued-job compatibility, though no invoice producer is present in the fixture.\n- Tests: `invoice.service.test.ts` passes `4200` and asserts the saved result contains `totalCents: 4200`; update this test for any property/type/normalization change. There are no direct processor, resolver/API, database-mapping, or migration tests covering the other affected surfaces.\n\n`Order.totalCents` and its tests are a separate entity/path with no source-level coupling to `Invoice`, so they are not affected unless the intended change is a shared business-wide money-contract change.\n\nIf only the physical database column name changes while the entity property remains `totalCents` via an explicit TypeORM column-name mapping, the service, queue, resolver, and test contracts can remain unchanged; a property or value-type change affects all surfaces above.",
+    "reportedFiles": [
+      "src/billing/invoice.entity.ts",
+      "src/billing/invoice.service.ts",
+      "src/billing/invoice.processor.ts",
+      "src/billing/invoice.resolver.ts",
+      "test/billing/invoice.service.test.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/billing/invoice.entity.ts",
+        "name": "Invoice.totalCents"
+      },
+      {
+        "file": "src/billing/invoice.service.ts",
+        "name": "InvoiceService.createInvoice"
+      },
+      {
+        "file": "src/billing/invoice.service.ts",
+        "name": "InvoiceService.findById"
+      },
+      {
+        "file": "src/billing/invoice.processor.ts",
+        "name": "GenerateInvoiceJob.totalCents"
+      },
+      {
+        "file": "src/billing/invoice.processor.ts",
+        "name": "InvoiceProcessor.process"
+      },
+      {
+        "file": "src/billing/invoice.resolver.ts",
+        "name": "InvoiceResolver.invoice"
+      },
+      {
+        "file": "test/billing/invoice.service.test.ts",
+        "name": "InvoiceService > writes an invoice for an existing customer"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Covers Invoice.totalCents, service writes and reads, resolver API mapping, and the affected service test, plus relevant queue ingress.",
+    "failureClassifications": []
+  }
+}

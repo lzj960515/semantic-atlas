@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["response", "reportedFiles", "reportedSymbols", "atlasHandling"],
+  "properties": {
+    "response": { "type": "string", "minLength": 1 },
+    "reportedFiles": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "reportedSymbols": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "name"],
+        "properties": {
+          "file": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "atlasHandling": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sequence", "classification", "action"],
+        "properties": {
+          "sequence": { "type": "integer", "minimum": 1 },
+          "classification": {
+            "enum": ["stale", "hypothesis", "unknown", "unsupported", "partial", "insufficient"]
+          },
+          "action": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

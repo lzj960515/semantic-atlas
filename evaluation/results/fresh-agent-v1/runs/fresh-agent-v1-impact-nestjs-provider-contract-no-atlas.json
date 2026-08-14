@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "runId": "fresh-agent-v1-impact-nestjs-provider-contract-no-atlas",
+  "caseId": "impact-nestjs-provider-contract",
+  "mode": "no-atlas",
+  "fixtureRevision": "fixture-v1",
+  "agent": {
+    "product": "codex-cli 0.146.0",
+    "model": "gpt-5.6-sol",
+    "freshContext": true
+  },
+  "protocol": {
+    "runnerVersion": "fresh-agent-runner-v1",
+    "fixtureCommit": "5a7bf9ec5c4a52148410b71c68d753a7f74ff47d",
+    "instructionsHash": "27c054619463ba6837155f2decf5b451ea45b4fbb5867d948601d6f6e6ca183d",
+    "toolPolicyHash": "03b90005d5ff59da4c1f47b3ec3ac53c5dcc885466b9a58fa6ceb6f83fc98667",
+    "oracleHidden": true,
+    "commandAuditPassed": true
+  },
+  "startedAt": "2026-08-14T05:31:17.677Z",
+  "finishedAt": "2026-08-14T05:33:40.580Z",
+  "observations": {
+    "sourceTokenMethod": "tiktoken-o200k_base-v1",
+    "sourceOpens": [
+      {
+        "sequence": 1,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 34
+      },
+      {
+        "sequence": 2,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 32
+      },
+      {
+        "sequence": 3,
+        "file": "src/orders/orders.controller.ts",
+        "sourceTokens": 26
+      },
+      {
+        "sequence": 4,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 43
+      },
+      {
+        "sequence": 5,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 209
+      },
+      {
+        "sequence": 6,
+        "file": "src/orders/orders.module.ts",
+        "sourceTokens": 154
+      },
+      {
+        "sequence": 7,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 205
+      },
+      {
+        "sequence": 8,
+        "file": "src/orders/orders.controller.ts",
+        "sourceTokens": 115
+      },
+      {
+        "sequence": 9,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 50
+      },
+      {
+        "sequence": 10,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 148
+      },
+      {
+        "sequence": 11,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 23
+      },
+      {
+        "sequence": 12,
+        "file": "src/orders/orders.controller.ts",
+        "sourceTokens": 52
+      },
+      {
+        "sequence": 13,
+        "file": "src/orders/orders.module.ts",
+        "sourceTokens": 62
+      },
+      {
+        "sequence": 14,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 70
+      },
+      {
+        "sequence": 15,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 31
+      },
+      {
+        "sequence": 16,
+        "file": "src/orders/order.service.ts",
+        "sourceTokens": 46
+      },
+      {
+        "sequence": 17,
+        "file": "src/orders/order.resolver.ts",
+        "sourceTokens": 34
+      },
+      {
+        "sequence": 18,
+        "file": "src/orders/orders.module.ts",
+        "sourceTokens": 23
+      },
+      {
+        "sequence": 19,
+        "file": "src/orders/orders.controller.ts",
+        "sourceTokens": 26
+      },
+      {
+        "sequence": 20,
+        "file": "src/orders/orders.controller.ts",
+        "sourceTokens": 54
+      },
+      {
+        "sequence": 21,
+        "file": "test/orders/order.service.test.ts",
+        "sourceTokens": 43
+      }
+    ],
+    "atlasCalls": [],
+    "atlasHandling": []
+  },
+  "answer": {
+    "response": "Affected callers and composition points:\n\n- `src/orders/orders.controller.ts` — `OrdersController.create` forwards the HTTP body directly to `OrderService.placeOrder`. A second method parameter requires sourcing and passing it here. If the change is instead a new `PlaceOrderInput` field, the HTTP request contract changes even though the forwarding call may remain syntactically unchanged.\n- `src/orders/order.resolver.ts` — `OrderResolver.createOrder` explicitly constructs `{ customerId, totalCents }`. It must expose/source the new GraphQL argument and pass it to `placeOrder`.\n- `test/orders/order.service.test.ts` — the `OrderService > persists a newly placed order` test directly calls `placeOrder`; its fixture and assertions must be updated. Its manual `new OrderService(...)` composition is unaffected by a call-time argument.\n- `src/orders/order.service.ts` — `OrderService.placeOrder` is the changed contract. `PlaceOrderInput` also changes if the requirement is modeled as another input field rather than a second positional parameter.\n- `src/orders/orders.module.ts` — `OrdersModule` is the Nest composition point: it registers `OrderService` and `OrderResolver`, registers `OrdersController`, and exports `OrderService`. A plain call-time argument requires no provider-metadata change. If the value is actually a stable service dependency, it should be constructor-injected and the module’s imports/providers would need updating.\n\nThe repository-wide observer search found exactly three direct `placeOrder` calls: controller, resolver, and unit test. It found no in-repository importer of `OrdersModule`; because `OrderService` is exported, consumers outside this fixture may also be affected but cannot be enumerated here.",
+    "reportedFiles": [
+      "src/orders/order.service.ts",
+      "src/orders/orders.controller.ts",
+      "src/orders/order.resolver.ts",
+      "src/orders/orders.module.ts",
+      "test/orders/order.service.test.ts"
+    ],
+    "reportedSymbols": [
+      {
+        "file": "src/orders/order.service.ts",
+        "name": "PlaceOrderInput"
+      },
+      {
+        "file": "src/orders/order.service.ts",
+        "name": "OrderService.placeOrder"
+      },
+      {
+        "file": "src/orders/orders.controller.ts",
+        "name": "OrdersController.constructor"
+      },
+      {
+        "file": "src/orders/orders.controller.ts",
+        "name": "OrdersController.create"
+      },
+      {
+        "file": "src/orders/order.resolver.ts",
+        "name": "OrderResolver.constructor"
+      },
+      {
+        "file": "src/orders/order.resolver.ts",
+        "name": "OrderResolver.createOrder"
+      },
+      {
+        "file": "src/orders/orders.module.ts",
+        "name": "OrdersModule"
+      },
+      {
+        "file": "test/orders/order.service.test.ts",
+        "name": "OrderService > persists a newly placed order"
+      }
+    ]
+  },
+  "adjudication": {
+    "correct": true,
+    "notes": "Includes both entry-point callers, the changed service contract, the service test, and OrdersModule as the NestJS composition point.",
+    "failureClassifications": []
+  }
+}

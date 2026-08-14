@@ -141,6 +141,31 @@ const atlasCallSchema = z.strictObject({
   command: z.string().min(1),
 });
 
+const atlasHandlingSchema = z.strictObject({
+  sequence: z.number().int().positive(),
+  classification: z.enum([
+    "stale",
+    "hypothesis",
+    "unknown",
+    "unsupported",
+    "partial",
+    "insufficient",
+  ]),
+  action: z.string().min(1),
+});
+
+export const evaluationFailureClassificationSchema = z.enum([
+  "missed-dependency",
+  "incorrect-answer",
+  "stale-knowledge",
+  "hypothesis-mishandled",
+  "unknown-boundary-mishandled",
+  "unsupported-source",
+  "protocol-violation",
+]);
+
+const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
+
 export const evaluationRunSchema = z
   .strictObject({
     schemaVersion: z.literal(1),
@@ -153,12 +178,21 @@ export const evaluationRunSchema = z
       model: z.string().min(1),
       freshContext: z.literal(true),
     }),
+    protocol: z.strictObject({
+      runnerVersion: z.string().min(1),
+      fixtureCommit: z.string().regex(/^[a-f0-9]{40}$/),
+      instructionsHash: sha256Schema,
+      toolPolicyHash: sha256Schema,
+      oracleHidden: z.literal(true),
+      commandAuditPassed: z.literal(true),
+    }),
     startedAt: z.iso.datetime(),
     finishedAt: z.iso.datetime(),
     observations: z.strictObject({
       sourceTokenMethod: z.string().min(1),
-      sourceOpens: z.array(sourceOpenSchema),
+      sourceOpens: z.array(sourceOpenSchema).min(1),
       atlasCalls: z.array(atlasCallSchema),
+      atlasHandling: z.array(atlasHandlingSchema),
     }),
     answer: z.strictObject({
       response: z.string().min(1),
@@ -168,6 +202,7 @@ export const evaluationRunSchema = z
     adjudication: z.strictObject({
       correct: z.boolean(),
       notes: z.string().min(1),
+      failureClassifications: z.array(evaluationFailureClassificationSchema),
     }),
   })
   .superRefine((run, context) => {
@@ -176,6 +211,30 @@ export const evaluationRunSchema = z
         code: "custom",
         message: "A no-atlas run cannot contain Atlas calls",
         path: ["observations", "atlasCalls"],
+      });
+    }
+
+    if (run.mode === "atlas" && run.observations.atlasCalls.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message: "An Atlas-assisted run must contain at least one Atlas call",
+        path: ["observations", "atlasCalls"],
+      });
+    }
+
+    if (run.mode === "no-atlas" && run.observations.atlasHandling.length > 0) {
+      context.addIssue({
+        code: "custom",
+        message: "A no-atlas run cannot contain Atlas result handling",
+        path: ["observations", "atlasHandling"],
+      });
+    }
+
+    if (run.adjudication.correct === (run.adjudication.failureClassifications.length > 0)) {
+      context.addIssue({
+        code: "custom",
+        message: "Incorrect answers require failure classifications and correct answers require none",
+        path: ["adjudication", "failureClassifications"],
       });
     }
 
@@ -189,6 +248,7 @@ export const evaluationRunSchema = z
 
     addSequenceIssues(run.observations.sourceOpens, context, "sourceOpens");
     addSequenceIssues(run.observations.atlasCalls, context, "atlasCalls");
+    addSequenceIssues(run.observations.atlasHandling, context, "atlasHandling");
   });
 
 export type EvaluationCase = z.infer<typeof evaluationCaseSchema>;
@@ -204,6 +264,8 @@ export interface EvaluationRunSummary {
   openedFileCount: number;
   sourceTokens: number;
   atlasCallCount: number;
+  atlasHandlingCount: number;
+  failureClassifications: EvaluationRun["adjudication"]["failureClassifications"];
 }
 
 export function summarizeEvaluationRun(
@@ -254,6 +316,8 @@ export function summarizeEvaluationRun(
       0,
     ),
     atlasCallCount: run.observations.atlasCalls.length,
+    atlasHandlingCount: run.observations.atlasHandling.length,
+    failureClassifications: [...run.adjudication.failureClassifications],
   };
 }
 

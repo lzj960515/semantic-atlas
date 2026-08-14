@@ -1,0 +1,16 @@
+{
+  "name": "framework-evaluation",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@nestjs/bullmq": "11.0.4",
+    "@nestjs/common": "11.1.6",
+    "@nestjs/graphql": "13.2.3",
+    "@nestjs/typeorm": "11.0.0",
+    "bullmq": "5.58.5",
+    "typeorm": "0.3.26"
+  },
+  "devDependencies": {
+    "vitest": "3.2.4"
+  }
+}
