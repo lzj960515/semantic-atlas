@@ -3,11 +3,12 @@
 import {
   appendFileSync,
   existsSync,
+  lstatSync,
   readFileSync,
+  readdirSync,
   realpathSync,
 } from "node:fs";
-import { extname, relative, resolve, sep } from "node:path";
-import { spawnSync } from "node:child_process";
+import { extname, join, relative, resolve, sep } from "node:path";
 
 import { get_encoding } from "tiktoken";
 
@@ -57,38 +58,47 @@ function observeSearch(root, tracePath, arguments_) {
     throw new Error("search requires <pattern> [path ...]");
   }
   const paths = pathValues.length === 0 ? ["."] : pathValues;
-  paths.forEach((path) => requirePath(root, path));
-  const result = spawnSync("rg", [
-    "-n",
-    "--with-filename",
-    "--color",
-    "never",
-    "--glob",
-    "*.{cjs,js,jsx,mjs,ts,tsx}",
-    "--",
-    pattern,
-    ...paths,
-  ], { cwd: root, encoding: "utf8" });
-  if (result.error !== undefined) throw result.error;
-  if (result.status !== 0 && result.status !== 1) {
-    throw new Error(result.stderr.trim() || `rg exited ${result.status}`);
+  const matcher = new RegExp(pattern, "u");
+  const sourceFiles = new Map();
+  for (const value of paths) {
+    const path = requirePath(root, value);
+    for (const sourcePath of findSourceFiles(root, path)) {
+      sourceFiles.set(relativePath(root, sourcePath), sourcePath);
+    }
   }
-  if (result.status === 1) return;
 
-  const matches = new Map();
-  for (const line of result.stdout.trimEnd().split("\n")) {
-    const separator = line.indexOf(":");
-    if (separator < 1) continue;
-    const file = line.slice(0, separator).replace(/^\.\//, "");
-    const fileLines = matches.get(file) ?? [];
-    fileLines.push(line.replace(/^\.\//, ""));
-    matches.set(file, fileLines);
-  }
-  for (const [file, lines] of [...matches].sort(([left], [right]) => left.localeCompare(right))) {
+  for (const [file, path] of [...sourceFiles].sort(([left], [right]) => (
+    left.localeCompare(right)
+  ))) {
+    const lines = readFileSync(path, "utf8")
+      .split(/\r?\n/u)
+      .flatMap((line, index) => (
+        matcher.test(line) ? [`${file}:${index + 1}:${line}`] : []
+      ));
+    if (lines.length === 0) continue;
     const payload = `=== ${file}:matches ===\n${lines.join("\n")}\n`;
     writeObservedPayload(tracePath, file, payload);
     process.stdout.write(payload);
   }
+}
+
+function findSourceFiles(root, path) {
+  const entry = lstatSync(path);
+  if (entry.isSymbolicLink()) {
+    requireInsideRoot(root, realpathSync(path), relativePath(root, path));
+    return [];
+  }
+  if (entry.isFile()) {
+    return SOURCE_EXTENSIONS.has(extname(path)) ? [path] : [];
+  }
+  if (!entry.isDirectory()) return [];
+
+  return readdirSync(path, { withFileTypes: true })
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .flatMap((child) => {
+      if (child.name.startsWith(".") || child.name === "node_modules") return [];
+      return findSourceFiles(root, join(path, child.name));
+    });
 }
 
 function writeObservedPayload(tracePath, file, payload) {

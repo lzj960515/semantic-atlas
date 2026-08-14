@@ -25,10 +25,20 @@ describe("evaluation source observer", () => {
     expect(readResult.status).toBe(0);
     expect(readResult.stdout).toContain("export const first = 1;");
 
-    const searchResult = runObserver(root, trace, ["search", "export", "."]);
-    expect(searchResult.status).toBe(0);
-    expect(searchResult.stdout).toContain("first.ts");
-    expect(searchResult.stdout).toContain("second.ts");
+    const searchResult = runObserver(
+      root,
+      trace,
+      ["search", "export", "."],
+      { PATH: "" },
+    );
+    expect(searchResult.status, searchResult.stderr).toBe(0);
+    expect(searchResult.stdout).toBe([
+      "=== first.ts:matches ===",
+      "first.ts:1:export const first = 1;",
+      "=== second.ts:matches ===",
+      "second.ts:1:export const second = 2;",
+      "",
+    ].join("\n"));
 
     const events = (await readFile(trace, "utf8"))
       .trim()
@@ -62,14 +72,23 @@ describe("evaluation source observer", () => {
     await writeFile(join(outside, "secret.ts"), "export const secret = true;\n");
     await symlink(join(outside, "secret.ts"), join(root, "linked.ts"));
 
-    const result = runObserver(root, join(root, "trace.jsonl"), ["read", "linked.ts"]);
+    const trace = join(root, "trace.jsonl");
+    const result = runObserver(root, trace, ["read", "linked.ts"]);
+    const searchResult = runObserver(root, trace, ["search", "secret", "linked.ts"]);
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toMatch(/inside the evaluation fixture/);
+    expect(searchResult.status).not.toBe(0);
+    expect(searchResult.stderr).toMatch(/inside the evaluation fixture/);
   });
 });
 
-function runObserver(root: string, trace: string, arguments_: string[]) {
+function runObserver(
+  root: string,
+  trace: string,
+  arguments_: string[],
+  environment: NodeJS.ProcessEnv = {},
+) {
   return spawnSync(
     process.execPath,
     [resolve("scripts/evaluation-source-observer.mjs"), ...arguments_],
@@ -80,6 +99,7 @@ function runObserver(root: string, trace: string, arguments_: string[]) {
         ...process.env,
         EVALUATION_ROOT: root,
         EVALUATION_TRACE: trace,
+        ...environment,
       },
     },
   );

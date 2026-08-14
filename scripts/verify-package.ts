@@ -16,6 +16,7 @@ import { promisify } from "node:util";
 
 import { cliEnvelopeSchema, type CliEnvelope } from "../src/contracts/cli.js";
 import {
+  resolveConsumerInstallArguments,
   resolvePackageManagerInvocation,
   type PackageManager,
 } from "./package-manager-command.js";
@@ -108,9 +109,7 @@ async function installTarball(tarballPath: string): Promise<string> {
       "semantic-atlas": `file:${tarballSpecifier}`,
     },
   }, null, 2)}\n`);
-  const installArguments = packageManager === "pnpm"
-    ? ["install", "--frozen-lockfile=false", "--offline"]
-    : ["install", "--no-audit", "--no-fund"];
+  const installArguments = resolveConsumerInstallArguments(packageManager);
   await runPackageManager(installArguments, consumerRoot, 120_000);
   return consumerRoot;
 }

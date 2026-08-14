@@ -11,6 +11,14 @@ export interface PackageManagerInvocation {
   readonly arguments: readonly string[];
 }
 
+export function resolveConsumerInstallArguments(
+  packageManager: PackageManager,
+): readonly string[] {
+  return packageManager === "pnpm"
+    ? ["install", "--frozen-lockfile=false", "--prefer-offline"]
+    : ["install", "--no-audit", "--no-fund"];
+}
+
 export function resolvePackageManagerInvocation(
   packageManager: PackageManager,
   arguments_: readonly string[],

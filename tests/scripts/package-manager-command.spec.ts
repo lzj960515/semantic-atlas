@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { resolvePackageManagerInvocation } from "../../scripts/package-manager-command.js";
+import {
+  resolveConsumerInstallArguments,
+  resolvePackageManagerInvocation,
+} from "../../scripts/package-manager-command.js";
 
 describe("package manager command", () => {
   it("runs the package manager JavaScript entry through Node on Windows", () => {
@@ -33,5 +36,13 @@ describe("package manager command", () => {
       nodeExecutable: "node.exe",
       packageManagerEntry: undefined,
     })).toThrow("Run package verification through npm on Windows");
+  });
+
+  it("allows a temporary pnpm consumer to fetch dependencies missing from its local store", () => {
+    expect(resolveConsumerInstallArguments("pnpm")).toEqual([
+      "install",
+      "--frozen-lockfile=false",
+      "--prefer-offline",
+    ]);
   });
 });
