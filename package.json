@@ -26,7 +26,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "semantic-atlas": "./dist/cli/bin.js"
+    "semantic-atlas": "dist/cli/bin.js"
   },
   "exports": {
     ".": {

@@ -133,7 +133,7 @@ function assertPublicPackage(packageDocument: PackageDocument): void {
   });
   assert.ok(packageDocument.keywords?.includes("ai-agents"));
   assert.equal(packageDocument.engines?.node, ">=22.12.0 <25");
-  assert.equal(packageDocument.bin?.["semantic-atlas"], "./dist/cli/bin.js");
+  assert.equal(packageDocument.bin?.["semantic-atlas"], "dist/cli/bin.js");
   assert.deepEqual(packageDocument.publishConfig, { access: "public", provenance: true });
 }
 
