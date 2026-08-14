@@ -82,6 +82,23 @@ describe("world model publication", () => {
       .toBe("M src/example.ts");
   });
 
+  it("publishes when the backend records files outside the Atlas source projection", async () => {
+    const fixture = await createGitFixture();
+    fixtures.push(fixture);
+    await fixture.write("pnpm-lock.yaml", "lockfileVersion: '9.0'\n");
+    await fixture.git("add", "pnpm-lock.yaml");
+    await fixture.git("commit", "-m", "test: add package lockfile");
+    const repository = await inspectGitRepository(fixture.directory);
+
+    const publication = await new WorldModelService(repository).build();
+
+    expect(publication.structural).toMatchObject({
+      completeness: "complete",
+      mode: "initial",
+    });
+    expect(await fixture.git("status", "--porcelain", "--untracked-files=all")).toBe("");
+  });
+
   it("rolls back a reconciliation failure, records failed, and retries idempotently", async () => {
     const fixture = await createGitFixture();
     fixtures.push(fixture);

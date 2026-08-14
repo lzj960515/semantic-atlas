@@ -142,6 +142,9 @@ export function worldPublicationMismatch(
   const snapshotHashes = new Map(indexedSnapshot.files.map((file) =>
     [file.path, file.worktree?.contentHash] as const));
   for (const file of indexedSources) {
+    if (!isSupportedSource(file.path)) {
+      continue;
+    }
     const snapshotHash = snapshotHashes.get(file.path);
     if (snapshotHash !== file.contentHash) {
       return `indexed source ${file.path} has ${file.contentHash}, ` +

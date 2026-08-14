@@ -31,6 +31,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json",
     "evaluation:validate": "tsx scripts/validate-evaluation.ts --baseline evaluation/cases/plan.json evaluation/examples/no-atlas-run.json",
+    "validation:backend": "tsx scripts/validate-embedded-backend.ts",
     "contracts:generate": "tsx scripts/generate-contracts.ts",
     "contracts:check": "tsx scripts/generate-contracts.ts --check"
   },

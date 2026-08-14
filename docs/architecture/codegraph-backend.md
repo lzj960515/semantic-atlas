@@ -151,6 +151,15 @@ World publication captures the repository snapshot after acquiring the Atlas wri
 - The dependency version is pinned exactly rather than selected through a semver range. The compatible host range is Node.js 22.12 through 24. Node.js 22.12 through 22.15 lack the FTS5 module required by CodeGraph 1.5.0, so the adapter runs its private SDK worker with the dependency's bundled Node.js runtime on those hosts; Node.js 22.16 through 24 use the SDK in process. Both paths expose the same Atlas contract and invoke no CodeGraph CLI, MCP, or daemon lifecycle. Upgrades run fixture repositories through index, sync, rebuild, query normalization, schema coexistence, and evidence-rebinding tests before changing the lockfile.
 - If an upstream release changes structural IDs, locator-based rebinding preserves stable Atlas business keys and makes unmatched evidence stale.
 
+Run `pnpm validation:backend` to validate the installed tarball against the
+current exact dependency. To evaluate a new release before changing the pin,
+run `pnpm validation:backend -- --candidate <version> --allow-network`. The
+isolated consumer overrides only its installed candidate; the source manifest
+and lockfile remain unchanged. The command rejects candidates that change the
+database location, SDK lifecycle, schema ownership, normalized support,
+business-data preservation, evidence rebinding, recovery, or worktree
+isolation contracts, and prints the measured index, database, and query costs.
+
 ## Pre-release storage transition
 
 The pre-release external `atlas.sqlite` layout is intentionally reset rather than imported. It contains the superseded duplicate structural projection, was never part of a published release, and cannot be copied into the shared database without violating schema ownership. Rebuild the worktree-local structural index, then relearn any experimental business assertions through GraphPatch.
