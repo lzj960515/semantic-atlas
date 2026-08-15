@@ -25,6 +25,13 @@ export interface CodexRunAudit {
   readonly commandCount: number;
   readonly commands: string[];
   readonly atlasCalls: EvaluationRun["observations"]["atlasCalls"];
+  readonly sourceCommands: readonly SourceCommandEvidence[];
+}
+
+interface SourceCommandEvidence {
+  readonly commandSequence: number;
+  readonly exitCode: number;
+  readonly files: readonly string[];
 }
 
 export interface FreshAgentSkillDiscoveryAudit {
@@ -72,6 +79,12 @@ interface TimedOperation {
   readonly kind: CommandKind;
   readonly words: readonly string[];
   readonly commandSequence: number;
+}
+
+interface TimedSourceObservation {
+  readonly file: string;
+  readonly commandSequence: number;
+  readonly operation: TimedOperation;
 }
 
 interface ParsedAtlasEvidence {
@@ -176,8 +189,28 @@ export function auditCodexRun(
       output: event.item.aggregated_output ?? "",
     }];
   });
+  const sourceCommands = commandEvents.flatMap((event, commandIndex) => {
+    const operations = parseAllowedShellCommand(event.item.command);
+    const sourceOperations = operations.filter((operation) => isSourceObserver(operation.words));
+    if (sourceOperations.length === 0) return [];
+    if (operations.length !== 1 || sourceOperations.length !== 1) {
+      throw new Error("Fresh Agent source observer commands must be standalone for replayable evidence");
+    }
+    if (event.item.exit_code === null) {
+      throw new Error("Fresh Agent source observer command did not retain an exit code");
+    }
+    return [{
+      commandSequence: commandIndex + 1,
+      exitCode: event.item.exit_code,
+      files: sourceFilesFromObserverOutput(
+        sourceOperations[0]!.words,
+        event.item.aggregated_output ?? "",
+        event.item.exit_code,
+      ),
+    }];
+  });
 
-  return { ...audit, atlasCalls };
+  return { ...audit, atlasCalls, sourceCommands };
 }
 
 export function auditCodexCommands(
@@ -199,7 +232,35 @@ export function auditCodexCommands(
       sequence: index + 1,
       command,
     })),
+    sourceCommands: [],
   };
+}
+
+export function bindSourceOpensToCommands(
+  sourceOpens: EvaluationRun["observations"]["sourceOpens"],
+  sourceCommands: readonly SourceCommandEvidence[],
+): EvaluationRun["observations"]["sourceOpens"] {
+  const observedFiles = sourceCommands.flatMap((command) => (
+    command.exitCode === 0
+      ? command.files.map((file) => ({
+        file,
+        commandSequence: command.commandSequence,
+        exitCode: command.exitCode,
+      }))
+      : []
+  ));
+  if (
+    sourceOpens.length !== observedFiles.length
+    || sourceOpens.some((sourceOpen, index) => sourceOpen.file !== observedFiles[index]?.file)
+  ) {
+    throw new Error("Fresh Agent source trace disagrees with successful observer commands");
+  }
+
+  return sourceOpens.map((sourceOpen, index) => ({
+    ...sourceOpen,
+    commandSequence: observedFiles[index]!.commandSequence,
+    exitCode: observedFiles[index]!.exitCode,
+  }));
 }
 
 export function auditFreshAgentSkillDiscovery(
@@ -224,28 +285,33 @@ export function auditFreshAgentSkillDiscovery(
   const mapIndex = operations.findIndex((operation) => (
     operation.kind === "atlas" && atlasCommandName(operation.words).startsWith("map.")
   ));
-  const sourceIndex = operations.findIndex((operation) => (
-    operation.kind === "observer" && !isCandidateSkillRead(operation.words)
-  ));
+  const sourceObservations = verifySourceObservations(operations, evidence.sourceOpens);
+  const firstSourceSequence = sourceObservations[0]?.commandSequence;
 
   if (skillIndex < 0 || statusIndex < 0 || skillIndex >= statusIndex) {
     throw new Error("Fresh Agent must load the repository Skill before Atlas status");
   }
-  if (statusIndex < 0 || sourceIndex < 0 || statusIndex >= sourceIndex) {
+  if (
+    statusIndex < 0
+    || firstSourceSequence === undefined
+    || operations[statusIndex]!.commandSequence >= firstSourceSequence
+  ) {
     throw new Error("Fresh Agent must run Atlas status before opening source");
   }
-  if (mapIndex < 0 || mapIndex >= sourceIndex) {
+  if (mapIndex < 0 || operations[mapIndex]!.commandSequence >= firstSourceSequence) {
     throw new Error("Fresh Agent must use an Atlas map query before opening source");
   }
 
-  const decisiveSourceOperations = findDecisiveSourceOperations(operations, evidence);
+  const decisiveSourceOperations = findDecisiveSourceOperations(sourceObservations, evidence);
   if (decisiveSourceOperations.length === 0) {
     throw new Error(
       "Fresh Agent did not open decisive source shared by the source trace, answer, and oracle",
     );
   }
 
-  const firstSourceSequence = operations[sourceIndex]!.commandSequence;
+  const sourceSequences = uniqueInOrder(
+    sourceObservations.map((observation) => observation.commandSequence),
+  );
   const targetFiles = new Set([
     ...evidence.reportedFiles,
     ...evidence.reportedSymbols.map((symbol) => symbol.file),
@@ -263,14 +329,14 @@ export function auditFreshAgentSkillDiscovery(
     referenceFile: SNAPSHOT_BOOTSTRAP_FILE,
     operations,
     triggerSequences: bootstrapTriggers,
-    firstSourceSequence,
+    sourceSequences,
   });
   const resultRouting = proveConditionalReference({
     label: "result routing",
     referenceFile: RESULT_ROUTING_FILE,
     operations,
     triggerSequences: routingTriggers,
-    firstSourceSequence,
+    sourceSequences,
   });
   const graphPatch = proveGraphPatchReference(operations, decisiveSourceOperations);
 
@@ -282,7 +348,7 @@ export function auditFreshAgentSkillDiscovery(
     mapBeforeSource: true,
     decisiveSourceRead: true,
     decisiveSourceFiles: uniqueInOrder(
-      decisiveSourceOperations.map((operation) => observerReadFile(operation.words)!),
+      decisiveSourceOperations.map((observation) => observation.file),
     ),
     conditionalReferences: {
       snapshotBootstrap,
@@ -413,11 +479,39 @@ function parseAtlasEvidence(
   });
 }
 
-function findDecisiveSourceOperations(
+function verifySourceObservations(
   operations: readonly TimedOperation[],
+  sourceOpens: EvaluationRun["observations"]["sourceOpens"],
+): readonly TimedSourceObservation[] {
+  let previousCommandSequence = 0;
+  return sourceOpens.map((sourceOpen) => {
+    if (sourceOpen.commandSequence === undefined || sourceOpen.exitCode !== 0) {
+      throw new Error(
+        "Fresh Agent source observations must identify a successful observer command",
+      );
+    }
+    const operation = operations.find((candidate) => (
+      candidate.commandSequence === sourceOpen.commandSequence
+    ));
+    if (operation === undefined || !observerCommandCoversFile(operation.words, sourceOpen.file)) {
+      throw new Error("Fresh Agent source trace disagrees with retained observer commands");
+    }
+    if (sourceOpen.commandSequence < previousCommandSequence) {
+      throw new Error("Fresh Agent source trace is not ordered by retained observer commands");
+    }
+    previousCommandSequence = sourceOpen.commandSequence;
+    return {
+      file: sourceOpen.file,
+      commandSequence: sourceOpen.commandSequence,
+      operation,
+    };
+  });
+}
+
+function findDecisiveSourceOperations(
+  sourceObservations: readonly TimedSourceObservation[],
   evidence: FreshAgentSkillDiscoveryEvidence,
-): readonly TimedOperation[] {
-  const sourceTraceFiles = new Set(evidence.sourceOpens.map((sourceOpen) => sourceOpen.file));
+): readonly TimedSourceObservation[] {
   const reportedFiles = new Set([
     ...evidence.reportedFiles,
     ...evidence.reportedSymbols.map((symbol) => symbol.file),
@@ -427,14 +521,9 @@ function findDecisiveSourceOperations(
     ...evidence.requiredSymbols.map((symbol) => symbol.file),
   ]);
 
-  return operations.filter((operation) => {
-    const file = observerReadFile(operation.words);
-    return file !== undefined
-      && !isCandidateSkillFile(file)
-      && sourceTraceFiles.has(file)
-      && reportedFiles.has(file)
-      && requiredFiles.has(file);
-  });
+  return sourceObservations.filter((observation) => (
+    reportedFiles.has(observation.file) && requiredFiles.has(observation.file)
+  ));
 }
 
 function requiresSnapshotBootstrap(
@@ -490,7 +579,7 @@ function proveConditionalReference(options: {
   readonly referenceFile: string;
   readonly operations: readonly TimedOperation[];
   readonly triggerSequences: readonly number[];
-  readonly firstSourceSequence: number;
+  readonly sourceSequences: readonly number[];
 }): ConditionalReferenceProof {
   const loadSequences = options.operations.flatMap((operation) => (
     observerReadFile(operation.words) === options.referenceFile
@@ -510,40 +599,41 @@ function proveConditionalReference(options: {
     }
   }
 
-  const preSourceTrigger = options.triggerSequences.find(
-    (triggerSequence) => triggerSequence < options.firstSourceSequence,
-  );
-  if (preSourceTrigger !== undefined) {
-    const loadSequence = loadSequences.find((candidate) => (
-      candidate > preSourceTrigger && candidate < options.firstSourceSequence
-    ));
+  let proof: { readonly triggerSequence: number; readonly loadSequence: number } | undefined;
+  for (const triggerSequence of options.triggerSequences) {
+    const referenceAlreadyLoaded = loadSequences.some((candidate) => candidate < triggerSequence);
+    if (referenceAlreadyLoaded) continue;
+
+    const loadSequence = loadSequences.find((candidate) => candidate > triggerSequence);
     if (loadSequence === undefined) {
+      throw new Error(
+        `Fresh Agent must load ${options.label} after its matching Atlas state`,
+      );
+    }
+    const nextSourceSequence = options.sourceSequences.find(
+      (sourceSequence) => sourceSequence > triggerSequence,
+    );
+    if (nextSourceSequence !== undefined && loadSequence >= nextSourceSequence) {
       throw new Error(
         `Fresh Agent must load ${options.label} after its matching Atlas state and before opening source`,
       );
     }
-    return {
-      outcome: "loaded-after-trigger",
-      triggerCommandSequence: preSourceTrigger,
-      loadCommandSequence: loadSequence,
-    };
+    proof ??= { triggerSequence, loadSequence };
   }
 
-  const loadSequence = loadSequences[0];
-  if (loadSequence === undefined) return { outcome: "not-required" };
-  const triggerSequence = options.triggerSequences.findLast(
-    (candidate) => candidate < loadSequence,
-  )!;
+  if (proof === undefined) {
+    throw new Error(`Fresh Agent did not retain a ${options.label} trigger/load proof`);
+  }
   return {
     outcome: "loaded-after-trigger",
-    triggerCommandSequence: triggerSequence,
-    loadCommandSequence: loadSequence,
+    triggerCommandSequence: proof.triggerSequence,
+    loadCommandSequence: proof.loadSequence,
   };
 }
 
 function proveGraphPatchReference(
   operations: readonly TimedOperation[],
-  decisiveSourceOperations: readonly TimedOperation[],
+  decisiveSourceOperations: readonly TimedSourceObservation[],
 ): GraphPatchReferenceProof {
   const loadSequences = operations.flatMap((operation) => (
     observerReadFile(operation.words) === GRAPH_PATCH_FILE
@@ -592,7 +682,7 @@ function isEmptyArray(value: unknown): boolean {
   return Array.isArray(value) && value.length === 0;
 }
 
-function uniqueInOrder(values: readonly string[]): string[] {
+function uniqueInOrder<T>(values: readonly T[]): T[] {
   return [...new Set(values)];
 }
 
@@ -692,12 +782,65 @@ function isCandidateSkillRead(words: readonly string[]): boolean {
   return file !== undefined && isCandidateSkillFile(file);
 }
 
+function isSourceObserver(words: readonly string[]): boolean {
+  const invocation = observerInvocation(words);
+  return invocation !== undefined
+    && (invocation.operation === "read" || invocation.operation === "search")
+    && !isCandidateSkillRead(words);
+}
+
+function observerCommandCoversFile(words: readonly string[], file: string): boolean {
+  const invocation = observerInvocation(words);
+  if (invocation?.operation === "read") {
+    return invocation.arguments[0] === file && !isCandidateSkillFile(file);
+  }
+  if (invocation?.operation !== "search") return false;
+
+  const paths = invocation.arguments.slice(1);
+  return (paths.length === 0 ? ["."] : paths).some((path) => {
+    const normalized = path.replace(/^\.\//u, "").replace(/\/+$/u, "");
+    return normalized === "." || file === normalized || file.startsWith(`${normalized}/`);
+  });
+}
+
+function sourceFilesFromObserverOutput(
+  words: readonly string[],
+  output: string,
+  exitCode: number,
+): readonly string[] {
+  if (exitCode !== 0) return [];
+  const files = [...output.matchAll(/^=== (.+):(?:\d+-\d+|matches) ===$/gmu)]
+    .map((match) => match[1]!);
+  const invocation = observerInvocation(words);
+  if (invocation?.operation === "read") {
+    const expectedFile = invocation.arguments[0];
+    if (expectedFile === undefined || files.length !== 1 || files[0] !== expectedFile) {
+      throw new Error("Fresh Agent source read output disagrees with its observer command");
+    }
+  }
+  if (files.some((file) => !observerCommandCoversFile(words, file))) {
+    throw new Error("Fresh Agent source search output escaped its observer command scope");
+  }
+  return files;
+}
+
 function observerReadFile(words: readonly string[]): string | undefined {
+  const invocation = observerInvocation(words);
+  return invocation?.operation === "read" ? invocation.arguments[0] : undefined;
+}
+
+function observerInvocation(words: readonly string[]): {
+  readonly operation: string;
+  readonly arguments: readonly string[];
+} | undefined {
   const offset = words[0] === "node" ? 1 : 0;
-  if (words[offset] !== EVALUATION_OBSERVER_PARAMETER || words[offset + 1] !== "read") {
+  if (words[offset] !== EVALUATION_OBSERVER_PARAMETER || words[offset + 1] === undefined) {
     return undefined;
   }
-  return words[offset + 2];
+  return {
+    operation: words[offset + 1]!,
+    arguments: words.slice(offset + 2),
+  };
 }
 
 function isCandidateSkillFile(file: string): boolean {

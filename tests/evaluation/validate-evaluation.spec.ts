@@ -43,6 +43,7 @@ describe("published evaluation validation", () => {
     ];
     forgedProofRun.observations.atlasCalls[0]!.commandSequence = 2;
     forgedProofRun.observations.atlasCalls[1]!.commandSequence = 3;
+    forgedProofRun.observations.sourceOpens[0]!.commandSequence = 4;
     forgedProofRun.protocol.skillDiscovery.decisiveSourceFiles = ["src/unrelated.ts"];
     writeFileSync(planPath, `${JSON.stringify(plan)}\n`);
     writeFileSync(runPath, `${JSON.stringify(forgedProofRun)}\n`);
@@ -68,6 +69,7 @@ describe("published evaluation validation", () => {
     ];
     validRun.observations.atlasCalls[0]!.commandSequence = 2;
     validRun.observations.atlasCalls[1]!.commandSequence = 3;
+    validRun.observations.sourceOpens[0]!.commandSequence = 4;
     writeFileSync(planPath, `${JSON.stringify(plan)}\n`);
     writeFileSync(runPath, `${JSON.stringify(validRun)}\n`);
 
@@ -78,6 +80,83 @@ describe("published evaluation validation", () => {
     );
 
     expect(JSON.parse(output)).toMatchObject({ valid: true });
+  });
+
+  it("rejects GraphPatch proof attributed to a failed source command", () => {
+    const directory = mkdtempSync(join(tmpdir(), "atlas-evaluation-validator-"));
+    directories.push(directory);
+    const planPath = join(directory, "plan.json");
+    const runPath = join(directory, "run.json");
+    const failedSourceRun = structuredClone(lateSkillRun);
+    failedSourceRun.protocol.commandAudit.commands = [
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
+      "/bin/zsh -lc 'semantic-atlas status'",
+      "/bin/zsh -lc 'semantic-atlas map search Order --limit 5'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/references/graph-patch.md'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
+    ];
+    failedSourceRun.observations.atlasCalls[0]!.commandSequence = 2;
+    failedSourceRun.observations.atlasCalls[1]!.commandSequence = 3;
+    failedSourceRun.observations.sourceOpens[0]!.commandSequence = 6;
+    failedSourceRun.observations.skillLoads = [
+      { sequence: 1, file: ".agents/skills/semantic-atlas/SKILL.md" },
+      {
+        sequence: 2,
+        file: ".agents/skills/semantic-atlas/references/graph-patch.md",
+      },
+    ];
+    Object.assign(failedSourceRun.protocol.skillDiscovery.conditionalReferences.graphPatch, {
+      outcome: "loaded-after-source",
+      sourceCommandSequence: 4,
+      loadCommandSequence: 5,
+    });
+    writeFileSync(planPath, `${JSON.stringify(plan)}\n`);
+    writeFileSync(runPath, `${JSON.stringify(failedSourceRun)}\n`);
+
+    expect(() => execFileSync(
+      "corepack",
+      ["pnpm", "exec", "tsx", "scripts/validate-evaluation.ts", planPath, runPath],
+      { cwd: process.cwd(), encoding: "utf8", stdio: "pipe" },
+    )).toThrow(/GraphPatch authoring before decisive source confirmation/);
+  });
+
+  it("rejects a post-source weak result without result routing", () => {
+    const directory = mkdtempSync(join(tmpdir(), "atlas-evaluation-validator-"));
+    directories.push(directory);
+    const planPath = join(directory, "plan.json");
+    const runPath = join(directory, "run.json");
+    const missingRoutingRun = structuredClone(lateSkillRun);
+    missingRoutingRun.protocol.commandAudit.commands = [
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
+      "/bin/zsh -lc 'semantic-atlas status'",
+      "/bin/zsh -lc 'semantic-atlas map search Order --limit 5'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
+      "/bin/zsh -lc 'semantic-atlas map search MissingOrder --limit 5'",
+    ];
+    missingRoutingRun.observations.atlasCalls[0]!.commandSequence = 2;
+    missingRoutingRun.observations.atlasCalls[1]!.commandSequence = 3;
+    missingRoutingRun.observations.sourceOpens[0]!.commandSequence = 4;
+    missingRoutingRun.observations.atlasCalls.push({
+      sequence: 3,
+      commandSequence: 5,
+      command: "semantic-atlas map search MissingOrder --limit 5",
+      exitCode: 0,
+      output: JSON.stringify({
+        schemaVersion: 1,
+        status: "ok",
+        data: { command: "map.search", results: [] },
+        warnings: [],
+      }),
+    });
+    writeFileSync(planPath, `${JSON.stringify(plan)}\n`);
+    writeFileSync(runPath, `${JSON.stringify(missingRoutingRun)}\n`);
+
+    expect(() => execFileSync(
+      "corepack",
+      ["pnpm", "exec", "tsx", "scripts/validate-evaluation.ts", planPath, runPath],
+      { cwd: process.cwd(), encoding: "utf8", stdio: "pipe" },
+    )).toThrow(/must load result routing after its matching Atlas state/);
   });
 });
 
@@ -149,6 +228,8 @@ const lateSkillRun = {
     sourceTokenMethod: "tiktoken-o200k_base-v1",
     sourceOpens: [{
       sequence: 1,
+      commandSequence: 3,
+      exitCode: 0,
       file: "src/orders/order.service.ts",
       sourceTokens: 20,
     }],

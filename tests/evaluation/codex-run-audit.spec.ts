@@ -4,13 +4,17 @@ import {
   auditCodexCommands,
   auditFreshAgentSkillDiscovery,
   auditCodexRun,
+  bindSourceOpensToCommands,
 } from "../../scripts/evaluation/codex-run-audit.js";
 
 describe("Fresh Agent Codex command audit", () => {
   it("accepts observed source reads and records Atlas commands", () => {
     const audit = auditCodexRun("atlas", jsonLines([
       completedCommand("/bin/zsh -lc 'rg --files'"),
-      completedCommand("/bin/zsh -lc '$EVALUATION_OBSERVER read src/order.ts 1 20'"),
+      completedCommand(
+        "/bin/zsh -lc '$EVALUATION_OBSERVER read src/order.ts 1 20'",
+        { output: "=== src/order.ts:1-20 ===\nexport class Order {}\n" },
+      ),
       completedCommand("/bin/zsh -lc 'semantic-atlas map search placeOrder --limit 5'"),
       { type: "turn.completed", usage: { input_tokens: 1, output_tokens: 1 } },
     ]));
@@ -23,11 +27,87 @@ describe("Fresh Agent Codex command audit", () => {
       output: "",
     }]);
     expect(audit.commandCount).toBe(3);
+    expect(audit.sourceCommands).toEqual([{
+      commandSequence: 2,
+      exitCode: 0,
+      files: ["src/order.ts"],
+    }]);
     expect(audit.commands).toEqual([
       "/bin/zsh -lc 'rg --files'",
       "/bin/zsh -lc '$EVALUATION_OBSERVER read src/order.ts 1 20'",
       "/bin/zsh -lc 'semantic-atlas map search placeOrder --limit 5'",
     ]);
+  });
+
+  it("binds source trace events only to successful observer commands", () => {
+    const audit = auditCodexRun("no-atlas", jsonLines([
+      completedCommand(
+        "/bin/zsh -lc '$EVALUATION_OBSERVER read src/order.ts'",
+        { exitCode: 1 },
+      ),
+      completedCommand(
+        "/bin/zsh -lc '$EVALUATION_OBSERVER read src/order.ts'",
+        { output: "=== src/order.ts:1-1 ===\nexport class Order {}\n" },
+      ),
+      { type: "turn.completed", usage: {} },
+    ]));
+
+    expect(audit.sourceCommands).toEqual([{
+      commandSequence: 1,
+      exitCode: 1,
+      files: [],
+    }, {
+      commandSequence: 2,
+      exitCode: 0,
+      files: ["src/order.ts"],
+    }]);
+    expect(bindSourceOpensToCommands([{
+      sequence: 1,
+      file: "src/order.ts",
+      sourceTokens: 10,
+    }], audit.sourceCommands)).toEqual([{
+      sequence: 1,
+      commandSequence: 2,
+      exitCode: 0,
+      file: "src/order.ts",
+      sourceTokens: 10,
+    }]);
+  });
+
+  it("binds every source-search trace event to its successful command", () => {
+    const audit = auditCodexRun("no-atlas", jsonLines([
+      completedCommand(
+        "/bin/zsh -lc '$EVALUATION_OBSERVER search Order src/orders'",
+        {
+          output: [
+            "=== src/orders/order.controller.ts:matches ===",
+            "src/orders/order.controller.ts:10:export class OrderController {}",
+            "=== src/orders/order.service.ts:matches ===",
+            "src/orders/order.service.ts:5:export class OrderService {}",
+            "",
+          ].join("\n"),
+        },
+      ),
+      { type: "turn.completed", usage: {} },
+    ]));
+
+    expect(bindSourceOpensToCommands([{
+      sequence: 1,
+      file: "src/orders/order.controller.ts",
+      sourceTokens: 10,
+    }, {
+      sequence: 2,
+      file: "src/orders/order.service.ts",
+      sourceTokens: 12,
+    }], audit.sourceCommands)).toMatchObject([{
+      commandSequence: 1,
+      exitCode: 0,
+      file: "src/orders/order.controller.ts",
+    }, {
+      commandSequence: 1,
+      exitCode: 0,
+      file: "src/orders/order.service.ts",
+    }]);
   });
 
   it("rejects direct commands that return source text", () => {
@@ -245,6 +325,33 @@ describe("Fresh Agent Codex command audit", () => {
     })).toThrow(/decisive source/i);
   });
 
+  it("accepts a successful trace-backed source search as decisive evidence", () => {
+    const commands = [
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
+      "/bin/zsh -lc 'semantic-atlas status'",
+      "/bin/zsh -lc 'semantic-atlas map search Order --limit 5'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER search placeOrder src/orders'",
+    ];
+
+    expect(auditDiscovery(commands, {
+      atlasCalls: [
+        atlasCall(1, 2, "semantic-atlas status", statusEnvelope()),
+        atlasCall(2, 3, "semantic-atlas map search Order --limit 5", mapEnvelope([
+          businessNode("commerce/orders/place-order"),
+        ])),
+      ],
+      sourceOpens: [{
+        sequence: 1,
+        commandSequence: 4,
+        exitCode: 0,
+        file: "src/orders/order.service.ts",
+        sourceTokens: 20,
+      }],
+    })).toMatchObject({
+      decisiveSourceFiles: ["src/orders/order.service.ts"],
+    });
+  });
+
   it("rejects snapshot bootstrap loaded after source fallback", () => {
     const commands = [
       "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
@@ -306,6 +413,110 @@ describe("Fresh Agent Codex command audit", () => {
     });
   });
 
+  it("does not let a failed source read authorize GraphPatch authoring", () => {
+    const commands = [
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
+      "/bin/zsh -lc 'semantic-atlas status'",
+      "/bin/zsh -lc 'semantic-atlas map search Order --limit 5'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/references/graph-patch.md'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
+    ];
+
+    expect(() => auditDiscovery(commands, {
+      atlasCalls: [
+        atlasCall(1, 2, "semantic-atlas status", statusEnvelope()),
+        atlasCall(2, 3, "semantic-atlas map search Order --limit 5", mapEnvelope([
+          businessNode("commerce/orders/place-order"),
+        ])),
+      ],
+      sourceOpens: [{
+        sequence: 1,
+        commandSequence: 6,
+        exitCode: 0,
+        file: "src/orders/order.service.ts",
+        sourceTokens: 20,
+      }],
+      skillLoads: [
+        { sequence: 1, file: ".agents/skills/semantic-atlas/SKILL.md" },
+        {
+          sequence: 2,
+          file: ".agents/skills/semantic-atlas/references/graph-patch.md",
+        },
+      ],
+    })).toThrow(/GraphPatch authoring before decisive source confirmation/);
+  });
+
+  it("requires result routing when a weak map result appears after source", () => {
+    const commands = [
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
+      "/bin/zsh -lc 'semantic-atlas status'",
+      "/bin/zsh -lc 'semantic-atlas map search Order --limit 5'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
+      "/bin/zsh -lc 'semantic-atlas map search MissingOrder --limit 5'",
+    ];
+
+    expect(() => auditDiscovery(commands, {
+      atlasCalls: [
+        atlasCall(1, 2, "semantic-atlas status", statusEnvelope()),
+        atlasCall(2, 3, "semantic-atlas map search Order --limit 5", mapEnvelope([
+          businessNode("commerce/orders/place-order"),
+        ])),
+        atlasCall(3, 5, "semantic-atlas map search MissingOrder --limit 5", mapEnvelope([])),
+      ],
+      sourceOpens: [{
+        sequence: 1,
+        commandSequence: 4,
+        exitCode: 0,
+        file: "src/orders/order.service.ts",
+        sourceTokens: 20,
+      }],
+    })).toThrow(/must load result routing after its matching Atlas state/i);
+  });
+
+  it("proves result routing loaded after a post-source weak result", () => {
+    const commands = [
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
+      "/bin/zsh -lc 'semantic-atlas status'",
+      "/bin/zsh -lc 'semantic-atlas map search Order --limit 5'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
+      "/bin/zsh -lc 'semantic-atlas map search MissingOrder --limit 5'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/references/result-routing.md'",
+    ];
+
+    expect(auditDiscovery(commands, {
+      atlasCalls: [
+        atlasCall(1, 2, "semantic-atlas status", statusEnvelope()),
+        atlasCall(2, 3, "semantic-atlas map search Order --limit 5", mapEnvelope([
+          businessNode("commerce/orders/place-order"),
+        ])),
+        atlasCall(3, 5, "semantic-atlas map search MissingOrder --limit 5", mapEnvelope([])),
+      ],
+      sourceOpens: [{
+        sequence: 1,
+        commandSequence: 4,
+        exitCode: 0,
+        file: "src/orders/order.service.ts",
+        sourceTokens: 20,
+      }],
+      skillLoads: [
+        { sequence: 1, file: ".agents/skills/semantic-atlas/SKILL.md" },
+        {
+          sequence: 2,
+          file: ".agents/skills/semantic-atlas/references/result-routing.md",
+        },
+      ],
+    })).toMatchObject({
+      conditionalReferences: {
+        resultRouting: {
+          outcome: "loaded-after-trigger",
+          triggerCommandSequence: 5,
+          loadCommandSequence: 6,
+        },
+      },
+    });
+  });
+
   it("rejects an incomplete Codex turn", () => {
     expect(() => auditCodexRun("atlas", jsonLines([
       completedCommand("/bin/zsh -lc 'rg --files'"),
@@ -320,15 +531,18 @@ describe("Fresh Agent Codex command audit", () => {
   });
 });
 
-function completedCommand(command: string) {
+function completedCommand(
+  command: string,
+  options: { readonly output?: string; readonly exitCode?: number } = {},
+) {
   return {
     type: "item.completed",
     item: {
       id: "item-1",
       type: "command_execution",
       command,
-      aggregated_output: "",
-      exit_code: 0,
+      aggregated_output: options.output ?? "",
+      exit_code: options.exitCode ?? 0,
       status: "completed",
     },
   };
@@ -347,17 +561,27 @@ function auditDiscovery(
   commands: readonly string[],
   overrides: DiscoveryOverrides,
 ) {
-  const { skillLoads = [{
-    sequence: 1,
-    file: ".agents/skills/semantic-atlas/SKILL.md",
-  }], ...evidenceOverrides } = overrides;
-  return auditFreshAgentSkillDiscovery(commands, skillLoads, {
-    atlasCalls: [],
-    sourceOpens: [{
+  const {
+    skillLoads = [{
+      sequence: 1,
+      file: ".agents/skills/semantic-atlas/SKILL.md",
+    }],
+    sourceOpens = [{
       sequence: 1,
       file: "src/orders/order.service.ts",
       sourceTokens: 20,
     }],
+    ...evidenceOverrides
+  } = overrides;
+  const boundSourceOpens = sourceOpens.map((sourceOpen) => ({
+    ...sourceOpen,
+    commandSequence: sourceOpen.commandSequence ?? commands.findIndex((command) => (
+      command.includes(` read ${sourceOpen.file}`)
+    )) + 1,
+    exitCode: sourceOpen.exitCode ?? 0,
+  }));
+  return auditFreshAgentSkillDiscovery(commands, skillLoads, {
+    atlasCalls: [],
     reportedFiles: ["src/orders/order.service.ts"],
     reportedSymbols: [{
       file: "src/orders/order.service.ts",
@@ -369,6 +593,7 @@ function auditDiscovery(
       name: "OrderService.placeOrder",
     }],
     ...evidenceOverrides,
+    sourceOpens: boundSourceOpens,
   });
 }
 

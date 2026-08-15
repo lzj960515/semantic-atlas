@@ -132,6 +132,8 @@ export const baselineEvaluationPlanSchema = evaluationPlanSchema.superRefine(
 
 const sourceOpenSchema = z.strictObject({
   sequence: z.number().int().positive(),
+  commandSequence: z.number().int().positive().optional(),
+  exitCode: z.number().int().optional(),
   file: relativeSourcePathSchema,
   sourceTokens: z.number().int().nonnegative(),
 });
@@ -286,6 +288,15 @@ export const evaluationRunSchema = z
 
     if (run.protocol.runnerVersion === "fresh-agent-runner-v5") {
       const skillLoads = run.observations.skillLoads ?? [];
+      if (run.observations.sourceOpens.some((sourceOpen) => (
+        sourceOpen.commandSequence === undefined || sourceOpen.exitCode !== 0
+      ))) {
+        context.addIssue({
+          code: "custom",
+          message: "A discovery run must bind every source observation to a successful command",
+          path: ["observations", "sourceOpens"],
+        });
+      }
       if (run.mode === "atlas" && (
         run.protocol.skillDiscovery === undefined
         || skillLoads[0]?.file !== ".agents/skills/semantic-atlas/SKILL.md"

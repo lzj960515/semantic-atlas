@@ -18,6 +18,7 @@ import {
   auditCodexCommands,
   auditFreshAgentSkillDiscovery,
   auditCodexRun,
+  bindSourceOpensToCommands,
   verifyFreshAgentSkillDiscovery,
 } from "./evaluation/codex-run-audit.js";
 import {
@@ -341,7 +342,10 @@ async function runFreshAgent(options: {
   await writeFile(errorLogPath, result.stderr);
   const audit = auditCodexRun(options.mode, result.stdout);
   const answer = agentAnswerSchema.parse(JSON.parse(await readFile(outputPath, "utf8")));
-  const sourceOpens = await readSourceTrace(tracePath);
+  const sourceOpens = bindSourceOpensToCommands(
+    await readSourceTrace(tracePath),
+    audit.sourceCommands,
+  );
   const skillLoads = await readSkillTrace(skillTracePath);
   const skillDiscovery = options.mode === "atlas"
     ? auditFreshAgentSkillDiscovery(audit.commands, skillLoads, {

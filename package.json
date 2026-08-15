@@ -56,6 +56,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json",
     "evaluation:validate": "tsx scripts/validate-evaluation.ts --baseline evaluation/cases/plan.json evaluation/examples/no-atlas-run.json",
+    "evaluation:discovery": "tsx scripts/validate-evaluation.ts evaluation/cases/plan.json evaluation/results/fresh-agent-discovery-v5/location-nestjs-provider-atlas.json",
     "evaluation:run": "tsx scripts/run-fresh-agent-evaluation.ts",
     "evaluation:results": "tsx scripts/validate-evaluation.ts --baseline --comparison --report evaluation/results/fresh-agent-v1/report.json evaluation/cases/plan.json evaluation/results/fresh-agent-v1/runs/*.json",
     "validation:backend": "tsx scripts/validate-embedded-backend.ts",
