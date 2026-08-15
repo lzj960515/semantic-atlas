@@ -18,6 +18,9 @@ describe("Fresh Agent Codex command audit", () => {
     expect(audit.atlasCalls).toEqual([{
       sequence: 1,
       command: "semantic-atlas map search placeOrder --limit 5",
+      commandSequence: 3,
+      exitCode: 0,
+      output: "",
     }]);
     expect(audit.commandCount).toBe(3);
     expect(audit.commands).toEqual([
@@ -157,16 +160,26 @@ describe("Fresh Agent Codex command audit", () => {
       "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts 1 40'",
     ];
 
-    expect(auditFreshAgentSkillDiscovery(commands, [{
-      sequence: 1,
-      file: ".agents/skills/semantic-atlas/SKILL.md",
-    }])).toEqual({
+    expect(auditDiscovery(commands, {
+      atlasCalls: [
+        atlasCall(1, 2, "semantic-atlas status", statusEnvelope()),
+        atlasCall(2, 3, "semantic-atlas map search Order --limit 5", mapEnvelope([
+          businessNode("commerce/orders/place-order"),
+        ])),
+      ],
+    })).toEqual({
       delivery: "repository",
       promptInjection: false,
       mainSkillLoaded: true,
       statusBeforeSource: true,
       mapBeforeSource: true,
       decisiveSourceRead: true,
+      decisiveSourceFiles: ["src/orders/order.service.ts"],
+      conditionalReferences: {
+        snapshotBootstrap: { outcome: "not-required" },
+        resultRouting: { outcome: "not-required" },
+        graphPatch: { outcome: "not-loaded" },
+      },
     });
   });
 
@@ -182,7 +195,15 @@ describe("Fresh Agent Codex command audit", () => {
       "/bin/zsh -lc 'semantic-atlas map roots'",
     ];
 
-    expect(() => auditFreshAgentSkillDiscovery(sourceFirst, skillLoads)).toThrow(
+    expect(() => auditDiscovery(sourceFirst, {
+      skillLoads,
+      atlasCalls: [
+        atlasCall(1, 3, "semantic-atlas status", statusEnvelope()),
+        atlasCall(2, 4, "semantic-atlas map roots", mapRootsEnvelope([
+          businessNode("commerce/orders"),
+        ])),
+      ],
+    })).toThrow(
       /status before opening source/,
     );
   });
@@ -195,10 +216,94 @@ describe("Fresh Agent Codex command audit", () => {
       "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
     ];
 
-    expect(() => auditFreshAgentSkillDiscovery(commands, [{
-      sequence: 1,
-      file: ".agents/skills/semantic-atlas/SKILL.md",
-    }])).toThrow(/load the repository Skill before Atlas status/);
+    expect(() => auditDiscovery(commands, {
+      atlasCalls: [
+        atlasCall(1, 1, "semantic-atlas status", statusEnvelope()),
+        atlasCall(2, 3, "semantic-atlas map roots", mapRootsEnvelope([
+          businessNode("commerce/orders"),
+        ])),
+      ],
+    })).toThrow(/load the repository Skill before Atlas status/);
+  });
+
+  it("does not treat an unrelated source read as decisive evidence", () => {
+    const commands = [
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
+      "/bin/zsh -lc 'semantic-atlas status'",
+      "/bin/zsh -lc 'semantic-atlas map search Order --limit 5'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/unrelated.ts'",
+    ];
+
+    expect(() => auditDiscovery(commands, {
+      atlasCalls: [
+        atlasCall(1, 2, "semantic-atlas status", statusEnvelope()),
+        atlasCall(2, 3, "semantic-atlas map search Order --limit 5", mapEnvelope([
+          businessNode("commerce/orders/place-order"),
+        ])),
+      ],
+      sourceOpens: [{ sequence: 1, file: "src/unrelated.ts", sourceTokens: 20 }],
+    })).toThrow(/decisive source/i);
+  });
+
+  it("rejects snapshot bootstrap loaded after source fallback", () => {
+    const commands = [
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
+      "/bin/zsh -lc 'semantic-atlas status'",
+      "/bin/zsh -lc 'semantic-atlas map search Order --limit 5'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/references/snapshot-bootstrap.md'",
+    ];
+
+    expect(() => auditDiscovery(commands, {
+      atlasCalls: [
+        atlasCall(1, 2, "semantic-atlas status", statusEnvelope()),
+        atlasCall(2, 3, "semantic-atlas map search Order --limit 5", mapEnvelope([
+          structuralNode("src/orders/order.service.ts"),
+        ])),
+      ],
+      skillLoads: [
+        { sequence: 1, file: ".agents/skills/semantic-atlas/SKILL.md" },
+        {
+          sequence: 2,
+          file: ".agents/skills/semantic-atlas/references/snapshot-bootstrap.md",
+        },
+      ],
+    })).toThrow(/snapshot bootstrap.*before opening source/i);
+  });
+
+  it("proves snapshot bootstrap after a relevant structural-only map", () => {
+    const commands = [
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
+      "/bin/zsh -lc 'semantic-atlas status'",
+      "/bin/zsh -lc 'semantic-atlas map search Order --limit 5'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/references/snapshot-bootstrap.md'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
+    ];
+
+    expect(auditDiscovery(commands, {
+      atlasCalls: [
+        atlasCall(1, 2, "semantic-atlas status", statusEnvelope()),
+        atlasCall(2, 3, "semantic-atlas map search Order --limit 5", mapEnvelope([
+          structuralNode("src/orders/order.service.ts"),
+        ])),
+      ],
+      skillLoads: [
+        { sequence: 1, file: ".agents/skills/semantic-atlas/SKILL.md" },
+        {
+          sequence: 2,
+          file: ".agents/skills/semantic-atlas/references/snapshot-bootstrap.md",
+        },
+      ],
+    })).toMatchObject({
+      decisiveSourceFiles: ["src/orders/order.service.ts"],
+      conditionalReferences: {
+        snapshotBootstrap: {
+          outcome: "loaded-after-trigger",
+          triggerCommandSequence: 3,
+          loadCommandSequence: 4,
+        },
+      },
+    });
   });
 
   it("rejects an incomplete Codex turn", () => {
@@ -231,4 +336,96 @@ function completedCommand(command: string) {
 
 function jsonLines(events: unknown[]): string {
   return `${events.map((event) => JSON.stringify(event)).join("\n")}\n`;
+}
+
+type DiscoveryEvidence = Parameters<typeof auditFreshAgentSkillDiscovery>[2];
+type DiscoveryOverrides = Partial<DiscoveryEvidence> & {
+  readonly skillLoads?: readonly { readonly sequence: number; readonly file: string }[];
+};
+
+function auditDiscovery(
+  commands: readonly string[],
+  overrides: DiscoveryOverrides,
+) {
+  const { skillLoads = [{
+    sequence: 1,
+    file: ".agents/skills/semantic-atlas/SKILL.md",
+  }], ...evidenceOverrides } = overrides;
+  return auditFreshAgentSkillDiscovery(commands, skillLoads, {
+    atlasCalls: [],
+    sourceOpens: [{
+      sequence: 1,
+      file: "src/orders/order.service.ts",
+      sourceTokens: 20,
+    }],
+    reportedFiles: ["src/orders/order.service.ts"],
+    reportedSymbols: [{
+      file: "src/orders/order.service.ts",
+      name: "OrderService.placeOrder",
+    }],
+    requiredFiles: ["src/orders/order.service.ts"],
+    requiredSymbols: [{
+      file: "src/orders/order.service.ts",
+      name: "OrderService.placeOrder",
+    }],
+    ...evidenceOverrides,
+  });
+}
+
+function atlasCall(
+  sequence: number,
+  commandSequence: number,
+  command: string,
+  envelope: unknown,
+) {
+  return {
+    sequence,
+    commandSequence,
+    command,
+    exitCode: 0,
+    output: JSON.stringify(envelope),
+  };
+}
+
+function statusEnvelope() {
+  return {
+    schemaVersion: 1,
+    status: "ok",
+    data: {
+      command: "status",
+      freshness: "current",
+      backend: { completeness: "complete" },
+    },
+    warnings: [],
+  };
+}
+
+function mapEnvelope(nodes: unknown[]) {
+  return {
+    schemaVersion: 1,
+    status: "ok",
+    data: { command: "map.search", results: nodes.map((node) => ({ node })) },
+    warnings: [],
+  };
+}
+
+function mapRootsEnvelope(nodes: unknown[]) {
+  return {
+    schemaVersion: 1,
+    status: "ok",
+    data: { command: "map.roots", nodes },
+    warnings: [],
+  };
+}
+
+function structuralNode(file: string) {
+  return { domain: "structural", locations: [{ file }] };
+}
+
+function businessNode(key: string) {
+  return {
+    domain: "business",
+    key,
+    evidence: [{ file: "src/orders/order.service.ts" }],
+  };
 }

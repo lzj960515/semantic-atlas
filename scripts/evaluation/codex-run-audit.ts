@@ -1,5 +1,10 @@
+import { isDeepStrictEqual } from "node:util";
+
 import { parseCliArguments } from "../../src/cli/argument-parser.js";
-import type { EvaluationRun } from "../../src/evaluation/contracts.js";
+import type {
+  EvaluationCase,
+  EvaluationRun,
+} from "../../src/evaluation/contracts.js";
 import type { SkillLoad } from "./skill-trace.js";
 
 interface CodexCommandEvent {
@@ -7,6 +12,7 @@ interface CodexCommandEvent {
   readonly item: {
     readonly type: "command_execution";
     readonly command: string;
+    readonly aggregated_output?: string;
     readonly exit_code: number | null;
   };
 }
@@ -28,6 +34,50 @@ export interface FreshAgentSkillDiscoveryAudit {
   readonly statusBeforeSource: true;
   readonly mapBeforeSource: true;
   readonly decisiveSourceRead: true;
+  readonly decisiveSourceFiles: string[];
+  readonly conditionalReferences: {
+    readonly snapshotBootstrap: ConditionalReferenceProof;
+    readonly resultRouting: ConditionalReferenceProof;
+    readonly graphPatch: GraphPatchReferenceProof;
+  };
+}
+
+interface FreshAgentSkillDiscoveryEvidence {
+  readonly atlasCalls: EvaluationRun["observations"]["atlasCalls"];
+  readonly sourceOpens: EvaluationRun["observations"]["sourceOpens"];
+  readonly reportedFiles: readonly string[];
+  readonly reportedSymbols: readonly { readonly file: string; readonly name: string }[];
+  readonly requiredFiles: readonly string[];
+  readonly requiredSymbols: readonly { readonly file: string; readonly name: string }[];
+}
+
+type ConditionalReferenceProof =
+  | { readonly outcome: "not-required" }
+  | {
+    readonly outcome: "loaded-after-trigger";
+    readonly triggerCommandSequence: number;
+    readonly loadCommandSequence: number;
+  };
+
+type GraphPatchReferenceProof =
+  | { readonly outcome: "not-loaded" }
+  | {
+    readonly outcome: "loaded-after-source";
+    readonly sourceCommandSequence: number;
+    readonly loadCommandSequence: number;
+  };
+
+interface TimedOperation {
+  readonly text: string;
+  readonly kind: CommandKind;
+  readonly words: readonly string[];
+  readonly commandSequence: number;
+}
+
+interface ParsedAtlasEvidence {
+  readonly commandSequence: number;
+  readonly commandName: string;
+  readonly envelope: Record<string, unknown>;
 }
 
 type CommandKind =
@@ -69,6 +119,10 @@ const FIXTURE_LOCAL_ATLAS_COMMANDS = new Set([
 ]);
 
 const EVALUATION_OBSERVER_PARAMETER = "$EVALUATION_OBSERVER";
+const MAIN_SKILL_FILE = ".agents/skills/semantic-atlas/SKILL.md";
+const SNAPSHOT_BOOTSTRAP_FILE = ".agents/skills/semantic-atlas/references/snapshot-bootstrap.md";
+const RESULT_ROUTING_FILE = ".agents/skills/semantic-atlas/references/result-routing.md";
+const GRAPH_PATCH_FILE = ".agents/skills/semantic-atlas/references/graph-patch.md";
 const UNQUOTED_WORD_GENERATION_CHARACTERS = new Set([
   "!",
   "#",
@@ -99,8 +153,31 @@ export function auditCodexRun(
     throw new Error("Fresh Agent modified the fixture");
   }
 
-  const commands = events.filter(isCompletedCommandEvent).map((event) => event.item.command);
-  return auditCodexCommands(mode, commands);
+  const commandEvents = events.filter(isCompletedCommandEvent);
+  const commands = commandEvents.map((event) => event.item.command);
+  const audit = auditCodexCommands(mode, commands);
+  let atlasSequence = 0;
+  const atlasCalls = commandEvents.flatMap((event, commandIndex) => {
+    const operations = parseAllowedShellCommand(event.item.command);
+    const atlasOperations = operations.filter((operation) => operation.kind === "atlas");
+    if (atlasOperations.length === 0) return [];
+    if (operations.length !== 1 || atlasOperations.length !== 1) {
+      throw new Error("Fresh Agent Atlas commands must be standalone for replayable evidence");
+    }
+    if (event.item.exit_code === null) {
+      throw new Error("Fresh Agent Atlas command did not retain an exit code");
+    }
+    atlasSequence += 1;
+    return [{
+      sequence: atlasSequence,
+      command: atlasOperations[0]!.text,
+      commandSequence: commandIndex + 1,
+      exitCode: event.item.exit_code,
+      output: event.item.aggregated_output ?? "",
+    }];
+  });
+
+  return { ...audit, atlasCalls };
 }
 
 export function auditCodexCommands(
@@ -128,14 +205,18 @@ export function auditCodexCommands(
 export function auditFreshAgentSkillDiscovery(
   commands: readonly string[],
   skillLoads: readonly SkillLoad[],
+  evidence: FreshAgentSkillDiscoveryEvidence,
 ): FreshAgentSkillDiscoveryAudit {
-  if (skillLoads[0]?.file !== ".agents/skills/semantic-atlas/SKILL.md") {
+  if (skillLoads[0]?.file !== MAIN_SKILL_FILE) {
     throw new Error("Fresh Agent did not load the discovered Semantic Atlas Skill");
   }
 
-  const operations = commands.flatMap(parseAuditedShellCommand);
+  const operations = buildTimedOperations(commands);
+  verifyStandaloneDiscoveryOperations(commands);
+  verifySkillTrace(operations, skillLoads);
+  const atlasEvidence = parseAtlasEvidence(operations, evidence.atlasCalls);
   const skillIndex = operations.findIndex((operation) => (
-    operation.kind === "observer" && isCandidateSkillRead(operation.words)
+    operation.kind === "observer" && observerReadFile(operation.words) === MAIN_SKILL_FILE
   ));
   const statusIndex = operations.findIndex((operation) => (
     operation.kind === "atlas" && atlasCommandName(operation.words) === "status"
@@ -157,6 +238,42 @@ export function auditFreshAgentSkillDiscovery(
     throw new Error("Fresh Agent must use an Atlas map query before opening source");
   }
 
+  const decisiveSourceOperations = findDecisiveSourceOperations(operations, evidence);
+  if (decisiveSourceOperations.length === 0) {
+    throw new Error(
+      "Fresh Agent did not open decisive source shared by the source trace, answer, and oracle",
+    );
+  }
+
+  const firstSourceSequence = operations[sourceIndex]!.commandSequence;
+  const targetFiles = new Set([
+    ...evidence.reportedFiles,
+    ...evidence.reportedSymbols.map((symbol) => symbol.file),
+    ...evidence.requiredFiles,
+    ...evidence.requiredSymbols.map((symbol) => symbol.file),
+  ]);
+  const bootstrapTriggers = atlasEvidence
+    .filter((item) => requiresSnapshotBootstrap(item, targetFiles))
+    .map((item) => item.commandSequence);
+  const routingTriggers = atlasEvidence
+    .filter(requiresResultRouting)
+    .map((item) => item.commandSequence);
+  const snapshotBootstrap = proveConditionalReference({
+    label: "snapshot bootstrap",
+    referenceFile: SNAPSHOT_BOOTSTRAP_FILE,
+    operations,
+    triggerSequences: bootstrapTriggers,
+    firstSourceSequence,
+  });
+  const resultRouting = proveConditionalReference({
+    label: "result routing",
+    referenceFile: RESULT_ROUTING_FILE,
+    operations,
+    triggerSequences: routingTriggers,
+    firstSourceSequence,
+  });
+  const graphPatch = proveGraphPatchReference(operations, decisiveSourceOperations);
+
   return {
     delivery: "repository",
     promptInjection: false,
@@ -164,7 +281,323 @@ export function auditFreshAgentSkillDiscovery(
     statusBeforeSource: true,
     mapBeforeSource: true,
     decisiveSourceRead: true,
+    decisiveSourceFiles: uniqueInOrder(
+      decisiveSourceOperations.map((operation) => observerReadFile(operation.words)!),
+    ),
+    conditionalReferences: {
+      snapshotBootstrap,
+      resultRouting,
+      graphPatch,
+    },
   };
+}
+
+export function verifyFreshAgentSkillDiscovery(
+  run: EvaluationRun,
+  evaluationCase: EvaluationCase,
+): FreshAgentSkillDiscoveryAudit | undefined {
+  if (run.protocol.runnerVersion !== "fresh-agent-runner-v5" || run.mode !== "atlas") {
+    return undefined;
+  }
+  const derived = auditFreshAgentSkillDiscovery(
+    run.protocol.commandAudit.commands,
+    run.observations.skillLoads ?? [],
+    {
+      atlasCalls: run.observations.atlasCalls,
+      sourceOpens: run.observations.sourceOpens,
+      reportedFiles: run.answer.reportedFiles,
+      reportedSymbols: run.answer.reportedSymbols,
+      requiredFiles: evaluationCase.oracle.requiredFiles,
+      requiredSymbols: evaluationCase.oracle.requiredSymbols,
+    },
+  );
+  if (!isDeepStrictEqual(derived, run.protocol.skillDiscovery)) {
+    throw new Error(`Published Skill discovery proof disagrees with retained evidence for ${run.runId}`);
+  }
+  return derived;
+}
+
+function buildTimedOperations(commands: readonly string[]): readonly TimedOperation[] {
+  return commands.flatMap((command, commandIndex) => (
+    parseAllowedShellCommand(command).map((operation) => ({
+      text: operation.text,
+      kind: operation.kind,
+      words: operation.words,
+      commandSequence: commandIndex + 1,
+    }))
+  ));
+}
+
+function verifyStandaloneDiscoveryOperations(commands: readonly string[]): void {
+  for (const command of commands) {
+    const operations = parseAllowedShellCommand(command);
+    const containsDiscoveryOperation = operations.some((operation) => (
+      operation.kind === "atlas" || operation.kind === "observer"
+    ));
+    if (containsDiscoveryOperation && operations.length !== 1) {
+      throw new Error(
+        "Fresh Agent Atlas and observer commands must be standalone for replayable discovery evidence",
+      );
+    }
+  }
+}
+
+function verifySkillTrace(
+  operations: readonly TimedOperation[],
+  skillLoads: readonly SkillLoad[],
+): void {
+  const commandFiles = operations.flatMap((operation) => {
+    const file = observerReadFile(operation.words);
+    return file !== undefined && isCandidateSkillFile(file) ? [file] : [];
+  });
+  const traceFiles = skillLoads.map((load) => load.file);
+  const validSequences = skillLoads.every((load, index) => load.sequence === index + 1);
+  if (!validSequences || !isDeepStrictEqual(commandFiles, traceFiles)) {
+    throw new Error("Fresh Agent Skill trace disagrees with retained commands");
+  }
+}
+
+function parseAtlasEvidence(
+  operations: readonly TimedOperation[],
+  atlasCalls: EvaluationRun["observations"]["atlasCalls"],
+): readonly ParsedAtlasEvidence[] {
+  const atlasOperations = operations.filter((operation) => operation.kind === "atlas");
+  if (atlasOperations.length !== atlasCalls.length) {
+    throw new Error("Fresh Agent Atlas envelopes disagree with retained commands");
+  }
+
+  return atlasOperations.map((operation, index) => {
+    const call = atlasCalls[index]!;
+    const commandName = atlasCommandName(operation.words);
+    if (
+      call.sequence !== index + 1
+      || call.command !== operation.text
+      || call.commandSequence !== operation.commandSequence
+      || call.exitCode === undefined
+      || call.output === undefined
+    ) {
+      throw new Error("Fresh Agent Atlas envelope metadata disagrees with retained commands");
+    }
+
+    let envelope: unknown;
+    try {
+      envelope = JSON.parse(call.output) as unknown;
+    } catch (error) {
+      throw new Error("Fresh Agent retained an invalid Atlas JSON envelope", { cause: error });
+    }
+    if (!isRecord(envelope) || envelope.schemaVersion !== 1) {
+      throw new Error("Fresh Agent retained an unsupported Atlas envelope");
+    }
+    if (
+      !["ok", "partial", "error"].includes(String(envelope.status))
+      || !Array.isArray(envelope.warnings)
+      || envelope.warnings.some((warning) => (
+        !isRecord(warning) || typeof warning.code !== "string"
+      ))
+    ) {
+      throw new Error("Fresh Agent retained a malformed Atlas envelope");
+    }
+    const successfulEnvelope = envelope.status === "ok" || envelope.status === "partial";
+    if ((successfulEnvelope && call.exitCode !== 0) || (!successfulEnvelope && call.exitCode === 0)) {
+      throw new Error("Fresh Agent Atlas envelope status disagrees with its exit code");
+    }
+    const data = isRecord(envelope.data) ? envelope.data : undefined;
+    if (data?.command !== commandName) {
+      throw new Error("Fresh Agent Atlas envelope command disagrees with retained commands");
+    }
+    return {
+      commandSequence: operation.commandSequence,
+      commandName,
+      envelope,
+    };
+  });
+}
+
+function findDecisiveSourceOperations(
+  operations: readonly TimedOperation[],
+  evidence: FreshAgentSkillDiscoveryEvidence,
+): readonly TimedOperation[] {
+  const sourceTraceFiles = new Set(evidence.sourceOpens.map((sourceOpen) => sourceOpen.file));
+  const reportedFiles = new Set([
+    ...evidence.reportedFiles,
+    ...evidence.reportedSymbols.map((symbol) => symbol.file),
+  ]);
+  const requiredFiles = new Set([
+    ...evidence.requiredFiles,
+    ...evidence.requiredSymbols.map((symbol) => symbol.file),
+  ]);
+
+  return operations.filter((operation) => {
+    const file = observerReadFile(operation.words);
+    return file !== undefined
+      && !isCandidateSkillFile(file)
+      && sourceTraceFiles.has(file)
+      && reportedFiles.has(file)
+      && requiredFiles.has(file);
+  });
+}
+
+function requiresSnapshotBootstrap(
+  item: ParsedAtlasEvidence,
+  targetFiles: ReadonlySet<string>,
+): boolean {
+  const data = isRecord(item.envelope.data) ? item.envelope.data : undefined;
+  if (item.commandName === "status") {
+    const freshness = data?.freshness;
+    const backend = isRecord(data?.backend) ? data.backend : undefined;
+    return freshness === "missing"
+      || freshness === "stale"
+      || (backend?.completeness !== undefined && backend.completeness !== "complete");
+  }
+  if (!item.commandName.startsWith("map.") || data === undefined) return false;
+
+  const nodes = collectNodeRecords(data);
+  const hasRelevantStructuralNode = nodes.some((node) => (
+    node.domain === "structural"
+    && nodeSourceFiles(node).some((file) => targetFiles.has(file))
+  ));
+  const hasRelevantBusinessNode = nodes.some((node) => (
+    node.domain === "business"
+    && nodeSourceFiles(node).some((file) => targetFiles.has(file))
+  ));
+  return hasRelevantStructuralNode && !hasRelevantBusinessNode;
+}
+
+function requiresResultRouting(item: ParsedAtlasEvidence): boolean {
+  if (item.envelope.status === "partial" || item.envelope.status === "error") return true;
+  if (Array.isArray(item.envelope.warnings) && item.envelope.warnings.length > 0) return true;
+
+  const data = isRecord(item.envelope.data) ? item.envelope.data : undefined;
+  if (data === undefined) return false;
+  if (
+    (item.commandName === "map.search" && isEmptyArray(data.results))
+    || (item.commandName === "map.roots" && isEmptyArray(data.nodes))
+    || (item.commandName === "map.children" && isEmptyArray(data.children))
+  ) {
+    return true;
+  }
+  return collectRecords(data).some((record) => (
+    record.kind === "UnknownBoundary"
+    || record.validity === "stale"
+    || record.certainty === "hypothesis"
+    || (isRecord(record.support)
+      && ["unknown", "unsupported", "partial"].includes(String(record.support.status)))
+  ));
+}
+
+function proveConditionalReference(options: {
+  readonly label: string;
+  readonly referenceFile: string;
+  readonly operations: readonly TimedOperation[];
+  readonly triggerSequences: readonly number[];
+  readonly firstSourceSequence: number;
+}): ConditionalReferenceProof {
+  const loadSequences = options.operations.flatMap((operation) => (
+    observerReadFile(operation.words) === options.referenceFile
+      ? [operation.commandSequence]
+      : []
+  ));
+  if (options.triggerSequences.length === 0) {
+    if (loadSequences.length > 0) {
+      throw new Error(`Fresh Agent loaded ${options.label} without matching Atlas state`);
+    }
+    return { outcome: "not-required" };
+  }
+
+  for (const loadSequence of loadSequences) {
+    if (!options.triggerSequences.some((triggerSequence) => triggerSequence < loadSequence)) {
+      throw new Error(`Fresh Agent loaded ${options.label} before its matching Atlas state`);
+    }
+  }
+
+  const preSourceTrigger = options.triggerSequences.find(
+    (triggerSequence) => triggerSequence < options.firstSourceSequence,
+  );
+  if (preSourceTrigger !== undefined) {
+    const loadSequence = loadSequences.find((candidate) => (
+      candidate > preSourceTrigger && candidate < options.firstSourceSequence
+    ));
+    if (loadSequence === undefined) {
+      throw new Error(
+        `Fresh Agent must load ${options.label} after its matching Atlas state and before opening source`,
+      );
+    }
+    return {
+      outcome: "loaded-after-trigger",
+      triggerCommandSequence: preSourceTrigger,
+      loadCommandSequence: loadSequence,
+    };
+  }
+
+  const loadSequence = loadSequences[0];
+  if (loadSequence === undefined) return { outcome: "not-required" };
+  const triggerSequence = options.triggerSequences.findLast(
+    (candidate) => candidate < loadSequence,
+  )!;
+  return {
+    outcome: "loaded-after-trigger",
+    triggerCommandSequence: triggerSequence,
+    loadCommandSequence: loadSequence,
+  };
+}
+
+function proveGraphPatchReference(
+  operations: readonly TimedOperation[],
+  decisiveSourceOperations: readonly TimedOperation[],
+): GraphPatchReferenceProof {
+  const loadSequences = operations.flatMap((operation) => (
+    observerReadFile(operation.words) === GRAPH_PATCH_FILE
+      ? [operation.commandSequence]
+      : []
+  ));
+  if (loadSequences.length === 0) return { outcome: "not-loaded" };
+
+  for (const loadSequence of loadSequences) {
+    if (!decisiveSourceOperations.some((source) => source.commandSequence < loadSequence)) {
+      throw new Error("Fresh Agent loaded GraphPatch authoring before decisive source confirmation");
+    }
+  }
+  const loadSequence = loadSequences[0]!;
+  const sourceCommandSequence = decisiveSourceOperations.findLast(
+    (source) => source.commandSequence < loadSequence,
+  )!.commandSequence;
+  return {
+    outcome: "loaded-after-source",
+    sourceCommandSequence,
+    loadCommandSequence: loadSequence,
+  };
+}
+
+function collectNodeRecords(value: unknown): readonly Record<string, unknown>[] {
+  return collectRecords(value).filter((record) => (
+    record.domain === "structural" || record.domain === "business"
+  ));
+}
+
+function collectRecords(value: unknown): readonly Record<string, unknown>[] {
+  if (Array.isArray(value)) return value.flatMap(collectRecords);
+  if (!isRecord(value)) return [];
+  return [value, ...Object.values(value).flatMap(collectRecords)];
+}
+
+function nodeSourceFiles(node: Record<string, unknown>): readonly string[] {
+  const locations = Array.isArray(node.locations) ? node.locations : [];
+  const evidence = Array.isArray(node.evidence) ? node.evidence : [];
+  return [...locations, ...evidence].flatMap((item) => (
+    isRecord(item) && typeof item.file === "string" ? [item.file] : []
+  ));
+}
+
+function isEmptyArray(value: unknown): boolean {
+  return Array.isArray(value) && value.length === 0;
+}
+
+function uniqueInOrder(values: readonly string[]): string[] {
+  return [...new Set(values)];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isCompletedCommandEvent(event: unknown): event is CodexCommandEvent {
@@ -178,7 +611,11 @@ function isCompletedCommandEvent(event: unknown): event is CodexCommandEvent {
     && "type" in event.item
     && event.item.type === "command_execution"
     && "command" in event.item
-    && typeof event.item.command === "string";
+    && typeof event.item.command === "string"
+    && "exit_code" in event.item
+    && (event.item.exit_code === null || typeof event.item.exit_code === "number")
+    && (!("aggregated_output" in event.item)
+      || typeof event.item.aggregated_output === "string");
 }
 
 function isTurnCompletedEvent(event: unknown): event is CodexTurnCompletedEvent {
@@ -205,10 +642,14 @@ function auditShellCommand(command: string): string[] {
     throw new Error(`Fresh Agent command read an external instruction: ${command}`);
   }
 
+  return parseAllowedShellCommand(command).flatMap((operation) => (
+    operation.kind === "atlas" ? [operation.text] : []
+  ));
+}
+
+function parseAllowedShellCommand(command: string) {
   try {
-    return parseAuditedShellCommand(command).flatMap((operation) => (
-      operation.kind === "atlas" ? [operation.text] : []
-    ));
+    return parseAuditedShellCommand(command);
   } catch (error) {
     throw commandPolicyError(command, error);
   }
@@ -247,10 +688,20 @@ function atlasCommandName(words: readonly string[]): string {
 }
 
 function isCandidateSkillRead(words: readonly string[]): boolean {
+  const file = observerReadFile(words);
+  return file !== undefined && isCandidateSkillFile(file);
+}
+
+function observerReadFile(words: readonly string[]): string | undefined {
   const offset = words[0] === "node" ? 1 : 0;
-  return words[offset] === EVALUATION_OBSERVER_PARAMETER
-    && words[offset + 1] === "read"
-    && /^\.agents\/skills\/semantic-atlas\//u.test(words[offset + 2] ?? "");
+  if (words[offset] !== EVALUATION_OBSERVER_PARAMETER || words[offset + 1] !== "read") {
+    return undefined;
+  }
+  return words[offset + 2];
+}
+
+function isCandidateSkillFile(file: string): boolean {
+  return /^\.agents\/skills\/semantic-atlas\//u.test(file);
 }
 
 function rejectShellWordGeneration(script: string): void {

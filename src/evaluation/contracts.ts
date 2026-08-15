@@ -139,6 +139,9 @@ const sourceOpenSchema = z.strictObject({
 const atlasCallSchema = z.strictObject({
   sequence: z.number().int().positive(),
   command: z.string().min(1),
+  commandSequence: z.number().int().positive().optional(),
+  exitCode: z.number().int().optional(),
+  output: z.string().min(1).optional(),
 });
 
 const atlasHandlingSchema = z.strictObject({
@@ -168,6 +171,33 @@ const skillDiscoverySchema = z.strictObject({
   statusBeforeSource: z.literal(true),
   mapBeforeSource: z.literal(true),
   decisiveSourceRead: z.literal(true),
+  decisiveSourceFiles: z.array(relativeSourcePathSchema).min(1),
+  conditionalReferences: z.strictObject({
+    snapshotBootstrap: z.discriminatedUnion("outcome", [
+      z.strictObject({ outcome: z.literal("not-required") }),
+      z.strictObject({
+        outcome: z.literal("loaded-after-trigger"),
+        triggerCommandSequence: z.number().int().positive(),
+        loadCommandSequence: z.number().int().positive(),
+      }),
+    ]),
+    resultRouting: z.discriminatedUnion("outcome", [
+      z.strictObject({ outcome: z.literal("not-required") }),
+      z.strictObject({
+        outcome: z.literal("loaded-after-trigger"),
+        triggerCommandSequence: z.number().int().positive(),
+        loadCommandSequence: z.number().int().positive(),
+      }),
+    ]),
+    graphPatch: z.discriminatedUnion("outcome", [
+      z.strictObject({ outcome: z.literal("not-loaded") }),
+      z.strictObject({
+        outcome: z.literal("loaded-after-source"),
+        sourceCommandSequence: z.number().int().positive(),
+        loadCommandSequence: z.number().int().positive(),
+      }),
+    ]),
+  }),
 });
 
 export const evaluationFailureClassificationSchema = z.enum([
@@ -264,6 +294,17 @@ export const evaluationRunSchema = z
           code: "custom",
           message: "A discovery run must load and audit the repository Semantic Atlas Skill",
           path: ["protocol", "skillDiscovery"],
+        });
+      }
+      if (run.mode === "atlas" && run.observations.atlasCalls.some((call) => (
+        call.commandSequence === undefined
+        || call.exitCode === undefined
+        || call.output === undefined
+      ))) {
+        context.addIssue({
+          code: "custom",
+          message: "A discovery run must retain replayable Atlas command envelopes",
+          path: ["observations", "atlasCalls"],
         });
       }
       if (run.mode === "no-atlas" && (

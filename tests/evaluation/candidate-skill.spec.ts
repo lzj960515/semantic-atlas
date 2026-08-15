@@ -30,6 +30,9 @@ describe("Fresh Agent candidate Skill delivery", () => {
     expect(instructions).not.toContain("available-semantic-atlas-skill");
     expect(instructions).not.toContain("# Semantic Atlas");
     expect(instructions).not.toMatch(/\bSkill\b/u);
+    expect(instructions).toContain(
+      "Treat the current working directory as the resolved exact fixture root",
+    );
   });
 
   it("installs a discoverable repository Skill without changing visible Git state", async () => {

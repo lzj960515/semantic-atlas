@@ -14,6 +14,7 @@ const SKILL_EXCLUDE = ".agents/skills/";
 export function buildFreshAgentInstructions(taskPrompt: string): string {
   return [
     "This is one measured Fresh Agent repository-understanding run.",
+    "Treat the current working directory as the resolved exact fixture root.",
     "Follow the repository instructions and use only the source observer for source text.",
     "The oracle and paired run are unavailable. Inspect only the fixture, the provided observer, and available CLI.",
     "This comparative case is read-only: do not change source or generated analysis state. State any durable knowledge-capture decision without persisting it.",

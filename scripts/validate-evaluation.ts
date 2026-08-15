@@ -1,7 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 
-import { auditCodexCommands } from "./evaluation/codex-run-audit.js";
+import {
+  auditCodexCommands,
+  verifyFreshAgentSkillDiscovery,
+} from "./evaluation/codex-run-audit.js";
 import {
   baselineEvaluationPlanSchema,
   evaluationPlanSchema,
@@ -24,11 +27,12 @@ const reportPath = reportOptionIndex < 0
 if (reportOptionIndex >= 0 && reportPath === undefined) {
   throw new Error("--report requires a report path");
 }
+const reportValueIndex = reportOptionIndex < 0 ? -1 : reportOptionIndex + 1;
 const [planPath, ...runPaths] = commandArguments.filter((argument, index) => (
   argument !== "--baseline"
   && argument !== "--comparison"
   && argument !== "--report"
-  && index !== reportOptionIndex + 1
+  && index !== reportValueIndex
 ));
 
 if (planPath === undefined) {
@@ -47,7 +51,11 @@ const casesById = new Map(
 const runs = (await Promise.all(runPaths.map(readJson))).map((rawRun) => {
   const run = evaluationRunSchema.parse(rawRun);
   const commandAudit = auditCodexCommands(run.mode, run.protocol.commandAudit.commands);
-  if (!isDeepStrictEqual(commandAudit.atlasCalls, run.observations.atlasCalls)) {
+  const publishedCalls = run.observations.atlasCalls.map(({ sequence, command }) => ({
+    sequence,
+    command,
+  }));
+  if (!isDeepStrictEqual(commandAudit.atlasCalls, publishedCalls)) {
     throw new Error(`Published command evidence disagrees with Atlas calls for ${run.runId}`);
   }
   return run;
@@ -58,6 +66,8 @@ const summaries = runs.map((run) => {
   if (evaluationCase === undefined) {
     throw new Error(`Run ${run.runId} references unknown case ${run.caseId}`);
   }
+
+  verifyFreshAgentSkillDiscovery(run, evaluationCase);
 
   return summarizeEvaluationRun(evaluationCase, run);
 });

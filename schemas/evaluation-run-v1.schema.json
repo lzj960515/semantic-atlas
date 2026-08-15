@@ -26,13 +26,13 @@
       "$ref": "#/$defs/__schema6"
     },
     "startedAt": {
-      "$ref": "#/$defs/__schema9"
-    },
-    "finishedAt": {
       "$ref": "#/$defs/__schema10"
     },
-    "observations": {
+    "finishedAt": {
       "$ref": "#/$defs/__schema11"
+    },
+    "observations": {
+      "$ref": "#/$defs/__schema12"
     },
     "answer": {
       "$ref": "#/$defs/__schema14"
@@ -175,6 +175,150 @@
             "decisiveSourceRead": {
               "type": "boolean",
               "const": true
+            },
+            "decisiveSourceFiles": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/__schema9"
+              }
+            },
+            "conditionalReferences": {
+              "type": "object",
+              "properties": {
+                "snapshotBootstrap": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "outcome": {
+                          "type": "string",
+                          "const": "not-required"
+                        }
+                      },
+                      "required": [
+                        "outcome"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "outcome": {
+                          "type": "string",
+                          "const": "loaded-after-trigger"
+                        },
+                        "triggerCommandSequence": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "loadCommandSequence": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "outcome",
+                        "triggerCommandSequence",
+                        "loadCommandSequence"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "resultRouting": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "outcome": {
+                          "type": "string",
+                          "const": "not-required"
+                        }
+                      },
+                      "required": [
+                        "outcome"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "outcome": {
+                          "type": "string",
+                          "const": "loaded-after-trigger"
+                        },
+                        "triggerCommandSequence": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "loadCommandSequence": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "outcome",
+                        "triggerCommandSequence",
+                        "loadCommandSequence"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "graphPatch": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "outcome": {
+                          "type": "string",
+                          "const": "not-loaded"
+                        }
+                      },
+                      "required": [
+                        "outcome"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "outcome": {
+                          "type": "string",
+                          "const": "loaded-after-source"
+                        },
+                        "sourceCommandSequence": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "loadCommandSequence": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "outcome",
+                        "sourceCommandSequence",
+                        "loadCommandSequence"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "snapshotBootstrap",
+                "resultRouting",
+                "graphPatch"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [
@@ -183,7 +327,9 @@
             "mainSkillLoaded",
             "statusBeforeSource",
             "mapBeforeSource",
-            "decisiveSourceRead"
+            "decisiveSourceRead",
+            "decisiveSourceFiles",
+            "conditionalReferences"
           ],
           "additionalProperties": false
         }
@@ -209,8 +355,8 @@
     },
     "__schema9": {
       "type": "string",
-      "format": "date-time",
-      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+      "minLength": 1,
+      "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
     },
     "__schema10": {
       "type": "string",
@@ -218,6 +364,11 @@
       "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
     },
     "__schema11": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+    },
+    "__schema12": {
       "type": "object",
       "properties": {
         "sourceTokenMethod": {
@@ -228,7 +379,7 @@
           "minItems": 1,
           "type": "array",
           "items": {
-            "$ref": "#/$defs/__schema12"
+            "$ref": "#/$defs/__schema13"
           }
         },
         "atlasCalls": {
@@ -242,6 +393,20 @@
                 "maximum": 9007199254740991
               },
               "command": {
+                "type": "string",
+                "minLength": 1
+              },
+              "commandSequence": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "exitCode": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "output": {
                 "type": "string",
                 "minLength": 1
               }
@@ -306,7 +471,7 @@
                     "pattern": "^\\.agents\\/skills\\/semantic-atlas\\/(?:SKILL\\.md|references\\/[a-z0-9-]+\\.md)$"
                   }
                 ],
-                "$ref": "#/$defs/__schema13"
+                "$ref": "#/$defs/__schema9"
               }
             },
             "required": [
@@ -325,7 +490,7 @@
       ],
       "additionalProperties": false
     },
-    "__schema12": {
+    "__schema13": {
       "type": "object",
       "properties": {
         "sequence": {
@@ -334,7 +499,7 @@
           "maximum": 9007199254740991
         },
         "file": {
-          "$ref": "#/$defs/__schema13"
+          "$ref": "#/$defs/__schema9"
         },
         "sourceTokens": {
           "type": "integer",
@@ -349,11 +514,6 @@
       ],
       "additionalProperties": false
     },
-    "__schema13": {
-      "type": "string",
-      "minLength": 1,
-      "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
-    },
     "__schema14": {
       "type": "object",
       "properties": {
@@ -364,7 +524,7 @@
         "reportedFiles": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/__schema13"
+            "$ref": "#/$defs/__schema9"
           }
         },
         "reportedSymbols": {
@@ -373,7 +533,7 @@
             "type": "object",
             "properties": {
               "file": {
-                "$ref": "#/$defs/__schema13"
+                "$ref": "#/$defs/__schema9"
               },
               "name": {
                 "type": "string",

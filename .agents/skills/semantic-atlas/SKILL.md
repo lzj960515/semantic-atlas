@@ -26,18 +26,21 @@ and structured GraphPatch input; it does not interpret natural-language tasks.
 3. Start with `semantic-atlas status` before broad source discovery. Read the
    versioned envelope, `data.freshness`, snapshot, warnings, and
    `data.backend.completeness` by stable fields and codes.
-4. Follow the matching procedure in [Conditional references](#conditional-references)
-   when the observed state needs indexing, bootstrap, abnormal-result routing,
-   or knowledge authoring.
+4. Complete the matching procedure in [Conditional references](#conditional-references)
+   as soon as the observed status needs indexing or bootstrap.
 5. Query the current map with compact task vocabulary before broad source
    search. Let map evidence, owners, candidates, and unknown boundaries define
    the initial source seed set.
-6. Open cited ranges and confirm decisive behavior in authoritative source.
+6. Classify the map response and complete every triggered reference before
+   source confirmation. Relevant structural nodes with no relevant business
+   node trigger snapshot bootstrap; weak, partial, unknown, unsupported, or
+   otherwise insufficient results trigger result routing.
+7. Open cited ranges and confirm decisive behavior in authoritative source.
    Follow only the dependencies, interfaces, data, invariants, or tests needed
    to answer or change the behavior.
-7. Perform implementation, debugging, testing, and review through the normal
+8. Perform implementation, debugging, testing, and review through the normal
    engineering workflow.
-8. Reconcile relevant source changes with Atlas, then make the mandatory
+9. Reconcile relevant source changes with Atlas, then make the mandatory
    knowledge-capture decision before completing the task.
 
 ## Query before broad source discovery

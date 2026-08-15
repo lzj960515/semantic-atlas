@@ -18,6 +18,7 @@ import {
   auditCodexCommands,
   auditFreshAgentSkillDiscovery,
   auditCodexRun,
+  verifyFreshAgentSkillDiscovery,
 } from "./evaluation/codex-run-audit.js";
 import {
   buildCodexIsolationArguments,
@@ -343,7 +344,14 @@ async function runFreshAgent(options: {
   const sourceOpens = await readSourceTrace(tracePath);
   const skillLoads = await readSkillTrace(skillTracePath);
   const skillDiscovery = options.mode === "atlas"
-    ? auditFreshAgentSkillDiscovery(audit.commands, skillLoads)
+    ? auditFreshAgentSkillDiscovery(audit.commands, skillLoads, {
+      atlasCalls: audit.atlasCalls,
+      sourceOpens,
+      reportedFiles: answer.reportedFiles,
+      reportedSymbols: answer.reportedSymbols,
+      requiredFiles: options.evaluationCase.oracle.requiredFiles,
+      requiredSymbols: options.evaluationCase.oracle.requiredSymbols,
+    })
     : undefined;
   await requireCleanFixture(options.repository);
 
@@ -516,6 +524,11 @@ async function readPublishedRunsExcept(caseId: string): Promise<EvaluationRun[]>
     if (!sameAtlasCalls(audit.atlasCalls, run.observations.atlasCalls)) {
       throw new Error(`Published command evidence disagrees with Atlas calls for ${run.runId}`);
     }
+    const evaluationCase = plan.cases.find((item) => item.id === run.caseId);
+    if (evaluationCase === undefined) {
+      throw new Error(`Published run ${run.runId} references unknown case ${run.caseId}`);
+    }
+    verifyFreshAgentSkillDiscovery(run, evaluationCase);
     runs.push(run);
   }
   const expectedCount = plan.cases.length * 2 - 2;

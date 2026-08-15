@@ -96,6 +96,18 @@ describe("Semantic Atlas Skill", () => {
     expect(skill).toContain("relevant structural nodes but no relevant business");
   });
 
+  it("places the conditional-reference checkpoint before source confirmation", () => {
+    const skill = readFileSync(skillPath, "utf8");
+    const requiredLoop = skill
+      .split("## Required business-understanding loop")[1]!
+      .split("## Query before broad source discovery")[0]!
+      .toLowerCase();
+
+    expect(requiredLoop).toContain("relevant structural nodes");
+    expect(requiredLoop.indexOf("relevant structural nodes"))
+      .toBeLessThan(requiredLoop.indexOf("open cited ranges"));
+  });
+
   it("keeps GraphPatch structural links on declaration targets", () => {
     const graphPatch = readFileSync(
       join(skillDirectory, "references", "graph-patch.md"),
