@@ -16,12 +16,17 @@ import { z } from "zod";
 
 import {
   auditCodexCommands,
+  auditFreshAgentSkillDiscovery,
   auditCodexRun,
 } from "./evaluation/codex-run-audit.js";
 import {
   buildCodexIsolationArguments,
   discoverHostSkillFiles,
 } from "./evaluation/codex-agent-isolation.js";
+import {
+  buildFreshAgentInstructions,
+  installCandidateSkill,
+} from "./evaluation/candidate-skill.js";
 import { summarizeEvaluationComparison } from "../src/evaluation/comparison.js";
 import {
   baselineEvaluationPlanSchema,
@@ -36,8 +41,9 @@ import {
   EVALUATION_SOURCE_TOKEN_METHOD,
   parseEvaluationSourceTrace,
 } from "./evaluation/source-trace.js";
+import { parseEvaluationSkillTrace } from "./evaluation/skill-trace.js";
 
-const RUNNER_VERSION = "fresh-agent-runner-v4";
+const RUNNER_VERSION = "fresh-agent-runner-v5";
 const SOURCE_TOKEN_METHOD = EVALUATION_SOURCE_TOKEN_METHOD;
 const AGENT_MODEL = "gpt-5.6-sol";
 const EVALUATION_ID = "fresh-agent-v1";
@@ -82,10 +88,15 @@ const fixtureTemplate = join(repositoryRoot, "evaluation/fixtures/framework-eval
 const answerSchemaPath = join(repositoryRoot, "evaluation/agent-answer.schema.json");
 const adjudicationSchemaPath = join(repositoryRoot, "evaluation/adjudication.schema.json");
 const observerPath = join(repositoryRoot, "scripts/evaluation-source-observer.mjs");
+const candidateSkillRoot = join(repositoryRoot, ".agents/skills/semantic-atlas");
 const selectedCaseId = readOption("--case");
+const selectedMode = readModeOption();
 const publishSelectedCase = process.argv.includes("--publish-selected");
 if (publishSelectedCase && selectedCaseId === undefined) {
   throw new Error("--publish-selected requires --case <case-id>");
+}
+if (publishSelectedCase && selectedMode !== undefined) {
+  throw new Error("--publish-selected requires both evaluation modes");
 }
 
 const plan = baselineEvaluationPlanSchema.parse(JSON.parse(await readFile(planPath, "utf8")));
@@ -100,7 +111,6 @@ process.stdout.write(`Fresh Agent runtime: ${runtimeRoot}\n`);
 await buildSemanticAtlas();
 const fixture = await prepareFixture(runtimeRoot);
 const codexVersion = (await runProcess("codex", ["--version"], { cwd: repositoryRoot })).stdout.trim();
-const skill = await readAtlasSkill();
 const hostSkillFiles = await discoverHostSkillFiles();
 const mcpServerIds = await discoverMcpServerIds();
 const codexIsolationArguments = buildCodexIsolationArguments(hostSkillFiles, mcpServerIds);
@@ -113,7 +123,8 @@ const toolPolicyHash = sha256(JSON.stringify({
 }));
 
 const jobs = selectedCases.flatMap((evaluationCase) => (
-  (["no-atlas", "atlas"] as const).map((mode) => ({ evaluationCase, mode }))
+  (selectedMode === undefined ? ["no-atlas", "atlas"] as const : [selectedMode])
+    .map((mode) => ({ evaluationCase, mode }))
 ));
 let completedJobs = 0;
 const drafts = await mapWithConcurrency(jobs, 3, async ({ evaluationCase, mode }) => {
@@ -130,7 +141,6 @@ const drafts = await mapWithConcurrency(jobs, 3, async ({ evaluationCase, mode }
         runtimeRoot,
         codexVersion,
         toolPolicyHash,
-        skill,
         executionAttempt,
       });
       break;
@@ -239,6 +249,7 @@ async function prepareFixture(runtime: string): Promise<{
     await runProcess("git", ["clone", "--quiet", "--no-hardlinks", sourceRepository, atlas], {
       cwd: caseRoot,
     });
+    await installCandidateSkill(candidateSkillRoot, atlas);
     const indexResult = await runProcess("semantic-atlas", ["index"], {
       cwd: atlas,
       env: atlasEnvironment,
@@ -275,24 +286,22 @@ async function runFreshAgent(options: {
   readonly runtimeRoot: string;
   readonly codexVersion: string;
   readonly toolPolicyHash: string;
-  readonly skill: string;
   readonly executionAttempt: number;
 }): Promise<EvaluationDraft> {
   const runId = `${EVALUATION_ID}-${options.evaluationCase.id}-${options.mode}`;
   const artifactPrefix = `${runId}-attempt-${options.executionAttempt}`;
   const tracePath = join(options.runtimeRoot, `${artifactPrefix}-source.jsonl`);
+  const skillTracePath = join(options.runtimeRoot, `${artifactPrefix}-skill.jsonl`);
   const outputPath = join(options.runtimeRoot, `${artifactPrefix}-answer.json`);
   const rawLogPath = join(options.runtimeRoot, `${artifactPrefix}-codex.jsonl`);
   const errorLogPath = join(options.runtimeRoot, `${artifactPrefix}-codex.stderr.log`);
-  const instructions = commonAgentInstructions(options.evaluationCase.prompt);
-  const prompt = options.mode === "atlas"
-    ? `${instructions}\n\n<available-semantic-atlas-skill>\n${options.skill}\n</available-semantic-atlas-skill>`
-    : instructions;
+  const instructions = buildFreshAgentInstructions(options.evaluationCase.prompt);
   const startedAt = new Date().toISOString();
   const agentEnvironment: NodeJS.ProcessEnv = {
     ...process.env,
     EVALUATION_ROOT: options.repository,
     EVALUATION_TRACE: tracePath,
+    EVALUATION_SKILL_TRACE: skillTracePath,
     EVALUATION_OBSERVER: observerPath,
   };
   delete agentEnvironment.OPENAI_API_KEY;
@@ -320,7 +329,7 @@ async function runFreshAgent(options: {
     answerSchemaPath,
     "--output-last-message",
     outputPath,
-    prompt,
+    instructions,
   ], {
     cwd: options.repository,
     env: agentEnvironment,
@@ -332,6 +341,10 @@ async function runFreshAgent(options: {
   const audit = auditCodexRun(options.mode, result.stdout);
   const answer = agentAnswerSchema.parse(JSON.parse(await readFile(outputPath, "utf8")));
   const sourceOpens = await readSourceTrace(tracePath);
+  const skillLoads = await readSkillTrace(skillTracePath);
+  const skillDiscovery = options.mode === "atlas"
+    ? auditFreshAgentSkillDiscovery(audit.commands, skillLoads)
+    : undefined;
   await requireCleanFixture(options.repository);
 
   return {
@@ -356,6 +369,7 @@ async function runFreshAgent(options: {
         policy: FRESH_AGENT_COMMAND_AUDIT_POLICY,
         commands: audit.commands,
       },
+      skillDiscovery,
     },
     startedAt,
     finishedAt,
@@ -367,6 +381,7 @@ async function runFreshAgent(options: {
         ...handling,
         sequence: index + 1,
       })),
+      skillLoads: [...skillLoads],
     },
     answer: {
       response: answer.response.replaceAll(`${options.repository}/`, ""),
@@ -518,6 +533,11 @@ async function readSourceTrace(path: string): Promise<EvaluationRun["observation
   return parseEvaluationSourceTrace(contents);
 }
 
+async function readSkillTrace(path: string) {
+  const contents = await readFile(path, "utf8").catch(() => "");
+  return parseEvaluationSkillTrace(contents);
+}
+
 async function requireCleanFixture(repository: string): Promise<void> {
   const status = await runProcess(
     "git",
@@ -529,15 +549,6 @@ async function requireCleanFixture(repository: string): Promise<void> {
   }
 }
 
-async function readAtlasSkill(): Promise<string> {
-  const skillRoot = join(repositoryRoot, ".agents/skills/semantic-atlas");
-  const [skill, routing] = await Promise.all([
-    readFile(join(skillRoot, "SKILL.md"), "utf8"),
-    readFile(join(skillRoot, "references/result-routing.md"), "utf8"),
-  ]);
-  return `${skill}\n\n${routing}`;
-}
-
 async function discoverMcpServerIds(): Promise<readonly string[]> {
   const result = await runProcess("codex", ["mcp", "list", "--json"], {
     cwd: repositoryRoot,
@@ -546,17 +557,6 @@ async function discoverMcpServerIds(): Promise<readonly string[]> {
     JSON.parse(result.stdout),
   );
   return servers.map((server) => server.name);
-}
-
-function commonAgentInstructions(taskPrompt: string): string {
-  return [
-    "This is one measured Fresh Agent repository-understanding run.",
-    "Follow the repository AGENTS.md and use only the source observer for source text.",
-    "The oracle and the paired run are unavailable. Do not inspect anything outside the fixture except the provided observer and available CLI.",
-    "Answer the task without editing files. In the structured result, list every file and qualified symbol that materially supports the answer.",
-    "Use atlasHandling to record each stale, hypothesis, unknown, unsupported, partial, or insufficient Atlas result and the source fallback used; use [] when none applies or Atlas is unavailable.",
-    `Task: ${taskPrompt}`,
-  ].join("\n");
 }
 
 function withAtlasPath(shimDirectory: string): NodeJS.ProcessEnv {
@@ -593,6 +593,15 @@ function readOption(name: string): string | undefined {
   const value = process.argv[index + 1];
   if (value === undefined || value.startsWith("--")) {
     throw new Error(`${name} requires a value`);
+  }
+  return value;
+}
+
+function readModeOption(): EvaluationRun["mode"] | undefined {
+  const value = readOption("--mode");
+  if (value === undefined) return undefined;
+  if (value !== "atlas" && value !== "no-atlas") {
+    throw new Error("--mode must be atlas or no-atlas");
   }
   return value;
 }

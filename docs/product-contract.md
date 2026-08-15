@@ -21,22 +21,22 @@ Atlas interprets CodeGraph results through its own world-graph contract. Replaci
 
 ## Agent workflow
 
-### First use
+### Required business-understanding loop
 
-1. The calling agent invokes `semantic-atlas status` in a target worktree.
-2. If the current worktree has no usable world snapshot, the agent invokes `semantic-atlas index`.
-3. Atlas creates local generated state under `<worktree>/.atlas/` and invokes the embedded CodeGraph SDK to build the structural graph.
-4. In the same index lifecycle, Atlas records the repository snapshot, rebinds evidence, derives validity, and makes one unified world graph queryable.
-5. The agent uses `map roots`, `map search`, `map children`, and `map show` to obtain business context connected to bounded structural evidence.
-6. The agent opens authoritative source where evidence is stale, unresolved, unsupported, or insufficient and performs engineering work outside Atlas.
-7. After relevant source changes, the agent reindexes, inspects `changes`, and submits verified business knowledge with `learn --stdin` against the current snapshot.
+1. For every supported task that implements, fixes, debugs, refactors, reviews, traces, or assesses business behavior, the agent identifies the exact target worktree and invokes `semantic-atlas status` before broad source discovery.
+2. Atlas commands run serially. A missing, stale, failed, or incomplete snapshot loads the bootstrap procedure and invokes `semantic-atlas index`; a current complete snapshot proceeds directly to map queries.
+3. The agent queries `map roots`, `map search`, `map children`, and `map show` before broad source search, using current locations, relationships, evidence, owners, candidates, and unknown boundaries as a bounded source seed set.
+4. The agent confirms answer-controlling and change-controlling behavior in authoritative source. Source edits, tests, Git operations, review, and natural-language reasoning remain normal engineering work outside Atlas.
+5. After relevant source changes, the agent reindexes, inspects `changes`, re-queries affected concepts, and confirms the refreshed projection against source and tests.
+6. Before completing the task, the agent makes a knowledge-capture decision. Every newly discovered durable, verified business concept and supported relationship caused by missing or insufficient map knowledge is submitted with `learn --stdin` and verified through `map show`; transient and unverified observations remain task context.
 
-### Recurring use
+Detailed bootstrap, abnormal-result routing, and GraphPatch procedures are state-conditioned Skill references rather than permanently loaded first-use instructions.
 
-1. The agent checks `status` before trusting stored knowledge.
-2. A current world map is queried before broad source search.
-3. Source edits, tests, Git operations, review, and natural-language reasoning remain normal agent work.
-4. Reindexing updates the structural projection and invalidates only business assertions whose evidence can no longer be rebound.
+### Incremental and explicit bootstrap
+
+A normal task adds only the verified business knowledge needed for its relevant capability. This makes ordinary work incrementally improve later map queries without turning each task into a repository-wide mapping exercise.
+
+An explicit project-initialization request begins at current structural roots, selects a stated bounded set of representative domain paths, confirms their interfaces, operations, data, invariants, and verification in source, then learns a reusable initial business map. Unsupported or unknown behavior remains an explicit boundary.
 
 ## Responsibility boundary
 

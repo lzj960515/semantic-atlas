@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -63,6 +63,31 @@ describe("evaluation source observer", () => {
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toMatch(/inside the evaluation fixture/);
+  });
+
+  it("records candidate Skill reads separately from measured source", async () => {
+    const root = await mkdtemp(join(tmpdir(), "atlas-source-observer-"));
+    directories.push(root);
+    const sourceTrace = join(root, "source-trace.jsonl");
+    const skillTrace = join(root, "skill-trace.jsonl");
+    const skillDirectory = join(root, ".agents", "skills", "semantic-atlas");
+    await mkdir(skillDirectory, { recursive: true });
+    await writeFile(join(skillDirectory, "SKILL.md"), "# Semantic Atlas\n");
+
+    const result = runObserver(
+      root,
+      sourceTrace,
+      ["read", ".agents/skills/semantic-atlas/SKILL.md"],
+      { EVALUATION_SKILL_TRACE: skillTrace },
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("# Semantic Atlas");
+    await expect(readFile(sourceTrace, "utf8")).rejects.toThrow();
+    expect(JSON.parse(await readFile(skillTrace, "utf8"))).toEqual({
+      sequence: 1,
+      file: ".agents/skills/semantic-atlas/SKILL.md",
+    });
   });
 
   it("rejects a source symlink that resolves outside the fixture root", async () => {

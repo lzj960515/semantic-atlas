@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   auditCodexCommands,
+  auditFreshAgentSkillDiscovery,
   auditCodexRun,
 } from "../../scripts/evaluation/codex-run-audit.js";
 
@@ -146,6 +147,58 @@ describe("Fresh Agent Codex command audit", () => {
     ];
 
     expect(auditCodexCommands("atlas", commands).atlasCalls).toHaveLength(commands.length);
+  });
+
+  it("proves repository Skill discovery and status-map-source ordering", () => {
+    const commands = [
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
+      "/bin/zsh -lc 'semantic-atlas status'",
+      "/bin/zsh -lc 'semantic-atlas map search Order --limit 5'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts 1 40'",
+    ];
+
+    expect(auditFreshAgentSkillDiscovery(commands, [{
+      sequence: 1,
+      file: ".agents/skills/semantic-atlas/SKILL.md",
+    }])).toEqual({
+      delivery: "repository",
+      promptInjection: false,
+      mainSkillLoaded: true,
+      statusBeforeSource: true,
+      mapBeforeSource: true,
+      decisiveSourceRead: true,
+    });
+  });
+
+  it("rejects source exploration that precedes Atlas status or map queries", () => {
+    const skillLoads = [{
+      sequence: 1,
+      file: ".agents/skills/semantic-atlas/SKILL.md",
+    }] as const;
+    const sourceFirst = [
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
+      "/bin/zsh -lc 'semantic-atlas status'",
+      "/bin/zsh -lc 'semantic-atlas map roots'",
+    ];
+
+    expect(() => auditFreshAgentSkillDiscovery(sourceFirst, skillLoads)).toThrow(
+      /status before opening source/,
+    );
+  });
+
+  it("rejects Atlas use that precedes repository Skill discovery", () => {
+    const commands = [
+      "/bin/zsh -lc 'semantic-atlas status'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
+      "/bin/zsh -lc 'semantic-atlas map roots'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
+    ];
+
+    expect(() => auditFreshAgentSkillDiscovery(commands, [{
+      sequence: 1,
+      file: ".agents/skills/semantic-atlas/SKILL.md",
+    }])).toThrow(/load the repository Skill before Atlas status/);
   });
 
   it("rejects an incomplete Codex turn", () => {

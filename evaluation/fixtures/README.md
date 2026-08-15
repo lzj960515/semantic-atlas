@@ -14,5 +14,7 @@ deterministic fixture commit for the published result is
 `5a7bf9ec5c4a52148410b71c68d753a7f74ff47d`.
 
 The fixture's `AGENTS.md` is identical in both modes. It routes all source text
-through the source observer, keeps the fixture read-only, and uses Semantic
-Atlas only when the runner makes its Skill and CLI available.
+through the source observer and keeps the fixture read-only without naming or
+forcing Semantic Atlas. For a new Atlas-mode run, the runner installs the
+candidate into an ignored repository `.agents/skills/semantic-atlas` directory;
+the no-Atlas clone receives no candidate Skill or CLI.

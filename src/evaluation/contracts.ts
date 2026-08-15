@@ -154,6 +154,22 @@ const atlasHandlingSchema = z.strictObject({
   action: z.string().min(1),
 });
 
+const skillLoadSchema = z.strictObject({
+  sequence: z.number().int().positive(),
+  file: relativeSourcePathSchema.regex(
+    /^\.agents\/skills\/semantic-atlas\/(?:SKILL\.md|references\/[a-z0-9-]+\.md)$/u,
+  ),
+});
+
+const skillDiscoverySchema = z.strictObject({
+  delivery: z.literal("repository"),
+  promptInjection: z.literal(false),
+  mainSkillLoaded: z.literal(true),
+  statusBeforeSource: z.literal(true),
+  mapBeforeSource: z.literal(true),
+  decisiveSourceRead: z.literal(true),
+});
+
 export const evaluationFailureClassificationSchema = z.enum([
   "missed-dependency",
   "incorrect-answer",
@@ -191,6 +207,7 @@ export const evaluationRunSchema = z
         policy: z.literal(FRESH_AGENT_COMMAND_AUDIT_POLICY),
         commands: z.array(z.string().min(1)).min(1),
       }),
+      skillDiscovery: skillDiscoverySchema.optional(),
     }),
     startedAt: z.iso.datetime(),
     finishedAt: z.iso.datetime(),
@@ -199,6 +216,7 @@ export const evaluationRunSchema = z
       sourceOpens: z.array(sourceOpenSchema).min(1),
       atlasCalls: z.array(atlasCallSchema),
       atlasHandling: z.array(atlasHandlingSchema),
+      skillLoads: z.array(skillLoadSchema).optional(),
     }),
     answer: z.strictObject({
       response: z.string().min(1),
@@ -236,6 +254,29 @@ export const evaluationRunSchema = z
       });
     }
 
+    if (run.protocol.runnerVersion === "fresh-agent-runner-v5") {
+      const skillLoads = run.observations.skillLoads ?? [];
+      if (run.mode === "atlas" && (
+        run.protocol.skillDiscovery === undefined
+        || skillLoads[0]?.file !== ".agents/skills/semantic-atlas/SKILL.md"
+      )) {
+        context.addIssue({
+          code: "custom",
+          message: "A discovery run must load and audit the repository Semantic Atlas Skill",
+          path: ["protocol", "skillDiscovery"],
+        });
+      }
+      if (run.mode === "no-atlas" && (
+        run.protocol.skillDiscovery !== undefined || skillLoads.length > 0
+      )) {
+        context.addIssue({
+          code: "custom",
+          message: "A no-atlas run cannot load or audit the candidate Skill",
+          path: ["observations", "skillLoads"],
+        });
+      }
+    }
+
     if (run.adjudication.correct === (run.adjudication.failureClassifications.length > 0)) {
       context.addIssue({
         code: "custom",
@@ -255,6 +296,7 @@ export const evaluationRunSchema = z
     addSequenceIssues(run.observations.sourceOpens, context, "sourceOpens");
     addSequenceIssues(run.observations.atlasCalls, context, "atlasCalls");
     addSequenceIssues(run.observations.atlasHandling, context, "atlasHandling");
+    addSequenceIssues(run.observations.skillLoads ?? [], context, "skillLoads");
   });
 
 export type EvaluationCase = z.infer<typeof evaluationCaseSchema>;

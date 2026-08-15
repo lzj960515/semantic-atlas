@@ -23,7 +23,7 @@ The installed runtime works offline. Indexing, graph queries, evidence validatio
 
 ## Install the Codex Skill
 
-The Skill teaches Codex when to trust the map, when to reindex, how to preserve unknown boundaries, and when to fall back to authoritative source. In Codex, invoke the built-in installer with the repository-owned Skill URL:
+The Skill makes Atlas the required first business-understanding surface for supported TypeScript and JavaScript implementation, debugging, refactoring, behavior review, flow tracing, invariant discovery, and impact work. It teaches Codex when to trust the map, reindex, preserve unknown boundaries, inspect authoritative source, and capture newly verified business knowledge. In Codex, invoke the built-in installer with the repository-owned Skill URL:
 
 ```text
 $skill-installer Install semantic-atlas from https://github.com/lzj960515/semantic-atlas/tree/v0.1.0/.agents/skills/semantic-atlas
@@ -31,11 +31,11 @@ $skill-installer Install semantic-atlas from https://github.com/lzj960515/semant
 
 For repository development, Codex discovers the checked-in Skill automatically from `.agents/skills/semantic-atlas`. Codex detects newly installed skills automatically; restart Codex if it does not appear in the skill list.
 
-Invoke it explicitly with `$semantic-atlas`, or let Codex select it for project understanding and impact-analysis tasks.
+Invoke it explicitly with `$semantic-atlas`, or let Codex select it from the task through the Skill description. Git-only release work, mechanical formatting, unrelated documentation, and unsupported repositories remain normal workflows.
 
-## First use
+## Required agent loop
 
-Run these commands from the target worktree. `--repo <path>` can be supplied before the command when the current directory is elsewhere.
+Run Atlas commands serially from the exact target worktree. `--repo <path>` can be supplied before the command when the current directory is elsewhere.
 
 ```sh
 semantic-atlas status
@@ -45,14 +45,16 @@ semantic-atlas map search checkout --limit 10
 semantic-atlas map show module:src --depth 1
 ```
 
-The normal agent loop is:
+For every supported business-behavior task, the agent loop is:
 
-1. Check `status` before trusting stored knowledge.
-2. Run `index` when the snapshot is missing, stale, failed, or incomplete.
-3. Use `map roots`, `map search`, `map children`, and `map show` for bounded context.
-4. Inspect source for stale, unsupported, unresolved, ambiguous, or insufficient results.
-5. After source changes, reindex and inspect `changes`.
-6. Submit verified business knowledge with `learn --stdin` against the current snapshot.
+1. Check `status` before broad source discovery or trusting stored knowledge.
+2. Load the bootstrap procedure only when the snapshot needs publication, the current map lacks relevant business knowledge, or the user requests project initialization.
+3. Query `map roots`, `map search`, `map children`, and `map show` to bound source exploration.
+4. Confirm decisive behavior in authoritative source and preserve stale, unsupported, unresolved, ambiguous, or insufficient boundaries.
+5. After relevant source changes, reindex and inspect `changes` before trusting the refreshed map.
+6. Before completion, decide what source inspection taught: write every new durable verified business concept and relationship with `learn --stdin`, verify it through `map show`, and retain transient or unverified observations only in task context.
+
+A normal task incrementally bootstraps only its relevant capability. An explicit project-initialization task starts at structural roots, inspects a stated bounded set of representative paths, and creates a reusable initial business map rather than attempting an exhaustive code inventory.
 
 Every command writes one versioned JSON envelope to standard output. Diagnostics remain on standard error, so callers can parse output without scraping prose.
 

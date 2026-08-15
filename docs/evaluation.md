@@ -25,13 +25,14 @@ For each case and mode:
 
 1. Check out the exact fixture revision recorded by the case.
 2. Start a new agent conversation with no prior task or repository context. Record the agent product and model. Disable host Skills, plugins, apps, hooks, MCP servers, memory, multi-agent delegation, and Skill search while preserving the local Codex authentication and model-provider configuration needed to execute the run.
-3. Give the agent the case prompt and repository only. Keep the oracle and the other mode's result outside the agent context.
-4. Keep model, agent instructions, tool policy, fixture revision, and task prompt identical for the paired runs. The only workflow difference is whether the Semantic Atlas Skill and CLI are available.
+3. Give the agent the case prompt and repository only. Keep the oracle, the other mode's result, the Semantic Atlas Skill name, and the Skill body out of the task prompt.
+4. Keep model, agent instructions, tool policy, fixture revision, and task prompt identical for the paired runs. In `atlas` mode, install the candidate under the fixture's ignored `.agents/skills/semantic-atlas` directory and expose the packaged CLI; in `no-atlas` mode, provide neither. Codex must select the candidate through its repository Skill discovery and description matching.
 5. In `no-atlas` mode, use normal source and shell tools and record zero Atlas calls. In `atlas` mode, record each Semantic Atlas command.
-6. Record a `sourceOpens` event whenever repository source text is returned to the agent, including file reads and search snippets. Split multi-file tool output into one event per file.
+6. Record candidate `SKILL.md` and conditional-reference reads separately as `skillLoads`. Record a `sourceOpens` event whenever repository source text is returned to the agent, including file reads and search snippets. Skill instruction text does not count as source context.
 7. Record the number of source tokens exposed by each event using the execution environment's source-input accounting. Put the stable method/version in `sourceTokenMethod`. Count repeated reads again in token totals.
 8. Save the agent's reported files and symbols. An evaluator who did not guide the run compares the answer with the oracle and records correctness plus notes.
-9. Publish the complete Codex shell-command sequence with the run, then validate and summarize the baseline with `pnpm evaluation:validate` or pass additional run paths to `scripts/validate-evaluation.ts --baseline`.
+9. Audit the complete Codex shell-command sequence. An Atlas run is valid only when it loads the repository Skill, runs `status` before source reads, queries the map before source reads, and opens decisive source afterward. Retain the ordered conditional-reference loads so missing, weak-result, and learning scenarios can prove progressive disclosure.
+10. Publish the complete command and discovery evidence, then validate and summarize the baseline with `pnpm evaluation:validate` or pass additional run paths to `scripts/validate-evaluation.ts --baseline`.
 
 A run is invalid when it lacks exact source-token accounting, is not a fresh context, uses a different fixture revision, sees its oracle, contains an Atlas call in `no-atlas` mode, reads a host instruction, or uses a shell command outside the versioned allowlist. Invalid runs are repeated rather than estimated.
 
@@ -50,6 +51,12 @@ or filename expansion. The fixed `$EVALUATION_OBSERVER` parameter is the only
 permitted shell expansion. The runner rejects failed audits before adjudication,
 and published-result validation re-audits every recorded command sequence and
 its derived Atlas calls.
+
+Runner v5 adds repository-native Skill discovery evidence. It copies the
+candidate Skill into only the Atlas fixture through a Git-local ignore rule,
+never injects its body into the task prompt, separates `skillLoads` from measured
+source, and records the status-map-source workflow audit in
+`protocol.skillDiscovery`. The source command allowlist remains unchanged.
 
 ## Metrics
 
@@ -84,6 +91,10 @@ and answer correctness. Median unique opened source files fell from 6.5 to 4
 percent). Atlas runs recorded 61 routed partial, unknown, or related boundary
 events and no uncertainty-handling failure. The fixed gate passed without being
 changed after results were collected.
+
+These retained artifacts establish the frozen comparative gate; they predate
+runner v5 and do not by themselves prove implicit Skill discovery. New candidate
+runs must also carry the v5 discovery evidence described above.
 
 Validate the published records with:
 

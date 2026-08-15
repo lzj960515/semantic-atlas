@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const arguments_ = process.argv.slice(2);
 
-if (process.getBuiltinModule("node:sqlite") === undefined) {
+if (requiresSqliteCompatibilityProcess()) {
   process.exitCode = await runWithExperimentalSqlite(arguments_);
 } else {
   const { runCli } = await import("./main.js");
@@ -14,6 +14,17 @@ if (process.getBuiltinModule("node:sqlite") === undefined) {
     { stdin: process.stdin, stdout: process.stdout, stderr: process.stderr },
     process.cwd(),
   );
+}
+
+function requiresSqliteCompatibilityProcess(): boolean {
+  const nodeMajor = Number.parseInt(process.versions.node, 10);
+  const warningAlreadyDisabled = process.execArgv.some((argument) => (
+    argument === "--no-warnings"
+    || argument === "--disable-warning=ExperimentalWarning"
+  ));
+  if (nodeMajor < 24 && !warningAlreadyDisabled) return true;
+
+  return process.getBuiltinModule("node:sqlite") === undefined;
 }
 
 async function runWithExperimentalSqlite(arguments_: readonly string[]): Promise<number> {

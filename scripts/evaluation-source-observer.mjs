@@ -14,6 +14,7 @@ import { get_encoding } from "tiktoken";
 
 const SOURCE_TOKEN_METHOD = "tiktoken-o200k_base-v1";
 const SOURCE_EXTENSIONS = new Set([".cjs", ".js", ".jsx", ".mjs", ".ts", ".tsx"]);
+const ATLAS_SKILL_PATH = /^\.agents\/skills\/semantic-atlas\/(?:SKILL\.md|references\/[a-z0-9-]+\.md)$/u;
 
 try {
   const rootValue = requireEnvironment("EVALUATION_ROOT");
@@ -37,7 +38,7 @@ function observeRead(root, tracePath, arguments_) {
   if (file === undefined || extra.length > 0) {
     throw new Error("read requires <file> [start-line] [end-line]");
   }
-  const path = requireSourcePath(root, file);
+  const path = requireReadablePath(root, file);
   const lines = readFileSync(path, "utf8").split("\n");
   const start = parseLine(startValue, 1, "start-line");
   const end = parseLine(endValue, lines.length, "end-line");
@@ -48,7 +49,11 @@ function observeRead(root, tracePath, arguments_) {
     .join("\n");
   const fileName = relativePath(root, path);
   const payload = `=== ${fileName}:${start}-${Math.min(end, lines.length)} ===\n${source}\n`;
-  writeObservedPayload(tracePath, fileName, payload);
+  if (ATLAS_SKILL_PATH.test(fileName)) {
+    writeSkillLoad(requireEnvironment("EVALUATION_SKILL_TRACE"), fileName);
+  } else {
+    writeObservedPayload(tracePath, fileName, payload);
+  }
   process.stdout.write(payload);
 }
 
@@ -113,6 +118,13 @@ function writeObservedPayload(tracePath, file, payload) {
   })}\n`);
 }
 
+function writeSkillLoad(tracePath, file) {
+  appendFileSync(tracePath, `${JSON.stringify({
+    sequence: nextSequence(tracePath),
+    file,
+  })}\n`);
+}
+
 function nextSequence(tracePath) {
   if (!existsSync(tracePath)) return 1;
   const contents = readFileSync(tracePath, "utf8").trim();
@@ -127,9 +139,10 @@ function requireEnvironment(name) {
   return value;
 }
 
-function requireSourcePath(root, value) {
+function requireReadablePath(root, value) {
   const path = requirePath(root, value);
-  if (!SOURCE_EXTENSIONS.has(extname(path))) {
+  const relativeFile = relativePath(root, path);
+  if (!SOURCE_EXTENSIONS.has(extname(path)) && !ATLAS_SKILL_PATH.test(relativeFile)) {
     throw new Error(`source reads require a JavaScript or TypeScript file: ${value}`);
   }
   const realPath = realpathSync(path);

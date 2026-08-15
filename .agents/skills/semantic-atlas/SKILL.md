@@ -1,172 +1,150 @@
 ---
 name: semantic-atlas
-description: "Use Semantic Atlas for evidence-bound project understanding and impact analysis in TypeScript or JavaScript repositories: locate business capabilities and implementations, trace dependencies, inspect invariants and tests, assess semantic changes, and preserve verified business knowledge. Use when a repository has the semantic-atlas CLI or a local Atlas map; route source editing, testing, Git, and review to normal engineering workflows."
+description: "Use Semantic Atlas as the required first business-understanding loop in supported TypeScript or JavaScript repositories before feature implementation, bug fixing, debugging, refactoring, behavior-changing review, business-flow tracing, invariant and test discovery, or dependency or impact analysis. Git-only release work, mechanical formatting, unrelated documentation, and unsupported repositories stay in normal workflows."
 compatibility: "Requires Node.js 22.12 through 24 and the semantic-atlas CLI."
 ---
 
 # Semantic Atlas
 
-Use the local, deterministic Atlas world map as the first project-understanding
-surface. Source code remains authoritative; Atlas data is a revision-aware
-projection that supplies bounded context, evidence, certainty, validity, and
-explicit structural limits.
+Use the local, deterministic Atlas world map as the first business-understanding
+surface for every supported task. Source code remains authoritative; Atlas is a
+revision-aware projection that supplies bounded evidence, business context,
+certainty, validity, and explicit structural limits.
 
-The calling Agent owns concept extraction and natural-language reasoning. The
-CLI accepts lexical terms, graph identifiers, snapshot identifiers, and a
-structured GraphPatch; it does not interpret a natural-language task.
+The calling Agent owns task interpretation, source changes, tests, Git, and
+review. The CLI accepts lexical queries, graph identifiers, snapshot identifiers,
+and structured GraphPatch input; it does not interpret natural-language tasks.
 
-Run one Atlas CLI command at a time within a worktree and wait for its complete
-response before starting the next command. The worktree-local database and
-publication lifecycle are a serialized evidence boundary; parallel status,
-index, map, changes, or learn calls can observe transient publication state.
+## Required business-understanding loop
 
-## First use
+1. Identify the exact target Git worktree before any Atlas command. Run from
+   that worktree or pass its absolute path with `--repo <path>`, and confirm the
+   response `repository.root` is the intended worktree.
+2. Run one Atlas CLI command at a time and wait for its complete response. The
+   worktree-local database and publication lifecycle form a serialized evidence
+   boundary.
+3. Start with `semantic-atlas status` before broad source discovery. Read the
+   versioned envelope, `data.freshness`, snapshot, warnings, and
+   `data.backend.completeness` by stable fields and codes.
+4. Follow the matching procedure in [Conditional references](#conditional-references)
+   when the observed state needs indexing, bootstrap, abnormal-result routing,
+   or knowledge authoring.
+5. Query the current map with compact task vocabulary before broad source
+   search. Let map evidence, owners, candidates, and unknown boundaries define
+   the initial source seed set.
+6. Open cited ranges and confirm decisive behavior in authoritative source.
+   Follow only the dependencies, interfaces, data, invariants, or tests needed
+   to answer or change the behavior.
+7. Perform implementation, debugging, testing, and review through the normal
+   engineering workflow.
+8. Reconcile relevant source changes with Atlas, then make the mandatory
+   knowledge-capture decision before completing the task.
 
-1. Identify the exact target Git worktree. Keep all commands scoped to that
-   worktree with the current directory or `--repo <path>`.
-2. Run `semantic-atlas status` and parse the versioned JSON envelope. Use fields
-   such as `status`, `data.freshness`, `snapshot`, `warnings`, and
-   `data.backend.completeness`; use stable codes rather than message text.
-3. Run `semantic-atlas index` when freshness is `missing` or `stale`, or when
-   backend completeness is not `complete`. Indexing owns generated `.atlas/`
-   state inside this worktree.
-4. Run `semantic-atlas map roots` on a current snapshot. Business `Capability`
-   roots appear after learning; structural `Module` roots provide the initial
-   map before business knowledge exists.
-5. Extract two to four compact concepts from the task: business vocabulary,
-   likely symbols, interfaces or data, and dependency/impact terms. Use those
-   concepts to begin the recurring-task protocol.
+## Query before broad source discovery
 
-When the CLI, repository, or language is unavailable, follow [result
-routing](references/result-routing.md) and continue through bounded source
-fallback.
+Extract two to four compact concepts from the task: business vocabulary,
+likely symbols, interfaces or data, and dependency or impact terms. Query them
+in this order as useful:
 
-## Recurring task
+1. Use `semantic-atlas map search <query> [--limit <n>]` for each distinct
+   lexical concept.
+2. Use `semantic-atlas map show <node-id> [--depth <n>]` on promising business
+   or structural nodes. Begin at depth 1 and expand to 2 or 3 only for a needed
+   dependency path.
+3. Use `semantic-atlas map children <node-id>` to descend business `part_of` or
+   structural `contains` hierarchies.
+4. Use `semantic-atlas map roots` when the task crosses capabilities, the
+   initial vocabulary is weak, or the current map has no relevant business root.
 
-1. Start every distinct task with `semantic-atlas status`. Trust a stored map
-   only when the world snapshot is current and the backend is complete.
-2. Query before broad source exploration:
-   - use `semantic-atlas map search <query> [--limit <n>]` for each compact
-     lexical concept;
-   - use `semantic-atlas map show <node-id> [--depth <n>]` to inspect promising
-     nodes, evidence-rich neighbors, invariants, tests, and unknown boundaries;
-   - use `semantic-atlas map children <node-id>` to descend business `part_of`
-     or structural `contains` hierarchies;
-   - revisit `semantic-atlas map roots` when the task crosses capabilities or
-     the first search vocabulary is weak.
-3. Begin with depth 1 and expand a promising node to depth 2 or 3 only when the
-   task requires the additional dependency path. Treat search score as ranking,
-   not certainty.
-4. Stop map traversal when it identifies the necessary symbols, files,
-   relationships, evidence, and explicit uncertainty for the task. Open the
-   cited source ranges to confirm behavior that controls the answer or change.
-5. Perform implementation, debugging, tests, and review through the normal
-   engineering workflow, using the Atlas results as bounded context.
+When search and roots return relevant structural nodes but no relevant business
+node, read snapshot bootstrap before opening source. That state starts the
+incremental business-map path rather than the abnormal-result path alone.
 
-## Interpret Atlas results
+Treat search score as ranking rather than certainty. Stop map traversal when it
+identifies the necessary symbols, files, relationships, evidence, and explicit
+uncertainty. If the map remains weak, use its best seeds for bounded source
+inspection and route the observed weak state through the conditional reference.
 
-Classify every result before using it:
+## Source authority
 
-| Result | Agent treatment |
-| --- | --- |
-| `valid` plus `exact` | Use as current evidence for the stated assertion and confirm decisive behavior in source. |
-| `valid` plus `inferred` | Preserve the result as a supported Agent inference and inspect source before presenting it as exact. |
-| `hypothesis` | Treat as an exploration lead and verify it independently. |
-| `stale` | Use identity and vocabulary only; reindex, then re-open authoritative source for the assertion. |
-| `unknown` | Preserve the owner-linked unknown boundary, reason, location, and candidates; inspect that bounded source area. |
-| `unsupported` | Use supported results as partial context and inspect the unsupported language or construct in source. |
-| `partial` | Consume usable fields and route each warning or boundary independently. |
-| `insufficient` map | Fall back from the best available seeds and complete the task from source. |
+Confirm every answer-controlling or change-controlling claim in source even
+when Atlas reports `valid` plus `exact`. Keep structural support, business
+certainty, and evidence validity separate:
 
-Structural `support.status` describes backend resolution. Business `certainty`
-describes the Agent's assertion. Business `validity` describes evidence
-freshness. Keep these dimensions separate: an exact call edge alone does not
-prove a business rule, and a current hypothesis remains a hypothesis.
+- `exact` identifies uniquely supported structure or business evidence;
+- `inferred` is supported Agent synthesis that remains distinguishable from an
+  exact fact;
+- `hypothesis` remains an exploration lead;
+- `stale`, `unknown`, `unsupported`, `partial`, and `insufficient` results bound
+  source fallback rather than authorizing a decisive claim.
 
-Read [result routing](references/result-routing.md) when status, index, or a map
-query returns an error envelope, warnings, no relevant results, or competing
-candidates.
-
-## Bounded source fallback
-
-1. Assemble the smallest source seed set from current result locations,
-   evidence, structural IDs, unknown owners, and finite candidates.
-2. Open the cited ranges and enough surrounding code to understand the owning
-   declaration. Follow only the imports, callers, callees, interfaces, data, or
-   tests required by the task.
-3. Reformulate one Atlas query when source supplies a more precise business or
-   symbol term. This often reconnects the task to mapped context.
-4. When Atlas supplies no usable seed, run a narrow ordinary source search for
-   the task's most distinctive identifier or contract, then continue the normal
-   source workflow from confirmed results.
-5. Base the conclusion on source for every stale, hypothesis, unknown,
-   unsupported, ambiguous, or map-insufficient portion. Retain the boundary in
-   the answer when source inspection cannot resolve it.
-
-This fallback bounds discovery without replacing the calling Agent's generic
-source-reading and search capabilities.
+Preserve every owner-linked unknown boundary with its reason, location, and
+finite candidates. Source inspection may resolve the task while the Atlas
+boundary remains honestly unknown.
 
 ## After source changes
 
-1. Preserve the pre-change current snapshot ID when the task may need impact or
-   semantic-change inspection.
-2. Complete source editing and relevant tests through the normal workflow.
-3. Run `semantic-atlas index` after relevant source changes. Treat a failed or
-   incomplete publication as unavailable map state and keep working from source.
-4. Run `semantic-atlas changes`; provide `--from <snapshot-id>` and
-   `--to <snapshot-id>` when the task requires an explicit persisted range.
+1. Preserve the pre-change current snapshot ID when impact or semantic change
+   matters.
+2. Complete source changes and relevant tests through the normal workflow.
+3. Run `semantic-atlas index` after relevant source changes and require a
+   current, complete publication before trusting the refreshed map.
+4. Run `semantic-atlas changes`; use `--from <snapshot-id>` and
+   `--to <snapshot-id>` for an explicit persisted range.
 5. Inspect node and relation additions, changes, removals, and
-   `staleAssertions`. Re-run map queries for affected concepts and confirm the
-   resulting impact against source and tests.
-6. Consider learning only after the new snapshot is current and the engineering
-   result is verified.
+   `staleAssertions`. Re-query affected concepts and confirm the result against
+   source and tests.
 
-Structural fact counters summarize graph publication work; semantic impact
-comes from `changes`, map traversal, source, and tests.
+Treat a failed or incomplete publication as unavailable map state and retain
+source as authority.
 
-## Learn verified knowledge
+## Knowledge-capture decision
 
-Learning is optional. Use it for durable business capabilities, scenarios,
-operations, invariants, interfaces, data, and their supported relationships
-when that knowledge will help later tasks.
+Before completing every supported task, classify the business meaning learned
+during source confirmation:
 
-1. Read [GraphPatch authoring](references/graph-patch.md).
-2. Recheck `semantic-atlas status` immediately before authoring. Use the current
-   snapshot ID as `baseSnapshotId`.
-3. Derive evidence from current map results and inspected source. Every evidence
-   item must use a current structural symbol ID, exact repository-relative file,
-   one-based range, and current file `contentHash` returned by Atlas.
-4. Choose `exact` for uniquely proven assertions, `inferred` for supported Agent
-   synthesis, and `hypothesis` for explicitly exploratory knowledge. Prefer
-   fresh, exact evidence for durable facts.
-5. Send one complete JSON GraphPatch value to `semantic-atlas learn --stdin`.
-   Apply related operations together so optimistic-concurrency validation is
-   atomic.
-6. Inspect the response and query the learned key with `semantic-atlas map show`
-   to verify the resulting certainty, validity, evidence, and relationships.
-7. If the snapshot or evidence changed, refresh the map and rebuild the patch
-   from current results. The current snapshot ID and evidence are the write
-   boundary.
+- Persist every new durable, verified `Capability`, `Scenario`, `Operation`,
+  `Invariant`, `Interface`, or `Data` concept, plus every supported relationship
+  between them, when missing or insufficient Atlas knowledge caused the source
+  inspection.
+- Keep transient or unverified observations only in task context. Examples
+  include debugging symptoms, one-off implementation notes, tentative runtime
+  paths, Git facts, and hypotheses that lack durable evidence.
+- When current Atlas knowledge already expresses the verified business meaning,
+  reuse it and avoid a duplicate patch.
+
+When durable knowledge exists, read GraphPatch authoring, recheck status, submit
+one atomic patch with `semantic-atlas learn --stdin`, then run
+`semantic-atlas map show <learned-key>` to verify current validity, certainty,
+evidence, and relationships. The verified node must be reusable by a later
+fresh task through normal map search and traversal.
+
+## Conditional references
+
+Load detailed procedures only after their matching observable state:
+
+- Read [snapshot bootstrap](references/snapshot-bootstrap.md) only when status
+  reports `missing`, `stale`, or incomplete state; a current map has no relevant
+  business knowledge; or the user explicitly requests project initialization.
+- Read [result routing](references/result-routing.md) only when a command returns
+  an error, warning, `hypothesis`, `unknown`, `unsupported`, `partial`, empty,
+  competing, or otherwise `insufficient` result.
+- Read [GraphPatch authoring](references/graph-patch.md) only when the
+  knowledge-capture decision identifies durable verified knowledge to persist.
 
 ## Answer contract
 
-Use Atlas internally as context rather than dumping raw envelopes. In the task
-answer:
-
-- state the relevant business concept, files, symbols, and relationships;
-- distinguish current exact evidence from Agent inference;
-- identify stale, hypothesis, unknown, unsupported, ambiguous, or insufficient
-  portions and the source inspection used to handle them;
-- cite the authoritative source and relevant verification for engineering
-  conclusions;
-- mention reindexing, semantic changes, or learned knowledge when those actions
-  materially affect the result.
+Use Atlas internally as context rather than dumping raw envelopes. State the
+relevant business concepts, files, symbols, and relationships; distinguish
+exact evidence from inference; identify unresolved boundaries and their source
+fallback; cite authoritative source and verification; and mention reindexing,
+semantic changes, or learned knowledge when they materially affect the result.
 
 ## Responsibility boundary
 
 Semantic Atlas owns deterministic indexing, revision-aware map queries,
-semantic change records, and evidence-bound business knowledge in local Atlas
-data. The calling Agent owns concept extraction, natural-language reasoning,
+semantic change records, and evidence-bound business knowledge in local Atlas data.
+The calling Agent owns concept extraction, natural-language reasoning,
 source editing, tests, Git operations, and review. Keep repository-specific
-facts in Atlas or authoritative source; keep this Skill reusable across
+facts in Atlas or authoritative source and keep this Skill reusable across
 repositories.

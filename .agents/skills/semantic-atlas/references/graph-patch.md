@@ -11,8 +11,9 @@ written to Semantic Atlas.
    certainty, and evidence separately.
 3. Current map output supplies every structural symbol ID, exact source range,
    and file `contentHash` used as evidence.
-4. The knowledge is reusable business meaning rather than a task note,
-   implementation instruction, test result, Git fact, or generic code summary.
+4. The knowledge is durable, verified, reusable business meaning rather than a
+   task note, implementation instruction, test result, Git fact, debugging
+   symptom, or generic code summary.
 
 Use the repository's `schemas/graph-patch-v1.schema.json` and
 `docs/contracts/graph-patch-v1.md` as the normative contract when they are
@@ -20,20 +21,72 @@ available. The outline here is an authoring checklist.
 
 ## Patch shape
 
-A patch is one strict JSON object:
+A patch is one strict JSON object. Every operation uses the discriminator `op`.
+Relation endpoints are domain-tagged objects rather than key or ID strings:
 
 ```json
 {
   "schemaVersion": 1,
   "baseSnapshotId": "<current 64-character snapshot ID>",
-  "nodeOperations": [],
-  "relationOperations": []
+  "nodeOperations": [
+    {
+      "op": "upsert",
+      "node": {
+        "key": "commerce/orders/place-order",
+        "kind": "Operation",
+        "label": "Place order",
+        "summary": "Creates and persists a customer order.",
+        "aliases": ["checkout"],
+        "certainty": "exact",
+        "evidence": [
+          {
+            "symbolId": "symbol:<current structural identity>",
+            "file": "src/orders/order.service.ts",
+            "range": {
+              "start": { "line": 18, "column": 3 },
+              "end": { "line": 24, "column": 4 }
+            },
+            "contentHash": "<current 64-character file hash>"
+          }
+        ]
+      }
+    }
+  ],
+  "relationOperations": [
+    {
+      "op": "upsert",
+      "relation": {
+        "from": {
+          "domain": "business",
+          "key": "commerce/orders/place-order"
+        },
+        "type": "realized_by",
+        "to": {
+          "domain": "structural",
+          "id": "symbol:<current structural identity>"
+        },
+        "certainty": "exact",
+        "evidence": [
+          {
+            "symbolId": "symbol:<current structural identity>",
+            "file": "src/orders/order.service.ts",
+            "range": {
+              "start": { "line": 18, "column": 3 },
+              "end": { "line": 24, "column": 4 }
+            },
+            "contentHash": "<current 64-character file hash>"
+          }
+        ]
+      }
+    }
+  ]
 }
 ```
 
-Node operations upsert or remove business keys. Relation operations upsert or
-remove a `(from, type, to)` relationship. A single patch can create related
-nodes and connect them atomically.
+Node removal uses `{ "op": "remove", "key": "..." }`. Relation removal uses
+`op: "remove"` with the same domain-tagged `from`, `type`, and `to` selector but
+without certainty or evidence. A single patch can create related nodes and
+connect them atomically.
 
 ## Business vocabulary
 
@@ -55,9 +108,17 @@ Business relation types:
 - `part_of`, `reads`, `writes`, `publishes`, `consumes`, and `constrained_by`
   connect a business source to a business target;
 - `realized_by` and `verified_by` connect a business source to a structural
-  target.
+  `Symbol` or `Test` declaration returned by the current map. A `File` or
+  `Module` is navigation context, not a learned implementation or verification
+  target. When the backend exposes only a test file, cite that source in the
+  task result and omit `verified_by` until a declaration target is available.
 
 Every learned relation originates at a business node.
+
+- Every `from` is `{ "domain": "business", "key": "..." }`.
+- A business target is `{ "domain": "business", "key": "..." }`.
+- A structural target is `{ "domain": "structural", "id": "symbol:..." }` or
+  a current `test:...` declaration ID.
 
 ## Evidence
 
@@ -84,7 +145,10 @@ Certainty is independent from evidence freshness:
 
 - `exact` means the evidence uniquely proves the assertion;
 - `inferred` means the evidence supports an explicit Agent synthesis;
-- `hypothesis` marks exploratory knowledge that remains visibly unverified.
+- `hypothesis` is available in the GraphPatch contract for explicitly requested
+  exploratory records. The required task-completion capture keeps unverified
+  hypotheses in task context and persists only verified `exact` or `inferred`
+  knowledge.
 
 Use one assertion per clear business meaning. Multiple source locations can
 support one assertion; one nearby symbol should not stand in for an unproven

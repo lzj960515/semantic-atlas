@@ -1,5 +1,6 @@
 import { parseCliArguments } from "../../src/cli/argument-parser.js";
 import type { EvaluationRun } from "../../src/evaluation/contracts.js";
+import type { SkillLoad } from "./skill-trace.js";
 
 interface CodexCommandEvent {
   readonly type: "item.completed";
@@ -18,6 +19,15 @@ export interface CodexRunAudit {
   readonly commandCount: number;
   readonly commands: string[];
   readonly atlasCalls: EvaluationRun["observations"]["atlasCalls"];
+}
+
+export interface FreshAgentSkillDiscoveryAudit {
+  readonly delivery: "repository";
+  readonly promptInjection: false;
+  readonly mainSkillLoaded: true;
+  readonly statusBeforeSource: true;
+  readonly mapBeforeSource: true;
+  readonly decisiveSourceRead: true;
 }
 
 type CommandKind =
@@ -115,6 +125,48 @@ export function auditCodexCommands(
   };
 }
 
+export function auditFreshAgentSkillDiscovery(
+  commands: readonly string[],
+  skillLoads: readonly SkillLoad[],
+): FreshAgentSkillDiscoveryAudit {
+  if (skillLoads[0]?.file !== ".agents/skills/semantic-atlas/SKILL.md") {
+    throw new Error("Fresh Agent did not load the discovered Semantic Atlas Skill");
+  }
+
+  const operations = commands.flatMap(parseAuditedShellCommand);
+  const skillIndex = operations.findIndex((operation) => (
+    operation.kind === "observer" && isCandidateSkillRead(operation.words)
+  ));
+  const statusIndex = operations.findIndex((operation) => (
+    operation.kind === "atlas" && atlasCommandName(operation.words) === "status"
+  ));
+  const mapIndex = operations.findIndex((operation) => (
+    operation.kind === "atlas" && atlasCommandName(operation.words).startsWith("map.")
+  ));
+  const sourceIndex = operations.findIndex((operation) => (
+    operation.kind === "observer" && !isCandidateSkillRead(operation.words)
+  ));
+
+  if (skillIndex < 0 || statusIndex < 0 || skillIndex >= statusIndex) {
+    throw new Error("Fresh Agent must load the repository Skill before Atlas status");
+  }
+  if (statusIndex < 0 || sourceIndex < 0 || statusIndex >= sourceIndex) {
+    throw new Error("Fresh Agent must run Atlas status before opening source");
+  }
+  if (mapIndex < 0 || mapIndex >= sourceIndex) {
+    throw new Error("Fresh Agent must use an Atlas map query before opening source");
+  }
+
+  return {
+    delivery: "repository",
+    promptInjection: false,
+    mainSkillLoaded: true,
+    statusBeforeSource: true,
+    mapBeforeSource: true,
+    decisiveSourceRead: true,
+  };
+}
+
 function isCompletedCommandEvent(event: unknown): event is CodexCommandEvent {
   return typeof event === "object"
     && event !== null
@@ -154,20 +206,51 @@ function auditShellCommand(command: string): string[] {
   }
 
   try {
-    const script = unwrapCodexShellCommand(command);
-    rejectShellWordGeneration(script);
-    const shellCommands = splitShellCommands(script);
-    const kinds = shellCommands.map(({ text }) => classifyCommand(parseShellWords(text)));
-    for (const [index, shellCommand] of shellCommands.entries()) {
-      validateComposition(shellCommand.operatorBefore, kinds[index - 1], kinds[index]!);
-    }
-
-    return shellCommands.flatMap((shellCommand, index) => (
-      kinds[index] === "atlas" ? [shellCommand.text.trim()] : []
+    return parseAuditedShellCommand(command).flatMap((operation) => (
+      operation.kind === "atlas" ? [operation.text] : []
     ));
   } catch (error) {
     throw commandPolicyError(command, error);
   }
+}
+
+function parseAuditedShellCommand(command: string): readonly {
+  readonly text: string;
+  readonly kind: CommandKind;
+  readonly words: readonly string[];
+}[] {
+  const script = unwrapCodexShellCommand(command);
+  rejectShellWordGeneration(script);
+  const shellCommands = splitShellCommands(script);
+  const operations = shellCommands.map((shellCommand) => {
+    const words = parseShellWords(shellCommand.text);
+    return {
+      text: shellCommand.text.trim(),
+      kind: classifyCommand(words),
+      words,
+      operatorBefore: shellCommand.operatorBefore,
+    };
+  });
+  for (const [index, operation] of operations.entries()) {
+    validateComposition(
+      operation.operatorBefore,
+      operations[index - 1]?.kind,
+      operation.kind,
+    );
+  }
+  return operations;
+}
+
+function atlasCommandName(words: readonly string[]): string {
+  if (words[0] !== "semantic-atlas") return "";
+  return parseCliArguments(words.slice(1), ".").command.name;
+}
+
+function isCandidateSkillRead(words: readonly string[]): boolean {
+  const offset = words[0] === "node" ? 1 : 0;
+  return words[offset] === EVALUATION_OBSERVER_PARAMETER
+    && words[offset + 1] === "read"
+    && /^\.agents\/skills\/semantic-atlas\//u.test(words[offset + 2] ?? "");
 }
 
 function rejectShellWordGeneration(script: string): void {

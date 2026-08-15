@@ -148,6 +148,44 @@
             "commands"
           ],
           "additionalProperties": false
+        },
+        "skillDiscovery": {
+          "type": "object",
+          "properties": {
+            "delivery": {
+              "type": "string",
+              "const": "repository"
+            },
+            "promptInjection": {
+              "type": "boolean",
+              "const": false
+            },
+            "mainSkillLoaded": {
+              "type": "boolean",
+              "const": true
+            },
+            "statusBeforeSource": {
+              "type": "boolean",
+              "const": true
+            },
+            "mapBeforeSource": {
+              "type": "boolean",
+              "const": true
+            },
+            "decisiveSourceRead": {
+              "type": "boolean",
+              "const": true
+            }
+          },
+          "required": [
+            "delivery",
+            "promptInjection",
+            "mainSkillLoaded",
+            "statusBeforeSource",
+            "mapBeforeSource",
+            "decisiveSourceRead"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -245,6 +283,35 @@
               "sequence",
               "classification",
               "action"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "skillLoads": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "sequence": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "file": {
+                "allOf": [
+                  {
+                    "pattern": "^(?!\\/)(?!.*\\\\)(?!.*(?:^|\\/)\\.\\.?(?:\\/|$))(?!.*\\/\\/).+$"
+                  },
+                  {
+                    "pattern": "^\\.agents\\/skills\\/semantic-atlas\\/(?:SKILL\\.md|references\\/[a-z0-9-]+\\.md)$"
+                  }
+                ],
+                "$ref": "#/$defs/__schema13"
+              }
+            },
+            "required": [
+              "sequence",
+              "file"
             ],
             "additionalProperties": false
           }
