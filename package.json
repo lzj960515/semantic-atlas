@@ -1,6 +1,6 @@
 {
   "name": "semantic-atlas",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A local, revision-aware project world model for AI coding agents.",
   "keywords": [
     "ai-agents",

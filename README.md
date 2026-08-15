@@ -26,7 +26,7 @@ The installed runtime works offline. Indexing, graph queries, evidence validatio
 The Skill makes Atlas the required first business-understanding surface for supported TypeScript and JavaScript implementation, debugging, refactoring, behavior review, flow tracing, invariant discovery, and impact work. It teaches Codex when to trust the map, reindex, preserve unknown boundaries, inspect authoritative source, and capture newly verified business knowledge. In Codex, invoke the built-in installer with the repository-owned Skill URL:
 
 ```text
-$skill-installer Install semantic-atlas from https://github.com/lzj960515/semantic-atlas/tree/v0.1.0/.agents/skills/semantic-atlas
+$skill-installer Install semantic-atlas from https://github.com/lzj960515/semantic-atlas/tree/v0.1.1/.agents/skills/semantic-atlas
 ```
 
 For repository development, Codex discovers the checked-in Skill automatically from `.agents/skills/semantic-atlas`. Codex detects newly installed skills automatically; restart Codex if it does not appear in the skill list.
