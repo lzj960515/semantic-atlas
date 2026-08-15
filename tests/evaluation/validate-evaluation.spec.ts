@@ -117,6 +117,11 @@ describe("published evaluation validation", () => {
     };
     failedSourceRun.protocol.skillDiscovery.knowledgeCaptureDecision =
       failedSourceRun.answer.knowledgeCaptureDecision;
+    failedSourceRun.adjudication.knowledgeCaptureDecision = {
+      outcome: "persist",
+      correct: true,
+      notes: "Durable verified order-placement knowledge is missing from Atlas.",
+    };
     writeFileSync(planPath, `${JSON.stringify(plan)}\n`);
     writeFileSync(runPath, `${JSON.stringify(failedSourceRun)}\n`);
 
@@ -210,6 +215,11 @@ describe("published evaluation validation", () => {
       ),
       "utf8",
     ));
+    retainedRun.adjudication.knowledgeCaptureDecision = {
+      outcome: "unverified",
+      correct: true,
+      notes: "The observed behavior lacks durable evidence.",
+    };
     retainedRun.answer.knowledgeCaptureDecision = {
       outcome: "unverified",
       summary: "The observed behavior lacks durable evidence.",
@@ -230,6 +240,46 @@ describe("published evaluation validation", () => {
       ],
       { cwd: process.cwd(), encoding: "utf8", stdio: "pipe" },
     )).toThrow(/loaded GraphPatch authoring without a persist decision/);
+  });
+
+  it("rejects a reused decision that contradicts independently adjudicated durable knowledge", () => {
+    const directory = mkdtempSync(join(tmpdir(), "atlas-evaluation-validator-"));
+    directories.push(directory);
+    const runPath = join(directory, "run.json");
+    const retainedRun = JSON.parse(readFileSync(
+      join(
+        process.cwd(),
+        "evaluation/results/fresh-agent-discovery-v5/location-nestjs-provider-atlas.json",
+      ),
+      "utf8",
+    ));
+    retainedRun.answer.knowledgeCaptureDecision = {
+      outcome: "reuse",
+      summary: "The verified business meaning is already represented in Atlas.",
+    };
+    retainedRun.protocol.skillDiscovery.knowledgeCaptureDecision =
+      retainedRun.answer.knowledgeCaptureDecision;
+    retainedRun.protocol.commandAudit.commands = retainedRun.protocol.commandAudit.commands
+      .filter((command: string) => !command.includes("references/graph-patch.md"));
+    retainedRun.observations.skillLoads = retainedRun.observations.skillLoads
+      .filter(({ file }: { readonly file: string }) => !file.endsWith("graph-patch.md"));
+    retainedRun.protocol.skillDiscovery.conditionalReferences.graphPatch = {
+      outcome: "not-loaded",
+    };
+    writeFileSync(runPath, `${JSON.stringify(retainedRun)}\n`);
+
+    expect(() => execFileSync(
+      "corepack",
+      [
+        "pnpm",
+        "exec",
+        "tsx",
+        "scripts/validate-evaluation.ts",
+        "evaluation/cases/plan.json",
+        runPath,
+      ],
+      { cwd: process.cwd(), encoding: "utf8", stdio: "pipe" },
+    )).toThrow(/knowledge-capture adjudication must evaluate the answer decision/);
   });
 });
 
@@ -364,5 +414,14 @@ const lateSkillRun = {
       summary: "The verified business meaning is already represented in Atlas.",
     },
   },
-  adjudication: { correct: true, notes: "Correct.", failureClassifications: [] },
+  adjudication: {
+    correct: true,
+    notes: "Correct.",
+    failureClassifications: [],
+    knowledgeCaptureDecision: {
+      outcome: "reuse",
+      correct: true,
+      notes: "The retained business node already represents the verified meaning.",
+    },
+  },
 };

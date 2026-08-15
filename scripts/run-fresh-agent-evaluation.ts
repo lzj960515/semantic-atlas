@@ -35,6 +35,7 @@ import {
   evaluationFailureClassificationSchema,
   evaluationRunSchema,
   FRESH_AGENT_COMMAND_AUDIT_POLICY,
+  knowledgeCaptureAdjudicationSchema,
   knowledgeCaptureDecisionSchema,
   type EvaluationCase,
   type EvaluationRun,
@@ -45,6 +46,9 @@ import {
   parseEvaluationSourceTrace,
 } from "./evaluation/source-trace.js";
 import { parseEvaluationSkillTrace } from "./evaluation/skill-trace.js";
+import {
+  buildKnowledgeCaptureAdjudicationEvidence,
+} from "./evaluation/knowledge-capture-adjudication.js";
 
 const RUNNER_VERSION = "fresh-agent-runner-v5";
 const SOURCE_TOKEN_METHOD = EVALUATION_SOURCE_TOKEN_METHOD;
@@ -81,6 +85,7 @@ const adjudicationResultSchema = z.strictObject({
     correct: z.boolean(),
     notes: z.string().min(1),
     failureClassifications: z.array(evaluationFailureClassificationSchema),
+    knowledgeCaptureDecision: knowledgeCaptureAdjudicationSchema,
   })),
 });
 
@@ -418,6 +423,7 @@ async function adjudicateRuns(
     mode: draft.mode,
     answer: draft.answer,
     atlasHandling: draft.observations.atlasHandling,
+    knowledgeCaptureEvidence: buildKnowledgeCaptureAdjudicationEvidence(draft),
   }));
   const outputPath = join(runtime, "independent-adjudication.json");
   const prompt = [
@@ -425,6 +431,8 @@ async function adjudicateRuns(
     "Judge every answer independently against its case acceptance criteria, required files, and required symbols.",
     "Correct means the response answers the prompt and the reported evidence covers the oracle. Classify every incorrect result.",
     "For Atlas runs, classify stale, hypothesis, unknown, or unsupported facts presented as exact with the matching failure type.",
+    "Judge knowledgeCaptureDecision separately against knowledgeCaptureEvidence and the answer. Persist is correct when missing or insufficient Atlas business knowledge caused successful source confirmation of durable reusable business meaning; reuse requires that the retained Atlas business nodes already express that meaning; transient is for one-off context; unverified is for meaning without decisive verification.",
+    "Return the evaluated answer outcome, a boolean verdict, and notes in knowledgeCaptureDecision. A wrong outcome makes the whole run incorrect and requires protocol-violation.",
     "Return exactly one adjudication for every runId. Use an empty failureClassifications array only for correct answers.",
     "Do not use tools. The complete evaluation material follows as JSON:",
     JSON.stringify(records),

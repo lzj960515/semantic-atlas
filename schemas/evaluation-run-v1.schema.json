@@ -26,19 +26,19 @@
       "$ref": "#/$defs/__schema6"
     },
     "startedAt": {
-      "$ref": "#/$defs/__schema11"
-    },
-    "finishedAt": {
       "$ref": "#/$defs/__schema12"
     },
-    "observations": {
+    "finishedAt": {
       "$ref": "#/$defs/__schema13"
     },
+    "observations": {
+      "$ref": "#/$defs/__schema14"
+    },
     "answer": {
-      "$ref": "#/$defs/__schema15"
+      "$ref": "#/$defs/__schema16"
     },
     "adjudication": {
-      "$ref": "#/$defs/__schema16"
+      "$ref": "#/$defs/__schema17"
     }
   },
   "required": [
@@ -366,13 +366,7 @@
       "type": "object",
       "properties": {
         "outcome": {
-          "type": "string",
-          "enum": [
-            "persist",
-            "reuse",
-            "transient",
-            "unverified"
-          ]
+          "$ref": "#/$defs/__schema11"
         },
         "summary": {
           "type": "string",
@@ -387,8 +381,12 @@
     },
     "__schema11": {
       "type": "string",
-      "format": "date-time",
-      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+      "enum": [
+        "persist",
+        "reuse",
+        "transient",
+        "unverified"
+      ]
     },
     "__schema12": {
       "type": "string",
@@ -396,6 +394,11 @@
       "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
     },
     "__schema13": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+    },
+    "__schema14": {
       "type": "object",
       "properties": {
         "sourceTokenMethod": {
@@ -406,7 +409,7 @@
           "minItems": 1,
           "type": "array",
           "items": {
-            "$ref": "#/$defs/__schema14"
+            "$ref": "#/$defs/__schema15"
           }
         },
         "atlasCalls": {
@@ -517,7 +520,7 @@
       ],
       "additionalProperties": false
     },
-    "__schema14": {
+    "__schema15": {
       "type": "object",
       "properties": {
         "sequence": {
@@ -551,7 +554,7 @@
       ],
       "additionalProperties": false
     },
-    "__schema15": {
+    "__schema16": {
       "type": "object",
       "properties": {
         "response": {
@@ -595,7 +598,7 @@
       ],
       "additionalProperties": false
     },
-    "__schema16": {
+    "__schema17": {
       "type": "object",
       "properties": {
         "correct": {
@@ -619,6 +622,27 @@
               "protocol-violation"
             ]
           }
+        },
+        "knowledgeCaptureDecision": {
+          "type": "object",
+          "properties": {
+            "outcome": {
+              "$ref": "#/$defs/__schema11"
+            },
+            "correct": {
+              "type": "boolean"
+            },
+            "notes": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "outcome",
+            "correct",
+            "notes"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [

@@ -9,7 +9,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["runId", "correct", "notes", "failureClassifications"],
+        "required": ["runId", "correct", "notes", "failureClassifications", "knowledgeCaptureDecision"],
         "properties": {
           "runId": { "type": "string", "minLength": 1 },
           "correct": { "type": "boolean" },
@@ -26,6 +26,18 @@
                 "unsupported-source",
                 "protocol-violation"
               ]
+            }
+          },
+          "knowledgeCaptureDecision": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["outcome", "correct", "notes"],
+            "properties": {
+              "outcome": {
+                "enum": ["persist", "reuse", "transient", "unverified"]
+              },
+              "correct": { "type": "boolean" },
+              "notes": { "type": "string", "minLength": 1 }
             }
           }
         }

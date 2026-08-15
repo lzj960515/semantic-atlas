@@ -194,6 +194,38 @@ describe("evaluation artifact contracts", () => {
     );
   });
 
+  it("requires runner-v5 adjudication to evaluate the reported capture outcome", () => {
+    const discoveryRun = JSON.parse(readFileSync(
+      "evaluation/results/fresh-agent-discovery-v5/location-nestjs-provider-atlas.json",
+      "utf8",
+    ));
+    discoveryRun.adjudication.knowledgeCaptureDecision = {
+      outcome: "reuse",
+      correct: true,
+      notes: "The retained evidence supports reuse.",
+    };
+
+    expect(() => evaluationRunSchema.parse(discoveryRun)).toThrow(
+      /knowledge-capture adjudication must evaluate the answer decision/,
+    );
+  });
+
+  it("makes an incorrect capture decision an overall protocol violation", () => {
+    const discoveryRun = JSON.parse(readFileSync(
+      "evaluation/results/fresh-agent-discovery-v5/location-nestjs-provider-atlas.json",
+      "utf8",
+    ));
+    discoveryRun.adjudication.knowledgeCaptureDecision = {
+      outcome: "persist",
+      correct: false,
+      notes: "The retained evidence does not support persistence.",
+    };
+
+    expect(() => evaluationRunSchema.parse(discoveryRun)).toThrow(
+      /makes the run incorrect|requires protocol-violation/,
+    );
+  });
+
   it("locks the baseline to six cases per category across all frameworks", () => {
     const publishedPlan = JSON.parse(
       readFileSync("evaluation/cases/plan.json", "utf8"),

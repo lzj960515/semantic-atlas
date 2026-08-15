@@ -30,7 +30,7 @@ For each case and mode:
 5. In `no-atlas` mode, use normal source and shell tools and record zero Atlas calls. In `atlas` mode, record each Semantic Atlas command.
 6. Record candidate `SKILL.md` and conditional-reference reads separately as `skillLoads`. Record a `sourceOpens` event whenever repository source text is returned to the agent, including file reads and search snippets. Bind each source event to the successful observer command's global sequence and exit status; failed commands cannot establish source confirmation. Skill instruction text does not count as source context.
 7. Record the number of source tokens exposed by each event using the execution environment's source-input accounting. Put the stable method/version in `sourceTokenMethod`. Count repeated reads again in token totals.
-8. Save the agent's reported files, symbols, and structured knowledge-capture decision. An evaluator who did not guide the run compares the answer with the oracle and records correctness plus notes.
+8. Save the agent's reported files, symbols, and structured knowledge-capture decision. Give an evaluator who did not guide the run the hidden oracle plus a bounded summary derived from the retained Atlas envelopes, successful source observations, result handling, and replayed discovery proof. The evaluator judges both the answer and whether `persist`, `reuse`, `transient`, or `unverified` matches that evidence. It records the evaluated outcome, a separate decision verdict and notes, overall correctness, and failure classifications. A wrong knowledge-capture decision makes the run incorrect with `protocol-violation`.
 9. Audit the complete Codex shell-command sequence. An Atlas run is valid only when it loads the repository Skill, runs `status` before source reads, queries the map before source reads, and opens decisive source afterward. A decisive source file must come from a successful trace-backed observer read or search and occur in the final reported evidence and hidden oracle. Retain each Atlas JSON envelope at its global command sequence, the structured `persist`, `reuse`, `transient`, or `unverified` knowledge-capture decision, and the ordered conditional-reference loads. Every matching state trigger, including one observed after an earlier source read, requires the reference procedure to be loaded; when later source fallback occurs, the load must precede that fallback. A `persist` decision requires GraphPatch authoring after decisive source confirmation; every other decision requires GraphPatch authoring to remain unloaded.
 10. Publish the complete command and discovery evidence, then validate and summarize the baseline with `pnpm evaluation:validate` or pass additional run paths to `scripts/validate-evaluation.ts --baseline`.
 
@@ -63,8 +63,12 @@ as well as before the first source fallback.
 The runner and published-artifact validator use the same derivation, compare the
 stored proof exactly, and require state-triggered references between the matching
 Atlas result and source fallback. They also replay the structured knowledge-capture
-decision so a missing or unnecessary GraphPatch load fails validation. The source
-command allowlist remains unchanged.
+decision so a missing or unnecessary GraphPatch load fails validation. Independent
+adjudication separately evaluates the decision's business meaning from bounded
+retained evidence rather than trusting the Agent's label. The public run contract
+binds the adjudicated outcome to the answer; a negative decision verdict must make
+the run incorrect and carry `protocol-violation`. The source command allowlist
+remains unchanged.
 
 ## Metrics
 
@@ -111,9 +115,10 @@ ephemeral Codex context discovered the repository Skill without prompt-body
 injection, completed the status-map-source workflow, and bound two decisive
 source observations to successful global commands. Snapshot bootstrap, result
 routing, and GraphPatch authoring each have a matching timeline proof. A second
-fresh context independently adjudicated the answer correct with no failure
-classification. This artifact proves the discovery protocol; it does not replace
-or alter the frozen 24-run comparative metrics.
+fresh context independently adjudicated both the answer and the structured
+knowledge-capture decision from retained evidence. This artifact proves the
+discovery protocol; it does not replace or alter the frozen 24-run comparative
+metrics.
 
 Validate the published records with:
 

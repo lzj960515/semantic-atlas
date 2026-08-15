@@ -166,9 +166,22 @@ const skillLoadSchema = z.strictObject({
   ),
 });
 
+const knowledgeCaptureOutcomeSchema = z.enum([
+  "persist",
+  "reuse",
+  "transient",
+  "unverified",
+]);
+
 export const knowledgeCaptureDecisionSchema = z.strictObject({
-  outcome: z.enum(["persist", "reuse", "transient", "unverified"]),
+  outcome: knowledgeCaptureOutcomeSchema,
   summary: z.string().min(1),
+});
+
+export const knowledgeCaptureAdjudicationSchema = z.strictObject({
+  outcome: knowledgeCaptureOutcomeSchema,
+  correct: z.boolean(),
+  notes: z.string().min(1),
 });
 
 const skillDiscoverySchema = z.strictObject({
@@ -266,6 +279,7 @@ export const evaluationRunSchema = z
       correct: z.boolean(),
       notes: z.string().min(1),
       failureClassifications: z.array(evaluationFailureClassificationSchema),
+      knowledgeCaptureDecision: knowledgeCaptureAdjudicationSchema.optional(),
     }),
   })
   .superRefine((run, context) => {
@@ -301,6 +315,42 @@ export const evaluationRunSchema = z
           message: "A discovery run must retain a structured knowledge-capture decision",
           path: ["answer", "knowledgeCaptureDecision"],
         });
+      }
+      const captureAdjudication = run.adjudication.knowledgeCaptureDecision;
+      if (captureAdjudication === undefined) {
+        context.addIssue({
+          code: "custom",
+          message: "A discovery run must retain independent knowledge-capture adjudication",
+          path: ["adjudication", "knowledgeCaptureDecision"],
+        });
+      } else {
+        if (
+          run.answer.knowledgeCaptureDecision !== undefined
+          && captureAdjudication.outcome !== run.answer.knowledgeCaptureDecision.outcome
+        ) {
+          context.addIssue({
+            code: "custom",
+            message: "The knowledge-capture adjudication must evaluate the answer decision",
+            path: ["adjudication", "knowledgeCaptureDecision", "outcome"],
+          });
+        }
+        if (!captureAdjudication.correct && run.adjudication.correct) {
+          context.addIssue({
+            code: "custom",
+            message: "An incorrect knowledge-capture decision makes the run incorrect",
+            path: ["adjudication", "correct"],
+          });
+        }
+        if (
+          !captureAdjudication.correct
+          && !run.adjudication.failureClassifications.includes("protocol-violation")
+        ) {
+          context.addIssue({
+            code: "custom",
+            message: "An incorrect knowledge-capture decision requires protocol-violation",
+            path: ["adjudication", "failureClassifications"],
+          });
+        }
       }
       if (run.observations.sourceOpens.some((sourceOpen) => (
         sourceOpen.commandSequence === undefined || sourceOpen.exitCode !== 0
