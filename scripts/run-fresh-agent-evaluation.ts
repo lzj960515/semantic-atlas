@@ -35,6 +35,7 @@ import {
   evaluationFailureClassificationSchema,
   evaluationRunSchema,
   FRESH_AGENT_COMMAND_AUDIT_POLICY,
+  knowledgeCaptureDecisionSchema,
   type EvaluationCase,
   type EvaluationRun,
 } from "../src/evaluation/contracts.js";
@@ -71,6 +72,7 @@ const agentAnswerSchema = z.strictObject({
     name: z.string().min(1),
   })),
   atlasHandling: z.array(atlasHandlingSchema),
+  knowledgeCaptureDecision: knowledgeCaptureDecisionSchema,
 });
 
 const adjudicationResultSchema = z.strictObject({
@@ -355,6 +357,7 @@ async function runFreshAgent(options: {
       reportedSymbols: answer.reportedSymbols,
       requiredFiles: options.evaluationCase.oracle.requiredFiles,
       requiredSymbols: options.evaluationCase.oracle.requiredSymbols,
+      knowledgeCaptureDecision: answer.knowledgeCaptureDecision,
     })
     : undefined;
   await requireCleanFixture(options.repository);
@@ -399,6 +402,7 @@ async function runFreshAgent(options: {
       response: answer.response.replaceAll(`${options.repository}/`, ""),
       reportedFiles: answer.reportedFiles,
       reportedSymbols: answer.reportedSymbols,
+      knowledgeCaptureDecision: answer.knowledgeCaptureDecision,
     },
   };
 }

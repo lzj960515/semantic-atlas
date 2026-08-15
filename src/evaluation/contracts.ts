@@ -166,6 +166,11 @@ const skillLoadSchema = z.strictObject({
   ),
 });
 
+export const knowledgeCaptureDecisionSchema = z.strictObject({
+  outcome: z.enum(["persist", "reuse", "transient", "unverified"]),
+  summary: z.string().min(1),
+});
+
 const skillDiscoverySchema = z.strictObject({
   delivery: z.literal("repository"),
   promptInjection: z.literal(false),
@@ -174,6 +179,7 @@ const skillDiscoverySchema = z.strictObject({
   mapBeforeSource: z.literal(true),
   decisiveSourceRead: z.literal(true),
   decisiveSourceFiles: z.array(relativeSourcePathSchema).min(1),
+  knowledgeCaptureDecision: knowledgeCaptureDecisionSchema,
   conditionalReferences: z.strictObject({
     snapshotBootstrap: z.discriminatedUnion("outcome", [
       z.strictObject({ outcome: z.literal("not-required") }),
@@ -254,6 +260,7 @@ export const evaluationRunSchema = z
       response: z.string().min(1),
       reportedFiles: z.array(relativeSourcePathSchema),
       reportedSymbols: z.array(symbolReferenceSchema),
+      knowledgeCaptureDecision: knowledgeCaptureDecisionSchema.optional(),
     }),
     adjudication: z.strictObject({
       correct: z.boolean(),
@@ -288,6 +295,13 @@ export const evaluationRunSchema = z
 
     if (run.protocol.runnerVersion === "fresh-agent-runner-v5") {
       const skillLoads = run.observations.skillLoads ?? [];
+      if (run.answer.knowledgeCaptureDecision === undefined) {
+        context.addIssue({
+          code: "custom",
+          message: "A discovery run must retain a structured knowledge-capture decision",
+          path: ["answer", "knowledgeCaptureDecision"],
+        });
+      }
       if (run.observations.sourceOpens.some((sourceOpen) => (
         sourceOpen.commandSequence === undefined || sourceOpen.exitCode !== 0
       ))) {

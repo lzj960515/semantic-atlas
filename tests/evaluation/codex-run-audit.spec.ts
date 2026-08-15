@@ -255,6 +255,10 @@ describe("Fresh Agent Codex command audit", () => {
       mapBeforeSource: true,
       decisiveSourceRead: true,
       decisiveSourceFiles: ["src/orders/order.service.ts"],
+      knowledgeCaptureDecision: {
+        outcome: "reuse",
+        summary: "The verified business meaning is already represented in Atlas.",
+      },
       conditionalReferences: {
         snapshotBootstrap: { outcome: "not-required" },
         resultRouting: { outcome: "not-required" },
@@ -444,7 +448,71 @@ describe("Fresh Agent Codex command audit", () => {
           file: ".agents/skills/semantic-atlas/references/graph-patch.md",
         },
       ],
+      knowledgeCaptureDecision: {
+        outcome: "persist",
+        summary: "Place order is durable verified knowledge missing from Atlas.",
+      },
     })).toThrow(/GraphPatch authoring before decisive source confirmation/);
+  });
+
+  it("requires GraphPatch authoring for durable knowledge to persist", () => {
+    const commands = [
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
+      "/bin/zsh -lc 'semantic-atlas status'",
+      "/bin/zsh -lc 'semantic-atlas map search Order --limit 5'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/references/snapshot-bootstrap.md'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
+    ];
+
+    expect(() => auditDiscovery(commands, {
+      atlasCalls: [
+        atlasCall(1, 2, "semantic-atlas status", statusEnvelope()),
+        atlasCall(2, 3, "semantic-atlas map search Order --limit 5", mapEnvelope([
+          structuralNode("src/orders/order.service.ts"),
+        ])),
+      ],
+      skillLoads: [
+        { sequence: 1, file: ".agents/skills/semantic-atlas/SKILL.md" },
+        {
+          sequence: 2,
+          file: ".agents/skills/semantic-atlas/references/snapshot-bootstrap.md",
+        },
+      ],
+      knowledgeCaptureDecision: {
+        outcome: "persist",
+        summary: "Place order is durable verified knowledge missing from Atlas.",
+      },
+    })).toThrow(/persist decision requires GraphPatch authoring/);
+  });
+
+  it("rejects GraphPatch authoring for a transient knowledge decision", () => {
+    const commands = [
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
+      "/bin/zsh -lc 'semantic-atlas status'",
+      "/bin/zsh -lc 'semantic-atlas map search Order --limit 5'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
+      "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/references/graph-patch.md'",
+    ];
+
+    expect(() => auditDiscovery(commands, {
+      atlasCalls: [
+        atlasCall(1, 2, "semantic-atlas status", statusEnvelope()),
+        atlasCall(2, 3, "semantic-atlas map search Order --limit 5", mapEnvelope([
+          businessNode("commerce/orders/place-order"),
+        ])),
+      ],
+      skillLoads: [
+        { sequence: 1, file: ".agents/skills/semantic-atlas/SKILL.md" },
+        {
+          sequence: 2,
+          file: ".agents/skills/semantic-atlas/references/graph-patch.md",
+        },
+      ],
+      knowledgeCaptureDecision: {
+        outcome: "transient",
+        summary: "The observation applies only to this evaluation run.",
+      },
+    })).toThrow(/loaded GraphPatch authoring without a persist decision/);
   });
 
   it("requires result routing when a weak map result appears after source", () => {
@@ -555,6 +623,10 @@ function jsonLines(events: unknown[]): string {
 type DiscoveryEvidence = Parameters<typeof auditFreshAgentSkillDiscovery>[2];
 type DiscoveryOverrides = Partial<DiscoveryEvidence> & {
   readonly skillLoads?: readonly { readonly sequence: number; readonly file: string }[];
+  readonly knowledgeCaptureDecision?: {
+    readonly outcome: "persist" | "reuse" | "transient" | "unverified";
+    readonly summary: string;
+  };
 };
 
 function auditDiscovery(
@@ -571,6 +643,10 @@ function auditDiscovery(
       file: "src/orders/order.service.ts",
       sourceTokens: 20,
     }],
+    knowledgeCaptureDecision = {
+      outcome: "reuse" as const,
+      summary: "The verified business meaning is already represented in Atlas.",
+    },
     ...evidenceOverrides
   } = overrides;
   const boundSourceOpens = sourceOpens.map((sourceOpen) => ({
@@ -592,6 +668,7 @@ function auditDiscovery(
       file: "src/orders/order.service.ts",
       name: "OrderService.placeOrder",
     }],
+    knowledgeCaptureDecision,
     ...evidenceOverrides,
     sourceOpens: boundSourceOpens,
   });

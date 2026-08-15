@@ -30,8 +30,8 @@ For each case and mode:
 5. In `no-atlas` mode, use normal source and shell tools and record zero Atlas calls. In `atlas` mode, record each Semantic Atlas command.
 6. Record candidate `SKILL.md` and conditional-reference reads separately as `skillLoads`. Record a `sourceOpens` event whenever repository source text is returned to the agent, including file reads and search snippets. Bind each source event to the successful observer command's global sequence and exit status; failed commands cannot establish source confirmation. Skill instruction text does not count as source context.
 7. Record the number of source tokens exposed by each event using the execution environment's source-input accounting. Put the stable method/version in `sourceTokenMethod`. Count repeated reads again in token totals.
-8. Save the agent's reported files and symbols. An evaluator who did not guide the run compares the answer with the oracle and records correctness plus notes.
-9. Audit the complete Codex shell-command sequence. An Atlas run is valid only when it loads the repository Skill, runs `status` before source reads, queries the map before source reads, and opens decisive source afterward. A decisive source file must come from a successful trace-backed observer read or search and occur in the final reported evidence and hidden oracle. Retain each Atlas JSON envelope at its global command sequence and retain the ordered conditional-reference loads. Every matching state trigger, including one observed after an earlier source read, requires the reference procedure to be loaded; when later source fallback occurs, the load must precede that fallback.
+8. Save the agent's reported files, symbols, and structured knowledge-capture decision. An evaluator who did not guide the run compares the answer with the oracle and records correctness plus notes.
+9. Audit the complete Codex shell-command sequence. An Atlas run is valid only when it loads the repository Skill, runs `status` before source reads, queries the map before source reads, and opens decisive source afterward. A decisive source file must come from a successful trace-backed observer read or search and occur in the final reported evidence and hidden oracle. Retain each Atlas JSON envelope at its global command sequence, the structured `persist`, `reuse`, `transient`, or `unverified` knowledge-capture decision, and the ordered conditional-reference loads. Every matching state trigger, including one observed after an earlier source read, requires the reference procedure to be loaded; when later source fallback occurs, the load must precede that fallback. A `persist` decision requires GraphPatch authoring after decisive source confirmation; every other decision requires GraphPatch authoring to remain unloaded.
 10. Publish the complete command and discovery evidence, then validate and summarize the baseline with `pnpm evaluation:validate` or pass additional run paths to `scripts/validate-evaluation.ts --baseline`.
 
 A run is invalid when it lacks exact source-token accounting, is not a fresh context, uses a different fixture revision, sees its oracle, contains an Atlas call in `no-atlas` mode, reads a host instruction, or uses a shell command outside the versioned allowlist. Invalid runs are repeated rather than estimated.
@@ -62,7 +62,9 @@ commands, and state-triggered references remain mandatory after source inspectio
 as well as before the first source fallback.
 The runner and published-artifact validator use the same derivation, compare the
 stored proof exactly, and require state-triggered references between the matching
-Atlas result and source fallback. The source command allowlist remains unchanged.
+Atlas result and source fallback. They also replay the structured knowledge-capture
+decision so a missing or unnecessary GraphPatch load fails validation. The source
+command allowlist remains unchanged.
 
 ## Metrics
 

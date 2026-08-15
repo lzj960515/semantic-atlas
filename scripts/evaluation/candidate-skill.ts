@@ -17,7 +17,7 @@ export function buildFreshAgentInstructions(taskPrompt: string): string {
     "Treat the current working directory as the resolved exact fixture root.",
     "Follow the repository instructions and use only the source observer for source text.",
     "The oracle and paired run are unavailable. Inspect only the fixture, the provided observer, and available CLI.",
-    "This comparative case is read-only: do not change source or generated analysis state. State any durable knowledge-capture decision without persisting it.",
+    "This comparative case is read-only: do not change source or generated analysis state. Record knowledgeCaptureDecision as persist for new durable verified knowledge, reuse for already represented knowledge, transient for one-off context, or unverified when evidence is insufficient. State a persist decision without submitting the patch.",
     "List every file and qualified symbol that materially supports the answer.",
     "Use atlasHandling to record each stale, hypothesis, unknown, unsupported, partial, or insufficient Atlas result and its source fallback; use [] when none applies or Atlas is unavailable.",
     `Task: ${taskPrompt}`,

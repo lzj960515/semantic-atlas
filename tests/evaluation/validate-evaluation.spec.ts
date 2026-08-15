@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -111,6 +111,12 @@ describe("published evaluation validation", () => {
       sourceCommandSequence: 4,
       loadCommandSequence: 5,
     });
+    failedSourceRun.answer.knowledgeCaptureDecision = {
+      outcome: "persist",
+      summary: "Place order is durable verified knowledge missing from Atlas.",
+    };
+    failedSourceRun.protocol.skillDiscovery.knowledgeCaptureDecision =
+      failedSourceRun.answer.knowledgeCaptureDecision;
     writeFileSync(planPath, `${JSON.stringify(plan)}\n`);
     writeFileSync(runPath, `${JSON.stringify(failedSourceRun)}\n`);
 
@@ -157,6 +163,73 @@ describe("published evaluation validation", () => {
       ["pnpm", "exec", "tsx", "scripts/validate-evaluation.ts", planPath, runPath],
       { cwd: process.cwd(), encoding: "utf8", stdio: "pipe" },
     )).toThrow(/must load result routing after its matching Atlas state/);
+  });
+
+  it("rejects a durable published decision whose GraphPatch load was removed", () => {
+    const directory = mkdtempSync(join(tmpdir(), "atlas-evaluation-validator-"));
+    directories.push(directory);
+    const runPath = join(directory, "run.json");
+    const retainedRun = JSON.parse(readFileSync(
+      join(
+        process.cwd(),
+        "evaluation/results/fresh-agent-discovery-v5/location-nestjs-provider-atlas.json",
+      ),
+      "utf8",
+    ));
+    retainedRun.protocol.commandAudit.commands = retainedRun.protocol.commandAudit.commands
+      .filter((command: string) => !command.includes("references/graph-patch.md"));
+    retainedRun.observations.skillLoads = retainedRun.observations.skillLoads
+      .filter(({ file }: { readonly file: string }) => !file.endsWith("graph-patch.md"));
+    retainedRun.protocol.skillDiscovery.conditionalReferences.graphPatch = {
+      outcome: "not-loaded",
+    };
+    writeFileSync(runPath, `${JSON.stringify(retainedRun)}\n`);
+
+    expect(() => execFileSync(
+      "corepack",
+      [
+        "pnpm",
+        "exec",
+        "tsx",
+        "scripts/validate-evaluation.ts",
+        "evaluation/cases/plan.json",
+        runPath,
+      ],
+      { cwd: process.cwd(), encoding: "utf8", stdio: "pipe" },
+    )).toThrow(/persist decision requires GraphPatch authoring/);
+  });
+
+  it("rejects a published non-persist decision that loads GraphPatch authoring", () => {
+    const directory = mkdtempSync(join(tmpdir(), "atlas-evaluation-validator-"));
+    directories.push(directory);
+    const runPath = join(directory, "run.json");
+    const retainedRun = JSON.parse(readFileSync(
+      join(
+        process.cwd(),
+        "evaluation/results/fresh-agent-discovery-v5/location-nestjs-provider-atlas.json",
+      ),
+      "utf8",
+    ));
+    retainedRun.answer.knowledgeCaptureDecision = {
+      outcome: "unverified",
+      summary: "The observed behavior lacks durable evidence.",
+    };
+    retainedRun.protocol.skillDiscovery.knowledgeCaptureDecision =
+      retainedRun.answer.knowledgeCaptureDecision;
+    writeFileSync(runPath, `${JSON.stringify(retainedRun)}\n`);
+
+    expect(() => execFileSync(
+      "corepack",
+      [
+        "pnpm",
+        "exec",
+        "tsx",
+        "scripts/validate-evaluation.ts",
+        "evaluation/cases/plan.json",
+        runPath,
+      ],
+      { cwd: process.cwd(), encoding: "utf8", stdio: "pipe" },
+    )).toThrow(/loaded GraphPatch authoring without a persist decision/);
   });
 });
 
@@ -215,6 +288,10 @@ const lateSkillRun = {
       mapBeforeSource: true,
       decisiveSourceRead: true,
       decisiveSourceFiles: ["src/orders/order.service.ts"],
+      knowledgeCaptureDecision: {
+        outcome: "reuse",
+        summary: "The verified business meaning is already represented in Atlas.",
+      },
       conditionalReferences: {
         snapshotBootstrap: { outcome: "not-required" },
         resultRouting: { outcome: "not-required" },
@@ -282,6 +359,10 @@ const lateSkillRun = {
       file: "src/orders/order.service.ts",
       name: "OrderService.placeOrder",
     }],
+    knowledgeCaptureDecision: {
+      outcome: "reuse",
+      summary: "The verified business meaning is already represented in Atlas.",
+    },
   },
   adjudication: { correct: true, notes: "Correct.", failureClassifications: [] },
 };

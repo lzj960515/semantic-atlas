@@ -182,6 +182,18 @@ describe("evaluation artifact contracts", () => {
     expect(() => evaluationRunSchema.parse(invalidRun)).toThrow(/no-atlas/);
   });
 
+  it("requires runner-v5 records to retain a structured knowledge-capture decision", () => {
+    const discoveryRun = JSON.parse(readFileSync(
+      "evaluation/results/fresh-agent-discovery-v5/location-nestjs-provider-atlas.json",
+      "utf8",
+    ));
+    delete discoveryRun.answer.knowledgeCaptureDecision;
+
+    expect(() => evaluationRunSchema.parse(discoveryRun)).toThrow(
+      /structured knowledge-capture decision/,
+    );
+  });
+
   it("locks the baseline to six cases per category across all frameworks", () => {
     const publishedPlan = JSON.parse(
       readFileSync("evaluation/cases/plan.json", "utf8"),

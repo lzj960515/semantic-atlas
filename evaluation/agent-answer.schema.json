@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "additionalProperties": false,
-  "required": ["response", "reportedFiles", "reportedSymbols", "atlasHandling"],
+  "required": ["response", "reportedFiles", "reportedSymbols", "atlasHandling", "knowledgeCaptureDecision"],
   "properties": {
     "response": { "type": "string", "minLength": 1 },
     "reportedFiles": {
@@ -34,6 +34,17 @@
           },
           "action": { "type": "string", "minLength": 1 }
         }
+      }
+    },
+    "knowledgeCaptureDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "summary"],
+      "properties": {
+        "outcome": {
+          "enum": ["persist", "reuse", "transient", "unverified"]
+        },
+        "summary": { "type": "string", "minLength": 1 }
       }
     }
   }

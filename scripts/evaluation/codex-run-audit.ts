@@ -42,6 +42,7 @@ export interface FreshAgentSkillDiscoveryAudit {
   readonly mapBeforeSource: true;
   readonly decisiveSourceRead: true;
   readonly decisiveSourceFiles: string[];
+  readonly knowledgeCaptureDecision: KnowledgeCaptureDecision;
   readonly conditionalReferences: {
     readonly snapshotBootstrap: ConditionalReferenceProof;
     readonly resultRouting: ConditionalReferenceProof;
@@ -56,7 +57,12 @@ interface FreshAgentSkillDiscoveryEvidence {
   readonly reportedSymbols: readonly { readonly file: string; readonly name: string }[];
   readonly requiredFiles: readonly string[];
   readonly requiredSymbols: readonly { readonly file: string; readonly name: string }[];
+  readonly knowledgeCaptureDecision: KnowledgeCaptureDecision;
 }
+
+type KnowledgeCaptureDecision = NonNullable<
+  EvaluationRun["answer"]["knowledgeCaptureDecision"]
+>;
 
 type ConditionalReferenceProof =
   | { readonly outcome: "not-required" }
@@ -338,7 +344,11 @@ export function auditFreshAgentSkillDiscovery(
     triggerSequences: routingTriggers,
     sourceSequences,
   });
-  const graphPatch = proveGraphPatchReference(operations, decisiveSourceOperations);
+  const graphPatch = proveGraphPatchReference(
+    operations,
+    decisiveSourceOperations,
+    evidence.knowledgeCaptureDecision,
+  );
 
   return {
     delivery: "repository",
@@ -350,6 +360,7 @@ export function auditFreshAgentSkillDiscovery(
     decisiveSourceFiles: uniqueInOrder(
       decisiveSourceOperations.map((observation) => observation.file),
     ),
+    knowledgeCaptureDecision: evidence.knowledgeCaptureDecision,
     conditionalReferences: {
       snapshotBootstrap,
       resultRouting,
@@ -365,6 +376,10 @@ export function verifyFreshAgentSkillDiscovery(
   if (run.protocol.runnerVersion !== "fresh-agent-runner-v5" || run.mode !== "atlas") {
     return undefined;
   }
+  const knowledgeCaptureDecision = run.answer.knowledgeCaptureDecision;
+  if (knowledgeCaptureDecision === undefined) {
+    throw new Error("Fresh Agent did not retain a structured knowledge-capture decision");
+  }
   const derived = auditFreshAgentSkillDiscovery(
     run.protocol.commandAudit.commands,
     run.observations.skillLoads ?? [],
@@ -375,6 +390,7 @@ export function verifyFreshAgentSkillDiscovery(
       reportedSymbols: run.answer.reportedSymbols,
       requiredFiles: evaluationCase.oracle.requiredFiles,
       requiredSymbols: evaluationCase.oracle.requiredSymbols,
+      knowledgeCaptureDecision,
     },
   );
   if (!isDeepStrictEqual(derived, run.protocol.skillDiscovery)) {
@@ -634,13 +650,22 @@ function proveConditionalReference(options: {
 function proveGraphPatchReference(
   operations: readonly TimedOperation[],
   decisiveSourceOperations: readonly TimedSourceObservation[],
+  decision: KnowledgeCaptureDecision,
 ): GraphPatchReferenceProof {
   const loadSequences = operations.flatMap((operation) => (
     observerReadFile(operation.words) === GRAPH_PATCH_FILE
       ? [operation.commandSequence]
       : []
   ));
-  if (loadSequences.length === 0) return { outcome: "not-loaded" };
+  if (decision.outcome !== "persist") {
+    if (loadSequences.length > 0) {
+      throw new Error("Fresh Agent loaded GraphPatch authoring without a persist decision");
+    }
+    return { outcome: "not-loaded" };
+  }
+  if (loadSequences.length === 0) {
+    throw new Error("Fresh Agent persist decision requires GraphPatch authoring");
+  }
 
   for (const loadSequence of loadSequences) {
     if (!decisiveSourceOperations.some((source) => source.commandSequence < loadSequence)) {
