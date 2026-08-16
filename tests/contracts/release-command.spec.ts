@@ -16,6 +16,12 @@ describe("Semantic Atlas release command", () => {
     expect(instructions).toContain("--verify-tag");
     expect(instructions).toContain("gh run watch");
     expect(instructions).toContain("pnpm package:verify");
+    expect(instructions).toMatch(
+      /three current-version\s+references in each README/,
+    );
+    expect(instructions).toContain(
+      "expected two current tag references in the Skill install section",
+    );
     expect(instructions).toContain('npm view "semantic-atlas@${version}"');
     expect(instructions).not.toContain("npm whoami");
     expect(instructions).not.toContain("npm publish");

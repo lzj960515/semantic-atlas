@@ -72,9 +72,9 @@ npm version <patch|minor> --no-git-tag-version
 version="$(node -p "require('./package.json').version")"
 ```
 
-Update only the Quick start install command and tagged Skill URL in both
-`README.md` and `README.zh-CN.md`. Historical dogfood evidence keeps the
-version that was actually tested.
+Update the Quick start install command and both current tag references in the
+Skill install section of `README.md` and `README.zh-CN.md`. Historical dogfood
+evidence keeps the version that was actually tested.
 
 ```bash
 PREVIOUS_VERSION="$previous_version" RELEASE_VERSION="$version" node --input-type=module <<'NODE'
@@ -83,27 +83,39 @@ import { readFileSync, writeFileSync } from "node:fs";
 const previousVersion = process.env.PREVIOUS_VERSION;
 const releaseVersion = process.env.RELEASE_VERSION;
 const readmes = ["README.md", "README.zh-CN.md"];
-const replacements = [
-  [
-    `npm install --global semantic-atlas@${previousVersion}`,
-    `npm install --global semantic-atlas@${releaseVersion}`,
-  ],
-  [
-    `tree/v${previousVersion}/.agents/skills/semantic-atlas`,
-    `tree/v${releaseVersion}/.agents/skills/semantic-atlas`,
-  ],
-];
 
 for (const readme of readmes) {
   let content = readFileSync(readme, "utf8");
-
-  for (const [currentText, releaseText] of replacements) {
-    const occurrences = content.split(currentText).length - 1;
-    if (occurrences !== 1) {
-      throw new Error(`${readme} expected one current release reference: ${currentText}`);
-    }
-    content = content.replace(currentText, releaseText);
+  const currentInstall = `npm install --global semantic-atlas@${previousVersion}`;
+  const releaseInstall = `npm install --global semantic-atlas@${releaseVersion}`;
+  const installOccurrences = content.split(currentInstall).length - 1;
+  if (installOccurrences !== 1) {
+    throw new Error(`${readme} expected one current install reference`);
   }
+  content = content.replace(currentInstall, releaseInstall);
+
+  const currentTag = `v${previousVersion}`;
+  const releaseTag = `v${releaseVersion}`;
+  const skillUrl = `tree/${currentTag}/.agents/skills/semantic-atlas`;
+  const skillUrlIndex = content.indexOf(skillUrl);
+  const skillSectionStart = content.lastIndexOf("\n### ", skillUrlIndex);
+  const nextSectionStart = content.indexOf("\n### ", skillUrlIndex);
+  if (skillUrlIndex < 0 || skillSectionStart < 0 || nextSectionStart < 0) {
+    throw new Error(`${readme} is missing the current Skill install section`);
+  }
+
+  const skillSection = content.slice(skillSectionStart, nextSectionStart);
+  const tagOccurrences = skillSection.split(currentTag).length - 1;
+  if (tagOccurrences !== 2) {
+    throw new Error(
+      `${readme} expected two current tag references in the Skill install section`,
+    );
+  }
+  const releaseSkillSection = skillSection.split(currentTag).join(releaseTag);
+  content =
+    content.slice(0, skillSectionStart)
+    + releaseSkillSection
+    + content.slice(nextSectionStart);
 
   writeFileSync(readme, content);
 }
@@ -122,7 +134,7 @@ git commit -m "chore(release): prepare v${version}"
 git tag -a "v${version}" -m "Semantic Atlas v${version}"
 ```
 
-Confirm the commit contains the package version and the two current-version
+Confirm the commit contains the package version and the three current-version
 references in each README, while the v0.1.1 dogfood report remains historical.
 
 ### 6. Push the release commit and tag
