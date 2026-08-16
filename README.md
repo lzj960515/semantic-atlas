@@ -1,84 +1,135 @@
-# Semantic Atlas
+<div align="center">
+  <h1>Semantic Atlas</h1>
+  <p><strong>A local, evidence-bound world map for AI coding agents.</strong></p>
+  <p>Connect code structure to verified business meaning, then keep both revision-aware.</p>
 
-Semantic Atlas is a local, revision-aware project world model for AI coding agents. It combines CodeGraph-backed TypeScript and JavaScript structure with agent-verified business capabilities, flows, data, rules, and interfaces in one evidence-bound map.
+  <p>
+    <a href="https://www.npmjs.com/package/semantic-atlas"><img alt="npm version" src="https://img.shields.io/npm/v/semantic-atlas?style=flat-square&color=cb3837"></a>
+    <a href="https://github.com/lzj960515/semantic-atlas/actions/workflows/ci.yml"><img alt="continuous integration" src="https://img.shields.io/github/actions/workflow/status/lzj960515/semantic-atlas/ci.yml?branch=main&style=flat-square&label=ci"></a>
+    <a href="https://www.npmjs.com/package/semantic-atlas"><img alt="supported Node.js version" src="https://img.shields.io/node/v/semantic-atlas?style=flat-square&color=43853d"></a>
+    <a href="./LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/lzj960515/semantic-atlas?style=flat-square&color=2d5b46"></a>
+  </p>
 
-Semantic Atlas is an AI-agent tool, not a natural-language engine. The deterministic CLI accepts commands, lexical search terms, graph identifiers, and structured GraphPatch input. The calling agent interprets a task, judges evidence, reads source when the map is insufficient, and performs all code and Git work.
+  <p><strong>English</strong> · <a href="./README.zh-CN.md">简体中文</a></p>
+</div>
 
-## Requirements
+## What is Semantic Atlas?
 
-- Node.js 22.12 through 24
-- A Git worktree containing TypeScript or JavaScript
-- Codex or another agent that can follow the packaged Skill workflow
+Semantic Atlas gives coding agents one local map that joins two kinds of project knowledge:
 
-## Install the CLI
+- **Structural evidence** from TypeScript and JavaScript: files, symbols, relations, framework entry points, and unresolved boundaries.
+- **Agent-verified business knowledge**: capabilities, scenarios, operations, interfaces, data, rules, tests, and the evidence that supports them.
 
-Install the public executable globally:
+The `semantic-atlas` CLI provides deterministic, versioned JSON operations. The packaged Codex Skill teaches an agent when to query, when to return to source, and when verified knowledge should be retained. The embedded CodeGraph SDK is an internal structural backend, not a second product or workflow.
+
+> **Query first. Confirm in source. Learn only what the evidence proves.**
+
+Source code remains authoritative. Atlas is a revision-aware projection that makes useful context reusable without pretending static analysis knows every runtime behavior.
+
+## Why use it?
+
+- **Start from business meaning.** Find the capability, operation, data, and dependency path before opening a broad slice of the repository.
+- **Spend less source context.** Use graph evidence to choose a bounded source seed set, then read only the code needed to decide the task.
+- **Keep knowledge honest.** Evidence is tied to a snapshot; changed or missing evidence becomes visibly stale instead of silently remaining current.
+- **Preserve uncertainty.** Dynamic dispatch, reflection, unsupported structure, and unresolved targets stay explicit and route the agent back to source.
+- **Leave the project untouched.** Generated state stays inside the worktree's ignored `.atlas/` directory; tracked source and configuration are not rewritten.
+
+## One project world map
+
+![Semantic Atlas capability map showing structural evidence, business knowledge, the Agent loop, one unified world map, explicit uncertainty, and local storage](docs/mindmaps/semantic-atlas-overview.png)
+
+The overview is an editable draw.io mind map: [open the English source](docs/mindmaps/semantic-atlas-overview.drawio). The [Simplified Chinese source](docs/mindmaps/semantic-atlas-overview.zh-CN.drawio) is maintained alongside its localized image.
+
+## Quick start
+
+Semantic Atlas supports Node.js 22.12 through 24 and Git worktrees containing TypeScript or JavaScript.
+
+### Install the CLI
 
 ```sh
-npm install --global semantic-atlas
+npm install --global semantic-atlas@0.1.1
 semantic-atlas status --repo /path/to/project
 ```
 
-The installed runtime works offline. Indexing, graph queries, evidence validation, and change inspection do not call a model or a network service. Package installation itself still requires normal npm registry access.
+After installation, indexing and queries run locally without model or network calls. npm registry access is needed only to install the package.
 
-## Install the Codex Skill
+### Install the Codex Skill
 
-The Skill makes Atlas the required first business-understanding surface for supported TypeScript and JavaScript implementation, debugging, refactoring, behavior review, flow tracing, invariant discovery, and impact work. It teaches Codex when to trust the map, reindex, preserve unknown boundaries, inspect authoritative source, and capture newly verified business knowledge. In Codex, invoke the built-in installer with the repository-owned Skill URL:
+Install the Skill from the same public `v0.1.1` tag as the current release:
 
 ```text
 $skill-installer Install semantic-atlas from https://github.com/lzj960515/semantic-atlas/tree/v0.1.1/.agents/skills/semantic-atlas
 ```
 
-For repository development, Codex discovers the checked-in Skill automatically from `.agents/skills/semantic-atlas`. Codex detects newly installed skills automatically; restart Codex if it does not appear in the skill list.
+Codex can then select `$semantic-atlas` from the task description, or you can invoke it explicitly. Repository contributors already get the checked-in Skill from `.agents/skills/semantic-atlas`.
 
-Invoke it explicitly with `$semantic-atlas`, or let Codex select it from the task through the Skill description. Git-only release work, mechanical formatting, unrelated documentation, and unsupported repositories remain normal workflows.
+### Run the first query
 
-## Required agent loop
-
-Run Atlas commands serially from the exact target worktree. `--repo <path>` can be supplied before the command when the current directory is elsewhere.
+Run commands serially from the exact target worktree:
 
 ```sh
 semantic-atlas status
 semantic-atlas index
 semantic-atlas map roots
-semantic-atlas map search checkout --limit 10
+semantic-atlas map search "checkout" --limit 10
 semantic-atlas map show module:src --depth 1
 ```
 
-For every supported business-behavior task, the agent loop is:
+Every command writes one versioned JSON envelope to standard output. Diagnostics stay on standard error, so agents consume stable fields and warning codes instead of scraping prose.
 
-1. Check `status` before broad source discovery or trusting stored knowledge.
-2. Load the bootstrap procedure only when the snapshot needs publication, the current map lacks relevant business knowledge, or the user requests project initialization.
-3. Query `map roots`, `map search`, `map children`, and `map show` to bound source exploration.
-4. Confirm decisive behavior in authoritative source and preserve stale, unsupported, unresolved, ambiguous, or insufficient boundaries.
-5. After relevant source changes, reindex and inspect `changes` before trusting the refreshed map.
-6. Before completion, decide what source inspection taught: write every new durable verified business concept and relationship with `learn --stdin`, verify it through `map show`, and retain transient or unverified observations only in task context.
+## The Agent loop
 
-A normal task incrementally bootstraps only its relevant capability. An explicit project-initialization task starts at structural roots, inspects a stated bounded set of representative paths, and creates a reusable initial business map rather than attempting an exhaustive code inventory.
+1. **Status.** Confirm the exact repository root, snapshot freshness, and structural-backend completeness before broad source discovery.
+2. **Index.** Publish or refresh the worktree-local snapshot when state is missing, stale, failed, or incomplete.
+3. **Query.** Search compact business and symbol vocabulary, then traverse only the promising nodes and relationships.
+4. **Confirm source.** Open the cited ranges and resolve the decisive behavior in authoritative code. Keep partial, stale, unsupported, and unknown results bounded.
+5. **Do the engineering work.** The calling agent edits code, runs tests, reviews diffs, and owns Git; Atlas performs none of those actions.
+6. **Reconcile and learn.** Reindex after relevant source changes, inspect semantic `changes`, and submit only durable, verified business knowledge through `learn --stdin`. Verify learned nodes with `map show`.
 
-Every command writes one versioned JSON envelope to standard output. Diagnostics remain on standard error, so callers can parse output without scraping prose.
+This loop grows the business map one verified capability at a time. It does not attempt to convert the whole repository into speculative documentation.
 
-## Zero-intrusion storage
+## Measured results
 
-Each worktree owns one generated store:
+### Frozen comparative evaluation
+
+The retained [`fresh-agent-v1` report](evaluation/results/fresh-agent-v1/report.json) covers `framework-evaluation@fixture-v1`: 12 paired cases and 24 fresh-agent runs across NestJS, GraphQL, TypeORM, and BullMQ location and dependency-impact tasks.
+
+| Metric | Without Atlas | With Atlas | Fixture result |
+| --- | ---: | ---: | --- |
+| Final-answer correctness | 100% | 100% | No regression |
+| Required-file recall | 100% | 100% | No regression |
+| Required-symbol recall | 100% | 100% | No regression |
+| Median unique source files opened | 6.5 | 4 | 38.46% fewer |
+| Median observed source-input tokens | 1,351 | 688 | 49.07% fewer |
+
+The gate was declared before collection and all 61 routed uncertainty events were handled without a failure classification. Read the [evaluation methodology](docs/evaluation.md) and retained runs before interpreting the numbers.
+
+These are fixture-scoped comparative results. They do **not** establish universal business accuracy, performance on every repository, or total model-token savings; the token metric counts observed source input under `tiktoken-o200k_base-v1`.
+
+### Public-artifact dogfood
+
+The separate [v0.1.1 release](https://github.com/lzj960515/semantic-atlas/releases/tag/v0.1.1) dogfood used only the public npm CLI and tagged Skill in an isolated `pietra-ex-api` worktree:
+
+- A first fresh agent completed `missing → index → query → source confirmation → learn`: indexing took 6.52 seconds, published 42,789 facts, and created a 40,308,736-byte database. One atomic learning operation added 4 business nodes and 8 relations in 0.71 seconds; every learned node was then `valid`.
+- A second fresh agent discovered and reused that knowledge through normal `status`, search, roots, and show commands without receiving the previous answer or repeating `learn`.
+- The target revision and ordinary Git status stayed unchanged; generated state existed only in ignored `.atlas/` storage.
+
+That run also exposed precision and discoverability backlog: one natural multi-term query missed a learned node in its top ten, a framework-adjacent `map show` result was too large, 27,060 reported unknown boundaries lacked useful candidates or priority, and source inspection found one false exact same-name link. The dogfood is operational evidence and a source of limitations, not another accuracy benchmark or a production-stability claim.
+
+## Evidence, uncertainty, and storage
+
+| Boundary | Contract |
+| --- | --- |
+| Source authority | Every answer-controlling claim is confirmed in source; Atlas context never overrides the checked-out code. |
+| Evidence validity | Business assertions carry source locators, hashes, certainty, and snapshot-derived validity. Failed rebinding produces `stale`, not silent deletion or promotion. |
+| Explicit uncertainty | `UnknownBoundary`, `partial`, `unsupported`, `hypothesis`, and insufficient results narrow source fallback; they are never presented as exact facts. |
+| One product | The CLI and Skill expose one Semantic Atlas workflow. CodeGraph stays behind the adapter and its CLI, MCP, schema, and backend types are not public Atlas interfaces. |
+| One local store | Each worktree owns `.atlas/codegraph.db`: CodeGraph owns structural tables and Atlas owns namespaced `atlas_*` knowledge, evidence, snapshot, and validity tables. |
+| Zero intrusion | Atlas prepares `.atlas/.gitignore`, writes no tracked source or project configuration, and does not edit, test, review, commit, merge, or release code. |
+
+## CLI and development
 
 ```text
-<worktree>/.atlas/codegraph.db
-```
-
-Semantic Atlas creates an Atlas-owned `.atlas/.gitignore`, keeps transient locks and SQLite sidecars under `.atlas/`, and leaves tracked source and project configuration unchanged. CodeGraph owns structural tables while Atlas owns namespaced `atlas_*` business, evidence, snapshot, and validity tables in the same database. Public queries compose one world graph without copying the structural graph.
-
-## Scope and uncertainty
-
-v0.1 supports TypeScript and JavaScript, with initial business-flow coverage for NestJS, GraphQL, TypeORM, and BullMQ projects. The embedded `@colbymchenry/codegraph` SDK supplies static structure; Atlas adds revision-aware business interpretation and evidence.
-
-Runtime-only dispatch, reflection, generated behavior, unsupported syntax, and unresolved targets remain explicit boundaries. An `UnknownBoundary`, stale assertion, hypothesis, or unsupported result is a prompt for bounded source inspection, never an exact business claim. Source code remains authoritative.
-
-Semantic Atlas does not edit source, run project tests, mutate Git history, review code, or publish releases on behalf of the calling agent.
-
-## CLI reference
-
-```sh
 semantic-atlas status [--repo <path>] [--pretty]
 semantic-atlas index [--repo <path>] [--pretty]
 semantic-atlas map roots [--repo <path>] [--pretty]
@@ -89,9 +140,7 @@ semantic-atlas learn --stdin [--repo <path>] [--pretty]
 semantic-atlas changes [--from <snapshot-id>] [--to <snapshot-id>] [--repo <path>] [--pretty]
 ```
 
-See the versioned [CLI contract](docs/contracts/cli-v1.md) and [GraphPatch contract](docs/contracts/graph-patch-v1.md) for field-level behavior.
-
-## Development
+Field-level behavior lives in the versioned [CLI v1](docs/contracts/cli-v1.md) and [GraphPatch v1](docs/contracts/graph-patch-v1.md) contracts.
 
 ```sh
 corepack enable
@@ -102,18 +151,15 @@ pnpm build
 pnpm package:verify
 ```
 
-`pnpm package:verify` packs the project, installs the tarball into a temporary consumer outside the checkout, and runs a real `status` -> `index` -> `map roots` CLI flow while checking that the fixture Git status stays clean. `pnpm validation:backend` provides the deeper pinned-backend and upgrade contract.
+`package:verify` installs the packed artifact into an external temporary consumer and runs the real CLI. `validation:backend` adds the pinned CodeGraph coexistence, upgrade, preservation, recovery, rebinding, and worktree-isolation gate.
 
-CI runs typecheck, build, contract checks, and installed-package tests on Node.js 22.12 and 24. The complete source test suite runs on the Node.js 24 development runtime, while Linux, macOS, and Windows jobs execute the installed CLI smoke flow.
-
-## Contracts
+## Reference
 
 - [Product contract](docs/product-contract.md)
-- [CodeGraph backend architecture](docs/architecture/codegraph-backend.md)
 - [Graph model](docs/contracts/graph-model.md)
-- [CLI v1](docs/contracts/cli-v1.md)
-- [GraphPatch v1](docs/contracts/graph-patch-v1.md)
-- [Fresh Agent evaluation](docs/evaluation.md)
+- [CodeGraph backend architecture](docs/architecture/codegraph-backend.md)
+- [Fresh Agent evaluation protocol](docs/evaluation.md)
+- [Published evaluation artifacts](evaluation/results/fresh-agent-v1/README.md)
 
 ## License
 
