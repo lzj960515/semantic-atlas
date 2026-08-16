@@ -47,7 +47,7 @@ Semantic Atlas supports Node.js 22.12 through 24 and Git worktrees containing Ty
 ### Install the CLI
 
 ```sh
-npm install --global semantic-atlas@0.1.1
+npm install --global semantic-atlas
 semantic-atlas status --repo /path/to/project
 ```
 
@@ -55,10 +55,10 @@ After installation, indexing and queries run locally without model or network ca
 
 ### Install the Codex Skill
 
-Install the Skill from the same public `v0.1.1` tag as the current release:
+Install the Skill from the repository's current `main` branch:
 
 ```text
-$skill-installer Install semantic-atlas from https://github.com/lzj960515/semantic-atlas/tree/v0.1.1/.agents/skills/semantic-atlas
+$skill-installer Install semantic-atlas from https://github.com/lzj960515/semantic-atlas/tree/main/.agents/skills/semantic-atlas
 ```
 
 Codex can then select `$semantic-atlas` from the task description, or you can invoke it explicitly. Repository contributors already get the checked-in Skill from `.agents/skills/semantic-atlas`.

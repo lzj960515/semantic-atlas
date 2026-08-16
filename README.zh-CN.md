@@ -47,7 +47,7 @@ Semantic Atlas 支持 Node.js 22.12 至 24，以及包含 TypeScript 或 JavaScr
 ### 安装 CLI
 
 ```sh
-npm install --global semantic-atlas@0.1.1
+npm install --global semantic-atlas
 semantic-atlas status --repo /path/to/project
 ```
 
@@ -55,10 +55,10 @@ semantic-atlas status --repo /path/to/project
 
 ### 安装 Codex Skill
 
-从与当前公开版本相同的 `v0.1.1` 标签安装 Skill：
+从仓库当前的 `main` 分支安装 Skill：
 
 ```text
-$skill-installer Install semantic-atlas from https://github.com/lzj960515/semantic-atlas/tree/v0.1.1/.agents/skills/semantic-atlas
+$skill-installer Install semantic-atlas from https://github.com/lzj960515/semantic-atlas/tree/main/.agents/skills/semantic-atlas
 ```
 
 之后，Codex 可以根据任务描述自动选择 `$semantic-atlas`，你也可以显式调用它。仓库贡献者会直接获得 `.agents/skills/semantic-atlas` 中随仓库检入的 Skill。

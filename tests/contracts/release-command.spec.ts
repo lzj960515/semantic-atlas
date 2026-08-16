@@ -16,12 +16,11 @@ describe("Semantic Atlas release command", () => {
     expect(instructions).toContain("--verify-tag");
     expect(instructions).toContain("gh run watch");
     expect(instructions).toContain("pnpm package:verify");
-    expect(instructions).toMatch(
-      /three current-version\s+references in each README/,
-    );
     expect(instructions).toContain(
-      "expected two current tag references in the Skill install section",
+      "README installation references stay version-independent",
     );
+    expect(instructions).not.toContain("PREVIOUS_VERSION");
+    expect(instructions).not.toContain("writeFileSync");
     expect(instructions).toContain('npm view "semantic-atlas@${version}"');
     expect(instructions).not.toContain("npm whoami");
     expect(instructions).not.toContain("npm publish");
@@ -48,5 +47,24 @@ describe("Semantic Atlas release command", () => {
     expect(workflow).toContain(
       "RELEASE_TAG: ${{ github.event.release.tag_name }}",
     );
+  });
+
+  it("tracks the latest CLI and repository Skill without version rewrites", async () => {
+    const readmes = await Promise.all(
+      ["README.md", "README.zh-CN.md"].map((readme) =>
+        readFile(resolve(readme), "utf8"),
+      ),
+    );
+
+    for (const readme of readmes) {
+      expect(readme).toContain("npm install --global semantic-atlas");
+      expect(readme).not.toMatch(/npm install --global semantic-atlas@/);
+      expect(readme).toContain(
+        "https://github.com/lzj960515/semantic-atlas/tree/main/.agents/skills/semantic-atlas",
+      );
+      expect(readme).not.toMatch(
+        /semantic-atlas\/tree\/v[^/]+\/\.agents\/skills\/semantic-atlas/,
+      );
+    }
   });
 });
