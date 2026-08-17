@@ -148,13 +148,13 @@ describe("Semantic Atlas Skill", () => {
     expect(skill).toContain("transient or unverified observations");
   });
 
-  it("keeps engineering work and repository facts outside the Skill", () => {
+  it("keeps engineering work and repository-local paths outside the Skill", () => {
     const skill = readFileSync(skillPath, "utf8");
 
     expect(skill).toContain("natural-language reasoning");
     expect(skill).toContain("source editing, tests, Git operations, and review");
     expect(skill).toContain("Atlas data");
-    expect(skill).not.toContain("Pietra");
+    expect(skill).not.toMatch(/(?:\/Users\/|apps\/)/u);
   });
 
   it("keeps all local references valid", () => {

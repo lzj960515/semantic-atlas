@@ -20,7 +20,7 @@ Semantic Atlas 为编程 Agent 提供一张本地世界图，把两类项目知�
 - **TypeScript 与 JavaScript 结构证据**：文件、符号、关系、框架入口和未解析边界。
 - **由 Agent 验证的业务知识**：能力、场景、操作、接口、数据、规则、测试，以及支撑它们的证据。
 
-`semantic-atlas` CLI 提供确定性、带版本的 JSON 操作；随包发布的 Codex Skill 则告诉 Agent 何时查询、何时回到源码，以及何时值得保留已经验证的知识。内嵌的 CodeGraph SDK 只是结构后端，不是第二个产品或工作流。
+`semantic-atlas` CLI 提供确定性、带版本的 JSON 操作；随包发布的 Codex Skill 则告诉 Agent 何时查询、何时回到源码，以及何时值得保留已经验证的知识。
 
 > **先查询，再确认源码；只学习证据真正证明的内容。**
 
@@ -37,8 +37,6 @@ Semantic Atlas 为编程 Agent 提供一张本地世界图，把两类项目知�
 ## 一张项目世界图
 
 ![Semantic Atlas 能力图，展示结构证据、业务知识、Agent 循环、统一世界图、显式不确定性与本地存储](docs/mindmaps/semantic-atlas-overview.zh-CN.png)
-
-这张总览是可编辑的 draw.io 思维导图：[打开简体中文源图](docs/mindmaps/semantic-atlas-overview.zh-CN.drawio)。[英文源图](docs/mindmaps/semantic-atlas-overview.drawio)与本地化图片一并维护。
 
 ## 快速开始
 
@@ -61,7 +59,7 @@ semantic-atlas status --repo /path/to/project
 $skill-installer Install semantic-atlas from https://github.com/lzj960515/semantic-atlas/tree/main/.agents/skills/semantic-atlas
 ```
 
-之后，Codex 可以根据任务描述自动选择 `$semantic-atlas`，你也可以显式调用它。仓库贡献者会直接获得 `.agents/skills/semantic-atlas` 中随仓库检入的 Skill。
+之后，Codex 可以根据任务描述自动选择 `$semantic-atlas`，你也可以显式调用它。
 
 ### 发起第一次查询
 
@@ -106,15 +104,15 @@ semantic-atlas map show module:src --depth 1
 
 这些只是在固定 fixture 上得到的对照结果，**不能**证明所有仓库都具有相同业务准确率，也不能代表模型总 token 节省。这里的 token 指标只统计使用 `tiktoken-o200k_base-v1` 观测到的源码输入。
 
-### 公共产物 Dogfood
+### 公开工作流验证
 
-独立的 [v0.1.1 版本](https://github.com/lzj960515/semantic-atlas/releases/tag/v0.1.1) dogfood 只使用公开 npm CLI 与标签 Skill，并在隔离的 `pietra-ex-api` 工作树中完成：
+我们在一个隔离的 TypeScript 项目中，使用从 npm registry 安装的 CLI 和本仓库公开的 Skill 验证了公开安装路径：
 
-- 第一个全新 Agent 完成 `missing → index → query → 源码确认 → learn`：索引用时 6.52 秒，发布 42,789 个事实，数据库大小为 40,308,736 字节；一次原子学习在 0.71 秒内写入 4 个业务节点与 8 条关系，随后所有学习节点均为 `valid`。
-- 第二个全新 Agent 没有看到前一个答案，也没有重复 `learn`，只通过正常的 `status`、搜索、根节点和详情查询就复用了这些知识。
-- 目标 revision 与普通 Git 状态前后不变；生成状态只存在于被忽略的 `.atlas/` 中。
+- 第一个全新 Agent 完成 `missing → index → query → 源码确认 → learn`。
+- 第二个全新 Agent 没有看到前一个答案，也没有重复 `learn`，只通过正常的 `status`、搜索、根节点和详情查询就发现并复用了已持久化的知识。
+- 验证前后，目标 revision 与普通 Git 状态保持不变；生成状态只存在于被忽略的 `.atlas/` 中。
 
-同一次 dogfood 也暴露了精度和发现性欠账：一个自然多词查询未在前十名召回已学习节点，框架邻接的 `map show` 输出过大，报告的 27,060 个未知边界缺少有用候选或优先级，源码检查还发现了一条同名方法的错误精确连接。这些事实约束了产品声明；dogfood 是运行证据和局限性来源，不是另一份准确率基准，也不是生产稳定性结论。
+这次验证说明安装路径、Agent 工作流、知识复用和零侵入行为可以协同工作；它不构成通用准确率基准或生产稳定性结论。
 
 ## 证据、不确定性与存储边界
 

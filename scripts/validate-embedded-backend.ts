@@ -337,7 +337,7 @@ async function seedPinnedFixture(
   validation: ValidationOptions,
 ): Promise<SeededFixture> {
   assert.equal(installation.resolvedBackendVersion, validation.pinnedVersion);
-  const fixtureRoot = join(root, "representative-pietra-fixture");
+  const fixtureRoot = join(root, "representative-project-fixture");
   await createRepresentativeFixture(fixtureRoot);
   const repositoryRoot = await realpath(fixtureRoot);
   const initialGitStatus = await git(repositoryRoot, "status", "--porcelain=v1", "--untracked-files=all");
@@ -451,7 +451,7 @@ async function validateCandidateUpgrade(
   const settledIndex = await runCli(installation.cliPath, ["index"], repositoryRoot, 120_000);
   assert.equal(settledIndex.exitCode, 0, settledIndex.stderr);
 
-  const linkedWorktree = join(root, "representative-pietra-linked-worktree");
+  const linkedWorktree = join(root, "representative-project-linked-worktree");
   await git(repositoryRoot, "worktree", "add", "-b", "validation-linked", linkedWorktree);
   const linkedIndex = await runCli(installation.cliPath, ["index"], linkedWorktree, 120_000);
   assert.equal(linkedIndex.exitCode, 0, linkedIndex.stderr);
@@ -1032,8 +1032,8 @@ async function createRepresentativeFixture(repositoryRoot: string): Promise<void
     await writeFile(absolutePath, contents);
   }
   await git(repositoryRoot, "add", ".");
-  await git(repositoryRoot, "commit", "-m", "test: initialize representative Pietra fixture");
-  await writeFile(join(repositoryRoot, "README.md"), "# Representative Pietra fixture\n\nPre-existing work.\n");
+  await git(repositoryRoot, "commit", "-m", "test: initialize representative project fixture");
+  await writeFile(join(repositoryRoot, "README.md"), "# Representative project fixture\n\nPre-existing work.\n");
 }
 
 function representativeFixtureSources(): Readonly<Record<string, string>> {
@@ -1049,7 +1049,7 @@ function representativeFixtureSources(): Readonly<Record<string, string>> {
       },
     }, null, 2)}\n`,
     "pnpm-lock.yaml": "lockfileVersion: '9.0'\n",
-    "README.md": "# Representative Pietra fixture\n",
+    "README.md": "# Representative project fixture\n",
     "src/order.entity.ts": [
       "import { Entity, PrimaryColumn } from 'typeorm';",
       "@Entity()",

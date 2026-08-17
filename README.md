@@ -20,7 +20,7 @@ Semantic Atlas gives coding agents one local map that joins two kinds of project
 - **Structural evidence** from TypeScript and JavaScript: files, symbols, relations, framework entry points, and unresolved boundaries.
 - **Agent-verified business knowledge**: capabilities, scenarios, operations, interfaces, data, rules, tests, and the evidence that supports them.
 
-The `semantic-atlas` CLI provides deterministic, versioned JSON operations. The packaged Codex Skill teaches an agent when to query, when to return to source, and when verified knowledge should be retained. The embedded CodeGraph SDK is an internal structural backend, not a second product or workflow.
+The `semantic-atlas` CLI provides deterministic, versioned JSON operations. The packaged Codex Skill teaches an agent when to query, when to return to source, and when verified knowledge should be retained.
 
 > **Query first. Confirm in source. Learn only what the evidence proves.**
 
@@ -37,8 +37,6 @@ Source code remains authoritative. Atlas is a revision-aware projection that mak
 ## One project world map
 
 ![Semantic Atlas capability map showing structural evidence, business knowledge, the Agent loop, one unified world map, explicit uncertainty, and local storage](docs/mindmaps/semantic-atlas-overview.png)
-
-The overview is an editable draw.io mind map: [open the English source](docs/mindmaps/semantic-atlas-overview.drawio). The [Simplified Chinese source](docs/mindmaps/semantic-atlas-overview.zh-CN.drawio) is maintained alongside its localized image.
 
 ## Quick start
 
@@ -61,7 +59,7 @@ Install the Skill from the repository's current `main` branch:
 $skill-installer Install semantic-atlas from https://github.com/lzj960515/semantic-atlas/tree/main/.agents/skills/semantic-atlas
 ```
 
-Codex can then select `$semantic-atlas` from the task description, or you can invoke it explicitly. Repository contributors already get the checked-in Skill from `.agents/skills/semantic-atlas`.
+Codex can then select `$semantic-atlas` from the task description, or you can invoke it explicitly.
 
 ### Run the first query
 
@@ -106,15 +104,15 @@ The gate was declared before collection and all 61 routed uncertainty events wer
 
 These are fixture-scoped comparative results. They do **not** establish universal business accuracy, performance on every repository, or total model-token savings; the token metric counts observed source input under `tiktoken-o200k_base-v1`.
 
-### Public-artifact dogfood
+### Public workflow validation
 
-The separate [v0.1.1 release](https://github.com/lzj960515/semantic-atlas/releases/tag/v0.1.1) dogfood used only the public npm CLI and tagged Skill in an isolated `pietra-ex-api` worktree:
+An isolated TypeScript project was used to validate the public installation path with the registry-installed CLI and the Skill from this repository:
 
-- A first fresh agent completed `missing → index → query → source confirmation → learn`: indexing took 6.52 seconds, published 42,789 facts, and created a 40,308,736-byte database. One atomic learning operation added 4 business nodes and 8 relations in 0.71 seconds; every learned node was then `valid`.
-- A second fresh agent discovered and reused that knowledge through normal `status`, search, roots, and show commands without receiving the previous answer or repeating `learn`.
+- A first fresh agent completed `missing → index → query → source confirmation → learn`.
+- A second fresh agent discovered and reused the persisted knowledge through normal `status`, search, roots, and show commands without receiving the previous answer or repeating `learn`.
 - The target revision and ordinary Git status stayed unchanged; generated state existed only in ignored `.atlas/` storage.
 
-That run also exposed precision and discoverability backlog: one natural multi-term query missed a learned node in its top ten, a framework-adjacent `map show` result was too large, 27,060 reported unknown boundaries lacked useful candidates or priority, and source inspection found one false exact same-name link. The dogfood is operational evidence and a source of limitations, not another accuracy benchmark or a production-stability claim.
+This validates installation, the Agent workflow, knowledge reuse, and zero-intrusion behavior in that project. It is not a universal accuracy benchmark or a production-stability claim.
 
 ## Evidence, uncertainty, and storage
 

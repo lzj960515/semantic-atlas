@@ -85,8 +85,10 @@ git commit -m "chore(release): prepare v${version}"
 git tag -a "v${version}" -m "Semantic Atlas v${version}"
 ```
 
-Confirm the commit contains only the package version. The stable README
-installation commands and historical v0.1.1 dogfood report remain unchanged.
+Confirm the commit contains only the package version. README installation
+commands remain version-independent: npm resolves the CLI through `latest`,
+and the Skill installer follows `main`. Public workflow validation remains
+anonymous and contains no private repository names or internal measurements.
 
 ### 6. Push the release commit and tag
 
