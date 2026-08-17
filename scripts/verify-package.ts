@@ -23,7 +23,6 @@ import {
 } from "../src/runtime/sqlite-compatibility-process.js";
 import {
   resolveConsumerInstallArguments,
-  resolveInstalledCliInvocation,
   resolvePackageManagerInvocation,
   type PackageManager,
 } from "./package-manager-command.js";
@@ -222,12 +221,14 @@ async function verifyInstalledCli(
   assert.ok(isAbsolute(initialStatusData.storeLocation));
   assert.equal(isPathWithin(repositoryRoot, initialStatusData.storeLocation), false);
   const realAtlasHome = await realpath(atlasHome);
+  const realStoreLocation = await realpath(initialStatusData.storeLocation);
   assert.equal(
-    isPathWithin(realAtlasHome, initialStatusData.storeLocation),
+    isPathWithin(realAtlasHome, realStoreLocation),
     true,
     `Atlas store must be inside its configured home: ${JSON.stringify({
       atlasHome: realAtlasHome,
       storeLocation: initialStatusData.storeLocation,
+      realStoreLocation,
     })}`,
   );
 
@@ -560,13 +561,14 @@ async function runCli(
     "bin.js",
   );
   const cliArguments = ["--repo", repositoryRoot, ...arguments_];
-  const invocation = resolveInstalledCliInvocation(cliEntry, cliArguments, packageManagerRuntime);
-  const result = await executeFile(invocation.executable, invocation.arguments, {
-    cwd: consumerRoot,
-    encoding: "utf8",
-    maxBuffer: 50 * 1024 * 1024,
-    timeout,
-  });
+  const result = packageManager === "pnpm"
+    ? await runPackageManager(["exec", "semantic-atlas", ...cliArguments], consumerRoot, timeout)
+    : await executeFile(process.execPath, [cliEntry, ...cliArguments], {
+      cwd: consumerRoot,
+      encoding: "utf8",
+      maxBuffer: 50 * 1024 * 1024,
+      timeout,
+    });
   return {
     exitCode: 0,
     stderr: result.stderr,
@@ -589,12 +591,12 @@ async function runCliWithInput(
     "cli",
     "bin.js",
   );
-  const invocation = resolveInstalledCliInvocation(cliEntry, [
+  const child = spawn(process.execPath, [
+    cliEntry,
     "--repo",
     repositoryRoot,
     ...arguments_,
-  ], packageManagerRuntime);
-  const child = spawn(invocation.executable, invocation.arguments, {
+  ], {
     cwd: consumerRoot,
     stdio: ["pipe", "pipe", "pipe"],
   });
