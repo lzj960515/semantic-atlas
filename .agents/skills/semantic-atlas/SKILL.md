@@ -21,8 +21,8 @@ and structured GraphPatch input; it does not interpret natural-language tasks.
    that worktree or pass its absolute path with `--repo <path>`, and confirm the
    response `repository.root` is the intended worktree.
 2. Run one Atlas CLI command at a time and wait for its complete response. The
-   worktree-local database and publication lifecycle form a serialized evidence
-   boundary.
+   current worktree publication and repository-wide knowledge transaction form
+   a serialized evidence boundary.
 3. Start with `semantic-atlas status` before broad source discovery. Read the
    versioned envelope, `data.freshness`, snapshot, warnings, and
    `data.backend.completeness` by stable fields and codes.

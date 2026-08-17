@@ -12,6 +12,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { createRequire } from "node:module";
 import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -88,6 +89,7 @@ const allowedExactCallRelations = [
 const options = await validationOptions();
 const sourceDependencyState = await readSourceDependencyState();
 const temporaryRoot = await mkdtemp(join(tmpdir(), "semantic-atlas-backend-validation-"));
+process.env.SEMANTIC_ATLAS_HOME = join(temporaryRoot, "atlas-home");
 
 try {
   const artifact = await packAtlas(temporaryRoot);
@@ -144,6 +146,7 @@ interface PackageArtifact {
 interface SeededFixture {
   readonly repositoryRoot: string;
   readonly databasePath: string;
+  readonly structuralDatabasePath: string;
   readonly initialGitStatus: string;
   readonly initialIndex: CliResult;
   readonly business: RepresentativeBusinessFlow;
@@ -345,15 +348,18 @@ async function seedPinnedFixture(
 
   const missing = await runCli(installation.cliPath, ["status"], repositoryRoot);
   assert.equal(missing.exitCode, 0);
-  assert.equal(commandData(missing, "status").freshness, "missing");
+  const missingData = commandData(missing, "status");
+  assert.equal(missingData.freshness, "missing");
 
   const initialIndex = await runCli(installation.cliPath, ["index"], repositoryRoot, 120_000);
   const initialIndexData = commandData(initialIndex, "index");
   assert.equal(initialIndex.exitCode, 0, initialIndex.stderr);
   assert.equal(initialIndexData.backendVersion, installation.resolvedBackendVersion);
   assert.match(String(initialIndexData.snapshotId), /^[0-9a-f]{64}$/u);
-  const databasePath = join(repositoryRoot, ".atlas", "codegraph.db");
+  const databasePath = String(missingData.storeLocation);
+  const structuralDatabasePath = join(repositoryRoot, ".atlas", "codegraph.db");
   assert.equal(await fileExists(databasePath), true);
+  assert.equal(await fileExists(structuralDatabasePath), true);
   assert.equal(initialIndex.envelope.repository?.root, repositoryRoot);
   assert.equal(await git(repositoryRoot, "status", "--porcelain=v1", "--untracked-files=all"), initialGitStatus);
 
@@ -365,6 +371,7 @@ async function seedPinnedFixture(
   return {
     repositoryRoot,
     databasePath,
+    structuralDatabasePath,
     initialGitStatus,
     initialIndex,
     business,
@@ -379,7 +386,12 @@ async function validateCandidateUpgrade(
   root: string,
   validation: ValidationOptions,
 ) {
-  const { repositoryRoot, databasePath, initialGitStatus } = seeded;
+  const {
+    repositoryRoot,
+    databasePath,
+    structuralDatabasePath,
+    initialGitStatus,
+  } = seeded;
   const preUpgradeStatus = await runCli(installation.cliPath, ["status"], repositoryRoot);
   assert.equal(preUpgradeStatus.exitCode, 0, preUpgradeStatus.stderr);
   assert.equal(commandData(preUpgradeStatus, "status").freshness, "current");
@@ -453,17 +465,47 @@ async function validateCandidateUpgrade(
 
   const linkedWorktree = join(root, "representative-project-linked-worktree");
   await git(repositoryRoot, "worktree", "add", "-b", "validation-linked", linkedWorktree);
-  const linkedIndex = await runCli(installation.cliPath, ["index"], linkedWorktree, 120_000);
+  await assertBootstrapSourceReady(
+    installation,
+    repository,
+    databasePath,
+    structuralDatabasePath,
+  );
+  installFullRebuildGuard(structuralDatabasePath);
+  let linkedIndex: CliResult;
+  try {
+    linkedIndex = await runCli(installation.cliPath, ["index"], linkedWorktree, 120_000);
+  } finally {
+    removeFullRebuildGuard(structuralDatabasePath);
+    const candidateLinkedDatabase = join(linkedWorktree, ".atlas", "codegraph.db");
+    if (await fileExists(candidateLinkedDatabase)) {
+      removeFullRebuildGuard(candidateLinkedDatabase);
+    }
+  }
   assert.equal(linkedIndex.exitCode, 0, linkedIndex.stderr);
+  const linkedFacts = factCounts(commandData(linkedIndex, "index"));
+  assert.deepEqual({
+    added: linkedFacts.added,
+    changed: linkedFacts.changed,
+    removed: linkedFacts.removed,
+  }, { added: 0, changed: 0, removed: 0 });
+  assert.ok(linkedFacts.reused > 0);
   const linkedDatabase = join(linkedWorktree, ".atlas", "codegraph.db");
   assert.equal(await fileExists(linkedDatabase), true);
-  assert.notEqual(linkedDatabase, databasePath);
+  assert.notEqual(linkedDatabase, structuralDatabasePath);
   assert.equal(await git(linkedWorktree, "status", "--porcelain=v1", "--untracked-files=all"), "");
+  const linkedRepository = await installation.api.inspectGitRepository(linkedWorktree);
+  assertRepresentativeBusinessView(await showCapability(installation.api, linkedRepository));
 
-  const schema = schemaOwnership(databasePath);
-  assert.ok(schema.codeGraphObjects > 0);
-  assert.ok(schema.atlasObjects > 0);
+  const schema = schemaOwnership(databasePath, [structuralDatabasePath, linkedDatabase]);
+  assert.ok(schema.localCodeGraphObjects > 0);
+  assert.ok(schema.centralAtlasObjects > 0);
+  assert.equal(schema.localAtlasObjects, 0);
+  assert.equal(schema.centralCodeGraphObjects, 0);
   assert.equal(schema.nonNamespacedAtlasObjects, 0);
+  await git(repositoryRoot, "worktree", "remove", linkedWorktree);
+  assertRepresentativeBusinessView(await showCapability(installation.api, repository));
+  assertRetainedWorktreeState(databasePath);
   const queryMeasurements = await measureQueries(installation.api, repository);
   const finalGitStatus = await git(repositoryRoot, "status", "--porcelain=v1", "--untracked-files=all");
   assert.equal(finalGitStatus, initialGitStatus);
@@ -481,7 +523,7 @@ async function validateCandidateUpgrade(
     contract: {
       directoryPlacement: true,
       sdkOperations: ["initial", "incremental", "full", "search", "traverse"],
-      schemaCoexistence: schema,
+      schemaIsolation: schema,
       upgradeFromPinnedStore: true,
       upgradeState: {
         businessKeysPreserved: seeded.persistedState.businessNodes.length,
@@ -503,7 +545,8 @@ async function validateCandidateUpgrade(
         restoredEvidence: "valid",
       },
       failedIndexRecovery: true,
-      linkedWorktreeIsolation: true,
+      linkedWorktreeBootstrap: "incremental",
+      linkedWorktreeKnowledge: "retained",
       trackedRepositoryIntrusion: false,
     },
     representativeFlow: {
@@ -534,7 +577,10 @@ async function validateCandidateUpgrade(
         unchanged: rounded(unchangedIndex.durationMs),
         recovered: rounded(recoveredIndex.durationMs),
       },
-      databaseBytes: (await stat(databasePath)).size,
+      databaseBytes: {
+        atlas: (await stat(databasePath)).size,
+        structural: (await stat(structuralDatabasePath)).size,
+      },
       queryMilliseconds: queryMeasurements,
     },
   };
@@ -779,9 +825,9 @@ async function measureQueries(
 function capturePersistedAtlasState(databasePath: string): PersistedAtlasState {
   using database = new DatabaseSync(databasePath, { readOnly: true });
   const worldStates = databaseRows(database, `
-    SELECT status, current_snapshot_id, current_publication_id
-    FROM atlas_world_state
-    ORDER BY repository_id
+    SELECT git_directory, status, current_snapshot_id, current_publication_id
+    FROM atlas_worktree_states
+    ORDER BY repository_id, git_directory
   `);
   assert.equal(worldStates.length, 1, "Expected one Atlas world state");
   return {
@@ -816,6 +862,7 @@ function capturePersistedAtlasState(databasePath: string): PersistedAtlasState {
     publications: databaseRows(database, `
       SELECT
         publication_id,
+        git_directory,
         previous_publication_id,
         snapshot_id,
         added_paths,
@@ -869,7 +916,7 @@ function createReconciliationFailure(databasePath: string): void {
   using database = new DatabaseSync(databasePath);
   database.exec(`
     CREATE TRIGGER atlas_validation_reconciliation_failure
-    BEFORE UPDATE OF status ON atlas_world_state
+    BEFORE UPDATE OF status ON atlas_worktree_states
     WHEN NEW.status = 'current'
     BEGIN
       SELECT RAISE(ABORT, 'forced packaged reconciliation failure');
@@ -882,18 +929,85 @@ function removeReconciliationFailure(databasePath: string): void {
   database.exec("DROP TRIGGER atlas_validation_reconciliation_failure");
 }
 
-function schemaOwnership(databasePath: string) {
-  using database = new DatabaseSync(databasePath, { readOnly: true });
-  const objects = database.prepare(`
-    SELECT name
-    FROM sqlite_master
-    WHERE name NOT LIKE 'sqlite_%'
-  `).all() as unknown as { readonly name: string }[];
-  const atlasObjects = objects.filter(({ name }) => name.startsWith("atlas_"));
-  const knownCodeGraphObjects = objects.filter(({ name }) => (
-    ["nodes", "edges", "files", "schema_versions", "unresolved_refs"].includes(name)
-    || name.startsWith("fts_")
-  ));
+async function assertBootstrapSourceReady(
+  installation: PackageInstallation,
+  repository: import("../src/repository/types.js").GitRepository,
+  atlasDatabasePath: string,
+  structuralDatabasePath: string,
+): Promise<void> {
+  using atlas = new DatabaseSync(atlasDatabasePath, { readOnly: true });
+  const state = atlas.prepare(`
+    SELECT state.status, state.backend_version, state.extraction_version, snapshot.payload
+    FROM atlas_worktree_states AS state
+    JOIN atlas_repository_snapshots AS snapshot
+      ON snapshot.repository_id = state.repository_id
+      AND snapshot.snapshot_id = state.current_snapshot_id
+    WHERE state.repository_id = ? AND state.git_directory = ?
+  `).get(repository.repositoryId, repository.gitDirectory) as {
+    status: string;
+    backend_version: string;
+    extraction_version: number;
+    payload: string;
+  };
+  assert.equal(state.status, "current");
+  assert.equal(state.backend_version, installation.resolvedBackendVersion);
+
+  using structural = new DatabaseSync(structuralDatabasePath, { readOnly: true });
+  const metadata = new Map((structural.prepare(`
+    SELECT key, value
+    FROM project_metadata
+    WHERE key IN ('indexed_with_version', 'indexed_with_extraction_version')
+  `).all() as unknown as { key: string; value: string }[]).map(({ key, value }) => [key, value]));
+  assert.equal(metadata.get("indexed_with_version"), state.backend_version);
+  assert.equal(Number(metadata.get("indexed_with_extraction_version")), state.extraction_version);
+  const snapshot = JSON.parse(state.payload) as import("../src/snapshots/types.js").RepositorySnapshot;
+  const sourceHashes = new Map(snapshot.files.flatMap((file) => (
+    isValidationSource(file.path) && file.worktree !== null
+      ? [[file.path, file.worktree.contentHash] as const]
+      : []
+  )));
+  const indexedHashes = new Map((structural.prepare(`
+    SELECT path, content_hash
+    FROM files
+    ORDER BY path
+  `).all() as unknown as { path: string; content_hash: string }[])
+    .filter(({ path }) => isValidationSource(path))
+    .map(({ path, content_hash }) => [path.replaceAll("\\", "/"), content_hash]));
+  assert.deepEqual(indexedHashes, sourceHashes);
+
+  const consumerRequire = createRequire(join(installation.consumerRoot, "package.json"));
+  const sdk = consumerRequire("@colbymchenry/codegraph") as typeof import("@colbymchenry/codegraph");
+  const originalCodeGraphDirectory = process.env.CODEGRAPH_DIR;
+  process.env.CODEGRAPH_DIR = ".atlas";
+  let graph: import("@colbymchenry/codegraph").CodeGraph | undefined;
+  try {
+    graph = await sdk.CodeGraph.open(repository.worktreeRoot, { sync: false, readOnly: true });
+    assert.equal(graph.isIndexStale(), false);
+  } finally {
+    graph?.close();
+    if (originalCodeGraphDirectory === undefined) {
+      delete process.env.CODEGRAPH_DIR;
+    } else {
+      process.env.CODEGRAPH_DIR = originalCodeGraphDirectory;
+    }
+  }
+}
+
+function isValidationSource(path: string): boolean {
+  return /\.(?:[cm]?[jt]sx?)$/iu.test(path);
+}
+
+function schemaOwnership(atlasDatabasePath: string, codeGraphDatabasePaths: readonly string[]) {
+  using atlasDatabase = new DatabaseSync(atlasDatabasePath, { readOnly: true });
+  const centralObjects = databaseObjectNames(atlasDatabase);
+  const localObjects = codeGraphDatabasePaths.flatMap((databasePath) => {
+    using database = new DatabaseSync(databasePath, { readOnly: true });
+    return databaseObjectNames(database);
+  });
+  const centralAtlasObjects = centralObjects.filter((name) => name.startsWith("atlas_"));
+  const localAtlasObjects = localObjects.filter((name) => name.startsWith("atlas_"));
+  const centralCodeGraphObjects = centralObjects.filter(isCodeGraphObject);
+  const localCodeGraphObjects = localObjects.filter(isCodeGraphObject);
   const legacyAtlasObjects = new Set([
     "repository_snapshots",
     "graph_node_identities",
@@ -902,10 +1016,56 @@ function schemaOwnership(databasePath: string) {
     "structural_node_locations",
   ]);
   return {
-    codeGraphObjects: knownCodeGraphObjects.length,
-    atlasObjects: atlasObjects.length,
-    nonNamespacedAtlasObjects: objects.filter(({ name }) => legacyAtlasObjects.has(name)).length,
+    centralAtlasObjects: centralAtlasObjects.length,
+    centralCodeGraphObjects: centralCodeGraphObjects.length,
+    localAtlasObjects: localAtlasObjects.length,
+    localCodeGraphObjects: localCodeGraphObjects.length,
+    nonNamespacedAtlasObjects: centralObjects
+      .filter((name) => legacyAtlasObjects.has(name)).length,
   };
+}
+
+function databaseObjectNames(database: DatabaseSync): readonly string[] {
+  return (database.prepare(`
+    SELECT name
+    FROM sqlite_schema
+    WHERE name NOT LIKE 'sqlite_%'
+  `).all() as unknown as { name: string }[]).map(({ name }) => name);
+}
+
+function isCodeGraphObject(name: string): boolean {
+  return ["nodes", "edges", "files", "schema_versions", "unresolved_refs"].includes(name)
+    || name.startsWith("fts_");
+}
+
+function installFullRebuildGuard(databasePath: string): void {
+  using database = new DatabaseSync(databasePath);
+  database.exec(`
+    CREATE TRIGGER validation_no_full_rebuild
+    BEFORE DELETE ON nodes
+    BEGIN
+      SELECT RAISE(ABORT, 'linked worktree attempted a full rebuild');
+    END;
+  `);
+}
+
+function removeFullRebuildGuard(databasePath: string): void {
+  using database = new DatabaseSync(databasePath);
+  database.exec("DROP TRIGGER IF EXISTS validation_no_full_rebuild");
+}
+
+function assertRetainedWorktreeState(databasePath: string): void {
+  using database = new DatabaseSync(databasePath, { readOnly: true });
+  const worktreeStates = database.prepare(`
+    SELECT COUNT(*) AS count
+    FROM atlas_worktree_states
+  `).get() as { count: number };
+  assert.equal(worktreeStates.count, 2);
+  const businessNodes = database.prepare(`
+    SELECT COUNT(*) AS count
+    FROM atlas_business_nodes
+  `).get() as { count: number };
+  assert.ok(businessNodes.count > 0);
 }
 
 function factCounts(data: Record<string, unknown>) {

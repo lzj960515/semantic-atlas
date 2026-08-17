@@ -99,11 +99,13 @@ export class GraphStore implements Disposable {
   readonly databasePath: string;
   readonly #atlasDatabase: AtlasDatabase;
   readonly #repositoryId: string;
+  readonly #gitDirectory: string;
 
   constructor(repository: GitRepository) {
     this.#atlasDatabase = new AtlasDatabase(repository);
     this.databasePath = this.#atlasDatabase.databasePath;
     this.#repositoryId = repository.repositoryId;
+    this.#gitDirectory = repository.gitDirectory;
   }
 
   get schemaVersion(): number {
@@ -114,6 +116,7 @@ export class GraphStore implements Disposable {
     contentIdentifierSchema.parse(snapshotId);
     this.transaction(() => {
       const snapshot = this.requireSnapshot(snapshotId);
+      this.reconcileEvidenceBindings(snapshot);
       this.refreshBusinessValidity(snapshot);
     });
   }
@@ -147,18 +150,19 @@ export class GraphStore implements Disposable {
   }
 
   getEvidence(owner: EvidenceOwner): readonly Evidence[] {
+    const snapshotId = this.currentSnapshotId();
     if (owner.type === "node") {
       const nodeId = this.findBusinessNodeId(owner.node.key);
-      return nodeId === undefined ? [] : this.readNodeEvidence(nodeId);
+      return nodeId === undefined ? [] : this.readNodeEvidence(nodeId, snapshotId);
     }
 
     const relation = this.findBusinessRelation(owner.relation);
-    return relation === undefined ? [] : this.readRelationEvidence(relation.relation_id);
+    return relation === undefined ? [] : this.readRelationEvidence(relation.relation_id, snapshotId);
   }
 
   listBusinessRelations(snapshotId: string): readonly BusinessGraphRelation[] {
     contentIdentifierSchema.parse(snapshotId);
-    return this.readBusinessRelations(snapshotId).map((row) => this.relationFromRow(row));
+    return this.readBusinessRelations(snapshotId).map((row) => this.relationFromRow(row, snapshotId));
   }
 
   listCapabilityRoots(snapshotId: string): readonly BusinessGraphNode[] {
@@ -420,7 +424,7 @@ export class GraphStore implements Disposable {
       `).run(nodeId, position, alias);
     });
     node.evidence.forEach((evidence, position) => {
-      this.insertNodeEvidence(nodeId, position, evidence as StoredEvidence);
+      this.insertNodeEvidence(nodeId, position, evidence as StoredEvidence, baseSnapshotId);
     });
     this.database.prepare(`
       INSERT INTO atlas_graph_search (
@@ -463,48 +467,87 @@ export class GraphStore implements Disposable {
     const target = relation.to.domain === "structural"
       ? readStructuralTargetBinding(relation) ?? inferredStructuralTarget(relation, baseSnapshotId)
       : undefined;
+    const relationId = this.storeBusinessRelation(baseSnapshotId, relation, targetKey, target);
     this.database.prepare(`
-      INSERT INTO atlas_business_relations (
-        repository_id,
-        base_snapshot_id,
-        from_key,
-        relation_type,
-        to_domain,
-        to_key,
-        certainty,
-        target_file,
-        target_qualified_symbol,
-        target_structural_kind,
-        target_start_line,
-        target_start_column,
-        target_end_line,
-        target_end_column,
-        target_atlas_snapshot_id,
-        target_backend_version,
-        target_backend_locator,
-        target_binding_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (repository_id, from_key, relation_type, to_domain, to_key)
-      DO UPDATE SET
-        base_snapshot_id = excluded.base_snapshot_id,
-        certainty = excluded.certainty,
-        target_file = excluded.target_file,
-        target_qualified_symbol = excluded.target_qualified_symbol,
-        target_structural_kind = excluded.target_structural_kind,
-        target_start_line = excluded.target_start_line,
-        target_start_column = excluded.target_start_column,
-        target_end_line = excluded.target_end_line,
-        target_end_column = excluded.target_end_column,
-        target_atlas_snapshot_id = excluded.target_atlas_snapshot_id,
-        target_backend_version = excluded.target_backend_version,
-        target_backend_locator = excluded.target_backend_locator,
-        target_binding_status = excluded.target_binding_status
+      DELETE FROM atlas_business_relation_evidence
+      WHERE relation_id = ?
+    `).run(relationId);
+    relation.evidence.forEach((evidence, position) => {
+      this.insertRelationEvidence(
+        relationId,
+        position,
+        evidence as StoredEvidence,
+        baseSnapshotId,
+      );
+    });
+    if (relation.to.domain === "structural") {
+      this.insertStructuralTargetBinding(relationId, baseSnapshotId, target);
+    }
+  }
+
+  private storeBusinessRelation(
+    baseSnapshotId: string,
+    relation: BusinessRelationInput,
+    targetKey: string,
+    target: StructuralTargetBinding | undefined,
+  ): number {
+    const existing = this.findBusinessRelation(relation);
+    if (existing === undefined) {
+      const result = this.database.prepare(`
+        INSERT INTO atlas_business_relations (
+          repository_id,
+          base_snapshot_id,
+          from_key,
+          relation_type,
+          to_domain,
+          to_key,
+          certainty,
+          target_file,
+          target_qualified_symbol,
+          target_structural_kind,
+          target_start_line,
+          target_start_column,
+          target_end_line,
+          target_end_column,
+          target_backend_locator
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        this.#repositoryId,
+        baseSnapshotId,
+        relation.from.key,
+        relation.type,
+        relation.to.domain,
+        targetKey,
+        relation.certainty,
+        target?.file ?? null,
+        target?.qualifiedSymbol ?? null,
+        target?.structuralKind ?? null,
+        target?.range.start.line ?? null,
+        target?.range.start.column ?? null,
+        target?.range.end.line ?? null,
+        target?.range.end.column ?? null,
+        target?.backendLocator ?? null,
+      );
+      return Number(result.lastInsertRowid);
+    }
+
+    this.database.prepare(`
+      UPDATE atlas_business_relations
+      SET
+        base_snapshot_id = ?,
+        to_key = ?,
+        certainty = ?,
+        target_file = ?,
+        target_qualified_symbol = ?,
+        target_structural_kind = ?,
+        target_start_line = ?,
+        target_start_column = ?,
+        target_end_line = ?,
+        target_end_column = ?,
+        target_backend_locator = ?
+      WHERE relation_id = ?
     `).run(
-      this.#repositoryId,
       baseSnapshotId,
-      relation.from.key,
-      relation.type,
-      relation.to.domain,
       targetKey,
       relation.certainty,
       target?.file ?? null,
@@ -514,22 +557,10 @@ export class GraphStore implements Disposable {
       target?.range.start.column ?? null,
       target?.range.end.line ?? null,
       target?.range.end.column ?? null,
-      target?.atlasSnapshotId ?? null,
-      target?.backendVersion ?? null,
       target?.backendLocator ?? null,
-      target === undefined ? "unresolved" : "bound",
+      existing.relation_id,
     );
-    const stored = this.findBusinessRelation(relation);
-    if (stored === undefined) {
-      throw new Error("Business relation was not stored");
-    }
-    this.database.prepare(`
-      DELETE FROM atlas_business_relation_evidence
-      WHERE relation_id = ?
-    `).run(stored.relation_id);
-    relation.evidence.forEach((evidence, position) => {
-      this.insertRelationEvidence(stored.relation_id, position, evidence as StoredEvidence);
-    });
+    return existing.relation_id;
   }
 
   private removeBusinessNode(key: string): void {
@@ -562,7 +593,12 @@ export class GraphStore implements Disposable {
     }
   }
 
-  private insertNodeEvidence(nodeId: number, position: number, evidence: StoredEvidence): void {
+  private insertNodeEvidence(
+    nodeId: number,
+    position: number,
+    evidence: StoredEvidence,
+    snapshotId: string,
+  ): void {
     this.database.prepare(`
       INSERT INTO atlas_business_node_evidence (
         node_id,
@@ -576,11 +612,8 @@ export class GraphStore implements Disposable {
         content_hash,
         qualified_symbol,
         structural_kind,
-        atlas_snapshot_id,
-        backend_version,
-        backend_locator,
-        binding_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'bound')
+        backend_locator
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       nodeId,
       position,
@@ -593,13 +626,24 @@ export class GraphStore implements Disposable {
       evidence.contentHash,
       evidence.qualifiedSymbol ?? null,
       evidence.structuralKind ?? null,
-      evidence.atlasSnapshotId ?? null,
-      evidence.backendVersion ?? null,
       evidence.backendLocator ?? null,
+    );
+    this.insertEvidenceBinding(
+      "atlas_business_node_evidence_bindings",
+      "node_id",
+      nodeId,
+      position,
+      snapshotId,
+      evidence,
     );
   }
 
-  private insertRelationEvidence(relationId: number, position: number, evidence: StoredEvidence): void {
+  private insertRelationEvidence(
+    relationId: number,
+    position: number,
+    evidence: StoredEvidence,
+    snapshotId: string,
+  ): void {
     this.database.prepare(`
       INSERT INTO atlas_business_relation_evidence (
         relation_id,
@@ -613,11 +657,8 @@ export class GraphStore implements Disposable {
         content_hash,
         qualified_symbol,
         structural_kind,
-        atlas_snapshot_id,
-        backend_version,
-        backend_locator,
-        binding_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'bound')
+        backend_locator
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       relationId,
       position,
@@ -630,9 +671,101 @@ export class GraphStore implements Disposable {
       evidence.contentHash,
       evidence.qualifiedSymbol ?? null,
       evidence.structuralKind ?? null,
-      evidence.atlasSnapshotId ?? null,
+      evidence.backendLocator ?? null,
+    );
+    this.insertEvidenceBinding(
+      "atlas_business_relation_evidence_bindings",
+      "relation_id",
+      relationId,
+      position,
+      snapshotId,
+      evidence,
+    );
+  }
+
+  private insertEvidenceBinding(
+    table: "atlas_business_node_evidence_bindings" | "atlas_business_relation_evidence_bindings",
+    ownerColumn: "node_id" | "relation_id",
+    ownerId: number,
+    position: number,
+    snapshotId: string,
+    evidence: StoredEvidence,
+  ): void {
+    this.database.prepare(`
+      INSERT INTO ${table} (
+        ${ownerColumn},
+        position,
+        repository_id,
+        snapshot_id,
+        resolved_structural_reference,
+        resolved_qualified_symbol,
+        resolved_structural_kind,
+        backend_version,
+        backend_locator,
+        binding_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'bound')
+    `).run(
+      ownerId,
+      position,
+      this.#repositoryId,
+      snapshotId,
+      evidence.symbolId,
+      evidence.qualifiedSymbol ?? null,
+      evidence.structuralKind ?? null,
       evidence.backendVersion ?? null,
       evidence.backendLocator ?? null,
+    );
+  }
+
+  private insertStructuralTargetBinding(
+    relationId: number,
+    snapshotId: string,
+    target: StructuralTargetBinding | undefined,
+  ): void {
+    this.database.prepare(`
+      INSERT INTO atlas_structural_relation_target_bindings (
+        relation_id,
+        repository_id,
+        snapshot_id,
+        resolved_structural_reference,
+        resolved_file,
+        resolved_qualified_symbol,
+        resolved_structural_kind,
+        resolved_start_line,
+        resolved_start_column,
+        resolved_end_line,
+        resolved_end_column,
+        backend_version,
+        backend_locator,
+        binding_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (relation_id, snapshot_id) DO UPDATE SET
+        resolved_structural_reference = excluded.resolved_structural_reference,
+        resolved_file = excluded.resolved_file,
+        resolved_qualified_symbol = excluded.resolved_qualified_symbol,
+        resolved_structural_kind = excluded.resolved_structural_kind,
+        resolved_start_line = excluded.resolved_start_line,
+        resolved_start_column = excluded.resolved_start_column,
+        resolved_end_line = excluded.resolved_end_line,
+        resolved_end_column = excluded.resolved_end_column,
+        backend_version = excluded.backend_version,
+        backend_locator = excluded.backend_locator,
+        binding_status = excluded.binding_status
+    `).run(
+      relationId,
+      this.#repositoryId,
+      snapshotId,
+      target?.structuralReference ?? null,
+      target?.file ?? null,
+      target?.qualifiedSymbol ?? null,
+      target?.structuralKind ?? null,
+      target?.range.start.line ?? null,
+      target?.range.start.column ?? null,
+      target?.range.end.line ?? null,
+      target?.range.end.column ?? null,
+      target?.backendVersion ?? null,
+      target?.backendLocator ?? null,
+      target === undefined ? "unresolved" : "bound",
     );
   }
 
@@ -643,6 +776,18 @@ export class GraphStore implements Disposable {
         `Evidence ${evidence.symbolId} at ${evidence.file} does not match snapshot ${snapshot.snapshotId}`,
       );
     }
+  }
+
+  private currentSnapshotId(): string {
+    const row = this.database.prepare(`
+      SELECT current_snapshot_id
+      FROM atlas_worktree_states
+      WHERE repository_id = ? AND git_directory = ?
+    `).get(this.#repositoryId, this.#gitDirectory) as { current_snapshot_id: string | null };
+    if (row.current_snapshot_id === null) {
+      throw new Error("The current worktree has no published Atlas snapshot");
+    }
+    return row.current_snapshot_id;
   }
 
   private refreshAllBusinessValidity(): void {
@@ -657,6 +802,79 @@ export class GraphStore implements Disposable {
     }
   }
 
+  private reconcileEvidenceBindings(snapshot: RepositorySnapshot): void {
+    this.reconcileEvidenceBindingTable(
+      "atlas_business_node_evidence",
+      "atlas_business_node_evidence_bindings",
+      "node_id",
+      snapshot,
+    );
+    this.reconcileEvidenceBindingTable(
+      "atlas_business_relation_evidence",
+      "atlas_business_relation_evidence_bindings",
+      "relation_id",
+      snapshot,
+    );
+  }
+
+  private reconcileEvidenceBindingTable(
+    evidenceTable: "atlas_business_node_evidence" | "atlas_business_relation_evidence",
+    bindingTable: "atlas_business_node_evidence_bindings" | "atlas_business_relation_evidence_bindings",
+    ownerColumn: "node_id" | "relation_id",
+    snapshot: RepositorySnapshot,
+  ): void {
+    const contentHashes = new Map(snapshot.files.flatMap((file) => (
+      file.worktree === null ? [] : [[file.path, file.worktree.contentHash] as const]
+    )));
+    const evidenceRows = this.database.prepare(`
+      SELECT ${ownerColumn} AS owner_id, position, file, content_hash
+      FROM ${evidenceTable}
+      ORDER BY ${ownerColumn}, position
+    `).all() as unknown as {
+      owner_id: number;
+      position: number;
+      file: string;
+      content_hash: string;
+    }[];
+    for (const evidence of evidenceRows) {
+      if (contentHashes.get(evidence.file) !== evidence.content_hash) {
+        continue;
+      }
+      this.database.prepare(`
+        INSERT INTO ${bindingTable} (
+          ${ownerColumn},
+          position,
+          repository_id,
+          snapshot_id,
+          resolved_structural_reference,
+          resolved_qualified_symbol,
+          resolved_structural_kind,
+          backend_version,
+          backend_locator,
+          binding_status
+        )
+        SELECT
+          ${ownerColumn},
+          position,
+          repository_id,
+          ?,
+          resolved_structural_reference,
+          resolved_qualified_symbol,
+          resolved_structural_kind,
+          backend_version,
+          backend_locator,
+          'bound'
+        FROM ${bindingTable}
+        WHERE ${ownerColumn} = ?
+          AND position = ?
+          AND binding_status = 'bound'
+        ORDER BY rowid DESC
+        LIMIT 1
+        ON CONFLICT (${ownerColumn}, position, snapshot_id) DO NOTHING
+      `).run(snapshot.snapshotId, evidence.owner_id, evidence.position);
+    }
+  }
+
   private refreshBusinessValidity(snapshot: RepositorySnapshot): void {
     const nodeRows = this.database.prepare(`
       SELECT node_id
@@ -664,7 +882,10 @@ export class GraphStore implements Disposable {
       WHERE repository_id = ?
     `).all(this.#repositoryId) as unknown as { node_id: number }[];
     for (const { node_id } of nodeRows) {
-      const validity = allEvidenceMatches(this.readNodeEvidenceRows(node_id), snapshot)
+      const validity = allEvidenceMatches(
+        this.readNodeEvidenceRows(node_id, snapshot.snapshotId),
+        snapshot,
+      )
         ? "valid"
         : "stale";
       this.database.prepare(`
@@ -680,19 +901,28 @@ export class GraphStore implements Disposable {
     }
 
     const relationRows = this.database.prepare(`
-      SELECT relation_id, to_domain, target_binding_status
-      FROM atlas_business_relations
-      WHERE repository_id = ?
-    `).all(this.#repositoryId) as unknown as {
+      SELECT
+        relation.relation_id,
+        relation.to_domain,
+        target.binding_status AS target_binding_status
+      FROM atlas_business_relations AS relation
+      LEFT JOIN atlas_structural_relation_target_bindings AS target
+        ON target.relation_id = relation.relation_id
+        AND target.snapshot_id = ?
+      WHERE relation.repository_id = ?
+    `).all(snapshot.snapshotId, this.#repositoryId) as unknown as {
       relation_id: number;
       to_domain: "structural" | "business";
-      target_binding_status: EvidenceRow["binding_status"];
+      target_binding_status: EvidenceRow["binding_status"] | null;
     }[];
     for (const relation of relationRows) {
       const targetIsBound = relation.to_domain === "business"
         || relation.target_binding_status === "bound";
       const validity = targetIsBound
-        && allEvidenceMatches(this.readRelationEvidenceRows(relation.relation_id), snapshot)
+        && allEvidenceMatches(
+          this.readRelationEvidenceRows(relation.relation_id, snapshot.snapshotId),
+          snapshot,
+        )
         ? "valid"
         : "stale";
       this.database.prepare(`
@@ -742,61 +972,71 @@ export class GraphStore implements Disposable {
       aliases: aliases.map(({ alias }) => alias),
       certainty: row.certainty,
       validity: row.validity,
-      evidence: this.readNodeEvidence(row.node_id),
+      evidence: this.readNodeEvidence(row.node_id, snapshotId),
       baseSnapshotId: row.base_snapshot_id,
     };
   }
 
-  private readNodeEvidence(nodeId: number): readonly Evidence[] {
-    return this.readNodeEvidenceRows(nodeId).map(evidenceFromRow);
+  private readNodeEvidence(nodeId: number, snapshotId: string): readonly Evidence[] {
+    return this.readNodeEvidenceRows(nodeId, snapshotId).map(evidenceFromRow);
   }
 
-  private readNodeEvidenceRows(nodeId: number): readonly EvidenceRow[] {
+  private readNodeEvidenceRows(nodeId: number, snapshotId: string): readonly EvidenceRow[] {
     return this.database.prepare(`
       SELECT
-        structural_reference,
-        file,
-        start_line,
-        start_column,
-        end_line,
-        end_column,
-        content_hash,
-        qualified_symbol,
-        structural_kind,
-        atlas_snapshot_id,
-        backend_version,
-        backend_locator,
-        binding_status
-      FROM atlas_business_node_evidence
-      WHERE node_id = ?
-      ORDER BY position ASC
-    `).all(nodeId) as unknown as EvidenceRow[];
+        COALESCE(binding.resolved_structural_reference, evidence.structural_reference)
+          AS structural_reference,
+        evidence.file,
+        evidence.start_line,
+        evidence.start_column,
+        evidence.end_line,
+        evidence.end_column,
+        evidence.content_hash,
+        COALESCE(binding.resolved_qualified_symbol, evidence.qualified_symbol) AS qualified_symbol,
+        COALESCE(binding.resolved_structural_kind, evidence.structural_kind) AS structural_kind,
+        binding.snapshot_id AS atlas_snapshot_id,
+        binding.backend_version,
+        COALESCE(binding.backend_locator, evidence.backend_locator) AS backend_locator,
+        COALESCE(binding.binding_status, 'unresolved') AS binding_status
+      FROM atlas_business_node_evidence AS evidence
+      LEFT JOIN atlas_business_node_evidence_bindings AS binding
+        ON binding.node_id = evidence.node_id
+        AND binding.position = evidence.position
+        AND binding.snapshot_id = ?
+      WHERE evidence.node_id = ?
+      ORDER BY evidence.position ASC
+    `).all(snapshotId, nodeId) as unknown as EvidenceRow[];
   }
 
-  private readRelationEvidence(relationId: number): readonly Evidence[] {
-    return this.readRelationEvidenceRows(relationId).map(evidenceFromRow);
+  private readRelationEvidence(relationId: number, snapshotId: string): readonly Evidence[] {
+    return this.readRelationEvidenceRows(relationId, snapshotId).map(evidenceFromRow);
   }
 
-  private readRelationEvidenceRows(relationId: number): readonly EvidenceRow[] {
+  private readRelationEvidenceRows(relationId: number, snapshotId: string): readonly EvidenceRow[] {
     return this.database.prepare(`
       SELECT
-        structural_reference,
-        file,
-        start_line,
-        start_column,
-        end_line,
-        end_column,
-        content_hash,
-        qualified_symbol,
-        structural_kind,
-        atlas_snapshot_id,
-        backend_version,
-        backend_locator,
-        binding_status
-      FROM atlas_business_relation_evidence
-      WHERE relation_id = ?
-      ORDER BY position ASC
-    `).all(relationId) as unknown as EvidenceRow[];
+        COALESCE(binding.resolved_structural_reference, evidence.structural_reference)
+          AS structural_reference,
+        evidence.file,
+        evidence.start_line,
+        evidence.start_column,
+        evidence.end_line,
+        evidence.end_column,
+        evidence.content_hash,
+        COALESCE(binding.resolved_qualified_symbol, evidence.qualified_symbol) AS qualified_symbol,
+        COALESCE(binding.resolved_structural_kind, evidence.structural_kind) AS structural_kind,
+        binding.snapshot_id AS atlas_snapshot_id,
+        binding.backend_version,
+        COALESCE(binding.backend_locator, evidence.backend_locator) AS backend_locator,
+        COALESCE(binding.binding_status, 'unresolved') AS binding_status
+      FROM atlas_business_relation_evidence AS evidence
+      LEFT JOIN atlas_business_relation_evidence_bindings AS binding
+        ON binding.relation_id = evidence.relation_id
+        AND binding.position = evidence.position
+        AND binding.snapshot_id = ?
+      WHERE evidence.relation_id = ?
+      ORDER BY evidence.position ASC
+    `).all(snapshotId, relationId) as unknown as EvidenceRow[];
   }
 
   private readBusinessRelations(snapshotId: string): readonly BusinessRelationRow[] {
@@ -807,19 +1047,26 @@ export class GraphStore implements Disposable {
         relation.from_key,
         relation.relation_type,
         relation.to_domain,
-        relation.to_key,
+        CASE
+          WHEN relation.to_domain = 'structural'
+            THEN COALESCE(target.resolved_structural_reference, relation.to_key)
+          ELSE relation.to_key
+        END AS to_key,
         relation.certainty,
         COALESCE(validity.validity, 'stale') AS validity
       FROM atlas_business_relations AS relation
       LEFT JOIN atlas_business_relation_validity AS validity
         ON validity.relation_id = relation.relation_id
         AND validity.snapshot_id = ?
+      LEFT JOIN atlas_structural_relation_target_bindings AS target
+        ON target.relation_id = relation.relation_id
+        AND target.snapshot_id = ?
       WHERE relation.repository_id = ?
       ORDER BY relation.from_key, relation.relation_type, relation.to_domain, relation.to_key
-    `).all(snapshotId, this.#repositoryId) as unknown as BusinessRelationRow[];
+    `).all(snapshotId, snapshotId, this.#repositoryId) as unknown as BusinessRelationRow[];
   }
 
-  private relationFromRow(row: BusinessRelationRow): BusinessGraphRelation {
+  private relationFromRow(row: BusinessRelationRow, snapshotId: string): BusinessGraphRelation {
     return {
       domain: "business",
       from: { domain: "business", key: row.from_key },
@@ -830,7 +1077,7 @@ export class GraphStore implements Disposable {
       baseSnapshotId: row.base_snapshot_id,
       certainty: row.certainty,
       validity: row.validity,
-      evidence: this.readRelationEvidence(row.relation_id),
+      evidence: this.readRelationEvidence(row.relation_id, snapshotId),
     } as BusinessGraphRelation;
   }
 
@@ -857,7 +1104,7 @@ export class GraphStore implements Disposable {
         adjacency.push({
           relationKey: `business:${row.relation_id}`,
           direction: currentDirection,
-          relation: this.relationFromRow(row),
+          relation: this.relationFromRow(row, snapshotId),
           node,
         });
       }
@@ -879,12 +1126,24 @@ export class GraphStore implements Disposable {
         AND from_key = ?
         AND relation_type = ?
         AND to_domain = ?
-        AND to_key = ?
+        AND (
+          to_key = ?
+          OR (
+            to_domain = 'structural'
+            AND EXISTS (
+              SELECT 1
+              FROM atlas_structural_relation_target_bindings AS binding
+              WHERE binding.relation_id = atlas_business_relations.relation_id
+                AND binding.resolved_structural_reference = ?
+            )
+          )
+        )
     `).get(
       this.#repositoryId,
       selector.from.key,
       selector.type,
       selector.to.domain,
+      targetKey,
       targetKey,
     ) as { relation_id: number } | undefined;
   }

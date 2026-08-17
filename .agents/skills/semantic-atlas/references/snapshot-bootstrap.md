@@ -8,7 +8,11 @@ worktree.
 ## Publish structural state
 
 1. For `missing`, `stale`, failed, or incomplete state, run
-   `semantic-atlas index` and inspect the returned envelope.
+   `semantic-atlas index` and inspect the returned envelope. In a new Git
+   worktree, this command automatically restores a compatible sibling
+   CodeGraph projection and incrementally synchronizes it; no separate
+   initialization command is needed. When no candidate is compatible, the same
+   command performs the initial full index.
 2. Run `semantic-atlas status` again. Continue with Atlas only when freshness is
    `current` and backend completeness is `complete`.
 3. Run `semantic-atlas map roots`. Structural `Module` roots are valid initial

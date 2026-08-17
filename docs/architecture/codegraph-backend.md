@@ -2,9 +2,9 @@
 
 ## Decision
 
-Semantic Atlas embeds the verified `@colbymchenry/codegraph` 1.5.0 package as its initial structural-index SDK. It sets `CODEGRAPH_DIR=.atlas` and accepts `.atlas/codegraph.db` as the v0.1 physical database path.
+Semantic Atlas embeds the verified `@colbymchenry/codegraph` 1.5.0 package as its structural-index SDK. It uses the SDK's fixed `.atlas/codegraph.db` path as a worktree-local disposable projection and stores durable Atlas knowledge in a separate user-level repository database.
 
-This decision produces one product, one index command, one durable SQLite database, and one logical world graph. It avoids waiting for an upstream database-path option and avoids copying a large language-analysis implementation into Atlas.
+This decision produces one product, one index command, two explicit storage lifecycles, and one logical world graph. It requires no upstream database-path option and lets linked worktrees share durable business meaning without sharing one mutable structural index.
 
 ## System model
 
@@ -20,25 +20,25 @@ WorldModelService
     |                             |-- extraction and resolution
     |                             |-- structural search and traversal
     |
-    |-- BusinessKnowledgeStore -- capabilities, flows, data, rules, evidence
+    |-- BusinessKnowledgeStore -- ~/.semantic-atlas/repositories/<id>/atlas.db
     |
     `-- WorldGraphQuery -------- normalizes and composes both domains
                                   |
-                         .atlas/codegraph.db
+                         <worktree>/.atlas/codegraph.db
 ```
 
 `CodeGraphBackend` is an anti-corruption layer, not a second public API. Atlas domain code depends on Atlas structural query types. Backend node kinds, edge kinds, identifiers, errors, and version metadata are translated at this boundary.
 
 ## Physical and logical ownership
 
-The SQLite file contains multiple table families because they have different writers and lifecycles. They are one database, not two exported datasets.
+The two SQLite files have different owners and lifecycles. They remain internal stores behind one Atlas query contract.
 
 | Owner | Table family | Lifecycle |
 | --- | --- | --- |
-| CodeGraph | `nodes`, `edges`, `files`, `unresolved_refs`, FTS, schema and backend metadata | Rebuilt or incrementally synchronized from source |
-| Atlas | `atlas_metadata`, `atlas_snapshots`, `atlas_business_nodes`, `atlas_business_relations`, `atlas_evidence`, `atlas_assertion_validity` | Migrated and updated by Atlas only |
+| CodeGraph worktree projection | `nodes`, `edges`, `files`, `unresolved_refs`, FTS, schema and backend metadata | Copied from a compatible sibling, rebuilt, or incrementally synchronized from source |
+| Atlas repository store | `atlas_*` business, snapshot, binding, validity, worktree-state, and publication objects | Shared by all worktrees and updated by Atlas only |
 
-Atlas accesses structural behavior through the CodeGraph public SDK. Atlas SQL migrations and repositories access only `atlas_*` objects. The world graph is composed in `WorldGraphQuery`; the public CLI never exposes table origin.
+Atlas accesses structural behavior through the CodeGraph public SDK and durable knowledge through its user-level database. `WorldGraphQuery` joins evidence locators and structural references in memory; the public CLI never exposes table origin or a second workflow.
 
 The implementation contains no Atlas-owned structural projection tables. Keeping those tables would duplicate CodeGraph data and restore the two-graph problem this design resolves.
 
@@ -91,7 +91,7 @@ Atlas business knowledge does not own CodeGraph rows. An evidence record contain
 - a source content hash;
 - the Atlas snapshot and structural-backend version observed at learning time.
 
-No cascading foreign key points from `atlas_*` evidence to a CodeGraph structural table. CodeGraph may clear and recreate its structural rows during a supported rebuild. After every successful index, Atlas attempts to rebind evidence from the durable locator tuple. A unique match is current, a missing or ambiguous match is stale, and certainty remains unchanged.
+No cascading foreign key points from `atlas_*` evidence to a CodeGraph structural table. The original evidence locator remains repository-wide. After every successful index, Atlas writes a binding for that content snapshot; a unique match is current, a missing or ambiguous match is stale, and certainty remains unchanged. One worktree's rebinding never overwrites another snapshot's result.
 
 Structural relation targets own the same kind of durable locator independently from their supporting evidence. A relation may target one structural node while its evidence cites another; Atlas resolves both locators separately and marks the relation stale when either one is missing or ambiguous.
 
@@ -106,6 +106,8 @@ Atlas owns directory preparation:
 5. verify the resolved CodeGraph database path is exactly `<worktree>/.atlas/codegraph.db` before writing.
 
 The environment override is contained inside `CodeGraphBackend`; callers do not configure CodeGraph. Each worktree has its own `.atlas/` because CodeGraph's index, SQLite locks, and dirty source state are worktree- and operating-system-specific.
+
+When `codegraph.db` is missing, `StructuralProjectionBootstrapper` reads compatible `current` sibling states from the repository Atlas database. Exact-snapshot candidates sort first, followed by the most recent successful publication and normalized path. Under the sibling's existing structural lock, Atlas rejects symlinks, integrity failures, incomplete metadata, version mismatches, and source-manifest mismatches; it copies only the SQLite database with `node:sqlite.backup()`, atomically installs the destination, and always runs incremental `sync` in the destination root. All failed candidates lead to the normal full-index fallback.
 
 ## Index state machine
 
@@ -129,60 +131,55 @@ Normal updates use CodeGraph incremental sync. A full structural rebuild uses `C
 - `CodeGraph.uninitialize()`, which removes the entire `.atlas/` directory;
 - the CodeGraph CLI rebuild path, which is allowed to choose destructive lifecycle operations.
 
-Before mutating an existing structural index, the adapter captures an online backup of the shared database. Both full rebuild and incremental sync discard that backup only after a complete result; an incomplete result or exception restores the previously published structural graph and colocated `atlas_*` data before the Atlas lock is released.
+Before mutating an existing structural index, the adapter captures an online backup of the CodeGraph database. Both full rebuild and incremental sync discard that backup only after a complete result; an incomplete result or exception restores the previously published structural graph before the Atlas lock is released.
 
-A future physical-database recovery command must copy or export Atlas-owned tables, replace the structural database, restore Atlas data, and verify evidence before publishing `current`.
+The structural database contains no Atlas-owned tables, so replacing or deleting a worktree projection cannot delete durable business knowledge.
 
 ## Snapshot semantics
 
 CodeGraph's structural tables represent the current code projection. Atlas snapshots record repository content identity, Git state, relevant file hashes, the CodeGraph package and extraction versions, build outcome, and evidence validity.
 
-Atlas does not preserve a second full historical structural graph. Repository snapshots are content-addressed and may recur, while every successful index/sync creates a distinct immutable Atlas publication occurrence. The current world state points to the latest occurrence; each occurrence points to its predecessor, its content snapshot, target validity metadata, and path-level backend diagnostics. Business assertions remain durable across snapshots and expose validity for the requested current snapshot.
+Atlas does not preserve a second full historical structural graph. Repository snapshots are content-addressed and may recur, while every successful index/sync creates a distinct immutable publication occurrence scoped to `(repository_id, git_directory)`. Each worktree state points to its own latest occurrence and predecessor chain. Business assertions remain repository-wide and expose binding-derived validity for the requested snapshot.
 
 The change query proves the requested source snapshot is an ancestor of the target by following the immutable publication-occurrence chain. Repeated content identities resolve deterministically within the current chain: `to` selects the latest matching occurrence and `from` selects the latest match at or before that target; equal endpoints select the same occurrence. Atlas compares the supported source content stored in the two endpoint snapshots and returns the net added, changed, and removed `file:` references. This endpoint comparison is independent of the structural backend's incremental Git baseline: intermediate additions that are later removed and removals restored with identical content cancel naturally. Stale assertions describe validity at the selected target occurrence rather than the union of intermediate failures. Atlas does not query mutable CodeGraph rows as if they were a historical snapshot or reconstruct unsupported historical node and relation changes.
 
-World publication captures the repository snapshot after acquiring the Atlas write lock, verifies it again after structural indexing, and compares its source hashes with CodeGraph's indexed file manifest. If source changes during that interval, including a transient change that restores the same final snapshot, Atlas rolls the structural database back and leaves the prior world snapshot as the last published revision. Every publication occurrence is immutable, so a later sync of identical content appends a new occurrence instead of replacing earlier path-level diagnostics.
+World publication captures the repository snapshot after acquiring the Atlas write lock, verifies it again after structural indexing, and compares its source hashes with CodeGraph's indexed file manifest. A mismatch rolls back the structural database and leaves the prior world snapshot current. After validation, Atlas commits CodeGraph first and then publishes the user-level Atlas transaction. If that central transaction fails, the durable CodeGraph projection remains, the worktree state is non-current, and the next `index` repairs publication through incremental sync. Every successful occurrence is immutable.
 
 ## Failure and upgrade behavior
 
 - A CodeGraph index or sync error fails the Atlas index command and leaves the world snapshot non-current.
-- Atlas schema migration failure leaves CodeGraph structural data present but unpublished through Atlas until migration succeeds.
+- A user-level Atlas transaction failure leaves complete CodeGraph structural data present but unavailable to map and learn until a later index republishes the worktree state.
 - Unsupported structure is returned as backend support metadata or an unresolved boundary; Atlas does not invent an exact edge.
-- The dependency version is pinned exactly rather than selected through a semver range. The compatible host range is Node.js 22.12 through 24. Node.js 22.12 through 22.15 lack the FTS5 module required by CodeGraph 1.5.0, so the adapter runs its private SDK worker with the dependency's bundled Node.js runtime on those hosts; Node.js 22.16 through 24 use the SDK in process. Both paths expose the same Atlas contract and invoke no CodeGraph CLI, MCP, or daemon lifecycle. Upgrades run fixture repositories through index, sync, rebuild, query normalization, schema coexistence, and evidence-rebinding tests before changing the lockfile.
+- The dependency version is pinned exactly rather than selected through a semver range. The compatible host range is Node.js 22.12 through 24. Node.js 22.12 through 22.15 lack the FTS5 module required by CodeGraph 1.5.0, so the adapter runs its private SDK worker with the dependency's bundled Node.js runtime on those hosts; Node.js 22.16 through 24 use the SDK in process. Both paths expose the same Atlas contract and invoke no CodeGraph CLI, MCP, or daemon lifecycle. Upgrades run fixture repositories through index, sync, rebuild, query normalization, split-schema ownership, and evidence-rebinding tests before changing the lockfile.
 - If an upstream release changes structural IDs, locator-based rebinding preserves stable Atlas business keys and makes unmatched evidence stale.
 
 Run `pnpm validation:backend` to validate the installed tarball against the
 current exact dependency. To evaluate a new release before changing the pin,
 run `pnpm validation:backend -- --candidate <version> --allow-network`. The
 isolated consumer overrides only its installed candidate; the source manifest
-and lockfile remain unchanged. A pinned consumer first creates the database and
-learns business knowledge; after it closes, a separate candidate consumer must
-open and preserve that same store through incremental and full operations. The
-command also compares required structural endpoints and bounded false exact
-links with the pinned baseline. It rejects candidates that change the database
-location, SDK lifecycle, schema ownership, normalized support, business data,
-evidence, prior publications, recovery, structural quality, or worktree
-isolation contracts, and prints the measured index, database, and query costs.
+and lockfile remain unchanged. The gate validates a pure CodeGraph worktree
+projection, the user-level Atlas schema, sibling bootstrap plus incremental
+sync, snapshot-specific rebinding, and business-knowledge preservation. It also
+compares required structural endpoints and bounded false exact links with the
+pinned baseline, and prints measured index, database, and query costs.
 
 ## Pre-release storage transition
 
-The pre-release external `atlas.sqlite` layout is intentionally reset rather than imported. It contains the superseded duplicate structural projection, was never part of a published release, and cannot be copied into the shared database without violating schema ownership. Rebuild the worktree-local structural index, then relearn any experimental business assertions through GraphPatch.
-
-The shared layout preserves the business node, relation, GraphPatch, evidence, certainty, validity, transaction, and lexical contracts in `atlas_*` objects. Evidence keeps public structural references without foreign keys to CodeGraph rows. The following reconciliation task extends those records with backend locators, qualified names, structural kinds, snapshot/backend versions, and the combined publication state machine.
+The previous colocated `.atlas/codegraph.db` layout is intentionally reset rather than imported. Existing `.atlas` data is a disposable development cache. The user-level schema starts at v1, and durable knowledge is learned through the current GraphPatch contract.
 
 ## Alternatives considered
 
 ### Wait for an upstream database-path option
 
-This would permit an `atlas.db` filename, but the filename has no product value and waiting creates schedule risk. `.atlas/codegraph.db` already satisfies the single-directory and single-database boundary.
+This would permit relocating CodeGraph itself, but the product no longer needs that capability. Atlas accepts the SDK's local path and moves only its own durable state.
 
 ### Run CodeGraph as a separate CLI or MCP product
 
 This would force agents to coordinate two tools, two public contracts, and two failure models. It conflicts with the single Semantic Atlas workflow.
 
-### Store a CodeGraph database and an Atlas database
+### Share one mutable CodeGraph database across worktrees
 
-This creates duplicate lifecycle, backup, freshness, and joining problems. Co-locating the schemas in one SQLite file provides clear ownership without creating data islands.
+Different branches and dirty files require independent structural projections. Sharing a mutable projection would mix snapshots and locks; sibling backup plus incremental sync reuses work without sharing mutation.
 
 ### Copy CodeGraph source into Semantic Atlas
 

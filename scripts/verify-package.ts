@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { DatabaseSync } from "node:sqlite";
 import {
   access,
   mkdir,
@@ -15,6 +16,7 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { cliEnvelopeSchema, type CliEnvelope } from "../src/contracts/cli.js";
+import type { StructuralGraphNode } from "../src/graph/types.js";
 import {
   resolveConsumerInstallArguments,
   resolvePackageManagerInvocation,
@@ -30,6 +32,8 @@ const packageManagerRuntime = {
   packageManagerEntry: process.env.npm_execpath,
 } as const;
 const temporaryRoot = await mkdtemp(join(tmpdir(), "semantic-atlas-package-"));
+const atlasHome = join(temporaryRoot, "atlas-home");
+process.env.SEMANTIC_ATLAS_HOME = atlasHome;
 
 try {
   const tarballPath = await packProject();
@@ -40,7 +44,12 @@ try {
   await assertPackagedArtifacts(installedRoot);
 
   const repositoryRoot = await createFixtureRepository();
-  const report = await verifyInstalledCli(consumerRoot, repositoryRoot, installedPackage.version);
+  const report = await verifyInstalledCli(
+    consumerRoot,
+    installedRoot,
+    repositoryRoot,
+    installedPackage.version,
+  );
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });
@@ -182,12 +191,19 @@ async function createFixtureRepository(): Promise<string> {
 
 async function verifyInstalledCli(
   consumerRoot: string,
+  installedRoot: string,
   repositoryRoot: string,
   version: string,
 ) {
+  const api = await import(pathToFileURL(join(installedRoot, "dist", "index.js")).href) as
+    typeof import("../src/index.js");
   const initialStatus = await runCli(consumerRoot, ["status"], repositoryRoot);
   assertSuccessfulCommand(initialStatus, "status");
-  assert.equal(commandData(initialStatus, "status").freshness, "missing");
+  const initialStatusData = commandData(initialStatus, "status");
+  assert.equal(initialStatusData.freshness, "missing");
+  assert.ok(isAbsolute(initialStatusData.storeLocation));
+  assert.equal(isPathWithin(repositoryRoot, initialStatusData.storeLocation), false);
+  assert.equal(isPathWithin(await realpath(atlasHome), initialStatusData.storeLocation), true);
 
   const indexed = await runCli(consumerRoot, ["index"], repositoryRoot, 120_000);
   assertSuccessfulCommand(indexed, "index");
@@ -203,9 +219,87 @@ async function verifyInstalledCli(
     })}`,
   );
   assert.match(commandData(indexed, "index").snapshotId, /^[0-9a-f]{64}$/u);
+  const primaryDatabase = join(repositoryRoot, ".atlas", "codegraph.db");
+  await access(primaryDatabase);
+  assertSplitDatabaseOwnership(initialStatusData.storeLocation, primaryDatabase);
+
+  const learnedKey = await learnGreetingCapability(
+    api,
+    consumerRoot,
+    repositoryRoot,
+  );
+  const learned = await runCli(consumerRoot, ["map", "show", learnedKey], repositoryRoot);
+  assertSuccessfulCommand(learned, "map.show");
+  assert.equal(commandData(learned, "map.show").node.domain, "business");
+
+  const linkedWorktree = join(temporaryRoot, "fixture-linked");
+  await git(repositoryRoot, "worktree", "add", "-b", "package-linked", linkedWorktree);
+  installFullRebuildGuard(primaryDatabase);
+  let linkedIndex: CliResult;
+  try {
+    linkedIndex = await runCli(consumerRoot, ["index"], linkedWorktree, 120_000);
+  } finally {
+    removeFullRebuildGuard(primaryDatabase);
+    const linkedDatabase = join(linkedWorktree, ".atlas", "codegraph.db");
+    if (await fileExists(linkedDatabase)) {
+      removeFullRebuildGuard(linkedDatabase);
+    }
+  }
+  assertSuccessfulCommand(linkedIndex, "index");
+  const bootstrapFacts = structuralFactCounts(commandData(linkedIndex, "index"));
+  assert.deepEqual(
+    { added: bootstrapFacts.added, changed: bootstrapFacts.changed, removed: bootstrapFacts.removed },
+    { added: 0, changed: 0, removed: 0 },
+  );
+  assert.ok(bootstrapFacts.reused > 0);
+  const linkedDatabase = join(linkedWorktree, ".atlas", "codegraph.db");
+  assertSplitDatabaseOwnership(initialStatusData.storeLocation, linkedDatabase);
+  const linkedLearned = await runCli(consumerRoot, ["map", "show", learnedKey], linkedWorktree);
+  assertSuccessfulCommand(linkedLearned, "map.show");
+  assert.equal(commandData(linkedLearned, "map.show").node.validity, "valid");
+
+  await writeFile(join(linkedWorktree, "src", "greeting.ts"), [
+    "export function greeting(name: string): string {",
+    "  return `Hello, ${name}!`;",
+    "}",
+    "",
+  ].join("\n"));
+  const linkedRepository = await api.inspectGitRepository(linkedWorktree);
+  const linkedSync = await new api.WorldModelService(linkedRepository).sync();
+  assert.equal(linkedSync.structural.mode, "incremental");
+  assert.equal(linkedSync.structural.counts.filesIndexed, 1);
+  assert.deepEqual(linkedSync.structural.changes, {
+    added: [],
+    modified: ["src/greeting.ts"],
+    removed: [],
+  });
+  await git(linkedWorktree, "add", "src/greeting.ts");
+  await git(linkedWorktree, "commit", "-m", "test: update greeting fixture");
+  assert.equal(await git(linkedWorktree, "status", "--porcelain=v1", "--untracked-files=all"), "");
+
+  await git(repositoryRoot, "merge", "--ff-only", "package-linked");
+  const primaryRepository = await api.inspectGitRepository(repositoryRoot);
+  const mergeSync = await new api.WorldModelService(primaryRepository).sync();
+  assert.equal(mergeSync.structural.mode, "incremental");
+  assert.equal(mergeSync.structural.counts.filesIndexed, 1);
+
+  await git(repositoryRoot, "worktree", "remove", linkedWorktree);
+  const retainedQuery = new api.WorldGraphQuery(primaryRepository);
+  try {
+    const retained = await retainedQuery.show(
+      { domain: "business", key: learnedKey },
+      { maxDepth: 1 },
+    );
+    assert.ok(retained, "Repository knowledge must survive linked-worktree removal");
+  } finally {
+    retainedQuery.close();
+  }
+  assertRetainedWorktreeKnowledge(initialStatusData.storeLocation, learnedKey);
 
   const roots = await runCli(consumerRoot, ["map", "roots"], repositoryRoot);
-  assertSuccessfulCommand(roots, "map.roots");
+  assert.equal(roots.exitCode, 0);
+  assert.ok(roots.envelope.status === "ok" || roots.envelope.status === "partial");
+  assert.equal(roots.envelope.data.command, "map.roots");
   assert.ok(commandData(roots, "map.roots").nodes.length > 0);
   assert.equal(await git(repositoryRoot, "status", "--porcelain=v1", "--untracked-files=all"), "");
   assert.equal(isPathWithin(projectRoot, consumerRoot), false);
@@ -219,9 +313,174 @@ async function verifyInstalledCli(
       status: "missing",
       index: "current",
       mapRoots: commandData(roots, "map.roots").nodes.length,
+      learnedKey,
+      linkedBootstrap: "incremental",
+      linkedSmallEditFilesIndexed: linkedSync.structural.counts.filesIndexed,
+      mergeSideFilesIndexed: mergeSync.structural.counts.filesIndexed,
+      worktreeRemovalKnowledge: "retained",
+      privateWorker: usesPrivateWorkerRuntime(),
+      atlasDatabase: initialStatusData.storeLocation,
       trackedRepositoryIntrusion: false,
     },
   };
+}
+
+async function learnGreetingCapability(
+  api: typeof import("../src/index.js"),
+  consumerRoot: string,
+  repositoryRoot: string,
+): Promise<string> {
+  const repository = await api.inspectGitRepository(repositoryRoot);
+  const query = new api.WorldGraphQuery(repository);
+  let structuralNode: StructuralGraphNode | undefined;
+  try {
+    structuralNode = (await query.search("greeting", { limit: 20 }))
+      .map(({ node }) => node)
+      .find((node): node is StructuralGraphNode => (
+        node.domain === "structural"
+        && node.kind !== "UnknownBoundary"
+        && node.label === "greeting"
+      ));
+  } finally {
+    query.close();
+  }
+  assert.ok(structuralNode);
+  const location = structuralNode.locations[0];
+  assert.ok(location, "The greeting symbol must have a source location");
+  const snapshots = new api.SnapshotStore(repository);
+  let snapshot: ReturnType<typeof snapshots.latest>;
+  try {
+    snapshot = snapshots.latest();
+  } finally {
+    snapshots.close();
+  }
+  assert.ok(snapshot, "The primary index must publish an Atlas snapshot");
+  const source = snapshot.files.find(({ path }) => path === location.file)?.worktree;
+  assert.ok(source, "The greeting source must exist in the published snapshot");
+  const key = "fixture/greeting";
+  const patch = {
+    schemaVersion: 1,
+    baseSnapshotId: snapshot.snapshotId,
+    nodeOperations: [{
+      op: "upsert",
+      node: {
+        key,
+        kind: "Capability",
+        label: "Greeting",
+        summary: "Formats the fixture greeting for a named recipient.",
+        aliases: ["hello"],
+        certainty: "exact",
+        evidence: [{
+          symbolId: structuralNode.id,
+          file: location.file,
+          range: location.range,
+          contentHash: source.contentHash,
+        }],
+      },
+    }],
+    relationOperations: [],
+  };
+  const learned = await runCliWithInput(
+    consumerRoot,
+    ["learn", "--stdin"],
+    repositoryRoot,
+    JSON.stringify(patch),
+  );
+  assertSuccessfulCommand(learned, "learn");
+  assert.deepEqual(commandData(learned, "learn").applied, {
+    nodeOperations: 1,
+    relationOperations: 0,
+  });
+  return key;
+}
+
+function assertSplitDatabaseOwnership(atlasDatabase: string, codeGraphDatabase: string): void {
+  const atlas = new DatabaseSync(atlasDatabase, { readOnly: true });
+  const codeGraph = new DatabaseSync(codeGraphDatabase, { readOnly: true });
+  try {
+    const atlasObjects = databaseObjectNames(atlas);
+    const codeGraphObjects = databaseObjectNames(codeGraph);
+    assert.ok(atlasObjects.some((name) => name === "atlas_business_nodes"));
+    assert.equal(atlasObjects.some(isCodeGraphObject), false);
+    assert.ok(codeGraphObjects.some((name) => name === "nodes"));
+    assert.equal(codeGraphObjects.some((name) => name.startsWith("atlas_")), false);
+  } finally {
+    codeGraph.close();
+    atlas.close();
+  }
+}
+
+function databaseObjectNames(database: DatabaseSync): readonly string[] {
+  return (database.prepare(`
+    SELECT name
+    FROM sqlite_schema
+    WHERE name NOT LIKE 'sqlite_%'
+    ORDER BY name
+  `).all() as unknown as { name: string }[]).map(({ name }) => name);
+}
+
+function isCodeGraphObject(name: string): boolean {
+  return ["nodes", "edges", "files", "schema_versions", "unresolved_refs"].includes(name)
+    || name.startsWith("fts_");
+}
+
+function installFullRebuildGuard(databasePath: string): void {
+  const database = new DatabaseSync(databasePath);
+  try {
+    database.exec(`
+      CREATE TRIGGER package_verify_no_full_rebuild
+      BEFORE DELETE ON nodes
+      BEGIN
+        SELECT RAISE(ABORT, 'packaged linked worktree attempted a full rebuild');
+      END;
+    `);
+  } finally {
+    database.close();
+  }
+}
+
+function removeFullRebuildGuard(databasePath: string): void {
+  const database = new DatabaseSync(databasePath);
+  try {
+    database.exec("DROP TRIGGER IF EXISTS package_verify_no_full_rebuild");
+  } finally {
+    database.close();
+  }
+}
+
+function assertRetainedWorktreeKnowledge(atlasDatabase: string, learnedKey: string): void {
+  const database = new DatabaseSync(atlasDatabase, { readOnly: true });
+  try {
+    const business = database.prepare(`
+      SELECT COUNT(*) AS count
+      FROM atlas_business_nodes
+      WHERE node_key = ?
+    `).get(learnedKey) as { count: number };
+    assert.equal(business.count, 1);
+    const worktrees = database.prepare(`
+      SELECT COUNT(*) AS count
+      FROM atlas_worktree_states
+    `).get() as { count: number };
+    assert.equal(worktrees.count, 2, "Deleted worktree metadata must remain in repository history");
+  } finally {
+    database.close();
+  }
+}
+
+function structuralFactCounts(
+  data: Extract<CliEnvelope["data"], { command: "index" }>,
+) {
+  return {
+    added: data.facts.added,
+    changed: data.facts.changed,
+    reused: data.facts.reused,
+    removed: data.facts.removed,
+  };
+}
+
+function usesPrivateWorkerRuntime(): boolean {
+  const [major = 0, minor = 0] = process.versions.node.split(".").map(Number);
+  return major === 22 && minor < 16;
 }
 
 async function inspectInstalledSnapshotState(
@@ -290,6 +549,58 @@ async function runCli(
   };
 }
 
+async function runCliWithInput(
+  consumerRoot: string,
+  arguments_: readonly string[],
+  repositoryRoot: string,
+  input: string,
+  timeout = 30_000,
+): Promise<CliResult> {
+  const cliEntry = join(
+    consumerRoot,
+    "node_modules",
+    "semantic-atlas",
+    "dist",
+    "cli",
+    "bin.js",
+  );
+  const child = spawn(process.execPath, [
+    cliEntry,
+    "--repo",
+    repositoryRoot,
+    ...arguments_,
+  ], {
+    cwd: consumerRoot,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk: string) => { stdout += chunk; });
+  child.stderr.on("data", (chunk: string) => { stderr += chunk; });
+  child.stdin.end(input);
+  const exitCode = await new Promise<number>((resolveExit, reject) => {
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`semantic-atlas timed out after ${timeout}ms`));
+    }, timeout);
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.once("close", (code) => {
+      clearTimeout(timer);
+      resolveExit(code ?? 1);
+    });
+  });
+  return {
+    exitCode,
+    stderr,
+    envelope: cliEnvelopeSchema.parse(JSON.parse(stdout)) as CliEnvelope,
+  };
+}
+
 function assertSuccessfulCommand(
   result: CliResult,
   command: CliEnvelope["data"]["command"],
@@ -340,4 +651,13 @@ async function git(cwd: string, ...arguments_: string[]): Promise<string> {
     encoding: "utf8",
     maxBuffer: 10 * 1024 * 1024,
   })).stdout.trimEnd();
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  return access(path).then(() => true, (error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  });
 }

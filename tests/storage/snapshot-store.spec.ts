@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { inspectGitRepository } from "../../src/repository/repository-inspector.js";
 import { createRepositorySnapshot } from "../../src/snapshots/repository-snapshot.js";
 import { SnapshotStore } from "../../src/storage/snapshot-store.js";
-import { CodeGraphStructuralBackend } from "../../src/structural-backend/codegraph-backend.js";
+import { WorldModelService } from "../../src/world/world-model-service.js";
 import { createGitFixture, type GitFixture } from "../support/git-fixture.js";
 
 describe("worktree snapshot storage", () => {
@@ -15,26 +15,27 @@ describe("worktree snapshot storage", () => {
     await Promise.all(fixtures.splice(0).map((fixture) => fixture.cleanup()));
   });
 
-  it("requires the structural lifecycle to initialize the shared database", async () => {
+  it("initializes user-level snapshot storage without writing into the worktree", async () => {
     const fixture = await createGitFixture();
     fixtures.push(fixture);
     const repository = await inspectGitRepository(fixture.directory);
 
-    expect(() => new SnapshotStore(repository)).toThrow();
+    using store = new SnapshotStore(repository);
+    expect(store.databasePath).toContain(`/repositories/${repository.repositoryId}/atlas.db`);
     await expect(access(join(fixture.directory, ".atlas"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
-  it("persists and retrieves snapshots from the ignored worktree store", async () => {
+  it("persists snapshots and resolves latest through the current worktree publication", async () => {
     const fixture = await createGitFixture();
     fixtures.push(fixture);
     const repository = await inspectGitRepository(fixture.directory);
-    const structural = await new CodeGraphStructuralBackend(repository).build();
-    expect(structural.completeness).toBe("complete");
+    const publication = await new WorldModelService(repository).build();
+    expect(publication.structural.completeness).toBe("complete");
     const snapshot = await createRepositorySnapshot(repository);
 
     using store = new SnapshotStore(repository);
     store.save(snapshot);
-    expect(store.databasePath).toBe(join(repository.worktreeRoot, ".atlas", "codegraph.db"));
+    expect(store.databasePath).not.toBe(join(repository.worktreeRoot, ".atlas", "codegraph.db"));
     expect(store.find(snapshot.snapshotId)).toEqual(snapshot);
     expect(store.latest()).toEqual(snapshot);
     store.close();
@@ -51,7 +52,6 @@ describe("worktree snapshot storage", () => {
     fixtures.push(fixture, otherFixture);
     const repository = await inspectGitRepository(fixture.directory);
     const otherRepository = await inspectGitRepository(otherFixture.directory);
-    await new CodeGraphStructuralBackend(repository).build();
     const otherSnapshot = await createRepositorySnapshot(otherRepository);
 
     using store = new SnapshotStore(repository);

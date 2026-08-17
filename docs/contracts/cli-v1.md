@@ -45,7 +45,7 @@ Every command writes one JSON envelope to standard output. The normative discrim
       "changes": { "staged": 0, "unstaged": 0, "untracked": 0 }
     },
     "freshness": "missing",
-    "storeLocation": "/workspace/example/.atlas/codegraph.db",
+    "storeLocation": "/home/agent/.semantic-atlas/repositories/0123456789abcdef/atlas.db",
     "languages": [
       { "language": "typescript", "support": "supported" }
     ]
@@ -59,6 +59,7 @@ Every command writes one JSON envelope to standard output. The normative discrim
 - `partial` means usable data contains explicit unsupported, stale, or unknown boundaries.
 - Business map nodes and relations always include `certainty`, derived `validity`, and evidence. Structural relations preserve normalized backend provenance and support as additive result metadata; unknown boundaries expose `unknown`, their reason, location, and candidates. Unsupported languages include a reason instead of an approximate analysis.
 - `warnings` contains stable codes and descriptions for non-fatal conditions. Consumers use codes rather than parsing messages.
+- `storeLocation` identifies the repository-wide Atlas knowledge database. The current worktree's `.atlas/codegraph.db` path remains an internal structural-backend detail.
 
 ## Command data
 

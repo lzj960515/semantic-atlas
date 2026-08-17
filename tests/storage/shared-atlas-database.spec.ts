@@ -1,507 +1,265 @@
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+
 import { afterEach, describe, expect, it } from "vitest";
 
 import { GraphStore } from "../../src/graph/graph-store.js";
-import type { BusinessGraphMutation, Evidence } from "../../src/graph/types.js";
+import { BusinessKnowledgeService } from "../../src/knowledge/business-knowledge-service.js";
 import { inspectGitRepository } from "../../src/repository/repository-inspector.js";
 import { createRepositorySnapshot } from "../../src/snapshots/repository-snapshot.js";
+import { AtlasDatabase } from "../../src/storage/atlas-database.js";
 import { SnapshotStore } from "../../src/storage/snapshot-store.js";
 import { CodeGraphStructuralBackend } from "../../src/structural-backend/codegraph-backend.js";
+import { StructuralProjectionBootstrapper } from "../../src/structural-backend/structural-projection-bootstrapper.js";
+import { WorldModelService } from "../../src/world/world-model-service.js";
 import { WorldSnapshotStore } from "../../src/world/world-snapshot-store.js";
 import { createGitFixture, type GitFixture } from "../support/git-fixture.js";
 
-describe("shared Atlas database", () => {
+describe("split Atlas storage", () => {
   const fixtures: GitFixture[] = [];
+  const linkedWorktrees = new Map<GitFixture, string[]>();
 
   afterEach(async () => {
-    await Promise.all(fixtures.splice(0).map((fixture) => fixture.cleanup()));
+    await Promise.all(fixtures.splice(0).map(async (fixture) => {
+      for (const worktree of linkedWorktrees.get(fixture) ?? []) {
+        await fixture.git("worktree", "remove", "--force", worktree).catch(() => undefined);
+      }
+      await fixture.cleanup();
+    }));
+    linkedWorktrees.clear();
   });
 
-  it("creates only namespaced Atlas objects beside CodeGraph's schema", async () => {
-    const context = await createSharedDatabaseContext(fixtures);
-    const structuralBefore = readCodeGraphOwnershipCounts(context.databasePath);
-    using snapshots = new SnapshotStore(context.repository);
-    snapshots.save(context.snapshot);
-    using graph = new GraphStore(context.repository);
-    graph.reconcileSnapshot(context.snapshot.snapshotId);
+  it("keeps repository knowledge in the user store and only CodeGraph in the worktree", async () => {
+    const fixture = await createFixture(fixtures);
+    const repository = await inspectGitRepository(fixture.directory);
+    const publication = await new WorldModelService(repository).build();
+    using graph = new GraphStore(repository);
+    using snapshots = new SnapshotStore(repository);
 
-    expect(snapshots.databasePath).toBe(context.databasePath);
-    expect(graph.databasePath).toBe(context.databasePath);
-
-    using database = new DatabaseSync(context.databasePath);
-    const atlasObjects = database.prepare(`
-      SELECT name
-      FROM sqlite_master
-      WHERE name LIKE 'atlas_%'
-      ORDER BY name ASC
-    `).all() as unknown as { name: string }[];
-    expect(atlasObjects.length).toBeGreaterThan(0);
-    expect(atlasObjects.every(({ name }) => name.startsWith("atlas_"))).toBe(true);
-    expect(database.prepare("SELECT COUNT(*) AS count FROM schema_versions").get())
-      .toMatchObject({ count: expect.any(Number) });
-    expect(readCodeGraphOwnershipCounts(context.databasePath)).toEqual(structuralBefore);
-
-    const obsoleteTables = database.prepare(`
-      SELECT name
-      FROM sqlite_master
-      WHERE type = 'table'
-        AND name IN (
-          'repository_snapshots',
-          'graph_node_identities',
-          'structural_nodes',
-          'structural_relations',
-          'structural_node_locations'
-        )
-    `).all();
-    expect(obsoleteTables).toEqual([]);
+    expect(graph.databasePath).toBe(snapshots.databasePath);
+    expect(graph.databasePath).not.toBe(publication.structural.databasePath);
+    expect(readObjectNames(graph.databasePath, "atlas_%")).toEqual(expect.arrayContaining([
+      "atlas_business_nodes",
+      "atlas_repository_snapshots",
+      "atlas_worktree_states",
+      "atlas_world_publications",
+    ]));
+    expect(readObjectNames(publication.structural.databasePath, "atlas_%")).toEqual([]);
+    expect(readObjectNames(publication.structural.databasePath, "files")).toEqual(["files"]);
+    expect(await fixture.git("status", "--porcelain", "--untracked-files=all")).toBe("");
   });
 
-  it("preserves snapshots and business knowledge across a structural clear and full index", async () => {
-    const context = await createSharedDatabaseContext(fixtures);
-    using snapshots = new SnapshotStore(context.repository);
-    snapshots.save(context.snapshot);
-    using graph = new GraphStore(context.repository);
-    graph.reconcileSnapshot(context.snapshot.snapshotId);
-    graph.mutateBusinessGraph(businessMutation(context.snapshot.snapshotId, context.evidence));
-    graph.close();
-    snapshots.close();
-
-    await expect(context.backend.build()).resolves.toMatchObject({
-      completeness: "complete",
-      mode: "full",
-    });
-
-    using reopenedSnapshots = new SnapshotStore(context.repository);
-    using reopenedGraph = new GraphStore(context.repository);
-    expect(reopenedSnapshots.latest()).toEqual(context.snapshot);
-    expect(reopenedGraph.getNode(
-      { domain: "business", key: "fixture/read-value" },
-      context.snapshot.snapshotId,
-    )).toMatchObject({
-      label: "Read value",
-      validity: "valid",
-      evidence: [context.evidence],
-    });
-  });
-
-  it("backfills v2 structural targets only from evidence for the same reference", async () => {
-    const context = await createSharedDatabaseContext(fixtures);
-    using snapshots = new SnapshotStore(context.repository);
-    snapshots.save(context.snapshot);
-    const matchingTarget = context.evidence.symbolId;
-    const independentTarget = "symbol:src/independent.ts#independent";
-    using graph = new GraphStore(context.repository);
-    graph.mutateBusinessGraph({
-      ...businessMutation(context.snapshot.snapshotId, context.evidence),
-      upsertRelations: [matchingTarget, independentTarget].map((target) => ({
-        from: { domain: "business" as const, key: "fixture/read-value" },
-        type: "realized_by" as const,
-        to: { domain: "structural" as const, id: target },
-        certainty: "exact" as const,
-        evidence: [context.evidence],
-      })),
-    });
-    graph.close();
-    snapshots.close();
-
-    downgradeTargetLocatorSchema(context.databasePath);
-
-    using migrated = new GraphStore(context.repository);
-    expect(migrated.schemaVersion).toBe(5);
-    using database = new DatabaseSync(context.databasePath, { readOnly: true });
-    const migratedTargets = database.prepare(`
-      SELECT to_key, target_file, target_binding_status
-      FROM atlas_business_relations
-    `).all() as unknown as {
-      to_key: string;
-      target_file: string | null;
-      target_binding_status: string;
-    }[];
-    const targetByReference = new Map(migratedTargets.map((target) => [target.to_key, target]));
-    expect(targetByReference.get(matchingTarget)).toEqual({
-      to_key: matchingTarget,
-      target_file: context.evidence.file,
-      target_binding_status: "bound",
-    });
-    expect(targetByReference.get(independentTarget)).toEqual({
-      to_key: independentTarget,
-      target_file: null,
-      target_binding_status: "unresolved",
-    });
-  });
-
-  it("migrates snapshot-keyed changes into an ordered publication chain", async () => {
-    const context = await createSharedDatabaseContext(fixtures);
-    using world = new WorldSnapshotStore(context.repository);
-    world.begin(context.snapshot.snapshotId);
-    world.publish(context.snapshot, "1.5.0", 1, emptyResolver(), {
-      fromSnapshotId: null,
-      toSnapshotId: context.snapshot.snapshotId,
-      structural: { added: ["src/example.ts"], modified: [], removed: [] },
-    });
-    await context.fixture.write("src/example.ts", "export const value = 2;\n");
-    const changed = await createRepositorySnapshot(context.repository);
-    world.begin(changed.snapshotId);
-    world.publish(changed, "1.5.0", 1, emptyResolver(), {
-      fromSnapshotId: context.snapshot.snapshotId,
-      toSnapshotId: changed.snapshotId,
-      structural: { added: [], modified: ["src/example.ts"], removed: [] },
-    });
-    world.close();
-
-    downgradePublicationSchema(context.databasePath);
-
-    using migrated = new WorldSnapshotStore(context.repository);
-    expect(migrated.readState()).toMatchObject({
-      status: "current",
-      currentSnapshotId: changed.snapshotId,
-    });
-    expect(migrated.readSemanticChanges()).toEqual({
-      fromSnapshotId: context.snapshot.snapshotId,
-      toSnapshotId: changed.snapshotId,
-      nodes: { added: [], changed: ["file:src/example.ts"], removed: [] },
-      relations: { added: [], changed: [], removed: [] },
-      staleAssertions: [],
-    });
-    using database = new DatabaseSync(context.databasePath, { readOnly: true });
-    expect(database.prepare(`
-      SELECT
-        publication.snapshot_id,
-        previous.snapshot_id AS previous_snapshot_id
-      FROM atlas_world_publications AS publication
-      LEFT JOIN atlas_world_publications AS previous
-        ON previous.publication_id = publication.previous_publication_id
-      ORDER BY publication.publication_id
-    `).all()).toEqual([
-      { snapshot_id: context.snapshot.snapshotId, previous_snapshot_id: null },
-      {
-        snapshot_id: changed.snapshotId,
-        previous_snapshot_id: context.snapshot.snapshotId,
-      },
-    ]);
-    expect(database.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
-  });
-
-  it("preserves v4 relation state while adding invokes support", async () => {
-    const context = await createSharedDatabaseContext(fixtures);
-    using snapshots = new SnapshotStore(context.repository);
-    snapshots.save(context.snapshot);
-    using graph = new GraphStore(context.repository);
-    graph.mutateBusinessGraph(relationMigrationMutation(context.snapshot.snapshotId, context.evidence));
-    graph.close();
-    snapshots.close();
-
-    downgradeBusinessRelationSchema(context.databasePath);
-
-    using migrated = new GraphStore(context.repository);
-    expect(migrated.schemaVersion).toBe(5);
-    expect(migrated.listBusinessRelations(context.snapshot.snapshotId)).toEqual([
-      expect.objectContaining({
-        type: "reads",
-        validity: "valid",
-        evidence: [context.evidence],
-      }),
-    ]);
-    migrated.mutateBusinessGraph({
-      baseSnapshotId: context.snapshot.snapshotId,
-      upsertNodes: [],
-      removeNodeKeys: [],
-      upsertRelations: [{
-        from: { domain: "business", key: "fixture/read-value" },
-        type: "invokes",
-        to: { domain: "business", key: "fixture/load-value" },
-        certainty: "inferred",
-        evidence: [context.evidence],
+  it("shares learned knowledge across linked worktrees and preserves it after worktree removal", async () => {
+    const fixture = await createFixture(fixtures);
+    const primaryRepository = await inspectGitRepository(fixture.directory);
+    await new WorldModelService(primaryRepository).build();
+    const primaryWorld = new WorldModelService(primaryRepository);
+    const snapshotId = primaryWorld.currentSnapshotId();
+    const snapshot = await createRepositorySnapshot(primaryRepository);
+    const structural = new CodeGraphStructuralBackend(primaryRepository);
+    const value = (await structural.search({ query: "value", limit: 10 }))
+      .find(({ node }) => node.name === "value")?.node;
+    const source = snapshot.files.find(({ path }) => path === "src/example.ts")?.worktree;
+    if (value === undefined || source === null || source === undefined) {
+      throw new Error("Expected the indexed fixture value");
+    }
+    using primaryGraph = new GraphStore(primaryRepository);
+    await new BusinessKnowledgeService(primaryRepository, primaryGraph).learn({
+      schemaVersion: 1,
+      baseSnapshotId: snapshotId,
+      nodeOperations: [{
+        op: "upsert",
+        node: {
+          key: "fixture/read-value",
+          kind: "Operation",
+          label: "Read value",
+          summary: "Returns the fixture value.",
+          aliases: ["value reader"],
+          certainty: "exact",
+          evidence: [{
+            symbolId: value.reference.id,
+            file: value.path,
+            range: value.range,
+            contentHash: source.contentHash,
+          }],
+        },
       }],
-      removeRelations: [],
+      relationOperations: [],
     });
 
-    using database = new DatabaseSync(context.databasePath, { readOnly: true });
-    expect(database.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
-    expect(migrated.listBusinessRelations(context.snapshot.snapshotId).map((item) => item.type).sort())
-      .toEqual(["invokes", "reads"]);
+    const linkedWorktree = `${fixture.directory}-linked`;
+    linkedWorktrees.set(fixture, [linkedWorktree]);
+    await fixture.git("worktree", "add", "-b", "fixture-linked", linkedWorktree);
+    const linkedRepository = await inspectGitRepository(linkedWorktree);
+    const linkedSnapshot = await createRepositorySnapshot(linkedRepository);
+    expect(await new StructuralProjectionBootstrapper(linkedRepository).bootstrap(linkedSnapshot))
+      .toBe(true);
+    const linkedPublication = await new WorldModelService(linkedRepository).sync();
+    using linkedGraph = new GraphStore(linkedRepository);
+    expect(linkedGraph.getNode(
+      { domain: "business", key: "fixture/read-value" },
+      linkedPublication.snapshotId,
+    )).toMatchObject({ validity: "valid", label: "Read value" });
+
+    linkedGraph.close();
+    await fixture.git("worktree", "remove", "--force", linkedWorktree);
+    linkedWorktrees.set(fixture, []);
+    using reopenedPrimary = new GraphStore(primaryRepository);
+    expect(reopenedPrimary.getNode(
+      { domain: "business", key: "fixture/read-value" },
+      snapshotId,
+    )).toMatchObject({ validity: "valid", label: "Read value" });
+  }, 30_000);
+
+  it("rejects a relative Semantic Atlas home", async () => {
+    const fixture = await createFixture(fixtures);
+    const repository = await inspectGitRepository(fixture.directory);
+    const previousHome = process.env.SEMANTIC_ATLAS_HOME;
+    process.env.SEMANTIC_ATLAS_HOME = "relative-atlas-home";
+    try {
+      expect(() => new AtlasDatabase(repository)).toThrow(/absolute path/iu);
+    } finally {
+      process.env.SEMANTIC_ATLAS_HOME = previousHome;
+    }
   });
+
+  it("isolates worktree publications and snapshot bindings while sharing business keys", async () => {
+    const fixture = await createFixture(fixtures);
+    const primaryRepository = await inspectGitRepository(fixture.directory);
+    const primaryPublication = await new WorldModelService(primaryRepository).build();
+    const primaryValue = await requireValue(primaryRepository);
+    await learnOperation(
+      primaryRepository,
+      primaryPublication.snapshotId,
+      "fixture/primary-value",
+      primaryValue,
+    );
+
+    const linkedWorktree = `${fixture.directory}-linked`;
+    linkedWorktrees.set(fixture, [linkedWorktree]);
+    await fixture.git("worktree", "add", "-b", "fixture-linked", linkedWorktree);
+    await writeFile(join(linkedWorktree, "src/example.ts"), "export const value = 2;\n");
+    const linkedRepository = await inspectGitRepository(linkedWorktree);
+    const linkedSnapshot = await createRepositorySnapshot(linkedRepository);
+    expect(await new StructuralProjectionBootstrapper(linkedRepository).bootstrap(linkedSnapshot))
+      .toBe(true);
+    const linkedPublication = await new WorldModelService(linkedRepository).sync();
+    const linkedValue = await requireValue(linkedRepository);
+
+    using primaryGraphBeforeMerge = new GraphStore(primaryRepository);
+    using linkedGraph = new GraphStore(linkedRepository);
+    expect(primaryGraphBeforeMerge.getNode(
+      { domain: "business", key: "fixture/primary-value" },
+      primaryPublication.snapshotId,
+    )).toMatchObject({ validity: "valid" });
+    expect(linkedGraph.getNode(
+      { domain: "business", key: "fixture/primary-value" },
+      linkedPublication.snapshotId,
+    )).toMatchObject({ validity: "stale" });
+
+    await learnOperation(
+      linkedRepository,
+      linkedPublication.snapshotId,
+      "fixture/branch-value",
+      linkedValue,
+    );
+    using primaryGraphWithBranchKnowledge = new GraphStore(primaryRepository);
+    expect(primaryGraphWithBranchKnowledge.getNode(
+      { domain: "business", key: "fixture/branch-value" },
+      primaryPublication.snapshotId,
+    )).toMatchObject({ validity: "stale" });
+
+    using primaryWorld = new WorldSnapshotStore(primaryRepository);
+    using linkedWorld = new WorldSnapshotStore(linkedRepository);
+    expect(primaryWorld.requireCurrentSnapshot().snapshotId).toBe(primaryPublication.snapshotId);
+    expect(linkedWorld.requireCurrentSnapshot().snapshotId).toBe(linkedPublication.snapshotId);
+    expect(linkedWorld.readSemanticChanges()).toBeUndefined();
+
+    await fixture.git("-C", linkedWorktree, "add", "src/example.ts");
+    await fixture.git("-C", linkedWorktree, "commit", "-m", "test: change linked value");
+    await fixture.git("merge", "--ff-only", "fixture-linked");
+    const mergedPublication = await new WorldModelService(primaryRepository).sync();
+    using mergedGraph = new GraphStore(primaryRepository);
+    expect(mergedGraph.getNode(
+      { domain: "business", key: "fixture/branch-value" },
+      mergedPublication.snapshotId,
+    )).toMatchObject({ validity: "valid" });
+
+    using database = new DatabaseSync(mergedGraph.databasePath, { readOnly: true });
+    const states = database.prepare(`
+      SELECT git_directory, current_snapshot_id
+      FROM atlas_worktree_states
+      WHERE repository_id = ? AND status = 'current'
+      ORDER BY git_directory
+    `).all(primaryRepository.repositoryId) as unknown as {
+      git_directory: string;
+      current_snapshot_id: string;
+    }[];
+    expect(states).toHaveLength(2);
+    expect(new Set(states.map(({ current_snapshot_id }) => current_snapshot_id))).toEqual(new Set([
+      linkedPublication.snapshotId,
+      mergedPublication.snapshotId,
+    ]));
+  }, 30_000);
 });
 
-function downgradeBusinessRelationSchema(databasePath: string): void {
-  using database = new DatabaseSync(databasePath);
-  database.exec(`
-    CREATE TABLE atlas_business_relations_v4 (
-      relation_id INTEGER PRIMARY KEY,
-      repository_id TEXT NOT NULL,
-      base_snapshot_id TEXT NOT NULL,
-      from_key TEXT NOT NULL,
-      relation_type TEXT NOT NULL CHECK (relation_type IN (
-        'part_of', 'realized_by', 'reads', 'writes', 'publishes', 'consumes',
-        'constrained_by', 'verified_by'
-      )),
-      to_domain TEXT NOT NULL CHECK (to_domain IN ('structural', 'business')),
-      to_key TEXT NOT NULL,
-      certainty TEXT NOT NULL CHECK (certainty IN ('exact', 'inferred', 'hypothesis')),
-      target_file TEXT,
-      target_qualified_symbol TEXT,
-      target_structural_kind TEXT,
-      target_start_line INTEGER,
-      target_start_column INTEGER,
-      target_end_line INTEGER,
-      target_end_column INTEGER,
-      target_atlas_snapshot_id TEXT,
-      target_backend_version TEXT,
-      target_backend_locator TEXT,
-      target_binding_status TEXT NOT NULL DEFAULT 'unresolved'
-        CHECK (target_binding_status IN ('bound', 'missing', 'ambiguous', 'unresolved')),
-      UNIQUE (repository_id, from_key, relation_type, to_domain, to_key),
-      FOREIGN KEY (repository_id, base_snapshot_id)
-        REFERENCES atlas_repository_snapshots(repository_id, snapshot_id),
-      FOREIGN KEY (repository_id, from_key)
-        REFERENCES atlas_business_nodes(repository_id, node_key)
-    ) STRICT;
-
-    INSERT INTO atlas_business_relations_v4 SELECT * FROM atlas_business_relations;
-
-    CREATE TABLE atlas_business_relation_evidence_v4 (
-      relation_id INTEGER NOT NULL,
-      position INTEGER NOT NULL,
-      structural_reference TEXT NOT NULL,
-      file TEXT NOT NULL,
-      start_line INTEGER NOT NULL,
-      start_column INTEGER NOT NULL,
-      end_line INTEGER NOT NULL,
-      end_column INTEGER NOT NULL,
-      content_hash TEXT NOT NULL,
-      qualified_symbol TEXT,
-      structural_kind TEXT,
-      atlas_snapshot_id TEXT,
-      backend_version TEXT,
-      backend_locator TEXT,
-      binding_status TEXT NOT NULL DEFAULT 'unresolved'
-        CHECK (binding_status IN ('bound', 'missing', 'ambiguous', 'unresolved')),
-      PRIMARY KEY (relation_id, position),
-      FOREIGN KEY (relation_id)
-        REFERENCES atlas_business_relations_v4(relation_id) ON DELETE CASCADE
-    ) STRICT;
-    INSERT INTO atlas_business_relation_evidence_v4
-    SELECT * FROM atlas_business_relation_evidence;
-
-    CREATE TABLE atlas_business_relation_validity_v4 (
-      relation_id INTEGER NOT NULL,
-      repository_id TEXT NOT NULL,
-      snapshot_id TEXT NOT NULL,
-      validity TEXT NOT NULL CHECK (validity IN ('valid', 'stale')),
-      PRIMARY KEY (relation_id, snapshot_id),
-      FOREIGN KEY (relation_id)
-        REFERENCES atlas_business_relations_v4(relation_id) ON DELETE CASCADE,
-      FOREIGN KEY (repository_id, snapshot_id)
-        REFERENCES atlas_repository_snapshots(repository_id, snapshot_id) ON DELETE CASCADE
-    ) STRICT;
-    INSERT INTO atlas_business_relation_validity_v4
-    SELECT * FROM atlas_business_relation_validity;
-
-    DROP TABLE atlas_business_relation_evidence;
-    DROP TABLE atlas_business_relation_validity;
-    DROP TABLE atlas_business_relations;
-    ALTER TABLE atlas_business_relations_v4 RENAME TO atlas_business_relations;
-    ALTER TABLE atlas_business_relation_evidence_v4
-      RENAME TO atlas_business_relation_evidence;
-    ALTER TABLE atlas_business_relation_validity_v4
-      RENAME TO atlas_business_relation_validity;
-    DELETE FROM atlas_schema_migrations WHERE version = 5;
-  `);
-}
-
-function downgradeTargetLocatorSchema(databasePath: string): void {
-  using database = new DatabaseSync(databasePath);
-  database.exec(`
-    ALTER TABLE atlas_world_state DROP COLUMN current_publication_id;
-    DROP TABLE atlas_world_publications;
-    CREATE TABLE atlas_semantic_changes (
-      repository_id TEXT NOT NULL,
-      from_snapshot_id TEXT,
-      to_snapshot_id TEXT NOT NULL,
-      added_paths TEXT NOT NULL,
-      modified_paths TEXT NOT NULL,
-      removed_paths TEXT NOT NULL,
-      stale_assertions TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      PRIMARY KEY (repository_id, to_snapshot_id),
-      FOREIGN KEY (repository_id, to_snapshot_id)
-        REFERENCES atlas_repository_snapshots(repository_id, snapshot_id) ON DELETE CASCADE
-    ) STRICT;
-  `);
-  for (const column of [
-    "target_file",
-    "target_qualified_symbol",
-    "target_structural_kind",
-    "target_start_line",
-    "target_start_column",
-    "target_end_line",
-    "target_end_column",
-    "target_atlas_snapshot_id",
-    "target_backend_version",
-    "target_backend_locator",
-    "target_binding_status",
-  ]) {
-    database.exec(`ALTER TABLE atlas_business_relations DROP COLUMN ${column}`);
-  }
-  database.prepare("DELETE FROM atlas_schema_migrations WHERE version >= 3").run();
-}
-
-function downgradePublicationSchema(databasePath: string): void {
-  using database = new DatabaseSync(databasePath);
-  database.exec(`
-    CREATE TABLE atlas_semantic_changes (
-      repository_id TEXT NOT NULL,
-      from_snapshot_id TEXT,
-      to_snapshot_id TEXT NOT NULL,
-      added_paths TEXT NOT NULL,
-      modified_paths TEXT NOT NULL,
-      removed_paths TEXT NOT NULL,
-      stale_assertions TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      PRIMARY KEY (repository_id, to_snapshot_id),
-      FOREIGN KEY (repository_id, to_snapshot_id)
-        REFERENCES atlas_repository_snapshots(repository_id, snapshot_id) ON DELETE CASCADE
-    ) STRICT;
-
-    INSERT INTO atlas_semantic_changes (
-      repository_id,
-      from_snapshot_id,
-      to_snapshot_id,
-      added_paths,
-      modified_paths,
-      removed_paths,
-      stale_assertions,
-      created_at
-    )
-    SELECT
-      publication.repository_id,
-      previous.snapshot_id,
-      publication.snapshot_id,
-      publication.added_paths,
-      publication.modified_paths,
-      publication.removed_paths,
-      publication.stale_assertions,
-      publication.published_at
-    FROM atlas_world_publications AS publication
-    LEFT JOIN atlas_world_publications AS previous
-      ON previous.publication_id = publication.previous_publication_id
-    ORDER BY publication.publication_id;
-
-    ALTER TABLE atlas_world_state DROP COLUMN current_publication_id;
-    DROP TABLE atlas_world_publications;
-    DELETE FROM atlas_schema_migrations WHERE version = 4;
-  `);
-}
-
-function emptyResolver() {
-  return {
-    getNode: () => undefined,
-    findCandidates: () => [],
-    backendLocator: () => undefined,
-  };
-}
-
-function readCodeGraphOwnershipCounts(databasePath: string) {
-  using database = new DatabaseSync(databasePath);
-  return {
-    nodes: database.prepare("SELECT COUNT(*) AS count FROM nodes").get(),
-    edges: database.prepare("SELECT COUNT(*) AS count FROM edges").get(),
-    schemaVersions: database.prepare("SELECT COUNT(*) AS count FROM schema_versions").get(),
-  };
-}
-
-async function createSharedDatabaseContext(fixtures: GitFixture[]) {
+async function createFixture(fixtures: GitFixture[]): Promise<GitFixture> {
   const fixture = await createGitFixture();
   fixtures.push(fixture);
-  const repository = await inspectGitRepository(fixture.directory);
-  const backend = new CodeGraphStructuralBackend(repository);
-  const build = await backend.build();
-  if (build.completeness !== "complete") {
-    throw new Error(`Expected CodeGraph fixture build to complete: ${JSON.stringify(build.diagnostics)}`);
-  }
+  return fixture;
+}
+
+function readObjectNames(databasePath: string, pattern: string): string[] {
+  using database = new DatabaseSync(databasePath, { readOnly: true });
+  return (database.prepare(`
+    SELECT name
+    FROM sqlite_schema
+    WHERE name LIKE ?
+    ORDER BY name
+  `).all(pattern) as unknown as { name: string }[]).map(({ name }) => name);
+}
+
+async function requireValue(repository: Awaited<ReturnType<typeof inspectGitRepository>>) {
+  const value = (await new CodeGraphStructuralBackend(repository).search({
+    query: "value",
+    limit: 10,
+  })).find(({ node }) => node.name === "value")?.node;
   const snapshot = await createRepositorySnapshot(repository);
-  const symbol = (await backend.search({ query: "value", limit: 10 }))
-    .find(({ node }) => node.name === "value")?.node;
-  const source = snapshot.files.find((file) => file.path === "src/example.ts")?.worktree;
-  if (symbol === undefined || source === null || source === undefined) {
-    throw new Error("Expected the shared database fixture symbol and source");
+  const source = snapshot.files.find(({ path }) => path === "src/example.ts")?.worktree;
+  if (value === undefined || source === null || source === undefined) {
+    throw new Error("Expected the indexed fixture value");
   }
-  const evidence: Evidence = {
-    symbolId: symbol.reference.id,
-    file: symbol.path,
-    range: symbol.range,
-    contentHash: source.contentHash,
-  };
-  return {
-    fixture,
-    repository,
-    backend,
-    snapshot,
-    evidence,
-    databasePath: build.databasePath,
-  };
+  return { node: value, contentHash: source.contentHash };
 }
 
-function businessMutation(snapshotId: string, evidence: Evidence): BusinessGraphMutation {
-  return {
+async function learnOperation(
+  repository: Awaited<ReturnType<typeof inspectGitRepository>>,
+  snapshotId: string,
+  key: string,
+  value: Awaited<ReturnType<typeof requireValue>>,
+): Promise<void> {
+  using graph = new GraphStore(repository);
+  await new BusinessKnowledgeService(repository, graph).learn({
+    schemaVersion: 1,
     baseSnapshotId: snapshotId,
-    upsertNodes: [
-      {
-        key: "fixture/read-value",
+    nodeOperations: [{
+      op: "upsert",
+      node: {
+        key,
         kind: "Operation",
-        label: "Read value",
-        summary: "Returns the fixture value.",
-        aliases: ["fixture-value"],
-        certainty: "exact",
-        evidence: [evidence],
-      },
-    ],
-    removeNodeKeys: [],
-    upsertRelations: [],
-    removeRelations: [],
-  };
-}
-
-function relationMigrationMutation(snapshotId: string, evidence: Evidence): BusinessGraphMutation {
-  return {
-    baseSnapshotId: snapshotId,
-    upsertNodes: [
-      {
-        key: "fixture/read-value",
-        kind: "Operation",
-        label: "Read value",
-        summary: "Reads the fixture value.",
+        label: key,
+        summary: `Reads the value for ${key}.`,
         aliases: [],
         certainty: "exact",
-        evidence: [evidence],
+        evidence: [{
+          symbolId: value.node.reference.id,
+          file: value.node.path,
+          range: value.node.range,
+          contentHash: value.contentHash,
+        }],
       },
-      {
-        key: "fixture/load-value",
-        kind: "Operation",
-        label: "Load value",
-        summary: "Loads the fixture value.",
-        aliases: [],
-        certainty: "exact",
-        evidence: [evidence],
-      },
-      {
-        key: "fixture/data",
-        kind: "Data",
-        label: "Fixture data",
-        summary: "The stored fixture value.",
-        aliases: [],
-        certainty: "exact",
-        evidence: [evidence],
-      },
-    ],
-    removeNodeKeys: [],
-    upsertRelations: [{
-      from: { domain: "business", key: "fixture/read-value" },
-      type: "reads",
-      to: { domain: "business", key: "fixture/data" },
-      certainty: "exact",
-      evidence: [evidence],
     }],
-    removeRelations: [],
-  };
+    relationOperations: [],
+  });
 }

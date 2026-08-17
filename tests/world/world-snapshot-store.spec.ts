@@ -28,7 +28,7 @@ describe("world snapshot reconciliation", () => {
     using store = new WorldSnapshotStore(context.repository);
     using database = new DatabaseSync(context.graph.databasePath);
     database.prepare(`
-      UPDATE atlas_world_state
+      UPDATE atlas_worktree_states
       SET
         status = 'missing',
         current_snapshot_id = NULL,
@@ -158,10 +158,10 @@ describe("world snapshot reconciliation", () => {
     );
     expect(ambiguous.staleAssertions).toEqual([
       "fixture/read-value",
-      "fixture/read-value:realized_by:structural:symbol:new-id",
+      `fixture/read-value:realized_by:structural:${context.evidence.symbolId}`,
     ]);
     expect(readEvidenceRow(context.graph.databasePath)).toMatchObject({
-      structural_reference: "symbol:new-id",
+      structural_reference: context.evidence.symbolId,
       binding_status: "ambiguous",
     });
     expect(context.graph.getNode(
@@ -344,20 +344,22 @@ describe("world snapshot reconciliation", () => {
     using targetDatabase = new DatabaseSync(context.graph.databasePath, { readOnly: true });
     expect(targetDatabase.prepare(`
       SELECT
-        to_key,
-        target_file,
-        target_qualified_symbol,
-        target_structural_kind,
-        target_start_line,
-        target_start_column,
-        target_end_line,
-        target_end_column,
-        target_atlas_snapshot_id,
-        target_backend_version,
-        target_backend_locator,
-        target_binding_status
-      FROM atlas_business_relations
-      WHERE to_domain = 'structural'
+        relation.to_key,
+        relation.target_file,
+        relation.target_qualified_symbol,
+        relation.target_structural_kind,
+        relation.target_start_line,
+        relation.target_start_column,
+        relation.target_end_line,
+        relation.target_end_column,
+        binding.snapshot_id AS target_atlas_snapshot_id,
+        binding.backend_version AS target_backend_version,
+        binding.backend_locator AS target_backend_locator,
+        binding.binding_status AS target_binding_status
+      FROM atlas_business_relations AS relation
+      JOIN atlas_structural_relation_target_bindings AS binding
+        ON binding.relation_id = relation.relation_id
+      WHERE relation.to_domain = 'structural'
     `).get()).toEqual({
       to_key: stable.reference.id,
       target_file: stable.path,
@@ -410,11 +412,11 @@ describe("world snapshot reconciliation", () => {
       },
     );
     expect(missingTarget.staleAssertions).toEqual([
-      `fixture/read-value:realized_by:structural:${reboundStable.reference.id}`,
+      `fixture/read-value:realized_by:structural:${stable.reference.id}`,
     ]);
     expect(context.graph.listBusinessRelations(snapshot.snapshotId)).toEqual([
       expect.objectContaining({
-        to: { domain: "structural", id: reboundStable.reference.id },
+        to: { domain: "structural", id: stable.reference.id },
         validity: "stale",
       }),
     ]);
@@ -455,7 +457,7 @@ describe("world snapshot reconciliation", () => {
       },
     );
     expect(ambiguousTarget.staleAssertions).toEqual([
-      `fixture/read-value:realized_by:structural:${reboundStable.reference.id}`,
+      `fixture/read-value:realized_by:structural:${stable.reference.id}`,
     ]);
     expect(context.graph.listBusinessRelations(snapshot.snapshotId)).toEqual([
       expect.objectContaining({ validity: "stale" }),
@@ -521,14 +523,19 @@ function readEvidenceRow(databasePath: string): Record<string, unknown> {
   using database = new DatabaseSync(databasePath, { readOnly: true });
   return database.prepare(`
     SELECT
-      structural_reference,
-      qualified_symbol,
-      structural_kind,
-      atlas_snapshot_id,
-      backend_version,
-      backend_locator,
-      binding_status
-    FROM atlas_business_node_evidence
+      COALESCE(binding.resolved_structural_reference, evidence.structural_reference)
+        AS structural_reference,
+      COALESCE(binding.resolved_qualified_symbol, evidence.qualified_symbol) AS qualified_symbol,
+      COALESCE(binding.resolved_structural_kind, evidence.structural_kind) AS structural_kind,
+      binding.snapshot_id AS atlas_snapshot_id,
+      binding.backend_version,
+      binding.backend_locator,
+      binding.binding_status
+    FROM atlas_business_node_evidence AS evidence
+    JOIN atlas_business_node_evidence_bindings AS binding
+      ON binding.node_id = evidence.node_id
+      AND binding.position = evidence.position
+    ORDER BY binding.rowid DESC
     LIMIT 1
   `).get() as Record<string, unknown>;
 }

@@ -5,6 +5,7 @@ import {
   CodeGraphStructuralBackend,
   type StructuralWorldPublicationHooks,
 } from "../structural-backend/codegraph-backend.js";
+import { StructuralProjectionBootstrapper } from "../structural-backend/structural-projection-bootstrapper.js";
 import {
   requiresBundledCodeGraphRuntime,
   runCodeGraphWorker,
@@ -62,7 +63,11 @@ export class WorldModelService {
         previousSnapshotId = store.readState().currentSnapshotId;
         store.begin(snapshot.snapshotId);
       },
-      publish: async (structural, resolver, indexedSources) => {
+      prepareProjection: async () => {
+        await new StructuralProjectionBootstrapper(this.repository)
+          .bootstrap(requireBuildSnapshot(snapshot));
+      },
+      validate: async (_structural, indexedSources) => {
         const indexedSnapshot = requireBuildSnapshot(snapshot);
         const publishableSnapshot = await createRepositorySnapshot(this.repository);
         const mismatch = worldPublicationMismatch(
@@ -75,6 +80,9 @@ export class WorldModelService {
             `Repository changed during world publication: ${mismatch}`,
           );
         }
+      },
+      publish: async (structural, resolver) => {
+        const indexedSnapshot = requireBuildSnapshot(snapshot);
         using store = new WorldSnapshotStore(this.repository);
         staleAssertions = store.publish(
           indexedSnapshot,

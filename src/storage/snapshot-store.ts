@@ -11,9 +11,11 @@ export class SnapshotStore implements Disposable {
   readonly databasePath: string;
   readonly #atlasDatabase: AtlasDatabase;
   readonly #repositoryId: string;
+  readonly #gitDirectory: string;
 
   constructor(repository: GitRepository) {
     this.#repositoryId = repository.repositoryId;
+    this.#gitDirectory = repository.gitDirectory;
     this.#atlasDatabase = new AtlasDatabase(repository);
     this.databasePath = this.#atlasDatabase.databasePath;
   }
@@ -36,11 +38,6 @@ export class SnapshotStore implements Disposable {
         ) VALUES (?, ?, ?, ?)
         ON CONFLICT (repository_id, snapshot_id) DO NOTHING
       `).run(this.#repositoryId, snapshot.snapshotId, JSON.stringify(snapshot), timestamp);
-      database.prepare(`
-        UPDATE atlas_repositories
-        SET latest_snapshot_id = ?, updated_at = ?
-        WHERE repository_id = ?
-      `).run(snapshot.snapshotId, timestamp, this.#repositoryId);
       database.exec("COMMIT");
     } catch (error) {
       database.exec("ROLLBACK");
@@ -74,12 +71,12 @@ export class SnapshotStore implements Disposable {
   latestStored(): StoredRepositorySnapshot | undefined {
     const row = this.#atlasDatabase.connection.prepare(`
       SELECT snapshot.payload, snapshot.created_at
-      FROM atlas_repositories AS repository
+      FROM atlas_worktree_states AS worktree
       JOIN atlas_repository_snapshots AS snapshot
-        ON snapshot.repository_id = repository.repository_id
-        AND snapshot.snapshot_id = repository.latest_snapshot_id
-      WHERE repository.repository_id = ?
-    `).get(this.#repositoryId) as {
+        ON snapshot.repository_id = worktree.repository_id
+        AND snapshot.snapshot_id = worktree.current_snapshot_id
+      WHERE worktree.repository_id = ? AND worktree.git_directory = ?
+    `).get(this.#repositoryId, this.#gitDirectory) as {
       payload: string;
       created_at: string;
     } | undefined;

@@ -8,7 +8,7 @@ Semantic Atlas exposes one world graph. Its two domains have different authoriti
 - business nodes and relations are evidence-bound Atlas assertions changed only through GraphPatch;
 - evidence relations connect the domains and are rebound after indexing.
 
-Both domains live in `.atlas/codegraph.db`, but Atlas does not copy CodeGraph nodes and edges into parallel structural tables. The world-graph query layer composes CodeGraph SDK results with Atlas-owned `atlas_*` tables and returns one versioned Atlas contract.
+The domains are physically separated by lifecycle: CodeGraph structure lives in the current worktree's disposable `.atlas/codegraph.db`, while repository-wide Atlas knowledge and snapshot bindings live in `~/.semantic-atlas/repositories/<repository-id>/atlas.db`. Atlas does not copy CodeGraph nodes and edges into parallel structural tables. The world-graph query layer composes both stores in memory and returns one versioned Atlas contract.
 
 ## Node kinds
 
@@ -74,7 +74,7 @@ Every learned business node summary and learned relation has a certainty and one
 - the SHA-256 content hash observed at learning time;
 - the Atlas snapshot and structural-backend version observed at learning time.
 
-Evidence does not have a cascading foreign key to CodeGraph rows. After indexing, Atlas rebinds each evidence locator to the current structural graph.
+Evidence does not have a cascading foreign key to CodeGraph rows. Its original locator is repository-wide; every successful worktree publication records a separate snapshot binding. Indexing one branch therefore cannot overwrite another branch's resolved reference or validity.
 
 Certainty and validity are independent:
 

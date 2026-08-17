@@ -6,6 +6,7 @@ import type {
   BusinessNodeInput,
   BusinessRelationInput,
 } from "../../src/graph/types.js";
+import { bindStructuralTarget } from "../../src/knowledge/structural-target-binding.js";
 import {
   createGraphTestContext,
   evidenceFor,
@@ -55,7 +56,7 @@ describe("business graph storage", () => {
 
     graph.mutateBusinessGraph(mutation(snapshot.snapshotId, businessNodes, businessRelations));
 
-    expect(graph.schemaVersion).toBe(5);
+    expect(graph.schemaVersion).toBe(1);
     using schema = new DatabaseSync(graph.databasePath);
     const atlasObjects = schema.prepare(`
       SELECT name
@@ -151,6 +152,52 @@ describe("business graph storage", () => {
       removeNodeKeys: [capability.key],
     });
     expect(graph.getNode(business(capability.key), snapshot.snapshotId)).toBeUndefined();
+  });
+
+  it("updates a structural relation after its target reference is rebound", async () => {
+    const context = await createGraphTestContext();
+    contexts.push(context);
+    const { graph, snapshot } = context;
+    const evidence = evidenceFor(snapshot);
+    const operation = businessNode("fixture/operation", "Operation", evidence);
+    const reboundTarget = "symbol:src/example.ts#renamedValue";
+    const targetBinding = {
+      structuralReference: reboundTarget,
+      file: evidence.file,
+      qualifiedSymbol: "value",
+      structuralKind: "Symbol" as const,
+      range: evidence.range,
+      atlasSnapshotId: snapshot.snapshotId,
+      backendVersion: "1.5.0",
+      backendLocator: `backend:${reboundTarget}`,
+    };
+    const originalRelation = bindStructuralTarget(
+      relation(
+        operation.key,
+        "realized_by",
+        structural("symbol:src/example.ts#value"),
+        evidence,
+      ),
+      targetBinding,
+    );
+    graph.mutateBusinessGraph(mutation(snapshot.snapshotId, [operation], [originalRelation]));
+
+    const reboundRelation = bindStructuralTarget(
+      relation(operation.key, "realized_by", structural(reboundTarget), evidence),
+      targetBinding,
+    );
+    graph.mutateBusinessGraph(mutation(snapshot.snapshotId, [], [reboundRelation]));
+
+    expect(graph.listBusinessRelations(snapshot.snapshotId)).toEqual([
+      expect.objectContaining({
+        from: business(operation.key),
+        type: "realized_by",
+        to: structural(reboundTarget),
+      }),
+    ]);
+    using database = new DatabaseSync(graph.databasePath, { readOnly: true });
+    expect(database.prepare("SELECT COUNT(*) AS count FROM atlas_business_relations").get())
+      .toEqual({ count: 1 });
   });
 });
 

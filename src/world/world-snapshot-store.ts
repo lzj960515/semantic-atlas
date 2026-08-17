@@ -62,10 +62,12 @@ interface WorldPublicationRow {
 export class WorldSnapshotStore implements Disposable {
   readonly #database: AtlasDatabase;
   readonly #repositoryId: string;
+  readonly #gitDirectory: string;
 
   constructor(repository: GitRepository) {
     this.#database = new AtlasDatabase(repository);
     this.#repositoryId = repository.repositoryId;
+    this.#gitDirectory = repository.gitDirectory;
   }
 
   readState(): WorldSnapshotState {
@@ -80,9 +82,9 @@ export class WorldSnapshotStore implements Disposable {
         started_at,
         published_at,
         updated_at
-      FROM atlas_world_state
-      WHERE repository_id = ?
-    `).get(this.#repositoryId) as {
+      FROM atlas_worktree_states
+      WHERE repository_id = ? AND git_directory = ?
+    `).get(this.#repositoryId, this.#gitDirectory) as {
       status: WorldSnapshotState["status"];
       current_snapshot_id: string | null;
       target_snapshot_id: string | null;
@@ -113,7 +115,7 @@ export class WorldSnapshotStore implements Disposable {
       return;
     }
     this.connection.prepare(`
-      UPDATE atlas_world_state
+      UPDATE atlas_worktree_states
       SET
         status = 'building',
         target_snapshot_id = ?,
@@ -121,8 +123,8 @@ export class WorldSnapshotStore implements Disposable {
         started_at = ?,
         published_at = NULL,
         updated_at = ?
-      WHERE repository_id = ?
-    `).run(targetSnapshotId, timestamp, timestamp, this.#repositoryId);
+      WHERE repository_id = ? AND git_directory = ?
+    `).run(targetSnapshotId, timestamp, timestamp, this.#repositoryId, this.#gitDirectory);
   }
 
   publish(
@@ -169,7 +171,7 @@ export class WorldSnapshotStore implements Disposable {
         timestamp,
       );
       this.connection.prepare(`
-        UPDATE atlas_world_state
+        UPDATE atlas_worktree_states
         SET
           status = 'current',
           current_snapshot_id = ?,
@@ -180,7 +182,7 @@ export class WorldSnapshotStore implements Disposable {
           failure_message = NULL,
           published_at = ?,
           updated_at = ?
-        WHERE repository_id = ?
+        WHERE repository_id = ? AND git_directory = ?
       `).run(
         snapshot.snapshotId,
         publicationId,
@@ -189,6 +191,7 @@ export class WorldSnapshotStore implements Disposable {
         timestamp,
         timestamp,
         this.#repositoryId,
+        this.#gitDirectory,
       );
       result = { staleAssertions: uniqueStaleAssertions };
     });
@@ -198,19 +201,20 @@ export class WorldSnapshotStore implements Disposable {
   fail(targetSnapshotId: string, error: unknown): void {
     const timestamp = new Date().toISOString();
     this.connection.prepare(`
-      UPDATE atlas_world_state
+      UPDATE atlas_worktree_states
       SET
         status = 'failed',
         target_snapshot_id = ?,
         failure_message = ?,
         published_at = NULL,
         updated_at = ?
-      WHERE repository_id = ?
+      WHERE repository_id = ? AND git_directory = ?
     `).run(
       targetSnapshotId,
       error instanceof Error ? error.message : String(error),
       timestamp,
       this.#repositoryId,
+      this.#gitDirectory,
     );
   }
 
@@ -292,9 +296,9 @@ export class WorldSnapshotStore implements Disposable {
   private readCurrentPublication(): WorldPublicationRow | undefined {
     const row = this.connection.prepare(`
       SELECT current_publication_id
-      FROM atlas_world_state
-      WHERE repository_id = ?
-    `).get(this.#repositoryId) as { current_publication_id: number | null };
+      FROM atlas_worktree_states
+      WHERE repository_id = ? AND git_directory = ?
+    `).get(this.#repositoryId, this.#gitDirectory) as { current_publication_id: number | null };
     return row.current_publication_id === null
       ? undefined
       : this.requirePublication(row.current_publication_id);
@@ -308,8 +312,8 @@ export class WorldSnapshotStore implements Disposable {
         snapshot_id,
         stale_assertions
       FROM atlas_world_publications
-      WHERE repository_id = ? AND publication_id = ?
-    `).get(this.#repositoryId, publicationId) as WorldPublicationRow | undefined;
+      WHERE repository_id = ? AND git_directory = ? AND publication_id = ?
+    `).get(this.#repositoryId, this.#gitDirectory, publicationId) as WorldPublicationRow | undefined;
   }
 
   private requirePublication(publicationId: number): WorldPublicationRow {
@@ -410,11 +414,6 @@ export class WorldSnapshotStore implements Disposable {
       ON CONFLICT (repository_id, snapshot_id) DO UPDATE SET
         payload = excluded.payload
     `).run(this.#repositoryId, snapshot.snapshotId, JSON.stringify(snapshot), timestamp);
-    this.connection.prepare(`
-      UPDATE atlas_repositories
-      SET latest_snapshot_id = ?, updated_at = ?
-      WHERE repository_id = ?
-    `).run(snapshot.snapshotId, timestamp, this.#repositoryId);
   }
 
   private rebindEvidence(
@@ -498,6 +497,9 @@ export class WorldSnapshotStore implements Disposable {
       ORDER BY ${ownerColumn}, position
     `).all() as unknown as EvidenceRow[];
     const ownerType = ownerColumn === "node_id" ? "node" : "relation";
+    const bindingTable = ownerColumn === "node_id"
+      ? "atlas_business_node_evidence_bindings"
+      : "atlas_business_relation_evidence_bindings";
 
     return rows.map((row) => {
       const locator = locatorFromRow(row);
@@ -510,28 +512,36 @@ export class WorldSnapshotStore implements Disposable {
           ? "missing"
           : match.status;
       this.connection.prepare(`
-        UPDATE ${table}
-        SET
-          structural_reference = ?,
-          qualified_symbol = ?,
-          structural_kind = ?,
-          atlas_snapshot_id = ?,
-          backend_version = ?,
-          backend_locator = ?,
-          binding_status = ?
-        WHERE ${ownerColumn} = ? AND position = ?
+        INSERT INTO ${bindingTable} (
+          ${ownerColumn},
+          position,
+          repository_id,
+          snapshot_id,
+          resolved_structural_reference,
+          resolved_qualified_symbol,
+          resolved_structural_kind,
+          backend_version,
+          backend_locator,
+          binding_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (${ownerColumn}, position, snapshot_id) DO UPDATE SET
+          resolved_structural_reference = excluded.resolved_structural_reference,
+          resolved_qualified_symbol = excluded.resolved_qualified_symbol,
+          resolved_structural_kind = excluded.resolved_structural_kind,
+          backend_version = excluded.backend_version,
+          backend_locator = excluded.backend_locator,
+          binding_status = excluded.binding_status
       `).run(
-        match.node?.reference.id ?? row.structural_reference,
-        match.node?.qualifiedName ?? row.qualified_symbol,
-        match.node?.kind ?? row.structural_kind,
-        snapshot.snapshotId,
-        backendVersion,
-        match.node === undefined
-          ? row.backend_locator
-          : resolver.backendLocator(match.node) ?? null,
-        status,
         row.owner_id,
         row.position,
+        this.#repositoryId,
+        snapshot.snapshotId,
+        match.node?.reference.id ?? null,
+        match.node?.qualifiedName ?? null,
+        match.node?.kind ?? null,
+        backendVersion,
+        match.node === undefined ? null : resolver.backendLocator(match.node) ?? null,
+        status,
       );
       return { ownerType, ownerId: row.owner_id, status };
     });
@@ -572,37 +582,49 @@ export class WorldSnapshotStore implements Disposable {
         staleAssertions.push(identity);
       }
       this.connection.prepare(`
-        UPDATE atlas_business_relations
-        SET
-          to_key = ?,
-          target_file = ?,
-          target_qualified_symbol = ?,
-          target_structural_kind = ?,
-          target_start_line = ?,
-          target_start_column = ?,
-          target_end_line = ?,
-          target_end_column = ?,
-          target_atlas_snapshot_id = ?,
-          target_backend_version = ?,
-          target_backend_locator = ?,
-          target_binding_status = ?
-        WHERE relation_id = ?
+        INSERT INTO atlas_structural_relation_target_bindings (
+          relation_id,
+          repository_id,
+          snapshot_id,
+          resolved_structural_reference,
+          resolved_file,
+          resolved_qualified_symbol,
+          resolved_structural_kind,
+          resolved_start_line,
+          resolved_start_column,
+          resolved_end_line,
+          resolved_end_column,
+          backend_version,
+          backend_locator,
+          binding_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (relation_id, snapshot_id) DO UPDATE SET
+          resolved_structural_reference = excluded.resolved_structural_reference,
+          resolved_file = excluded.resolved_file,
+          resolved_qualified_symbol = excluded.resolved_qualified_symbol,
+          resolved_structural_kind = excluded.resolved_structural_kind,
+          resolved_start_line = excluded.resolved_start_line,
+          resolved_start_column = excluded.resolved_start_column,
+          resolved_end_line = excluded.resolved_end_line,
+          resolved_end_column = excluded.resolved_end_column,
+          backend_version = excluded.backend_version,
+          backend_locator = excluded.backend_locator,
+          binding_status = excluded.binding_status
       `).run(
-        match.node?.reference.id ?? row.to_key,
-        match.node?.path ?? row.target_file,
-        match.node?.qualifiedName ?? row.target_qualified_symbol,
-        match.node?.kind ?? row.target_structural_kind,
-        match.node?.range.start.line ?? row.target_start_line,
-        match.node?.range.start.column ?? row.target_start_column,
-        match.node?.range.end.line ?? row.target_end_line,
-        match.node?.range.end.column ?? row.target_end_column,
-        snapshot.snapshotId,
-        backendVersion,
-        match.node === undefined
-          ? row.target_backend_locator
-          : resolver.backendLocator(match.node) ?? null,
-        match.status,
         row.relation_id,
+        this.#repositoryId,
+        snapshot.snapshotId,
+        match.node?.reference.id ?? null,
+        match.node?.path ?? null,
+        match.node?.qualifiedName ?? null,
+        match.node?.kind ?? null,
+        match.node?.range.start.line ?? null,
+        match.node?.range.start.column ?? null,
+        match.node?.range.end.line ?? null,
+        match.node?.range.end.column ?? null,
+        backendVersion,
+        match.node === undefined ? null : resolver.backendLocator(match.node) ?? null,
+        match.status,
       );
     }
     return staleAssertions;
@@ -634,6 +656,7 @@ export class WorldSnapshotStore implements Disposable {
     this.refreshValidityTable(
       "atlas_business_nodes",
       "atlas_business_node_evidence",
+      "atlas_business_node_evidence_bindings",
       "atlas_business_node_validity",
       "node_id",
       snapshotId,
@@ -641,6 +664,7 @@ export class WorldSnapshotStore implements Disposable {
     this.refreshValidityTable(
       "atlas_business_relations",
       "atlas_business_relation_evidence",
+      "atlas_business_relation_evidence_bindings",
       "atlas_business_relation_validity",
       "relation_id",
       snapshotId,
@@ -650,6 +674,7 @@ export class WorldSnapshotStore implements Disposable {
   private refreshValidityTable(
     ownerTable: "atlas_business_nodes" | "atlas_business_relations",
     evidenceTable: "atlas_business_node_evidence" | "atlas_business_relation_evidence",
+    bindingTable: "atlas_business_node_evidence_bindings" | "atlas_business_relation_evidence_bindings",
     validityTable: "atlas_business_node_validity" | "atlas_business_relation_validity",
     ownerColumn: "node_id" | "relation_id",
     snapshotId: string,
@@ -663,21 +688,28 @@ export class WorldSnapshotStore implements Disposable {
       const row = this.connection.prepare(`
         SELECT
           COUNT(*) AS evidence_count,
-          SUM(CASE WHEN binding_status = 'bound' THEN 1 ELSE 0 END) AS bound_count
-        FROM ${evidenceTable}
-        WHERE ${ownerColumn} = ?
-      `).get(owner_id) as { evidence_count: number; bound_count: number };
+          SUM(CASE WHEN binding.binding_status = 'bound' THEN 1 ELSE 0 END) AS bound_count
+        FROM ${evidenceTable} AS evidence
+        LEFT JOIN ${bindingTable} AS binding
+          ON binding.${ownerColumn} = evidence.${ownerColumn}
+          AND binding.position = evidence.position
+          AND binding.snapshot_id = ?
+        WHERE evidence.${ownerColumn} = ?
+      `).get(snapshotId, owner_id) as { evidence_count: number; bound_count: number };
       const validity = row.evidence_count > 0 && row.evidence_count === row.bound_count
         ? "valid"
         : "stale";
       const targetBindingStatus = ownerColumn === "relation_id"
         ? (this.connection.prepare(`
-            SELECT to_domain, target_binding_status
-            FROM atlas_business_relations
-            WHERE relation_id = ?
-          `).get(owner_id) as {
+            SELECT relation.to_domain, binding.binding_status AS target_binding_status
+            FROM atlas_business_relations AS relation
+            LEFT JOIN atlas_structural_relation_target_bindings AS binding
+              ON binding.relation_id = relation.relation_id
+              AND binding.snapshot_id = ?
+            WHERE relation.relation_id = ?
+          `).get(snapshotId, owner_id) as {
             to_domain: "structural" | "business";
-            target_binding_status: EvidenceBindingStatus;
+            target_binding_status: EvidenceBindingStatus | null;
           })
         : undefined;
       const targetIsBound = targetBindingStatus === undefined
@@ -702,6 +734,7 @@ export class WorldSnapshotStore implements Disposable {
     const result = this.connection.prepare(`
       INSERT INTO atlas_world_publications (
         repository_id,
+        git_directory,
         previous_publication_id,
         snapshot_id,
         added_paths,
@@ -709,9 +742,10 @@ export class WorldSnapshotStore implements Disposable {
         removed_paths,
         stale_assertions,
         published_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       this.#repositoryId,
+      this.#gitDirectory,
       previousPublicationId,
       changes.toSnapshotId,
       JSON.stringify(changes.structural.added),

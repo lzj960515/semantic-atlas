@@ -32,7 +32,7 @@ Source code remains authoritative. Atlas is a revision-aware projection that mak
 - **Spend less source context.** Use graph evidence to choose a bounded source seed set, then read only the code needed to decide the task.
 - **Keep knowledge honest.** Evidence is tied to a snapshot; changed or missing evidence becomes visibly stale instead of silently remaining current.
 - **Preserve uncertainty.** Dynamic dispatch, reflection, unsupported structure, and unresolved targets stay explicit and route the agent back to source.
-- **Leave the project untouched.** Generated state stays inside the worktree's ignored `.atlas/` directory; tracked source and configuration are not rewritten.
+- **Leave the project untouched.** Durable knowledge stays under `~/.semantic-atlas`; only a disposable CodeGraph projection enters the worktree's ignored `.atlas/` directory. Tracked source and configuration are not rewritten.
 
 ## One project world map
 
@@ -86,6 +86,8 @@ Every command writes one versioned JSON envelope to standard output. Diagnostics
 
 This loop grows the business map one verified capability at a time. It does not attempt to convert the whole repository into speculative documentation.
 
+When `index` runs for a newly created Git worktree, Atlas automatically copies a compatible sibling CodeGraph projection and performs an incremental sync. Agents do not run a separate initialization command; a full index is used only when no compatible sibling projection is available.
+
 ## Measured results
 
 ### Frozen comparative evaluation
@@ -110,7 +112,7 @@ An isolated TypeScript project was used to validate the public installation path
 
 - A first fresh agent completed `missing → index → query → source confirmation → learn`.
 - A second fresh agent discovered and reused the persisted knowledge through normal `status`, search, roots, and show commands without receiving the previous answer or repeating `learn`.
-- The target revision and ordinary Git status stayed unchanged; generated state existed only in ignored `.atlas/` storage.
+- The target revision and ordinary Git status stayed unchanged; durable knowledge lived in the user Atlas home and the worktree contained only ignored CodeGraph state.
 
 This validates installation, the Agent workflow, knowledge reuse, and zero-intrusion behavior in that project. It is not a universal accuracy benchmark or a production-stability claim.
 
@@ -122,8 +124,9 @@ This validates installation, the Agent workflow, knowledge reuse, and zero-intru
 | Evidence validity | Business assertions carry source locators, hashes, certainty, and snapshot-derived validity. Failed rebinding produces `stale`, not silent deletion or promotion. |
 | Explicit uncertainty | `UnknownBoundary`, `partial`, `unsupported`, `hypothesis`, and insufficient results narrow source fallback; they are never presented as exact facts. |
 | One product | The CLI and Skill expose one Semantic Atlas workflow. CodeGraph stays behind the adapter and its CLI, MCP, schema, and backend types are not public Atlas interfaces. |
-| One local store | Each worktree owns `.atlas/codegraph.db`: CodeGraph owns structural tables and Atlas owns namespaced `atlas_*` knowledge, evidence, snapshot, and validity tables. |
-| Zero intrusion | Atlas prepares `.atlas/.gitignore`, writes no tracked source or project configuration, and does not edit, test, review, commit, merge, or release code. |
+| Durable repository knowledge | `~/.semantic-atlas/repositories/<repository-id>/atlas.db` stores repository-wide business knowledge, snapshots, snapshot bindings, validity, and worktree publication state. Set absolute `SEMANTIC_ATLAS_HOME` only when tests or CI need isolation. |
+| Disposable worktree projection | Each worktree owns `.atlas/codegraph.db`, containing CodeGraph structure only. A missing projection is bootstrapped from a compatible sibling and incrementally synchronized. |
+| Zero intrusion | Atlas prepares `.atlas/.gitignore`, writes no tracked source or project configuration, and does not edit, test, review, commit, merge, or release code. Removing a worktree removes only its disposable projection. |
 
 ## CLI and development
 
@@ -149,7 +152,7 @@ pnpm build
 pnpm package:verify
 ```
 
-`package:verify` installs the packed artifact into an external temporary consumer and runs the real CLI. `validation:backend` adds the pinned CodeGraph coexistence, upgrade, preservation, recovery, rebinding, and worktree-isolation gate.
+`package:verify` installs the packed artifact into an external temporary consumer and runs the real CLI. `validation:backend` adds the pinned CodeGraph projection, recovery, rebinding, sibling-bootstrap, and worktree-isolation gate.
 
 ## Reference
 

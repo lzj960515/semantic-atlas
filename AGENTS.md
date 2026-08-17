@@ -7,7 +7,7 @@ Semantic Atlas is a standalone public TypeScript repository for an AI-agent-only
 - Keep source code as the authority and Atlas data as a revision-aware projection.
 - Keep the runtime local, deterministic, and free of model or network dependencies.
 - Expose agent workflows through the `semantic-atlas` CLI and a Codex Skill.
-- Keep generated state inside the target worktree's ignored `.atlas/` directory and leave tracked source and project configuration unchanged.
+- Keep durable repository knowledge under `~/.semantic-atlas` and disposable CodeGraph state inside the target worktree's ignored `.atlas/` directory. Leave tracked source and project configuration unchanged.
 - Represent unresolved dynamic behavior with explicit unknown boundaries.
 - Leave natural-language reasoning, source editing, tests, Git operations, and review to the calling agent.
 
@@ -17,7 +17,7 @@ Semantic Atlas is a standalone public TypeScript repository for an AI-agent-only
 - Use pnpm 11 and the scripts defined in this repository's `package.json`.
 - Use the pinned `@colbymchenry/codegraph` SDK behind an Atlas-owned adapter for structural indexing, resolution, and queries.
 - Use `node:sqlite` for persistence and Git CLI for repository state.
-- Store CodeGraph structure and Atlas-owned `atlas_*` business, evidence, snapshot, and validity tables in one `.atlas/codegraph.db` file.
+- Store Atlas-owned `atlas_*` business, evidence, snapshot, validity, and worktree publication state in the user-level repository database. Keep `.atlas/codegraph.db` worktree-local and CodeGraph-only.
 - Compose one Atlas world graph without copying CodeGraph nodes and edges into parallel structural tables.
 - Keep CodeGraph CLI, MCP, destructive database recreation, and backend-specific types behind the adapter boundary.
 - Organize modules around repository inspection, structural-backend integration, snapshots, business knowledge, evidence rebinding, world-graph queries, changes, and CLI presentation.

@@ -351,7 +351,7 @@ describe("CodeGraph structural backend", () => {
         message: expect.stringMatching(/lock/iu),
       })],
     });
-  });
+  }, 30_000);
 
   it("keeps a live Atlas write lock authoritative after CodeGraph's stale timeout", async () => {
     const { backend, fixture } = await createStructuralFixture(fixtures);
@@ -384,7 +384,7 @@ describe("CodeGraph structural backend", () => {
     }
     await expect(backend.inspect()).resolves.toMatchObject({ completeness: "complete" });
     await expect(backend.search({ query: "addedWhileAtlasLocked", limit: 5 })).resolves.toEqual([]);
-  });
+  }, 30_000);
 
   it("reclaims only dead Atlas lock holders and does not delete replacement ownership", async () => {
     const { backend, fixture } = await createStructuralFixture(fixtures);

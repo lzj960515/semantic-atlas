@@ -1,5 +1,3 @@
-import { join } from "node:path";
-
 import { cliEnvelopeSchema, type CliEnvelope } from "../contracts/cli.js";
 import { graphPatchV1Schema } from "../contracts/graph.js";
 import type { GraphNeighbor, GraphNodeReference } from "../graph/types.js";
@@ -20,6 +18,7 @@ import {
   SnapshotStore,
   type StoredRepositorySnapshot,
 } from "../storage/snapshot-store.js";
+import { resolveAtlasDatabasePath } from "../storage/atlas-database.js";
 import { CodeGraphStructuralBackend } from "../structural-backend/codegraph-backend.js";
 import type { StructuralIndexState } from "../structural-backend/types.js";
 import { WorldGraphQuery } from "../world/world-graph-query.js";
@@ -140,7 +139,7 @@ export class CliApplication {
           changes: changeCounts(context.currentSnapshot),
         },
         freshness,
-        storeLocation: join(context.repository.worktreeRoot, ".atlas", "codegraph.db"),
+        storeLocation: resolveAtlasDatabasePath(context.repository),
         languages: [...context.languages],
         backend: {
           version: context.structural.backendVersion,
@@ -166,9 +165,9 @@ export class CliApplication {
       ? await new CodeGraphStructuralBackend(context.repository).listUnknownBoundaries()
       : [];
     const world = new WorldModelService(context.repository);
-    const publication = context.structural.completeness === "complete"
-      ? await world.sync()
-      : await world.build();
+    const publication = context.structural.completeness === "incomplete"
+      ? await world.build()
+      : await world.sync();
     const unknownChanges = compareUnknownBoundaries(
       previousUnknowns,
       publication.structural.boundaries,

@@ -60,7 +60,7 @@ describe("world model publication", () => {
     expect(world.currentSnapshotId()).toBe(changed.snapshotId);
 
     using graph = new GraphStore(repository);
-    expect(graph.databasePath).toBe(changed.structural.databasePath);
+    expect(graph.databasePath).not.toBe(changed.structural.databasePath);
     using database = new DatabaseSync(graph.databasePath, { readOnly: true });
     expect(database.prepare(`
       SELECT
@@ -99,18 +99,19 @@ describe("world model publication", () => {
     expect(await fixture.git("status", "--porcelain", "--untracked-files=all")).toBe("");
   });
 
-  it("rolls back a reconciliation failure, records failed, and retries idempotently", async () => {
+  it("keeps a committed structural projection fail closed when central publication fails", async () => {
     const fixture = await createGitFixture();
     fixtures.push(fixture);
     const repository = await inspectGitRepository(fixture.directory);
     const world = new WorldModelService(repository);
     const initial = await world.build();
-    const databasePath = initial.structural.databasePath;
+    using graph = new GraphStore(repository);
+    const databasePath = graph.databasePath;
     const database = new DatabaseSync(databasePath);
     try {
       database.exec(`
         CREATE TRIGGER atlas_fixture_reconciliation_failure
-        BEFORE UPDATE OF status ON atlas_world_state
+        BEFORE UPDATE OF status ON atlas_worktree_states
         WHEN NEW.status = 'current'
         BEGIN
           SELECT RAISE(ABORT, 'forced world reconciliation failure');
@@ -126,6 +127,9 @@ describe("world model publication", () => {
       status: "failed",
       currentSnapshotId: initial.snapshotId,
       failureMessage: expect.stringMatching(/forced world reconciliation failure/iu),
+    });
+    await expect(new CodeGraphStructuralBackend(repository).inspect()).resolves.toMatchObject({
+      completeness: "complete",
     });
     using failedDatabase = new DatabaseSync(databasePath);
     expect(failedDatabase.prepare(`
@@ -162,7 +166,8 @@ describe("world model publication", () => {
     const unchanged = await world.sync();
 
     expect(unchanged.snapshotId).toBe(changed.snapshotId);
-    using database = new DatabaseSync(changed.structural.databasePath, { readOnly: true });
+    using graph = new GraphStore(repository);
+    using database = new DatabaseSync(graph.databasePath, { readOnly: true });
     expect(database.prepare(`
       SELECT previous.snapshot_id AS from_snapshot_id, publication.modified_paths
       FROM atlas_world_publications AS publication

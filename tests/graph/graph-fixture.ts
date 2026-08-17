@@ -38,7 +38,7 @@ export interface GraphTestContext {
 export async function createGraphTestContext(): Promise<GraphTestContext> {
   const fixture = await createGitFixture();
   const repository = await inspectGitRepository(fixture.directory);
-  await initializeSharedDatabaseFixture(repository.worktreeRoot);
+  await initializeStructuralDatabaseFixture(repository.worktreeRoot);
   const structuralBackend = createStructuralBackendFixture(repository.worktreeRoot);
   const snapshot = await createRepositorySnapshot(repository);
   const structuralNode = await structuralBackend.getNode({ id: "symbol:src/example.ts#value" });
@@ -85,7 +85,7 @@ export async function createGraphTestContext(): Promise<GraphTestContext> {
   };
 }
 
-async function initializeSharedDatabaseFixture(worktreeRoot: string): Promise<void> {
+async function initializeStructuralDatabaseFixture(worktreeRoot: string): Promise<void> {
   const atlasDirectory = join(worktreeRoot, ".atlas");
   await mkdir(atlasDirectory);
   await writeFile(join(atlasDirectory, ".gitignore"), "*\n");

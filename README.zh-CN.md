@@ -32,7 +32,7 @@ Semantic Atlas 为编程 Agent 提供一张本地世界图，把两类项目知�
 - **减少源码上下文。** 用图证据选择有边界的源码起点，只阅读当前判断真正需要的代码。
 - **让知识保持诚实。** 证据绑定到快照；证据变化或消失后，断言会明确变为过期，而不会悄悄继续充当当前事实。
 - **保留不确定性。** 动态分派、反射、不支持的结构和未解析目标会保持显式，并把 Agent 引导回源码。
-- **不侵入目标项目。** 生成状态只进入工作树内被忽略的 `.atlas/`，不会改写跟踪中的源码和配置。
+- **不侵入目标项目。** 持久知识保存在 `~/.semantic-atlas`；工作树内只有被忽略、可丢弃的 CodeGraph 投影，不会改写跟踪中的源码和配置。
 
 ## 一张项目世界图
 
@@ -86,6 +86,8 @@ semantic-atlas map show module:src --depth 1
 
 这个循环每次只增长一块经过验证的业务能力，而不是把整个仓库转换成推测性文档。
 
+当新建 Git worktree 第一次运行 `index` 时，Atlas 会自动复制兼容 sibling worktree 的 CodeGraph 投影，再执行增量同步。Agent 不需要额外初始化命令；只有不存在兼容投影时才执行全量索引。
+
 ## 实测结果
 
 ### 冻结对照评测
@@ -110,7 +112,7 @@ semantic-atlas map show module:src --depth 1
 
 - 第一个全新 Agent 完成 `missing → index → query → 源码确认 → learn`。
 - 第二个全新 Agent 没有看到前一个答案，也没有重复 `learn`，只通过正常的 `status`、搜索、根节点和详情查询就发现并复用了已持久化的知识。
-- 验证前后，目标 revision 与普通 Git 状态保持不变；生成状态只存在于被忽略的 `.atlas/` 中。
+- 验证前后，目标 revision 与普通 Git 状态保持不变；持久知识位于用户级 Atlas 目录，工作树内只有被忽略的 CodeGraph 状态。
 
 这次验证说明安装路径、Agent 工作流、知识复用和零侵入行为可以协同工作；它不构成通用准确率基准或生产稳定性结论。
 
@@ -122,8 +124,9 @@ semantic-atlas map show module:src --depth 1
 | 证据有效性 | 业务断言携带源码定位、哈希、确定性和由快照推导的有效性。证据无法重绑定时会得到 `stale`，而不是被静默删除或升级。 |
 | 显式不确定性 | `UnknownBoundary`、`partial`、`unsupported`、`hypothesis` 和信息不足的结果用于缩小源码回退范围，绝不会冒充精确事实。 |
 | 一个产品 | CLI 与 Skill 组成一个 Semantic Atlas 工作流。CodeGraph 位于适配器之后，它的 CLI、MCP、表结构和后端类型不是 Atlas 公共接口。 |
-| 一个本地存储 | 每个工作树拥有自己的 `.atlas/codegraph.db`：CodeGraph 管理结构表，Atlas 管理带 `atlas_*` 前缀的知识、证据、快照和有效性表。 |
-| 零侵入 | Atlas 准备 `.atlas/.gitignore`，不写入跟踪中的源码或项目配置，也不负责编辑、测试、审查、提交、合入或发布代码。 |
+| 仓库级持久知识 | `~/.semantic-atlas/repositories/<repository-id>/atlas.db` 保存仓库共享的业务知识、快照、按快照绑定、有效性和 worktree publication 状态。测试与 CI 只能用绝对路径 `SEMANTIC_ATLAS_HOME` 隔离。 |
+| 工作树级结构投影 | 每个 worktree 拥有只含 CodeGraph 结构的 `.atlas/codegraph.db`。缺失投影会从兼容 sibling 自动引导并增量同步。 |
+| 零侵入 | Atlas 准备 `.atlas/.gitignore`，不写入跟踪中的源码或项目配置，也不负责编辑、测试、审查、提交、合入或发布代码。删除 worktree 只会删除其可丢弃结构投影。 |
 
 ## CLI 与开发
 
@@ -149,7 +152,7 @@ pnpm build
 pnpm package:verify
 ```
 
-`package:verify` 会把打包产物安装到仓库外的临时使用者中，并运行真实 CLI。`validation:backend` 则增加固定 CodeGraph 版本的共存、升级、保留、恢复、证据重绑定与工作树隔离门槛。
+`package:verify` 会把打包产物安装到仓库外的临时使用者中，并运行真实 CLI。`validation:backend` 则增加固定 CodeGraph 版本的结构投影、恢复、证据重绑定、sibling 引导与工作树隔离门槛。
 
 ## 参考资料
 

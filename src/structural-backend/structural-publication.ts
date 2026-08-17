@@ -56,8 +56,7 @@ export class StructuralPublication {
     try {
       if (hasPublishedDatabase) {
         const backupPath = join(stagingDirectory, PUBLISHED_DATABASE);
-        await captureDatabase(databasePath, backupPath);
-        await verifySqliteDatabase(backupPath);
+        await backupSqliteDatabase(databasePath, backupPath);
       }
       await writeManifest(stagingDirectory, { version: 1, hasPublishedDatabase });
       await rename(stagingDirectory, activeDirectory);
@@ -139,6 +138,14 @@ async function captureDatabase(databasePath: string, backupPath: string): Promis
   } finally {
     database.close();
   }
+}
+
+export async function backupSqliteDatabase(
+  databasePath: string,
+  backupPath: string,
+): Promise<void> {
+  await captureDatabase(databasePath, backupPath);
+  await verifySqliteDatabase(backupPath);
 }
 
 async function restoreDatabase(backupPath: string, databasePath: string): Promise<void> {

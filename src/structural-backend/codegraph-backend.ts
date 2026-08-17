@@ -96,10 +96,14 @@ const backendRelationTypes = new Map<BackendStructuralRelationType, EdgeKind>([
 
 export interface StructuralWorldPublicationHooks {
   onBuilding(): void | Promise<void>;
+  prepareProjection(): void | Promise<void>;
+  validate(
+    result: StructuralBuildResult,
+    indexedSources: readonly IndexedSourceFile[],
+  ): void | Promise<void>;
   publish(
     result: StructuralBuildResult,
     resolver: StructuralEvidenceResolver,
-    indexedSources: readonly IndexedSourceFile[],
   ): void | Promise<void>;
   fail(error: unknown): void;
 }
@@ -111,6 +115,10 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
   constructor(repository: GitRepository) {
     this.#repository = repository;
     this.#databasePath = join(repository.worktreeRoot, ATLAS_DIRECTORY, "codegraph.db");
+  }
+
+  async prepareStorageForBootstrap(): Promise<void> {
+    await this.prepareAtlasDirectory();
   }
 
   async inspect(): Promise<StructuralIndexState> {
@@ -414,6 +422,8 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
 
         try {
           await StructuralPublication.recoverAbandoned(this.#databasePath);
+          await worldHooks?.onBuilding();
+          await worldHooks?.prepareProjection();
           return await this.runLockedBuild(sdk, requestedMode, worldHooks);
         } finally {
           writeLock.release();
@@ -436,10 +446,8 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
     try {
       if (!initialized && worldHooks !== undefined) {
         graph = await sdk.CodeGraph.init(this.#repository.worktreeRoot, { index: false });
-        await worldHooks.onBuilding();
         publication = await StructuralPublication.begin(this.#databasePath, false);
       } else {
-        await worldHooks?.onBuilding();
         publication = await StructuralPublication.begin(this.#databasePath, initialized);
         graph = initialized
           ? await sdk.CodeGraph.open(this.#repository.worktreeRoot, { sync: false })
@@ -462,15 +470,14 @@ export class CodeGraphStructuralBackend implements StructuralIndexBackend, World
         ...buildResult,
         factChanges: compareStructuralFacts(previousFacts, captureStructuralFacts(graph)),
       };
-      await worldHooks?.publish(
-        publishedResult,
-        structuralEvidenceResolver(graph),
-        graph.getFiles().map((file) => ({
-          path: normalizeRepositoryPath(file.path),
-          contentHash: file.contentHash,
-        })),
-      );
+      const indexedSources = graph.getFiles().map((file) => ({
+        path: normalizeRepositoryPath(file.path),
+        contentHash: file.contentHash,
+      }));
+      await worldHooks?.validate(publishedResult, indexedSources);
       await publication.commit();
+      publication = undefined;
+      await worldHooks?.publish(publishedResult, structuralEvidenceResolver(graph));
       return publishedResult;
     } catch (error) {
       const failedResult = this.failedBuildResult(mode, error);
