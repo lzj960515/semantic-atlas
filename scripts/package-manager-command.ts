@@ -19,6 +19,17 @@ export function resolveConsumerInstallArguments(
     : ["install", "--no-audit", "--no-fund"];
 }
 
+export function resolveInstalledCliInvocation(
+  cliEntry: string,
+  arguments_: readonly string[],
+  runtime: PackageManagerRuntime,
+): PackageManagerInvocation {
+  return {
+    executable: runtime.nodeExecutable,
+    arguments: [cliEntry, ...arguments_],
+  };
+}
+
 export function resolvePackageManagerInvocation(
   packageManager: PackageManager,
   arguments_: readonly string[],

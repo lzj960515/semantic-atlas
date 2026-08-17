@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync as NodeDatabaseSync } from "node:sqlite";
 import {
   access,
   mkdir,
@@ -11,17 +11,35 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { cliEnvelopeSchema, type CliEnvelope } from "../src/contracts/cli.js";
 import type { StructuralGraphNode } from "../src/graph/types.js";
 import {
+  createSqliteCompatibilityArguments,
+  requiresSqliteCompatibilityProcess,
+} from "../src/runtime/sqlite-compatibility-process.js";
+import {
   resolveConsumerInstallArguments,
+  resolveInstalledCliInvocation,
   resolvePackageManagerInvocation,
   type PackageManager,
 } from "./package-manager-command.js";
+
+if (requiresSqliteCompatibilityProcess({
+  nodeVersion: process.versions.node,
+  execArguments: process.execArgv,
+  sqliteAvailable: process.getBuiltinModule("node:sqlite") !== undefined,
+})) {
+  const exitCode = await runWithExperimentalSqlite();
+  process.exit(exitCode);
+}
+
+const { DatabaseSync } = await import("node:sqlite") as {
+  DatabaseSync: new (path: string, options?: { readonly readOnly?: boolean }) => NodeDatabaseSync;
+};
 
 const executeFile = promisify(execFile);
 const projectRoot = resolve(import.meta.dirname, "..");
@@ -203,7 +221,15 @@ async function verifyInstalledCli(
   assert.equal(initialStatusData.freshness, "missing");
   assert.ok(isAbsolute(initialStatusData.storeLocation));
   assert.equal(isPathWithin(repositoryRoot, initialStatusData.storeLocation), false);
-  assert.equal(isPathWithin(await realpath(atlasHome), initialStatusData.storeLocation), true);
+  const realAtlasHome = await realpath(atlasHome);
+  assert.equal(
+    isPathWithin(realAtlasHome, initialStatusData.storeLocation),
+    true,
+    `Atlas store must be inside its configured home: ${JSON.stringify({
+      atlasHome: realAtlasHome,
+      storeLocation: initialStatusData.storeLocation,
+    })}`,
+  );
 
   const indexed = await runCli(consumerRoot, ["index"], repositoryRoot, 120_000);
   assertSuccessfulCommand(indexed, "index");
@@ -410,7 +436,7 @@ function assertSplitDatabaseOwnership(atlasDatabase: string, codeGraphDatabase: 
   }
 }
 
-function databaseObjectNames(database: DatabaseSync): readonly string[] {
+function databaseObjectNames(database: NodeDatabaseSync): readonly string[] {
   return (database.prepare(`
     SELECT name
     FROM sqlite_schema
@@ -534,14 +560,13 @@ async function runCli(
     "bin.js",
   );
   const cliArguments = ["--repo", repositoryRoot, ...arguments_];
-  const result = packageManager === "pnpm"
-    ? await runPackageManager(["exec", "semantic-atlas", ...cliArguments], consumerRoot, timeout)
-    : await executeFile(process.execPath, [cliEntry, ...cliArguments], {
-      cwd: consumerRoot,
-      encoding: "utf8",
-      maxBuffer: 50 * 1024 * 1024,
-      timeout,
-    });
+  const invocation = resolveInstalledCliInvocation(cliEntry, cliArguments, packageManagerRuntime);
+  const result = await executeFile(invocation.executable, invocation.arguments, {
+    cwd: consumerRoot,
+    encoding: "utf8",
+    maxBuffer: 50 * 1024 * 1024,
+    timeout,
+  });
   return {
     exitCode: 0,
     stderr: result.stderr,
@@ -564,12 +589,12 @@ async function runCliWithInput(
     "cli",
     "bin.js",
   );
-  const child = spawn(process.execPath, [
-    cliEntry,
+  const invocation = resolveInstalledCliInvocation(cliEntry, [
     "--repo",
     repositoryRoot,
     ...arguments_,
-  ], {
+  ], packageManagerRuntime);
+  const child = spawn(invocation.executable, invocation.arguments, {
     cwd: consumerRoot,
     stdio: ["pipe", "pipe", "pipe"],
   });
@@ -624,7 +649,23 @@ function commandData<Command extends CliEnvelope["data"]["command"]>(
 
 function isPathWithin(parent: string, child: string): boolean {
   const path = relative(parent, child);
-  return path === "" || (!path.startsWith("..") && !isAbsolute(path));
+  return path === "" || (
+    path !== ".."
+    && !path.startsWith(`..${sep}`)
+    && !isAbsolute(path)
+  );
+}
+
+async function runWithExperimentalSqlite(): Promise<number> {
+  const child = spawn(process.execPath, createSqliteCompatibilityArguments(
+    fileURLToPath(import.meta.url),
+    process.argv.slice(2),
+    process.execArgv,
+  ), { stdio: "inherit" });
+  return new Promise((resolveExit, reject) => {
+    child.once("error", reject);
+    child.once("close", (code) => resolveExit(code ?? 1));
+  });
 }
 
 async function runPackageManager(

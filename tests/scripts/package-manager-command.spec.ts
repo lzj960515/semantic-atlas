@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   resolveConsumerInstallArguments,
+  resolveInstalledCliInvocation,
   resolvePackageManagerInvocation,
 } from "../../scripts/package-manager-command.js";
 
@@ -44,5 +45,25 @@ describe("package manager command", () => {
       "--frozen-lockfile=false",
       "--prefer-offline",
     ]);
+  });
+
+  it("runs the installed CLI entry directly through Node on Windows", () => {
+    expect(resolveInstalledCliInvocation(
+      "C:\\consumer\\node_modules\\semantic-atlas\\dist\\cli\\bin.js",
+      ["--repo", "C:\\fixture", "status"],
+      {
+        platform: "win32",
+        nodeExecutable: "C:\\Program Files\\nodejs\\node.exe",
+        packageManagerEntry: "C:\\pnpm\\pnpm.cjs",
+      },
+    )).toEqual({
+      executable: "C:\\Program Files\\nodejs\\node.exe",
+      arguments: [
+        "C:\\consumer\\node_modules\\semantic-atlas\\dist\\cli\\bin.js",
+        "--repo",
+        "C:\\fixture",
+        "status",
+      ],
+    });
   });
 });
