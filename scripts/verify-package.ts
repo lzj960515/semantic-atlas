@@ -179,6 +179,7 @@ async function assertPackagedArtifacts(installedRoot: string): Promise<void> {
 async function createFixtureRepository(): Promise<string> {
   const repositoryRoot = join(temporaryRoot, "fixture");
   await mkdir(join(repositoryRoot, "src"), { recursive: true });
+  await writeFile(join(repositoryRoot, ".gitattributes"), "* -text\n");
   await writeFile(join(repositoryRoot, "package.json"), `${JSON.stringify({
     name: "semantic-atlas-smoke-fixture",
     private: true,
@@ -199,6 +200,7 @@ async function createFixtureRepository(): Promise<string> {
     "",
   ].join("\n"));
   await git(repositoryRoot, "init", "--initial-branch=main");
+  await git(repositoryRoot, "config", "core.autocrlf", "true");
   await git(repositoryRoot, "config", "user.name", "Semantic Atlas Package Verification");
   await git(repositoryRoot, "config", "user.email", "package@semantic-atlas.invalid");
   await git(repositoryRoot, "add", ".");
