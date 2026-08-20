@@ -536,7 +536,11 @@ async function readPublishedRunsExcept(caseId: string): Promise<EvaluationRun[]>
     const value = JSON.parse(await readFile(join(runRoot, file), "utf8")) as { caseId?: unknown };
     if (value.caseId === caseId) continue;
     const run = evaluationRunSchema.parse(value);
-    const audit = auditCodexCommands(run.mode, run.protocol.commandAudit.commands);
+    const audit = auditCodexCommands(
+      run.mode,
+      run.protocol.commandAudit.commands,
+      run.protocol.commandAudit.policy,
+    );
     if (!sameAtlasCalls(audit.atlasCalls, run.observations.atlasCalls)) {
       throw new Error(`Published command evidence disagrees with Atlas calls for ${run.runId}`);
     }

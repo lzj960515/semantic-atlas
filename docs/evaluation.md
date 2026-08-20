@@ -39,18 +39,22 @@ A run is invalid when it lacks exact source-token accounting, is not a fresh con
 The published `fresh-agent-v1` run uses the repository-owned source observer and
 `tiktoken-o200k_base-v1`. Every observer invocation appends one JSONL record per
 returned file. The runner normalizes those atomically appended records to a
-strict event sequence. The `fresh-agent-shell-allowlist-v4` policy accepts only
-observer reads/searches, read-only Semantic Atlas status/map/changes commands,
-bounded file-name listings, and content-free availability probes. Atlas commands
-must satisfy the product CLI's complete argument grammar, and `--repo` is
-prohibited because each process already runs from its measured fixture. The
-policy rejects alternative readers, arbitrary executables and wrappers, external
-instruction paths, command substitution, redirection, unsupported command
-composition, and unquoted shell word generation such as brace, parameter, tilde,
-or filename expansion. The fixed `$EVALUATION_OBSERVER` parameter is the only
-permitted shell expansion. The runner rejects failed audits before adjudication,
-and published-result validation re-audits every recorded command sequence and
-its derived Atlas calls.
+strict event sequence. Each run records its command-policy version. The retained
+`fresh-agent-shell-allowlist-v4` policy replays the original roots, children, and
+structural show grammar, while the current `fresh-agent-shell-allowlist-v5`
+policy accepts the business-first map view/search/show and explicit code search
+grammar. Both policies accept only observer reads/searches, read-only Semantic
+Atlas commands, bounded file-name listings, and content-free availability
+probes. Atlas commands must satisfy the complete grammar for their recorded
+policy, and `--repo` is prohibited because each process already runs from its
+measured fixture. The policies reject alternative readers, arbitrary executables
+and wrappers, external instruction paths, command substitution, redirection,
+unsupported command composition, and unquoted shell word generation such as
+brace, parameter, tilde, or filename expansion. The fixed
+`$EVALUATION_OBSERVER` parameter is the only permitted shell expansion. The
+runner rejects failed audits before adjudication, and published-result validation
+re-audits every recorded command sequence and its derived Atlas calls without
+rewriting immutable historical records.
 
 Runner v5 adds repository-native Skill discovery evidence. It copies the
 candidate Skill into only the Atlas fixture through a Git-local ignore rule,
@@ -67,8 +71,9 @@ decision so a missing or unnecessary GraphPatch load fails validation. Independe
 adjudication separately evaluates the decision's business meaning from bounded
 retained evidence rather than trusting the Agent's label. The public run contract
 binds the adjudicated outcome to the answer; a negative decision verdict must make
-the run incorrect and carry `protocol-violation`. The source command allowlist
-remains unchanged.
+the run incorrect and carry `protocol-violation`. The observer and shell-safety
+rules remain stable while the Atlas command grammar advances through an explicit
+policy version.
 
 ## Metrics
 
@@ -94,7 +99,7 @@ Semantic Atlas Skill, CLI, and current worktree-local index. The retained 22
 `fresh-agent-runner-v1` records were re-audited from preserved raw command logs;
 the affected NestJS provider-contract pair was replaced under
 `fresh-agent-runner-v2` with host capabilities explicitly disabled. All 24
-published command sequences were subsequently re-audited under the v3
+published command sequences were subsequently re-audited under the v4
 fixture-local Atlas grammar.
 
 All 12 pairs retained 100 percent required-file recall, required-symbol recall,

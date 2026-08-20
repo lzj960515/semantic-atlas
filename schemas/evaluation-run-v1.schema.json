@@ -133,7 +133,10 @@
           "properties": {
             "policy": {
               "type": "string",
-              "const": "fresh-agent-shell-allowlist-v4"
+              "enum": [
+                "fresh-agent-shell-allowlist-v4",
+                "fresh-agent-shell-allowlist-v5"
+              ]
             },
             "commands": {
               "minItems": 1,

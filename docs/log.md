@@ -3,6 +3,15 @@
 This log records material documentation ingestion and revisions. Current
 conclusions live on their owning pages rather than in this chronology.
 
+## [2026-08-20] revise | Versioned evaluation command replay
+
+- Bound each Fresh Agent run to the command-policy version that produced it.
+- Preserved v4 replay for immutable structural-map records and introduced v5
+  for the business-first map and explicit code-search grammar.
+- Kept current runs fail-closed against removed commands while allowing release
+  validation to re-audit historical evidence without rewriting it.
+- Affected page: `evaluation.md`.
+
 ## [2026-08-20] revise | Managed Skill setup and CLI discovery
 
 - Added repository-independent `setup`, help, and version commands before the

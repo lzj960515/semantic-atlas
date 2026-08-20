@@ -233,7 +233,15 @@ export const evaluationFailureClassificationSchema = z.enum([
 
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
 
-export const FRESH_AGENT_COMMAND_AUDIT_POLICY = "fresh-agent-shell-allowlist-v4";
+export const RETAINED_FRESH_AGENT_COMMAND_AUDIT_POLICY = "fresh-agent-shell-allowlist-v4";
+export const FRESH_AGENT_COMMAND_AUDIT_POLICY = "fresh-agent-shell-allowlist-v5";
+export const freshAgentCommandAuditPolicySchema = z.enum([
+  RETAINED_FRESH_AGENT_COMMAND_AUDIT_POLICY,
+  FRESH_AGENT_COMMAND_AUDIT_POLICY,
+]);
+export type FreshAgentCommandAuditPolicy = z.infer<
+  typeof freshAgentCommandAuditPolicySchema
+>;
 
 export const evaluationRunSchema = z
   .strictObject({
@@ -255,7 +263,7 @@ export const evaluationRunSchema = z
       oracleHidden: z.literal(true),
       commandAuditPassed: z.literal(true),
       commandAudit: z.strictObject({
-        policy: z.literal(FRESH_AGENT_COMMAND_AUDIT_POLICY),
+        policy: freshAgentCommandAuditPolicySchema,
         commands: z.array(z.string().min(1)).min(1),
       }),
       skillDiscovery: skillDiscoverySchema.optional(),

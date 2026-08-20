@@ -50,7 +50,11 @@ const casesById = new Map(
 );
 const runs = (await Promise.all(runPaths.map(readJson))).map((rawRun) => {
   const run = evaluationRunSchema.parse(rawRun);
-  const commandAudit = auditCodexCommands(run.mode, run.protocol.commandAudit.commands);
+  const commandAudit = auditCodexCommands(
+    run.mode,
+    run.protocol.commandAudit.commands,
+    run.protocol.commandAudit.policy,
+  );
   const publishedCalls = run.observations.atlasCalls.map(({ sequence, command }) => ({
     sequence,
     command,

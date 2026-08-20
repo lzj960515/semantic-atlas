@@ -234,6 +234,27 @@ describe("Fresh Agent Codex command audit", () => {
     expect(auditCodexCommands("atlas", commands).atlasCalls).toHaveLength(commands.length);
   });
 
+  it("replays retained v4 Atlas commands without admitting them to the current policy", () => {
+    const retainedCommands = [
+      "/bin/zsh -lc 'semantic-atlas map roots'",
+      "/bin/zsh -lc 'semantic-atlas map show orders --depth 2'",
+    ];
+
+    expect(auditCodexCommands(
+      "atlas",
+      retainedCommands,
+      "fresh-agent-shell-allowlist-v4",
+    ).atlasCalls).toHaveLength(retainedCommands.length);
+    expect(() => auditCodexCommands("atlas", retainedCommands)).toThrow(
+      /not allowed by the evaluation command policy/,
+    );
+    expect(() => auditCodexCommands(
+      "atlas",
+      ["/bin/zsh -lc 'semantic-atlas map view'"],
+      "fresh-agent-shell-allowlist-v4",
+    )).toThrow(/not allowed by the evaluation command policy/);
+  });
+
   it("proves repository Skill discovery and status-map-source ordering", () => {
     const commands = [
       "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",

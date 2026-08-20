@@ -1,6 +1,10 @@
 import { isDeepStrictEqual } from "node:util";
 
-import { parseCliArguments } from "../../src/cli/argument-parser.js";
+import { atlasCommandNameForPolicy } from "./atlas-command-policy.js";
+import {
+  FRESH_AGENT_COMMAND_AUDIT_POLICY,
+  type FreshAgentCommandAuditPolicy,
+} from "../../src/evaluation/contracts.js";
 import type {
   EvaluationCase,
   EvaluationRun,
@@ -128,15 +132,6 @@ const COMMAND_LOOKUP_TARGETS = new Set([
   "semantic-atlas",
 ]);
 
-const FIXTURE_LOCAL_ATLAS_COMMANDS = new Set([
-  "status",
-  "changes",
-  "map.view",
-  "map.search",
-  "map.show",
-  "code.search",
-]);
-
 const EVALUATION_OBSERVER_PARAMETER = "$EVALUATION_OBSERVER";
 const MAIN_SKILL_FILE = ".agents/skills/semantic-atlas/SKILL.md";
 const SNAPSHOT_BOOTSTRAP_FILE = ".agents/skills/semantic-atlas/references/snapshot-bootstrap.md";
@@ -160,6 +155,7 @@ const UNQUOTED_WORD_GENERATION_CHARACTERS = new Set([
 export function auditCodexRun(
   mode: EvaluationRun["mode"],
   jsonLines: string,
+  policy: FreshAgentCommandAuditPolicy = FRESH_AGENT_COMMAND_AUDIT_POLICY,
 ): CodexRunAudit {
   const events = jsonLines
     .split("\n")
@@ -174,10 +170,10 @@ export function auditCodexRun(
 
   const commandEvents = events.filter(isCompletedCommandEvent);
   const commands = commandEvents.map((event) => event.item.command);
-  const audit = auditCodexCommands(mode, commands);
+  const audit = auditCodexCommands(mode, commands, policy);
   let atlasSequence = 0;
   const atlasCalls = commandEvents.flatMap((event, commandIndex) => {
-    const operations = parseAllowedShellCommand(event.item.command);
+    const operations = parseAllowedShellCommand(event.item.command, policy);
     const atlasOperations = operations.filter((operation) => operation.kind === "atlas");
     if (atlasOperations.length === 0) return [];
     if (operations.length !== 1 || atlasOperations.length !== 1) {
@@ -196,7 +192,7 @@ export function auditCodexRun(
     }];
   });
   const sourceCommands = commandEvents.flatMap((event, commandIndex) => {
-    const operations = parseAllowedShellCommand(event.item.command);
+    const operations = parseAllowedShellCommand(event.item.command, policy);
     const sourceOperations = operations.filter((operation) => isSourceObserver(operation.words));
     if (sourceOperations.length === 0) return [];
     if (operations.length !== 1 || sourceOperations.length !== 1) {
@@ -222,10 +218,11 @@ export function auditCodexRun(
 export function auditCodexCommands(
   mode: EvaluationRun["mode"],
   commands: readonly string[],
+  policy: FreshAgentCommandAuditPolicy = FRESH_AGENT_COMMAND_AUDIT_POLICY,
 ): CodexRunAudit {
   const atlasCommands: string[] = [];
   for (const command of commands) {
-    atlasCommands.push(...auditShellCommand(command));
+    atlasCommands.push(...auditShellCommand(command, policy));
   }
   if (mode === "no-atlas" && atlasCommands.length > 0) {
     throw new Error("A no-atlas run invoked Semantic Atlas");
@@ -273,23 +270,24 @@ export function auditFreshAgentSkillDiscovery(
   commands: readonly string[],
   skillLoads: readonly SkillLoad[],
   evidence: FreshAgentSkillDiscoveryEvidence,
+  policy: FreshAgentCommandAuditPolicy = FRESH_AGENT_COMMAND_AUDIT_POLICY,
 ): FreshAgentSkillDiscoveryAudit {
   if (skillLoads[0]?.file !== MAIN_SKILL_FILE) {
     throw new Error("Fresh Agent did not load the discovered Semantic Atlas Skill");
   }
 
-  const operations = buildTimedOperations(commands);
-  verifyStandaloneDiscoveryOperations(commands);
+  const operations = buildTimedOperations(commands, policy);
+  verifyStandaloneDiscoveryOperations(commands, policy);
   verifySkillTrace(operations, skillLoads);
-  const atlasEvidence = parseAtlasEvidence(operations, evidence.atlasCalls);
+  const atlasEvidence = parseAtlasEvidence(operations, evidence.atlasCalls, policy);
   const skillIndex = operations.findIndex((operation) => (
     operation.kind === "observer" && observerReadFile(operation.words) === MAIN_SKILL_FILE
   ));
   const statusIndex = operations.findIndex((operation) => (
-    operation.kind === "atlas" && atlasCommandName(operation.words) === "status"
+    operation.kind === "atlas" && atlasCommandName(operation.words, policy) === "status"
   ));
   const mapIndex = operations.findIndex((operation) => (
-    operation.kind === "atlas" && atlasCommandName(operation.words).startsWith("map.")
+    operation.kind === "atlas" && atlasCommandName(operation.words, policy).startsWith("map.")
   ));
   const sourceObservations = verifySourceObservations(operations, evidence.sourceOpens);
   const firstSourceSequence = sourceObservations[0]?.commandSequence;
@@ -392,6 +390,7 @@ export function verifyFreshAgentSkillDiscovery(
       requiredSymbols: evaluationCase.oracle.requiredSymbols,
       knowledgeCaptureDecision,
     },
+    run.protocol.commandAudit.policy,
   );
   if (!isDeepStrictEqual(derived, run.protocol.skillDiscovery)) {
     throw new Error(`Published Skill discovery proof disagrees with retained evidence for ${run.runId}`);
@@ -399,9 +398,12 @@ export function verifyFreshAgentSkillDiscovery(
   return derived;
 }
 
-function buildTimedOperations(commands: readonly string[]): readonly TimedOperation[] {
+function buildTimedOperations(
+  commands: readonly string[],
+  policy: FreshAgentCommandAuditPolicy,
+): readonly TimedOperation[] {
   return commands.flatMap((command, commandIndex) => (
-    parseAllowedShellCommand(command).map((operation) => ({
+    parseAllowedShellCommand(command, policy).map((operation) => ({
       text: operation.text,
       kind: operation.kind,
       words: operation.words,
@@ -410,9 +412,12 @@ function buildTimedOperations(commands: readonly string[]): readonly TimedOperat
   ));
 }
 
-function verifyStandaloneDiscoveryOperations(commands: readonly string[]): void {
+function verifyStandaloneDiscoveryOperations(
+  commands: readonly string[],
+  policy: FreshAgentCommandAuditPolicy,
+): void {
   for (const command of commands) {
-    const operations = parseAllowedShellCommand(command);
+    const operations = parseAllowedShellCommand(command, policy);
     const containsDiscoveryOperation = operations.some((operation) => (
       operation.kind === "atlas" || operation.kind === "observer"
     ));
@@ -442,6 +447,7 @@ function verifySkillTrace(
 function parseAtlasEvidence(
   operations: readonly TimedOperation[],
   atlasCalls: EvaluationRun["observations"]["atlasCalls"],
+  policy: FreshAgentCommandAuditPolicy,
 ): readonly ParsedAtlasEvidence[] {
   const atlasOperations = operations.filter((operation) => operation.kind === "atlas");
   if (atlasOperations.length !== atlasCalls.length) {
@@ -450,7 +456,7 @@ function parseAtlasEvidence(
 
   return atlasOperations.map((operation, index) => {
     const call = atlasCalls[index]!;
-    const commandName = atlasCommandName(operation.words);
+    const commandName = atlasCommandName(operation.words, policy);
     if (
       call.sequence !== index + 1
       || call.command !== operation.text
@@ -578,6 +584,8 @@ function requiresResultRouting(item: ParsedAtlasEvidence): boolean {
     ((item.commandName === "map.search" || item.commandName === "code.search")
       && isEmptyArray(data.results))
     || (item.commandName === "map.view" && isEmptyArray(data.regions))
+    || (item.commandName === "map.roots" && isEmptyArray(data.nodes))
+    || (item.commandName === "map.children" && isEmptyArray(data.children))
   ) {
     return true;
   }
@@ -752,25 +760,28 @@ function isFileChangeEvent(event: unknown): boolean {
     && event.item.type === "file_change";
 }
 
-function auditShellCommand(command: string): string[] {
+function auditShellCommand(command: string, policy: FreshAgentCommandAuditPolicy): string[] {
   if (EXTERNAL_INSTRUCTION_MARKERS.some((marker) => command.includes(marker))) {
     throw new Error(`Fresh Agent command read an external instruction: ${command}`);
   }
 
-  return parseAllowedShellCommand(command).flatMap((operation) => (
+  return parseAllowedShellCommand(command, policy).flatMap((operation) => (
     operation.kind === "atlas" ? [operation.text] : []
   ));
 }
 
-function parseAllowedShellCommand(command: string) {
+function parseAllowedShellCommand(command: string, policy: FreshAgentCommandAuditPolicy) {
   try {
-    return parseAuditedShellCommand(command);
+    return parseAuditedShellCommand(command, policy);
   } catch (error) {
     throw commandPolicyError(command, error);
   }
 }
 
-function parseAuditedShellCommand(command: string): readonly {
+function parseAuditedShellCommand(
+  command: string,
+  policy: FreshAgentCommandAuditPolicy,
+): readonly {
   readonly text: string;
   readonly kind: CommandKind;
   readonly words: readonly string[];
@@ -782,7 +793,7 @@ function parseAuditedShellCommand(command: string): readonly {
     const words = parseShellWords(shellCommand.text);
     return {
       text: shellCommand.text.trim(),
-      kind: classifyCommand(words),
+      kind: classifyCommand(words, policy),
       words,
       operatorBefore: shellCommand.operatorBefore,
     };
@@ -797,9 +808,11 @@ function parseAuditedShellCommand(command: string): readonly {
   return operations;
 }
 
-function atlasCommandName(words: readonly string[]): string {
-  if (words[0] !== "semantic-atlas") return "";
-  return parseCliArguments(words.slice(1), ".").command.name;
+function atlasCommandName(
+  words: readonly string[],
+  policy: FreshAgentCommandAuditPolicy,
+): string {
+  return atlasCommandNameForPolicy(words, policy) ?? "";
 }
 
 function isCandidateSkillRead(words: readonly string[]): boolean {
@@ -1019,9 +1032,12 @@ function splitShellCommands(script: string): readonly ShellCommand[] {
   return commands;
 }
 
-function classifyCommand(words: readonly string[]): CommandKind {
+function classifyCommand(
+  words: readonly string[],
+  policy: FreshAgentCommandAuditPolicy,
+): CommandKind {
   if (isObserverCommand(words)) return "observer";
-  if (isAtlasCommand(words)) return "atlas";
+  if (isAtlasCommand(words, policy)) return "atlas";
   if (isFileListing(words)) return "file-list";
   if (isFileListingFilter(words)) return "file-list-filter";
   if (words.length === 3 && words[0] === "command" && words[1] === "-v"
@@ -1057,16 +1073,11 @@ function isObserverCommand(words: readonly string[]): boolean {
   return false;
 }
 
-function isAtlasCommand(words: readonly string[]): boolean {
-  if (words[0] !== "semantic-atlas") return false;
-  const arguments_ = words.slice(1);
-  if (arguments_.includes("--repo")) return false;
-  try {
-    const invocation = parseCliArguments(arguments_, ".");
-    return FIXTURE_LOCAL_ATLAS_COMMANDS.has(invocation.command.name);
-  } catch {
-    return false;
-  }
+function isAtlasCommand(
+  words: readonly string[],
+  policy: FreshAgentCommandAuditPolicy,
+): boolean {
+  return atlasCommandNameForPolicy(words, policy) !== undefined;
 }
 
 function isFileListing(words: readonly string[]): boolean {

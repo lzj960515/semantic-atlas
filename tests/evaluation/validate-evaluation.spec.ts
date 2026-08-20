@@ -14,6 +14,23 @@ describe("published evaluation validation", () => {
     }
   });
 
+  it("validates retained v4 runs with their recorded Atlas grammar", () => {
+    const output = execFileSync(
+      "corepack",
+      [
+        "pnpm",
+        "exec",
+        "tsx",
+        "scripts/validate-evaluation.ts",
+        "evaluation/cases/plan.json",
+        "evaluation/results/fresh-agent-v1/runs/fresh-agent-v1-impact-bullmq-job-payload-atlas.json",
+      ],
+      { cwd: process.cwd(), encoding: "utf8", stdio: "pipe" },
+    );
+
+    expect(JSON.parse(output)).toMatchObject({ valid: true });
+  });
+
   it("rejects a runner-v5 record whose retained Skill read is late", () => {
     const directory = mkdtempSync(join(tmpdir(), "atlas-evaluation-validator-"));
     directories.push(directory);
@@ -288,7 +305,7 @@ describe("published evaluation validation", () => {
 
 interface MutableRetainedRun {
   readonly protocol: {
-    readonly commandAudit: { commands: string[] };
+    readonly commandAudit: { policy: string; commands: string[] };
     readonly skillDiscovery: {
       readonly conditionalReferences: {
         snapshotBootstrap: Record<string, unknown>;
@@ -309,6 +326,7 @@ interface MutableRetainedRun {
 }
 
 function upgradeRetainedRunAtlasCommands(run: MutableRetainedRun): void {
+  run.protocol.commandAudit.policy = "fresh-agent-shell-allowlist-v5";
   const removedCommandSequence = run.protocol.commandAudit.commands.findIndex((command) => (
     command.includes("references/snapshot-bootstrap.md")
   )) + 1;
@@ -446,7 +464,7 @@ const lateSkillRun = {
     oracleHidden: true,
     commandAuditPassed: true,
     commandAudit: {
-      policy: "fresh-agent-shell-allowlist-v4",
+      policy: "fresh-agent-shell-allowlist-v5",
       commands: [
         "/bin/zsh -lc 'semantic-atlas status'",
         "/bin/zsh -lc 'semantic-atlas map search Order --limit 5'",
