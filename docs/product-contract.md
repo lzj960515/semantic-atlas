@@ -25,24 +25,25 @@ Atlas interprets CodeGraph results through its own world-graph contract. Replaci
 
 1. For every supported task that implements, fixes, debugs, refactors, reviews, traces, or assesses business behavior, the agent identifies the exact target worktree and invokes `semantic-atlas status` before broad source discovery.
 2. Atlas commands run serially. A missing, stale, failed, or incomplete snapshot loads the bootstrap procedure and invokes `semantic-atlas index`; a current complete snapshot proceeds directly to map queries.
-3. The agent queries `map roots`, `map search`, `map children`, and `map show` before broad source search, using current locations, relationships, evidence, owners, candidates, and unknown boundaries as a bounded source seed set.
+3. The agent starts from `map view`, searches business vocabulary with `map search`, zooms into relevant regions with `map view <business-key>`, and inspects direct evidence with `map show`. When business knowledge is absent or insufficient, `code search` returns a bounded structural source seed set instead of mixing code symbols into the business map.
 4. The agent confirms answer-controlling and change-controlling behavior in authoritative source. Source edits, tests, Git operations, review, and natural-language reasoning remain normal engineering work outside Atlas.
 5. After relevant source changes, the agent reindexes, inspects `changes`, re-queries affected concepts, and confirms the refreshed projection against source and tests.
 6. Before completing the task, the agent makes a knowledge-capture decision. Every newly discovered durable, verified business concept and supported relationship caused by missing or insufficient map knowledge is submitted with `learn --stdin` and verified through `map show`; transient and unverified observations remain task context.
 
 Detailed bootstrap, abnormal-result routing, and GraphPatch procedures are state-conditioned Skill references rather than permanently loaded first-use instructions.
 
-### Incremental and explicit bootstrap
+### Task-driven continuous learning
 
-A normal task adds only the verified business knowledge needed for its relevant capability. This makes ordinary work incrementally improve later map queries without turning each task into a repository-wide mapping exercise.
+A normal task adds only the durable business knowledge it verifies while doing the requested engineering work. This makes ordinary work incrementally improve later map queries without requiring a separate repository-wide business-learning phase.
 
-An explicit project-initialization request begins at current structural roots, selects a stated bounded set of representative domain paths, confirms their interfaces, operations, data, invariants, and verification in source, then learns a reusable initial business map. Unsupported or unknown behavior remains an explicit boundary.
+An indexed repository may legitimately have no business nodes. In that state, the world `map view` returns `regions: []` with `BUSINESS_KNOWLEDGE_EMPTY`; the agent uses `code search` and source as a bounded fallback for the current task. After source and tests establish durable meaning, the agent records only that reusable knowledge. Later tasks may add a broader parent and place an existing root beneath it without changing the existing node identity.
 
 ## Responsibility boundary
 
 | Concern | Semantic Atlas | Calling agent |
 | --- | --- | --- |
 | Product interface | Exposes the `semantic-atlas` CLI and Skill | Chooses the repository and task scope |
+| Skill installation | Ships one version-matched Skill and synchronizes it into the shared user Skill directory through `semantic-atlas setup` | Installs or upgrades the npm package and invokes setup |
 | Structural code model | Uses the embedded CodeGraph SDK for extraction, cross-file resolution, incremental sync, and structural queries | Reads source when the structural map is insufficient |
 | Business world model | Stores and queries capabilities, scenarios, operations, invariants, interfaces, data, and their relationships | Understands natural language and decides which business assertions are justified |
 | Unified graph | Connects business assertions to structural evidence and returns one Atlas graph contract | Uses graph results as bounded context |
@@ -101,6 +102,10 @@ The public graph has two ownership domains and one query surface:
 
 Evidence stores a backend locator together with normalized path, symbol identity, source range, and content hash. A structural rebuild may replace backend rows, so Atlas rebinds evidence after indexing. Failed rebinding produces `stale`; it never silently deletes or upgrades a business assertion.
 
+`map view` projects one canonical business graph into the frontier needed by the current task. The world view exposes every current parentless business node as a root region. A focused view exposes direct child regions, breadcrumb context, and cross-boundary business connections aggregated from deeper asserted relations. Projection counts preserve direct versus aggregated contributors plus certainty and validity distributions; projected connections are never persisted as new facts.
+
+Root placement is provisional. Business keys remain stable vocabulary identifiers while `part_of` is the hierarchy authority; every node has at most one `part_of` parent and the hierarchy is acyclic. Structural modules and symbols remain available only through explicit `code search` fallback and never substitute for an empty business map.
+
 ## Supported scope
 
 v0.1 supports business understanding for TypeScript and JavaScript projects, with initial evaluation coverage for NestJS, GraphQL, TypeORM, and BullMQ flows. CodeGraph supplies the structural coverage available from the pinned dependency version. Atlas reports unsupported or unresolved structure instead of promising complete JavaScript runtime semantics.
@@ -134,7 +139,7 @@ The v0.1.0 release requires all of the following on the release commit:
 3. The user Atlas database contains `atlas_*` objects while every worktree CodeGraph database contains none.
 4. Initial index, sibling bootstrap, incremental sync, interrupted index recovery, and worktree deletion preserve Atlas-owned business knowledge.
 5. Business evidence rebinds after stable structural changes and becomes visibly stale after changed or missing evidence.
-6. Unified map queries traverse business and structural relationships through one versioned Atlas response contract.
+6. Business map views zoom deterministically through one hierarchy, preserve evidence summaries on aggregated connections, and keep business search separate from structural code fallback.
 7. Packaged CLI smoke flows pass on supported Node.js versions and operating systems.
 8. Static and Fresh Agent verification of the packaged Semantic Atlas Skill passes.
 9. At least 12 paired Fresh Agent business-location and dependency/impact cases preserve necessary-file recall, necessary-symbol recall, and answer correctness while reducing either median unique opened source files or median source input tokens by at least 30 percent.

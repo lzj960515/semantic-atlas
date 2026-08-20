@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -24,6 +24,37 @@ describe("semantic-atlas CLI", () => {
     await Promise.all(temporaryDirectories.splice(0).map((directory) => (
       rm(directory, { recursive: true, force: true })
     )));
+  });
+
+  it("provides repository-independent help, version, and Skill setup commands", async () => {
+    const nonRepository = await mkdtemp(join(tmpdir(), "semantic-atlas-standalone-"));
+    const userHome = await mkdtemp(join(tmpdir(), "semantic-atlas-user-home-"));
+    temporaryDirectories.push(nonRepository, userHome);
+
+    const help = await runTextCli(["-h"], nonRepository, userHome);
+    const longHelp = await runTextCli(["--help"], nonRepository, userHome);
+    const version = await runTextCli(["--version"], nonRepository, userHome);
+    const setup = await runTextCli(["setup"], nonRepository, userHome);
+    const repeatedSetup = await runTextCli(["setup"], nonRepository, userHome);
+    const packageVersion = (JSON.parse(
+      await readFile(join(projectRoot(), "package.json"), "utf8"),
+    ) as { version: string }).version;
+    const installedSkill = join(userHome, ".agents", "skills", "semantic-atlas");
+
+    expect(help).toMatchObject({ exitCode: 0, stderr: "" });
+    expect(help.stdout).toContain("Usage: semantic-atlas <command> [options]");
+    expect(help.stdout).toContain("setup");
+    expect(help.stdout).toContain("map view [business-key]");
+    expect(longHelp).toEqual(help);
+    expect(version).toEqual({ exitCode: 0, stdout: `${packageVersion}\n`, stderr: "" });
+    expect(setup).toMatchObject({ exitCode: 0, stderr: "" });
+    expect(setup.stdout).toContain(installedSkill);
+    expect(repeatedSetup.stdout).toContain("already current");
+    expect(await readFile(join(installedSkill, "SKILL.md"), "utf8"))
+      .toContain("name: semantic-atlas");
+    expect(JSON.parse(
+      await readFile(join(installedSkill, ".semantic-atlas-managed.json"), "utf8"),
+    )).toMatchObject({ version: packageVersion, fingerprint: expect.any(String) });
   });
 
   it("reports a missing index from cwd and through global repository options", async () => {
@@ -62,7 +93,10 @@ describe("semantic-atlas CLI", () => {
     const nonRepository = await mkdtemp(join(tmpdir(), "semantic-atlas-cli-non-repo-"));
     temporaryDirectories.push(nonRepository);
 
-    const invalid = await runCli(["map", "show", "module:src", "--depth", "4"], fixture.directory);
+    const invalid = await runCli(["map", "show", "module:src"], fixture.directory);
+    const legacyRoots = await runCli(["map", "roots"], fixture.directory);
+    const legacyChildren = await runCli(["map", "children", "fixture"], fixture.directory);
+    const legacyDepth = await runCli(["map", "show", "fixture", "--depth", "1"], fixture.directory);
     const unsupported = await runCli(["status"], nonRepository);
 
     expect(invalid).toMatchObject({
@@ -84,6 +118,15 @@ describe("semantic-atlas CLI", () => {
           command: "status",
           error: { code: "REPOSITORY_NOT_FOUND" },
         },
+      },
+    });
+    expect(legacyRoots.exitCode).toBe(2);
+    expect(legacyChildren.exitCode).toBe(2);
+    expect(legacyDepth).toMatchObject({
+      exitCode: 2,
+      envelope: {
+        status: "error",
+        data: { command: "map.show", error: { code: "INVALID_INPUT" } },
       },
     });
     expect(invalid.stdout.trim().split("\n")).toHaveLength(1);
@@ -219,13 +262,13 @@ describe("semantic-atlas CLI", () => {
     const fixture = await createGitFixture();
     fixtures.push(fixture);
 
-    const missingMap = await runCli(["map", "roots"], fixture.directory);
+    const missingMap = await runCli(["map", "view"], fixture.directory);
     expect(missingMap).toMatchObject({
       exitCode: 4,
       envelope: {
         status: "error",
         data: {
-          command: "map.roots",
+          command: "map.view",
           error: { code: "ATLAS_STATE_MISSING" },
         },
       },
@@ -250,13 +293,24 @@ describe("semantic-atlas CLI", () => {
     const initialSnapshotId = initialIndexData.snapshotId;
     expect(initialIndexData.unknowns.added).toBe(initialIndexData.unknowns.total);
 
-    const roots = await runCli(["map", "roots"], fixture.directory);
-    expect(requireData(roots, "map.roots").nodes).toEqual([
-      expect.objectContaining({ domain: "structural", kind: "Module" }),
-    ]);
+    const worldView = await runCli(["map", "view"], fixture.directory);
+    expect(worldView).toMatchObject({
+      exitCode: 0,
+      envelope: {
+        status: "partial",
+        data: {
+          command: "map.view",
+          focus: null,
+          breadcrumbs: [],
+          regions: [],
+          connections: [],
+        },
+        warnings: [{ code: "BUSINESS_KNOWLEDGE_EMPTY" }],
+      },
+    });
 
     const search = await runCli([
-      "map",
+      "code",
       "search",
       "value",
       "--limit",
@@ -264,7 +318,7 @@ describe("semantic-atlas CLI", () => {
       "--repo",
       fixture.directory,
     ], projectRoot());
-    const structuralValue = requireData(search, "map.search").results
+    const structuralValue = requireData(search, "code.search").results
       .map((result) => result.node)
       .find((node) => node.domain === "structural" && node.kind === "Symbol");
     if (
@@ -279,19 +333,6 @@ describe("semantic-atlas CLI", () => {
     if (evidence === undefined) {
       throw new Error("Expected structural source evidence");
     }
-
-    const shownStructure = await runCli([
-      "map",
-      "show",
-      structuralValue.id,
-      "--depth",
-      "1",
-    ], fixture.directory);
-    expect(requireData(shownStructure, "map.show")).toMatchObject({
-      node: { id: structuralValue.id },
-      depth: 1,
-      unknowns: expect.any(Array),
-    });
 
     const patch = {
       schemaVersion: 1,
@@ -349,41 +390,49 @@ describe("semantic-atlas CLI", () => {
       },
     });
 
-    const businessRoots = await runCli(["map", "roots"], fixture.directory);
-    expect(requireData(businessRoots, "map.roots").nodes).toEqual([
-      expect.objectContaining({ domain: "business", key: "fixture", validity: "valid" }),
-    ]);
-    const businessChildren = await runCli(["map", "children", "fixture"], fixture.directory);
-    expect(requireData(businessChildren, "map.children")).toMatchObject({
-      nodeId: "fixture",
-      children: [],
+    const businessWorld = await runCli(["map", "view"], fixture.directory);
+    expect(requireData(businessWorld, "map.view")).toMatchObject({
+      focus: null,
+      regions: [{
+        node: { domain: "business", key: "fixture", validity: "valid" },
+        role: "root",
+        childCount: 0,
+        expandable: false,
+      }],
     });
-    const missingChildren = await runCli([
-      "map",
-      "children",
-      "missing-capability",
-    ], fixture.directory);
-    expect(missingChildren).toMatchObject({
+    const focusedBusiness = await runCli(["map", "view", "fixture"], fixture.directory);
+    expect(requireData(focusedBusiness, "map.view")).toMatchObject({
+      focus: { key: "fixture" },
+      breadcrumbs: [{ key: "fixture" }],
+      regions: [],
+      connections: [],
+    });
+    const missingFocus = await runCli(["map", "view", "missing-capability"], fixture.directory);
+    expect(missingFocus).toMatchObject({
       exitCode: 2,
       envelope: {
         status: "error",
-        data: { command: "map.children", error: { code: "INVALID_INPUT" } },
+        data: { command: "map.view", error: { code: "INVALID_INPUT" } },
       },
     });
     const shownBusiness = await runCli(["map", "show", "fixture"], fixture.directory);
     expect(requireData(shownBusiness, "map.show")).toMatchObject({
       node: { domain: "business", key: "fixture" },
-      depth: 1,
+      relations: [],
     });
+    const searchedBusiness = await runCli(["map", "search", "fixture"], fixture.directory);
+    expect(requireData(searchedBusiness, "map.search").results).toEqual([
+      expect.objectContaining({ node: expect.objectContaining({ key: "fixture" }) }),
+    ]);
 
     await fixture.write("src/example.ts", "export const value = 2;\n");
-    const staleMap = await runCli(["map", "roots"], fixture.directory);
+    const staleMap = await runCli(["map", "view"], fixture.directory);
     expect(staleMap).toMatchObject({
       exitCode: 4,
       envelope: {
         status: "error",
         data: {
-          command: "map.roots",
+          command: "map.view",
           error: { code: "ATLAS_STATE_STALE" },
         },
       },
@@ -398,12 +447,12 @@ describe("semantic-atlas CLI", () => {
     const changedSnapshotId = changedIndexData.snapshotId;
     expect(changedSnapshotId).not.toBe(initialSnapshotId);
     expect(changedIndexData.unknowns).toMatchObject({ added: 0, resolved: 0 });
-    const staleRoots = await runCli(["map", "roots"], fixture.directory);
-    expect(staleRoots.envelope).toMatchObject({
+    const staleWorld = await runCli(["map", "view"], fixture.directory);
+    expect(staleWorld.envelope).toMatchObject({
       status: "partial",
       data: {
-        command: "map.roots",
-        nodes: [expect.objectContaining({ key: "fixture", validity: "stale" })],
+        command: "map.view",
+        regions: [{ node: expect.objectContaining({ key: "fixture", validity: "stale" }) }],
       },
     });
     const changes = await runCli([
@@ -480,6 +529,33 @@ async function runCli(
   });
   const envelope = cliEnvelopeSchema.parse(JSON.parse(stdout)) as CliEnvelope;
   return { exitCode, stdout, stderr, envelope };
+}
+
+async function runTextCli(
+  arguments_: readonly string[],
+  cwd: string,
+  userHome: string,
+): Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }> {
+  const child = spawn(
+    join(projectRoot(), "node_modules", ".bin", "tsx"),
+    [join(projectRoot(), "src", "cli", "bin.ts"), ...arguments_],
+    {
+      cwd,
+      env: { ...process.env, HOME: userHome },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk: string) => { stdout += chunk; });
+  child.stderr.on("data", (chunk: string) => { stderr += chunk; });
+  const exitCode = await new Promise<number>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", (code) => resolve(code ?? 1));
+  });
+  return { exitCode, stdout, stderr };
 }
 
 function requireData<Command extends CliEnvelope["data"]["command"]>(

@@ -207,9 +207,10 @@ describe("Fresh Agent Codex command audit", () => {
   it("rejects malformed or mutating Atlas CLI grammar", () => {
     for (const command of [
       "/bin/zsh -lc 'semantic-atlas status unexpected'",
-      "/bin/zsh -lc 'semantic-atlas map roots --limit 1'",
+      "/bin/zsh -lc 'semantic-atlas map view --limit 1'",
       "/bin/zsh -lc 'semantic-atlas changes --from invalid'",
-      "/bin/zsh -lc 'semantic-atlas map show orders --depth 4'",
+      "/bin/zsh -lc 'semantic-atlas map show orders --depth 1'",
+      "/bin/zsh -lc 'semantic-atlas map roots'",
       "/bin/zsh -lc 'semantic-atlas index'",
     ]) {
       expect(() => auditCodexCommands("atlas", [command])).toThrow(
@@ -223,10 +224,11 @@ describe("Fresh Agent Codex command audit", () => {
     const commands = [
       "/bin/zsh -lc 'semantic-atlas status --pretty'",
       `/bin/zsh -lc 'semantic-atlas changes --from ${snapshot} --to ${snapshot}'`,
-      "/bin/zsh -lc 'semantic-atlas map roots'",
-      "/bin/zsh -lc 'semantic-atlas map children orders'",
+      "/bin/zsh -lc 'semantic-atlas map view'",
+      "/bin/zsh -lc 'semantic-atlas map view orders'",
       `/bin/zsh -lc 'semantic-atlas map search "Order service" --limit 10'`,
-      "/bin/zsh -lc 'semantic-atlas map show orders --depth 3'",
+      "/bin/zsh -lc 'semantic-atlas map show orders'",
+      `/bin/zsh -lc 'semantic-atlas code search "OrderService" --limit 10'`,
     ];
 
     expect(auditCodexCommands("atlas", commands).atlasCalls).toHaveLength(commands.length);
@@ -276,14 +278,14 @@ describe("Fresh Agent Codex command audit", () => {
       "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
       "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
       "/bin/zsh -lc 'semantic-atlas status'",
-      "/bin/zsh -lc 'semantic-atlas map roots'",
+      "/bin/zsh -lc 'semantic-atlas map view'",
     ];
 
     expect(() => auditDiscovery(sourceFirst, {
       skillLoads,
       atlasCalls: [
         atlasCall(1, 3, "semantic-atlas status", statusEnvelope()),
-        atlasCall(2, 4, "semantic-atlas map roots", mapRootsEnvelope([
+        atlasCall(2, 4, "semantic-atlas map view", mapViewEnvelope([
           businessNode("commerce/orders"),
         ])),
       ],
@@ -296,14 +298,14 @@ describe("Fresh Agent Codex command audit", () => {
     const commands = [
       "/bin/zsh -lc 'semantic-atlas status'",
       "/bin/zsh -lc '$EVALUATION_OBSERVER read .agents/skills/semantic-atlas/SKILL.md'",
-      "/bin/zsh -lc 'semantic-atlas map roots'",
+      "/bin/zsh -lc 'semantic-atlas map view'",
       "/bin/zsh -lc '$EVALUATION_OBSERVER read src/orders/order.service.ts'",
     ];
 
     expect(() => auditDiscovery(commands, {
       atlasCalls: [
         atlasCall(1, 1, "semantic-atlas status", statusEnvelope()),
-        atlasCall(2, 3, "semantic-atlas map roots", mapRootsEnvelope([
+        atlasCall(2, 3, "semantic-atlas map view", mapViewEnvelope([
           businessNode("commerce/orders"),
         ])),
       ],
@@ -711,11 +713,17 @@ function mapEnvelope(nodes: unknown[]) {
   };
 }
 
-function mapRootsEnvelope(nodes: unknown[]) {
+function mapViewEnvelope(nodes: unknown[]) {
   return {
     schemaVersion: 1,
     status: "ok",
-    data: { command: "map.roots", nodes },
+    data: {
+      command: "map.view",
+      focus: null,
+      breadcrumbs: [],
+      regions: nodes.map((node) => ({ node, role: "root", childCount: 0, expandable: false })),
+      connections: [],
+    },
     warnings: [],
   };
 }

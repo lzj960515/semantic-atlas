@@ -29,7 +29,7 @@ The domains are physically separated by lifecycle: CodeGraph structure lives in 
 
 Repository and snapshot IDs are content identifiers produced by Atlas repository inspection. Public structural IDs are deterministic Atlas references derived from normalized backend identity, path, kind, and qualified name. Backend row IDs remain internal locators and may change after a CodeGraph upgrade or rebuild.
 
-Business keys are stable slash-separated keys such as `commerce/orders/place-order`. Labels and aliases form stable vocabulary while evidence-bound summaries can evolve without changing the key.
+Business keys are stable slash-separated keys such as `commerce/orders/place-order`. The slash-separated text is a readable namespace, not hierarchy authority. Labels and aliases form stable vocabulary while evidence-bound summaries and `part_of` placement can evolve without changing the key.
 
 ## Relation kinds
 
@@ -55,7 +55,7 @@ Business keys are stable slash-separated keys such as `commerce/orders/place-ord
 | Business | `constrained_by` | A business node is governed by an invariant |
 | Business | `verified_by` | A business node is checked by an agent-verified structural declaration |
 
-All learned relations originate at a business node. `realized_by` and `verified_by` target structural nodes; the other business relations target business nodes. A test directory or filename is structural context only. Atlas exposes a declaration in `map.show.tests` after an agent verifies it through `verified_by`; the declaration remains a `Symbol` when the structural backend cannot identify a test case independently.
+All learned relations originate at a business node. `realized_by` and `verified_by` target structural nodes; the other business relations target business nodes. A test directory or filename is structural context only. `map show` exposes an agent-verified declaration as a direct `verified_by` relation; the declaration remains a `Symbol` when the structural backend cannot identify a test case independently.
 
 ## Structural support
 
@@ -89,14 +89,18 @@ Validity is derived state and is never accepted as GraphPatch input. Stable busi
 
 ## Unknown boundaries
 
-An `UnknownBoundary` records the unresolved operation, backend reason, location, and any finite candidates. It is a first-class query result. Map responses preserve it through traversal and never convert it into an exact edge. Examples include unresolved references, reflection, runtime dependency lookup, dynamic imports, and non-unique string tokens.
+An `UnknownBoundary` records the unresolved operation, backend reason, location, and any finite candidates. Index results report unresolved-boundary counts and warnings; Atlas never converts a boundary into an exact edge. When a task reaches warned dynamic behavior, the Agent uses bounded `code search` results and authoritative source rather than assuming a missing relationship. Examples include unresolved references, reflection, runtime dependency lookup, dynamic imports, and non-unique string tokens.
 
-## Traversal
+## Business navigation and structural fallback
 
-`map roots` returns business capabilities when present and structural module roots otherwise. Every business concept produced by one capability-scoped derivation has a direct `part_of` relation to that capability, so entry scenarios, operations, invariants, interfaces, and data remain reachable even when the flow has no route. `map children` follows `part_of` and `contains`. `map show` composes Atlas business neighbors, evidence links, and CodeGraph structural neighbors with depth 1 by default and at most 3.
+`map view` projects one canonical business graph into a visible frontier. Without a focus it exposes all current business nodes with no outgoing `part_of` relation as root regions. With a focus it exposes the focus's direct children, its root-to-focus breadcrumb, and the nearest visible external branches connected to its subtree. Any business kind may be a provisional root; an empty business graph returns no regions rather than structural directories.
 
-Lexical search combines Atlas business vocabulary with CodeGraph structural search. The calling AI performs natural-language interpretation; the CLI does not add a language model or pretend lexical scores are business inference.
+`part_of` is the current business navigation hierarchy. Each business node has at most one outgoing `part_of` parent, and the hierarchy is acyclic. A later GraphPatch can atomically remove an old parent and add a broader parent while preserving the moved node's key, evidence, descendants, and non-hierarchy relationships. Structural nodes remain a separate evidence and source-navigation domain.
 
-The two search domains are combined with deterministic reciprocal-rank fusion. Scores express ordering inside the combined result only; they do not convert structural relevance into business certainty.
+Non-hierarchy relations are stored only at the endpoints the Agent verified. A view lifts deeper endpoints to the visible frontier, hides relations that collapse inside one region, and groups the rest by visible endpoints and relation type. Every summary separates direct and aggregated contributor counts and preserves certainty and validity distributions. These connections are query projections and are never accepted as GraphPatch facts.
+
+`map show` accepts one business key and returns only its direct learned relations, including direct `realized_by` and `verified_by` structural evidence. It has no depth option and does not recursively expand the CodeGraph projection.
+
+Lexical search has two explicit domains. `map search` ranks Atlas business vocabulary and always returns business nodes. `code search` ranks CodeGraph symbols and paths and always returns structural nodes with current source locations and support. The calling AI uses structural search only when business knowledge is absent or insufficient, then opens source directly. The CLI does not add a language model or pretend lexical scores are business inference.
 
 Structural nodes and relations include normalized `support.status` and `support.provenance`. Business assertions use `certainty`, `validity`, and evidence instead. Unknown boundaries keep their structural owner, unresolved operation, support, reason, source location, and finite candidates.

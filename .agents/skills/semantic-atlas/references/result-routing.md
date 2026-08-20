@@ -34,33 +34,46 @@ individually.
 
 ## Query results
 
+### Empty business knowledge
+
+`BUSINESS_KNOWLEDGE_EMPTY` with `data.command: "map.view"` and `regions: []`
+means the structural snapshot is usable but no verified business node has been
+learned yet. Treat it as a normal task-driven learning state:
+
+1. Confirm the world view is empty, then run `code search` with the active
+   task's likely symbols, interfaces, data names, or framework entry points.
+2. Inspect only the structural relationships and source ranges needed for the
+   current engineering task.
+3. Complete and verify the engineering work with source as authority.
+4. At knowledge capture, introduce durable verified concepts as provisional
+   roots or attach them to any parent established during the task.
+
+Structural nodes remain source-navigation evidence and never substitute for
+business regions.
+
 ### Empty or weak search
 
-1. Reduce the task to business vocabulary, exact symbol fragments, paths,
-   interface names, data names, and framework-owned terms.
-2. Try up to two materially different lexical formulations rather than many
-   cosmetic variants.
-3. Inspect `map roots` and the closest owning hierarchy.
-4. Use any returned locations as bounded source seeds.
-5. Classify the map as `insufficient` for this task when no relevant node or
-   relationship emerges, then switch to bounded source fallback.
+1. Reduce the task to business vocabulary and try up to two materially
+   different `map search` formulations.
+2. Inspect the world `map view`, then zoom through the closest owning hierarchy
+   when a relevant region exists.
+3. Classify the business map as `insufficient` when no relevant node or
+   relationship emerges.
+4. Run up to two materially different `code search` formulations using exact
+   symbol fragments, interface names, data names, paths, or framework terms.
+5. Use returned source locations as the bounded fallback seed set.
 
 Lexical scores rank results only. A high score does not establish correctness,
 certainty, or business meaning.
 
 ### Unknown and ambiguity
 
-For every `UnknownBoundary`, retain:
-
-- its structural owner;
-- unresolved operation and reason;
-- source location;
-- finite candidate list;
-- structural support status and provenance.
-
-Inspect the owner and candidates in source. Promote a relationship in the
-Agent's conclusion only when the execution or assignment path is uniquely
-established. Preserve the boundary when multiple candidates remain plausible.
+An `UNKNOWN_BOUNDARY` warning means the structural index detected unresolved
+runtime or language behavior. Use `code search` to locate the task-relevant
+owner and inspect the execution or assignment path in source. Promote a
+relationship in the Agent's conclusion only when source establishes it
+uniquely; preserve the ambiguity and any finite candidates discovered in source
+when multiple targets remain plausible.
 
 ### Stale assertions
 

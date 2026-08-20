@@ -131,10 +131,10 @@ const COMMAND_LOOKUP_TARGETS = new Set([
 const FIXTURE_LOCAL_ATLAS_COMMANDS = new Set([
   "status",
   "changes",
-  "map.roots",
-  "map.children",
+  "map.view",
   "map.search",
   "map.show",
+  "code.search",
 ]);
 
 const EVALUATION_OBSERVER_PARAMETER = "$EVALUATION_OBSERVER";
@@ -575,9 +575,9 @@ function requiresResultRouting(item: ParsedAtlasEvidence): boolean {
   const data = isRecord(item.envelope.data) ? item.envelope.data : undefined;
   if (data === undefined) return false;
   if (
-    (item.commandName === "map.search" && isEmptyArray(data.results))
-    || (item.commandName === "map.roots" && isEmptyArray(data.nodes))
-    || (item.commandName === "map.children" && isEmptyArray(data.children))
+    ((item.commandName === "map.search" || item.commandName === "code.search")
+      && isEmptyArray(data.results))
+    || (item.commandName === "map.view" && isEmptyArray(data.regions))
   ) {
     return true;
   }

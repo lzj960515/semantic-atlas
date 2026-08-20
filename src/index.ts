@@ -27,7 +27,6 @@ export { SnapshotStore } from "./storage/snapshot-store.js";
 export { WorldModelService } from "./world/world-model-service.js";
 export type { PublishedWorldSnapshot } from "./world/world-model-service.js";
 export { WorldGraphQuery } from "./world/world-graph-query.js";
-export type { WorldGraphTraversalOptions } from "./world/world-graph-query.js";
 export type {
   SemanticGraphChangeOptions,
   SemanticGraphChanges,

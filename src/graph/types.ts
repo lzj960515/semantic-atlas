@@ -176,18 +176,47 @@ export interface GraphSearchOptions {
   readonly limit?: number;
 }
 
-export interface GraphSearchResult {
+export interface GraphSearchResult<Node extends GraphNode = GraphNode> {
   readonly score: number;
-  readonly node: GraphNode;
+  readonly node: Node;
 }
 
-export interface WorldGraphView {
-  readonly node: GraphNode;
-  readonly depth: number;
-  readonly neighbors: readonly GraphNeighbor[];
-  readonly invariants: readonly BusinessGraphNode[];
-  readonly tests: readonly StructuralGraphNode[];
-  readonly unknowns: readonly UnknownBoundary[];
+export interface BusinessGraphView {
+  readonly node: BusinessGraphNode;
+  readonly relations: readonly GraphNeighbor[];
+}
+
+export type BusinessMapRelationType = Exclude<
+  BusinessRelationType,
+  "part_of" | "realized_by" | "verified_by"
+>;
+
+export interface BusinessMapRelationSummary {
+  readonly type: BusinessMapRelationType;
+  readonly directCount: number;
+  readonly aggregatedCount: number;
+  readonly certainty: Readonly<Record<AssertionCertainty, number>>;
+  readonly validity: Readonly<Record<KnowledgeValidity, number>>;
+}
+
+export interface BusinessMapConnection {
+  readonly from: BusinessNodeReference;
+  readonly to: BusinessNodeReference;
+  readonly relations: readonly BusinessMapRelationSummary[];
+}
+
+export interface BusinessMapRegion {
+  readonly node: BusinessGraphNode;
+  readonly role: "root" | "child" | "context";
+  readonly childCount: number;
+  readonly expandable: boolean;
+}
+
+export interface BusinessMapView {
+  readonly focus: BusinessGraphNode | null;
+  readonly breadcrumbs: readonly BusinessGraphNode[];
+  readonly regions: readonly BusinessMapRegion[];
+  readonly connections: readonly BusinessMapConnection[];
 }
 
 export interface WorldGraphTraversalResult {

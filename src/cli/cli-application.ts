@@ -1,6 +1,6 @@
 import { cliEnvelopeSchema, type CliEnvelope } from "../contracts/cli.js";
 import { graphPatchV1Schema } from "../contracts/graph.js";
-import type { GraphNeighbor, GraphNodeReference } from "../graph/types.js";
+import type { GraphNeighbor } from "../graph/types.js";
 import { GraphStore } from "../graph/graph-store.js";
 import { BusinessKnowledgeService } from "../knowledge/business-knowledge-service.js";
 import {
@@ -88,14 +88,14 @@ export class CliApplication {
         return this.status(context);
       case "index":
         return this.index(context);
-      case "map.roots":
-        return this.mapRoots(context);
-      case "map.children":
-        return this.mapChildren(command.nodeId, context);
+      case "map.view":
+        return this.mapView(command.focusKey, context);
       case "map.search":
         return this.mapSearch(command.query, command.limit, context);
       case "map.show":
-        return this.mapShow(command.nodeId, command.depth, context);
+        return this.mapShow(command.businessKey, context);
+      case "code.search":
+        return this.codeSearch(command.query, command.limit, context);
       case "learn":
         return this.learn(context);
       case "changes":
@@ -206,22 +206,23 @@ export class CliApplication {
     };
   }
 
-  private async mapRoots(context: RepositoryContext): Promise<CommandResult> {
-    this.requireCurrentWorld(context, "map.roots");
+  private async mapView(
+    focusKey: string | undefined,
+    context: RepositoryContext,
+  ): Promise<CommandResult> {
+    this.requireCurrentWorld(context, "map.view");
     using query = new WorldGraphQuery(context.repository);
-    const nodes = await query.roots();
-    return mapResult({ command: "map.roots", nodes }, context.languages);
-  }
-
-  private async mapChildren(nodeId: string, context: RepositoryContext): Promise<CommandResult> {
-    this.requireCurrentWorld(context, "map.children");
-    using query = new WorldGraphQuery(context.repository);
-    const reference = nodeReference(nodeId);
-    const children = await query.children(reference);
-    if (children === undefined) {
-      throw invalidInput(`Map node ${nodeId} was not found.`, "map.children");
+    const view = await query.view(focusKey);
+    if (view === undefined) {
+      throw invalidInput(`Business node ${focusKey} was not found.`, "map.view");
     }
-    return mapResult({ command: "map.children", nodeId, children }, context.languages);
+    const warnings = view.focus === null && view.regions.length === 0
+      ? [{
+          code: "BUSINESS_KNOWLEDGE_EMPTY",
+          message: "No business knowledge has been learned from engineering work yet.",
+        }]
+      : [];
+    return mapResult({ command: "map.view", ...view }, context.languages, warnings);
   }
 
   private async mapSearch(
@@ -231,29 +232,40 @@ export class CliApplication {
   ): Promise<CommandResult> {
     this.requireCurrentWorld(context, "map.search");
     using query = new WorldGraphQuery(context.repository);
-    const results = await query.search(lexicalQuery, { limit });
+    const results = await query.searchBusiness(lexicalQuery, { limit });
     return mapResult({ command: "map.search", query: lexicalQuery, limit, results }, context.languages);
   }
 
+  private async codeSearch(
+    structuralQuery: string,
+    limit: number,
+    context: RepositoryContext,
+  ): Promise<CommandResult> {
+    this.requireCurrentWorld(context, "code.search");
+    using query = new WorldGraphQuery(context.repository);
+    const results = await query.searchCode(structuralQuery, { limit });
+    return mapResult({
+      command: "code.search",
+      query: structuralQuery,
+      limit,
+      results,
+    }, context.languages);
+  }
+
   private async mapShow(
-    nodeId: string,
-    depth: number,
+    businessKey: string,
     context: RepositoryContext,
   ): Promise<CommandResult> {
     this.requireCurrentWorld(context, "map.show");
     using query = new WorldGraphQuery(context.repository);
-    const view = await query.show(nodeReference(nodeId), { maxDepth: depth });
+    const view = await query.showBusiness(businessKey);
     if (view === undefined) {
-      throw invalidInput(`Map node ${nodeId} was not found.`, "map.show");
+      throw invalidInput(`Business node ${businessKey} was not found.`, "map.show");
     }
     return mapResult({
       command: "map.show",
       node: view.node,
-      depth: view.depth,
-      neighbors: view.neighbors.map(presentNeighbor),
-      invariants: view.invariants,
-      tests: view.tests,
-      unknowns: view.unknowns,
+      relations: view.relations.map(presentNeighbor),
     }, context.languages);
   }
 
@@ -431,8 +443,12 @@ function unsupportedLanguageWarnings(
 function mapResult(
   data: unknown,
   languages: readonly RepositoryLanguageSupport[],
+  additionalWarnings: readonly CliWarning[] = [],
 ): CommandResult {
-  const warnings = unsupportedLanguageWarnings(languages);
+  const warnings = [
+    ...unsupportedLanguageWarnings(languages),
+    ...additionalWarnings,
+  ];
   if (containsUnknown(data)) {
     warnings.push({ code: "UNKNOWN_BOUNDARY", message: "The result contains unresolved structural behavior." });
   }
@@ -453,12 +469,6 @@ function presentNeighbor(neighbor: GraphNeighbor) {
     ...(neighbor.relation.domain === "structural" ? { support: neighbor.relation.support } : {}),
     depth: neighbor.depth,
   };
-}
-
-function nodeReference(nodeId: string): GraphNodeReference {
-  return /^(?:repository|module|file|symbol|test|unknown):/u.test(nodeId)
-    ? { domain: "structural", id: nodeId }
-    : { domain: "business", key: nodeId };
 }
 
 function containsUnknown(data: unknown): boolean {

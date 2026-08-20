@@ -48,18 +48,26 @@ describe("knowledge-capture adjudication evidence", () => {
     run.observations.atlasCalls = [{
       sequence: 1,
       commandSequence: 2,
-      command: "semantic-atlas map roots",
+      command: "semantic-atlas map view",
       exitCode: 0,
       output: JSON.stringify({
         status: "ok",
         data: {
-          command: "map.roots",
-          nodes: Array.from({ length: 51 }, (_, index) => ({
-            domain: "business",
-            key: `capability-${index}`,
-            kind: "Capability",
-            label: `Capability ${index}`,
+          command: "map.view",
+          focus: null,
+          breadcrumbs: [],
+          regions: Array.from({ length: 51 }, (_, index) => ({
+            node: {
+              domain: "business",
+              key: `capability-${index}`,
+              kind: "Capability",
+              label: `Capability ${index}`,
+            },
+            role: "root",
+            childCount: 0,
+            expandable: false,
           })),
+          connections: [],
         },
         warnings: [],
       }),

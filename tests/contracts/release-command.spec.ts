@@ -49,7 +49,7 @@ describe("Semantic Atlas release command", () => {
     );
   });
 
-  it("tracks the latest CLI and repository Skill without version rewrites", async () => {
+  it("tracks the latest CLI and installs its exact bundled Skill without version rewrites", async () => {
     const readmes = await Promise.all(
       ["README.md", "README.zh-CN.md"].map((readme) =>
         readFile(resolve(readme), "utf8"),
@@ -59,12 +59,9 @@ describe("Semantic Atlas release command", () => {
     for (const readme of readmes) {
       expect(readme).toContain("npm install --global semantic-atlas");
       expect(readme).not.toMatch(/npm install --global semantic-atlas@/);
-      expect(readme).toContain(
-        "https://github.com/lzj960515/semantic-atlas/tree/main/.agents/skills/semantic-atlas",
-      );
-      expect(readme).not.toMatch(
-        /semantic-atlas\/tree\/v[^/]+\/\.agents\/skills\/semantic-atlas/,
-      );
+      expect(readme).toContain("semantic-atlas setup");
+      expect(readme).toContain("~/.agents/skills/semantic-atlas");
+      expect(readme).not.toContain("$skill-installer");
     }
   });
 });

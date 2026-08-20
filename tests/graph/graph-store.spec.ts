@@ -154,6 +154,90 @@ describe("business graph storage", () => {
     expect(graph.getNode(business(capability.key), snapshot.snapshotId)).toBeUndefined();
   });
 
+  it("atomically reparents a stable business subtree", async () => {
+    const context = await createGraphTestContext();
+    contexts.push(context);
+    const { graph, snapshot } = context;
+    const evidence = evidenceFor(snapshot);
+    const refunds = businessNode("refunds", "Operation", evidence);
+    const orders = businessNode("orders", "Capability", evidence);
+    const commerce = businessNode("commerce", "Capability", evidence);
+    const refundRule = businessNode("refunds/rule", "Invariant", evidence);
+    const refundsInOrders = relation(refunds.key, "part_of", business(orders.key), evidence);
+    const ruleInRefunds = relation(refundRule.key, "part_of", business(refunds.key), evidence);
+    graph.mutateBusinessGraph(mutation(
+      snapshot.snapshotId,
+      [refunds, orders, refundRule],
+      [refundsInOrders, ruleInRefunds],
+    ));
+
+    expect(graph.listBusinessRoots(snapshot.snapshotId).map(({ key }) => key))
+      .toEqual([orders.key]);
+
+    graph.mutateBusinessGraph({
+      ...mutation(snapshot.snapshotId, [commerce], [
+        relation(refunds.key, "part_of", business(commerce.key), evidence),
+      ]),
+      removeRelations: [{
+        from: refundsInOrders.from,
+        type: refundsInOrders.type,
+        to: refundsInOrders.to,
+      }],
+    });
+
+    expect(graph.listBusinessRoots(snapshot.snapshotId).map(({ key }) => key))
+      .toEqual([commerce.key, orders.key]);
+    expect(graph.getNode(business(refunds.key), snapshot.snapshotId)).toMatchObject({
+      key: refunds.key,
+      label: refunds.label,
+      evidence: refunds.evidence,
+    });
+    expect(graph.listBusinessRelations(snapshot.snapshotId)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: business(refunds.key), to: business(commerce.key) }),
+      expect.objectContaining({ from: business(refundRule.key), to: business(refunds.key) }),
+    ]));
+  });
+
+  it("rejects a second hierarchy parent without removing the current parent", async () => {
+    const context = await createGraphTestContext();
+    contexts.push(context);
+    const { graph, snapshot } = context;
+    const evidence = evidenceFor(snapshot);
+    const child = businessNode("refunds", "Operation", evidence);
+    const orders = businessNode("orders", "Capability", evidence);
+    const support = businessNode("support", "Capability", evidence);
+    graph.mutateBusinessGraph(mutation(snapshot.snapshotId, [child, orders, support], [
+      relation(child.key, "part_of", business(orders.key), evidence),
+    ]));
+
+    expect(() => graph.mutateBusinessGraph(mutation(snapshot.snapshotId, [], [
+      relation(child.key, "part_of", business(support.key), evidence),
+    ]))).toThrow(/one.*part_of parent/iu);
+
+    expect(graph.listBusinessRelations(snapshot.snapshotId)
+      .filter(({ type }) => type === "part_of"))
+      .toEqual([expect.objectContaining({ from: business(child.key), to: business(orders.key) })]);
+  });
+
+  it("rejects a hierarchy cycle without changing the existing tree", async () => {
+    const context = await createGraphTestContext();
+    contexts.push(context);
+    const { graph, snapshot } = context;
+    const evidence = evidenceFor(snapshot);
+    const commerce = businessNode("commerce", "Capability", evidence);
+    const orders = businessNode("orders", "Capability", evidence);
+    graph.mutateBusinessGraph(mutation(snapshot.snapshotId, [commerce, orders], [
+      relation(orders.key, "part_of", business(commerce.key), evidence),
+    ]));
+
+    expect(() => graph.mutateBusinessGraph(mutation(snapshot.snapshotId, [], [
+      relation(commerce.key, "part_of", business(orders.key), evidence),
+    ]))).toThrow(/cycle/iu);
+
+    expect(graph.listBusinessRoots(snapshot.snapshotId).map(({ key }) => key))
+      .toEqual([commerce.key]);
+  });
+
   it("updates a structural relation after its target reference is rebound", async () => {
     const context = await createGraphTestContext();
     contexts.push(context);

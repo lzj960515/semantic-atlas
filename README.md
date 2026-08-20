@@ -38,6 +38,13 @@ Source code remains authoritative. Atlas is a revision-aware projection that mak
 
 ![Semantic Atlas capability map showing structural evidence, business knowledge, the Agent loop, one unified world map, explicit uncertainty, and local storage](docs/mindmaps/semantic-atlas-overview.png)
 
+Atlas stores one canonical business graph rather than separate overview and
+detail maps. `map view` shows its current visible frontier: start at parentless
+world regions, zoom into a business key, follow breadcrumbs and related context
+regions, and keep zooming until the relevant operation, data, or rule is visible.
+Cross-region connections summarize the verified deeper relations that contribute
+to the current view without persisting invented high-level facts.
+
 ## Quick start
 
 Semantic Atlas supports Node.js 22.12 through 24 and Git worktrees containing TypeScript or JavaScript.
@@ -46,20 +53,19 @@ Semantic Atlas supports Node.js 22.12 through 24 and Git worktrees containing Ty
 
 ```sh
 npm install --global semantic-atlas
+semantic-atlas setup
+semantic-atlas --version
 semantic-atlas status --repo /path/to/project
 ```
 
-After installation, indexing and queries run locally without model or network calls. npm registry access is needed only to install the package.
+`setup` installs the exact Skill bundled with the current package into
+`~/.agents/skills/semantic-atlas`. Run it again after upgrading the npm package
+to update the managed Skill. It also removes a recognized legacy copy from
+`~/.codex/skills/semantic-atlas`, preventing an older duplicate from taking
+precedence. Codex and other compatible agents can then select `$semantic-atlas`
+from the task description, or you can invoke it explicitly.
 
-### Install the Codex Skill
-
-Install the Skill from the repository's current `main` branch:
-
-```text
-$skill-installer Install semantic-atlas from https://github.com/lzj960515/semantic-atlas/tree/main/.agents/skills/semantic-atlas
-```
-
-Codex can then select `$semantic-atlas` from the task description, or you can invoke it explicitly.
+After installation, indexing and queries run locally without model or network calls. npm registry access is needed only to install or update the package.
 
 ### Run the first query
 
@@ -68,23 +74,31 @@ Run commands serially from the exact target worktree:
 ```sh
 semantic-atlas status
 semantic-atlas index
-semantic-atlas map roots
+semantic-atlas map view
 semantic-atlas map search "checkout" --limit 10
-semantic-atlas map show module:src --depth 1
+semantic-atlas code search "CheckoutService" --limit 10
 ```
 
-Every command writes one versioned JSON envelope to standard output. Diagnostics stay on standard error, so agents consume stable fields and warning codes instead of scraping prose.
+Every project command writes one versioned JSON envelope to standard output.
+`setup`, `-h`/`--help`, and `--version` are repository-independent text
+commands. Diagnostics stay on standard error, so agents consume stable project
+fields and warning codes instead of scraping prose.
+
+On a newly indexed project, the world `map view` may return `regions: []` with
+`BUSINESS_KNOWLEDGE_EMPTY`. That is the honest starting state: map commands
+contain business knowledge only, while explicit `code search` provides bounded
+CodeGraph evidence for the active task.
 
 ## The Agent loop
 
 1. **Status.** Confirm the exact repository root, snapshot freshness, and structural-backend completeness before broad source discovery.
 2. **Index.** Publish or refresh the worktree-local snapshot when state is missing, stale, failed, or incomplete.
-3. **Query.** Search compact business and symbol vocabulary, then traverse only the promising nodes and relationships.
+3. **Query.** Start from the business world, search business vocabulary, zoom through relevant regions, and show direct evidence. Use `code search` only when the business map is absent or insufficient.
 4. **Confirm source.** Open the cited ranges and resolve the decisive behavior in authoritative code. Keep partial, stale, unsupported, and unknown results bounded.
 5. **Do the engineering work.** The calling agent edits code, runs tests, reviews diffs, and owns Git; Atlas performs none of those actions.
 6. **Reconcile and learn.** Reindex after relevant source changes, inspect semantic `changes`, and submit only durable, verified business knowledge through `learn --stdin`. Verify learned nodes with `map show`.
 
-This loop grows the business map one verified capability at a time. It does not attempt to convert the whole repository into speculative documentation.
+This loop grows and reorganizes the business map one verified business area at a time. A parentless operation can be a provisional root; later work can place it beneath a broader concept without changing its stable key or evidence. Atlas does not require an upfront repository-wide business-learning pass.
 
 When `index` runs for a newly created Git worktree, Atlas automatically copies a compatible sibling CodeGraph projection and performs an incremental sync. Agents do not run a separate initialization command; a full index is used only when no compatible sibling projection is available.
 
@@ -111,7 +125,7 @@ These are fixture-scoped comparative results. They do **not** establish universa
 An isolated TypeScript project was used to validate the public installation path with the registry-installed CLI and the Skill from this repository:
 
 - A first fresh agent completed `missing → index → query → source confirmation → learn`.
-- A second fresh agent discovered and reused the persisted knowledge through normal `status`, search, roots, and show commands without receiving the previous answer or repeating `learn`.
+- A second fresh agent discovered and reused the persisted knowledge through normal status, business navigation, search, and show commands without receiving the previous answer or repeating `learn`.
 - The target revision and ordinary Git status stayed unchanged; durable knowledge lived in the user Atlas home and the worktree contained only ignored CodeGraph state.
 
 This validates installation, the Agent workflow, knowledge reuse, and zero-intrusion behavior in that project. It is not a universal accuracy benchmark or a production-stability claim.
@@ -133,10 +147,10 @@ This validates installation, the Agent workflow, knowledge reuse, and zero-intru
 ```text
 semantic-atlas status [--repo <path>] [--pretty]
 semantic-atlas index [--repo <path>] [--pretty]
-semantic-atlas map roots [--repo <path>] [--pretty]
-semantic-atlas map search <query> [--limit <n>] [--repo <path>] [--pretty]
-semantic-atlas map children <node-id> [--repo <path>] [--pretty]
-semantic-atlas map show <node-id> [--depth <n>] [--repo <path>] [--pretty]
+semantic-atlas map view [business-key] [--repo <path>] [--pretty]
+semantic-atlas map search <business-term> [--limit <n>] [--repo <path>] [--pretty]
+semantic-atlas map show <business-key> [--repo <path>] [--pretty]
+semantic-atlas code search <structural-term> [--limit <n>] [--repo <path>] [--pretty]
 semantic-atlas learn --stdin [--repo <path>] [--pretty]
 semantic-atlas changes [--from <snapshot-id>] [--to <snapshot-id>] [--repo <path>] [--pretty]
 ```

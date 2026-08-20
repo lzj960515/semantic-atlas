@@ -38,6 +38,12 @@ Semantic Atlas 为编程 Agent 提供一张本地世界图，把两类项目知�
 
 ![Semantic Atlas 能力图，展示结构证据、业务知识、Agent 循环、统一世界图、显式不确定性与本地存储](docs/mindmaps/semantic-atlas-overview.zh-CN.png)
 
+Atlas 保存一张权威业务图，而不是分别保存总览图和多张细节图。`map view`
+展示它在当前缩放层级的可见边界：先看没有父节点的世界区域，再进入某个业务
+key，沿 breadcrumb、子区域和关联上下文区域继续放大，直到看见任务相关的
+操作、数据或规则。跨区域连接汇总支撑当前视图的深层已验证关系，但不会把
+投影出来的高层关系持久化成新事实。
+
 ## 快速开始
 
 Semantic Atlas 支持 Node.js 22.12 至 24，以及包含 TypeScript 或 JavaScript 的 Git 工作树。
@@ -46,20 +52,18 @@ Semantic Atlas 支持 Node.js 22.12 至 24，以及包含 TypeScript 或 JavaScr
 
 ```sh
 npm install --global semantic-atlas
+semantic-atlas setup
+semantic-atlas --version
 semantic-atlas status --repo /path/to/project
 ```
 
-安装完成后，索引和查询均在本机执行，不会调用模型或网络。只有安装软件包时需要正常访问 npm registry。
+`setup` 会把当前 npm 包内的同版本 Skill 安装到
+`~/.agents/skills/semantic-atlas`。升级 npm 包后再次执行即可同步 Skill；它还会
+删除能够确认为 Semantic Atlas 的旧 `~/.codex/skills/semantic-atlas` 副本，避免
+旧版本优先被发现。之后，Codex 和其他兼容 Agent 可以根据任务描述自动选择
+`$semantic-atlas`，你也可以显式调用它。
 
-### 安装 Codex Skill
-
-从仓库当前的 `main` 分支安装 Skill：
-
-```text
-$skill-installer Install semantic-atlas from https://github.com/lzj960515/semantic-atlas/tree/main/.agents/skills/semantic-atlas
-```
-
-之后，Codex 可以根据任务描述自动选择 `$semantic-atlas`，你也可以显式调用它。
+安装完成后，索引和查询均在本机执行，不会调用模型或网络。只有安装或更新软件包时需要正常访问 npm registry。
 
 ### 发起第一次查询
 
@@ -68,23 +72,29 @@ $skill-installer Install semantic-atlas from https://github.com/lzj960515/semant
 ```sh
 semantic-atlas status
 semantic-atlas index
-semantic-atlas map roots
+semantic-atlas map view
 semantic-atlas map search "checkout" --limit 10
-semantic-atlas map show module:src --depth 1
+semantic-atlas code search "CheckoutService" --limit 10
 ```
 
-每条命令都会向标准输出写入一个带版本的 JSON 信封。诊断信息留在标准错误中，因此 Agent 可以读取稳定字段与告警代码，而不是抓取自然语言文本。
+每条项目命令都会向标准输出写入一个带版本的 JSON 信封；`setup`、
+`-h`/`--help` 与 `--version` 是不依赖仓库的文本命令。诊断信息留在标准错误
+中，因此 Agent 可以读取稳定的项目字段与告警代码，而不是抓取自然语言文本。
+
+新项目完成索引后，世界 `map view` 可能返回 `regions: []` 和
+`BUSINESS_KNOWLEDGE_EMPTY`。这是诚实的起点：map 命令只包含已经验证的业务
+知识，显式 `code search` 则为当前任务提供有边界的 CodeGraph 证据。
 
 ## Agent 如何循环工作？
 
 1. **检查状态。** 在广泛发现源码前，确认准确的仓库根目录、快照新鲜度和结构后端完整性。
 2. **建立索引。** 当状态缺失、过期、失败或不完整时，发布或刷新当前工作树的本地快照。
-3. **查询世界图。** 搜索精简的业务词和符号词，只沿有希望的节点与关系继续遍历。
+3. **查询世界图。** 从业务世界开始，搜索业务词、逐层缩放相关区域并查看直接证据；只有业务地图为空或不足时才使用 `code search`。
 4. **确认源码。** 打开图中引用的范围，在权威代码中确认决定性行为；让部分、过期、不支持和未知结果保持有边界。
 5. **完成工程工作。** 调用 Agent 负责改代码、跑测试、审查差异和操作 Git；Atlas 不接管这些动作。
 6. **对齐并学习。** 相关源码变化后重新索引，检查语义 `changes`，只通过 `learn --stdin` 写入持久且已验证的业务知识，再用 `map show` 验证学习结果。
 
-这个循环每次只增长一块经过验证的业务能力，而不是把整个仓库转换成推测性文档。
+这个循环在真实任务中逐块增长并重组经过验证的业务地图。一个暂时没有已知父节点的操作可以先成为根；后续任务发现更大的业务概念后，可以保持原有 key 和证据，把它挂到新的父节点下。Atlas 不要求预先执行一次全仓库业务学习。
 
 当新建 Git worktree 第一次运行 `index` 时，Atlas 会自动复制兼容 sibling worktree 的 CodeGraph 投影，再执行增量同步。Agent 不需要额外初始化命令；只有不存在兼容投影时才执行全量索引。
 
@@ -111,7 +121,7 @@ semantic-atlas map show module:src --depth 1
 我们在一个隔离的 TypeScript 项目中，使用从 npm registry 安装的 CLI 和本仓库公开的 Skill 验证了公开安装路径：
 
 - 第一个全新 Agent 完成 `missing → index → query → 源码确认 → learn`。
-- 第二个全新 Agent 没有看到前一个答案，也没有重复 `learn`，只通过正常的 `status`、搜索、根节点和详情查询就发现并复用了已持久化的知识。
+- 第二个全新 Agent 没有看到前一个答案，也没有重复 `learn`，只通过正常的状态、业务导航、搜索和详情查询就发现并复用了已持久化的知识。
 - 验证前后，目标 revision 与普通 Git 状态保持不变；持久知识位于用户级 Atlas 目录，工作树内只有被忽略的 CodeGraph 状态。
 
 这次验证说明安装路径、Agent 工作流、知识复用和零侵入行为可以协同工作；它不构成通用准确率基准或生产稳定性结论。
@@ -133,10 +143,10 @@ semantic-atlas map show module:src --depth 1
 ```text
 semantic-atlas status [--repo <path>] [--pretty]
 semantic-atlas index [--repo <path>] [--pretty]
-semantic-atlas map roots [--repo <path>] [--pretty]
-semantic-atlas map search <query> [--limit <n>] [--repo <path>] [--pretty]
-semantic-atlas map children <node-id> [--repo <path>] [--pretty]
-semantic-atlas map show <node-id> [--depth <n>] [--repo <path>] [--pretty]
+semantic-atlas map view [business-key] [--repo <path>] [--pretty]
+semantic-atlas map search <business-term> [--limit <n>] [--repo <path>] [--pretty]
+semantic-atlas map show <business-key> [--repo <path>] [--pretty]
+semantic-atlas code search <structural-term> [--limit <n>] [--repo <path>] [--pretty]
 semantic-atlas learn --stdin [--repo <path>] [--pretty]
 semantic-atlas changes [--from <snapshot-id>] [--to <snapshot-id>] [--repo <path>] [--pretty]
 ```

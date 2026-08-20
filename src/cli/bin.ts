@@ -7,10 +7,17 @@ import {
   createSqliteCompatibilityArguments,
   requiresSqliteCompatibilityProcess,
 } from "../runtime/sqlite-compatibility-process.js";
+import { runStandaloneCli } from "./standalone-cli.js";
 
 const arguments_ = process.argv.slice(2);
+const standaloneExitCode = await runStandaloneCli(
+  arguments_,
+  { stdin: process.stdin, stdout: process.stdout, stderr: process.stderr },
+);
 
-if (requiresSqliteCompatibilityProcess({
+if (standaloneExitCode !== undefined) {
+  process.exitCode = standaloneExitCode;
+} else if (requiresSqliteCompatibilityProcess({
   nodeVersion: process.versions.node,
   execArguments: process.execArgv,
   sqliteAvailable: process.getBuiltinModule("node:sqlite") !== undefined,

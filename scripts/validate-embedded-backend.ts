@@ -19,9 +19,9 @@ import { promisify } from "node:util";
 
 import type { CliEnvelope } from "../src/contracts/cli.js";
 import type {
+  BusinessGraphView,
   StructuralGraphNode,
   StructuralRelationType,
-  WorldGraphView,
 } from "../src/graph/types.js";
 
 const executeFile = promisify(execFile);
@@ -135,6 +135,7 @@ interface PackageInstallation {
   readonly consumerRoot: string;
   readonly cliPath: string;
   readonly api: typeof import("../src/index.js");
+  readonly backendApi: typeof import("../src/structural-backend/codegraph-backend.js");
   readonly resolvedBackendVersion: string;
 }
 
@@ -324,12 +325,24 @@ async function installPackagedAtlas(
     "package.json",
   ), "utf8")) as { readonly version: string };
   const packageEntry = join(consumerRoot, "node_modules", "semantic-atlas", "dist", "index.js");
+  const backendEntry = join(
+    consumerRoot,
+    "node_modules",
+    "semantic-atlas",
+    "dist",
+    "structural-backend",
+    "codegraph-backend.js",
+  );
   const api = await import(pathToFileURL(packageEntry).href) as typeof import("../src/index.js");
+  const backendApi = await import(pathToFileURL(backendEntry).href) as typeof import(
+    "../src/structural-backend/codegraph-backend.js"
+  );
   return {
     tarballName: artifact.tarballName,
     consumerRoot,
     cliPath: join(consumerRoot, "node_modules", ".bin", "semantic-atlas"),
     api,
+    backendApi,
     resolvedBackendVersion: codeGraphPackage.version,
   };
 }
@@ -364,7 +377,7 @@ async function seedPinnedFixture(
   assert.equal(await git(repositoryRoot, "status", "--porcelain=v1", "--untracked-files=all"), initialGitStatus);
 
   const repository = await installation.api.inspectGitRepository(repositoryRoot);
-  const structure = await inspectRepresentativeStructure(installation.api, repository);
+  const structure = await inspectRepresentativeStructure(installation, repository);
   const business = await deriveAndLearnRepresentativeFlow(installation.api, repository, structure.nodes);
   const initialView = await showCapability(installation.api, repository);
   assertRepresentativeBusinessView(initialView);
@@ -408,7 +421,7 @@ async function validateCandidateUpgrade(
   assert.ok(unchangedFacts.reused > 0);
 
   const repository = await installation.api.inspectGitRepository(repositoryRoot);
-  const structure = await inspectRepresentativeStructure(installation.api, repository);
+  const structure = await inspectRepresentativeStructure(installation, repository);
   assertStructuralQualityNotRegressed(seeded.structuralQuality, structure.quality);
   const upgradedView = await showCapability(installation.api, repository);
   assertRepresentativeBusinessView(upgradedView);
@@ -567,7 +580,7 @@ async function validateCandidateUpgrade(
       relationTypes: seeded.business.relationTypes,
       unresolvedBoundaries: seeded.business.boundaryCount,
       sourceEvidenceCount: seeded.business.sourceEvidenceCount,
-      repeatedTaskReusedBusinessNodes: upgradedView.neighbors.filter(({ node }) => (
+      repeatedTaskReusedBusinessNodes: upgradedView.relations.filter(({ node }) => (
         node.domain === "business"
       )).length,
     },
@@ -653,10 +666,11 @@ async function deriveAndLearnRepresentativeFlow(
 }
 
 async function inspectRepresentativeStructure(
-  api: typeof import("../src/index.js"),
+  installation: PackageInstallation,
   repository: import("../src/repository/types.js").GitRepository,
 ): Promise<{ readonly nodes: StructuralProbeNodes; readonly quality: StructuralQualityReport }> {
-  const query = new api.WorldGraphQuery(repository);
+  const query = new installation.api.WorldGraphQuery(repository);
+  const structural = new installation.backendApi.CodeGraphStructuralBackend(repository);
   try {
     const probeEntries = Object.entries(structuralProbes) as [StructuralProbeKey, StructuralProbe][];
     const discovered: Partial<Record<StructuralProbeKey, StructuralGraphNode>> = {};
@@ -676,25 +690,26 @@ async function inspectRepresentativeStructure(
     )));
     const observedByIdentity = new Map<string, StructuralQualityFinding>();
     for (const [from, node] of Object.entries(nodes) as [StructuralProbeKey, StructuralGraphNode][]) {
-      const traversal = await query.traverse(
-        { domain: "structural", id: node.id },
-        { maxDepth: 1, direction: "outgoing" },
-      );
-      for (const neighbor of traversal.neighbors) {
-        if (neighbor.relation.domain !== "structural" || neighbor.relation.from.id !== node.id) {
+      const traversal = await structural.traverse({
+        reference: { id: node.id },
+        maxDepth: 1,
+        direction: "outgoing",
+      });
+      for (const relation of traversal.relations) {
+        if (relation.from.id !== node.id) {
           continue;
         }
-        const to = keysById.get(neighbor.relation.to.id);
+        const to = keysById.get(relation.to.id);
         if (to === undefined) {
           continue;
         }
         const finding: StructuralQualityFinding = {
           from,
-          type: neighbor.relation.type,
+          type: relation.type,
           to,
           fromId: node.id,
-          toId: neighbor.relation.to.id,
-          support: neighbor.relation.support,
+          toId: relation.to.id,
+          support: relation.support,
         };
         observedByIdentity.set(relationExpectationIdentity(finding), finding);
       }
@@ -730,11 +745,9 @@ async function findStructuralNode(
   query: import("../src/world/world-graph-query.js").WorldGraphQuery,
   probe: StructuralProbe,
 ): Promise<StructuralGraphNode | undefined> {
-  const results = await query.search(probe.query, { limit: 50 });
-  return results.map((result) => result.node).find((node): node is StructuralGraphNode => (
-    node.domain === "structural"
-    && node.kind !== "UnknownBoundary"
-    && node.label === probe.label
+  const results = await query.searchCode(probe.query, { limit: 50 });
+  return results.map((result) => result.node).find((node) => (
+    node.label === probe.label
     && node.locations.some((location) => location.file === probe.file)
   ));
 }
@@ -776,27 +789,37 @@ function assertStructuralQualityNotRegressed(
 async function showCapability(
   api: typeof import("../src/index.js"),
   repository: import("../src/repository/types.js").GitRepository,
-): Promise<WorldGraphView> {
+): Promise<BusinessGraphView> {
   const query = new api.WorldGraphQuery(repository);
   try {
-    const view = await query.show({ domain: "business", key: "commerce/orders" }, { maxDepth: 3 });
-    assert.ok(view, "Expected the learned Orders capability");
-    return view;
+    const focused = await query.view("commerce/orders");
+    assert.ok(focused, "Expected the learned Orders capability region");
+    const keys = [
+      "commerce/orders",
+      ...focused.regions.flatMap((region) => (
+        region.role === "child" ? [region.node.key] : []
+      )),
+    ];
+    const details = await Promise.all(keys.map((key) => query.showBusiness(key)));
+    const root = details[0];
+    assert.ok(root, "Expected the learned Orders capability details");
+    return {
+      node: root.node,
+      relations: details.flatMap((detail) => detail?.relations ?? []),
+    };
   } finally {
     query.close();
   }
 }
 
-function assertRepresentativeBusinessView(view: WorldGraphView): void {
-  assert.equal(view.node.domain, "business");
+function assertRepresentativeBusinessView(view: BusinessGraphView): void {
   assert.equal(view.node.validity, "valid");
-  const kinds = new Set(view.neighbors.map(({ node }) => node.kind));
+  const kinds = new Set(view.relations.map(({ node }) => node.kind));
   for (const kind of ["Scenario", "Operation", "Invariant", "Interface", "Data", "Symbol"] as const) {
     assert.ok(kinds.has(kind), `Business view is missing ${kind}`);
   }
-  assert.ok(view.invariants.length > 0);
-  assert.ok(view.tests.length > 0);
-  assert.ok(view.unknowns.length > 0);
+  assert.ok(view.relations.some(({ relation }) => relation.type === "realized_by"));
+  assert.ok(view.relations.some(({ relation }) => relation.type === "verified_by"));
 }
 
 async function measureQueries(
@@ -808,8 +831,9 @@ async function measureQueries(
     const query = new api.WorldGraphQuery(repository);
     const startedAt = performance.now();
     try {
-      await query.search("orders", { limit: 20 });
-      await query.show({ domain: "business", key: "commerce/orders" }, { maxDepth: 2 });
+      await query.searchBusiness("orders", { limit: 20 });
+      await query.searchCode("orders", { limit: 20 });
+      await query.showBusiness("commerce/orders");
     } finally {
       durations.push(performance.now() - startedAt);
       query.close();

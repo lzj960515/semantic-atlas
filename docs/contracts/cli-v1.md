@@ -4,29 +4,44 @@
 
 The npm package and executable are both named `semantic-atlas`. Development uses Node.js 24; the published CLI supports Node.js 22.12 through 24.
 
-Global options:
+Repository-independent commands run before Git, Atlas storage, or SQLite is
+opened:
+
+| Command | Contract |
+| --- | --- |
+| `setup` | Atomically install or update the exact bundled Skill at `~/.agents/skills/semantic-atlas`. A recognized legacy `~/.codex/skills/semantic-atlas` copy is removed after the shared installation succeeds. |
+| `-h`, `--help` | Print top-level usage and command help. |
+| `--version` | Print the installed package version. |
+
+These commands write conventional text to standard output and diagnostics to
+standard error. `setup` records the package version and a content fingerprint;
+repeated execution verifies the installed files and restores a changed managed
+copy. A directory that does not identify itself as the Semantic Atlas Skill is
+reported as a conflict and left unchanged.
+
+Global project options:
 
 - `--repo <path>` selects a directory within the target repository; the default is the current directory.
 - `--pretty` indents JSON without changing fields or values.
 
-Commands:
+Project commands:
 
 | Command | Contract |
 | --- | --- |
 | `status` | Report worktree identity, current revision, latest world snapshot, freshness, local store location, language support, and additive structural-backend metadata. |
 | `index` | Build or synchronize the embedded structural index, reconcile Atlas evidence, publish the completed world snapshot, and report changed facts and unknowns. |
-| `map roots` | Return top-level capabilities or structural module roots before learning. |
-| `map children <node-id>` | Follow `part_of` and `contains` children. |
-| `map search <query> [--limit <n>]` | Lexically rank labels, aliases, summaries, symbols, and paths; the default limit is 20. |
-| `map show <node-id> [--depth <n>]` | Return locations, evidence-rich neighbors, invariants, tests, validity, and unknowns; depth defaults to 1 and is limited to 3. |
+| `map view [business-key]` | Return the world business frontier, or zoom one level into a selected business region with breadcrumbs, child/context regions, and projected cross-boundary connections. An empty world returns `regions: []` with `BUSINESS_KNOWLEDGE_EMPTY`. |
+| `map search <business-term> [--limit <n>]` | Lexically rank business labels, aliases, summaries, and attached evidence vocabulary; every result is a business node and the default limit is 20. |
+| `map show <business-key>` | Return one business assertion plus its direct business relations and direct structural evidence links. The command does not recursively traverse CodeGraph. |
+| `code search <structural-term> [--limit <n>]` | Return bounded structural symbols and source locations when business knowledge is absent or insufficient; the default limit is 20. |
 | `learn --stdin` | Read one complete GraphPatch v1 JSON value from standard input and apply it atomically. |
 | `changes [--from <snapshot-id>] [--to <snapshot-id>]` | Report net semantic graph changes between persisted Atlas snapshot endpoints, not a raw Git diff. The source must be an ancestor of the target in the publication chain; defaults compare the previous and current snapshots. |
 
-`map` commands are graph access primitives. The calling agent extracts concepts, reformulates searches, reads source, and judges impact.
+`map` commands expose business navigation. `code search` is the explicit structural fallback. The calling agent extracts concepts, reformulates searches, opens returned source locations, and judges impact.
 
 ## Response envelope
 
-Every command writes one JSON envelope to standard output. The normative discriminated schema is `schemas/cli-envelope-v1.schema.json`.
+Every project command writes one JSON envelope to standard output. The normative discriminated schema is `schemas/cli-envelope-v1.schema.json`.
 
 ```json
 {
@@ -56,8 +71,8 @@ Every command writes one JSON envelope to standard output. The normative discrim
 
 - Successful responses have `status: "ok" | "partial"`, a non-null repository, and command data selected by `data.command`.
 - `snapshot` is `null` before the first successful index. Otherwise it includes the snapshot ID, Git HEAD, creation time, and `current` or `stale` freshness.
-- `partial` means usable data contains explicit unsupported, stale, or unknown boundaries.
-- Business map nodes and relations always include `certainty`, derived `validity`, and evidence. Structural relations preserve normalized backend provenance and support as additive result metadata; unknown boundaries expose `unknown`, their reason, location, and candidates. Unsupported languages include a reason instead of an approximate analysis.
+- `partial` means usable data is accompanied by a warning or contains stale or otherwise bounded knowledge. An empty business map and an index with unresolved structural counts are usable `partial` results, not indexing failures.
+- Business map nodes and direct relations always include `certainty`, derived `validity`, and evidence. Projected connections report contributor counts and certainty/validity distributions without becoming stored assertions. Structural code-search nodes preserve normalized backend provenance and support. Unsupported languages include a reason instead of an approximate analysis.
 - `warnings` contains stable codes and descriptions for non-fatal conditions. Consumers use codes rather than parsing messages.
 - `storeLocation` identifies the repository-wide Atlas knowledge database. The current worktree's `.atlas/codegraph.db` path remains an internal structural-backend detail.
 
@@ -69,10 +84,10 @@ The schema requires these fields while allowing additive fields inside command d
 | --- | --- |
 | `status` | `currentRevision`, `freshness`, `storeLocation`, `languages` |
 | `index` | `snapshotId`, fact counts, unknown-boundary counts; backend version and evidence-rebinding counts are additive metadata until promoted by a later schema version |
-| `map.roots` | top-level `Capability` or structural `Module` nodes |
-| `map.children` | `nodeId`, `children` |
-| `map.search` | `query`, `limit`, scored `results` |
-| `map.show` | `node`, `depth`, evidence-aware `neighbors`, `Invariant` nodes, agent-verified structural test declarations, `unknowns` |
+| `map.view` | nullable `focus`, root-to-focus `breadcrumbs`, `regions`, and projected `connections` |
+| `map.search` | `query`, `limit`, scored business-only `results` |
+| `map.show` | business `node` and direct evidence-aware `relations` |
+| `code.search` | `query`, `limit`, scored structural-only `results` with source locations and support |
 | `learn` | `baseSnapshotId`, `snapshotId`, applied operation counts |
 | `changes` | source and target snapshot IDs, node/relation change sets, stale assertions |
 
@@ -82,7 +97,13 @@ published graph; `removed` counts facts present only in the previous publication
 is changed when its stable node identity or relation endpoints remain while its structural
 content, location, or support changes.
 
-Map node and relation objects preserve their evidence lifecycle. When evidence cannot uniquely rebind after indexing, a business node can remain addressable by key while its `summary` is returned with `validity: "stale"`; callers therefore cannot confuse vocabulary identity with a current fact.
+Map node and direct relation objects preserve their evidence lifecycle. When evidence cannot uniquely rebind after indexing, a business node can remain addressable by key while its `summary` is returned with `validity: "stale"`; callers therefore cannot confuse vocabulary identity with a current fact.
+
+In a world view, `focus` is null, `breadcrumbs` is empty, and every region has role `root`. In a focused view, `focus` is the selected business node, breadcrumbs run from its current root to the focus, direct children have role `child`, and related external branches have role `context`. Every region reports `childCount` and `expandable`.
+
+Each connection identifies visible business endpoints and groups summaries by relation type. `directCount` counts stored relations whose endpoints are already visible at this level; `aggregatedCount` counts stored deeper relations lifted to the visible frontier. Certainty and validity objects count the underlying contributors. A relation projected to the same visible region is hidden until the agent zooms further in.
+
+`BUSINESS_KNOWLEDGE_EMPTY` is the stable warning code for a current indexed world with no learned business nodes. World `map.view` returns an empty `regions` array in this state. Structural modules and symbols remain discoverable through `code.search`; they are never emitted as business regions.
 
 Change ranges follow the current publication history and fold the requested endpoints into one content comparison. When a content-addressed snapshot was published more than once, `--to` selects its latest occurrence in that history and `--from` selects the latest matching occurrence at or before the target; equal IDs compare the selected occurrence with itself. Paths that have the same presence and content at both endpoints are omitted even if they changed in between, while `staleAssertions` reports the selected target occurrence's final validity state. An unknown target has no change result.
 
@@ -115,6 +136,8 @@ Handled failures have `status: "error"` and structured data:
 
 Handled nonzero failures still emit a versioned error envelope when a response can be formed. Diagnostics never replace the machine-readable response.
 
-## Compatibility
+## Contract stability
 
-Top-level envelope fields, command discriminants, and required command fields are closed within version 1. Additive fields may appear inside command data and map result objects; callers ignore fields they do not understand. A removed field, changed meaning, enum incompatibility, or operation change requires a new `schemaVersion`. GraphPatch and other input objects remain strict and reject unknown fields.
+This pre-adoption revision directly replaces the earlier roots/children/mixed-search/depth-traversal command set. It exposes no aliases or dual response shapes. The generated schema is the current v1 authority.
+
+After adoption, top-level envelope fields, command discriminants, and required command fields are closed within version 1. Additive fields may appear inside command data and result objects; callers ignore fields they do not understand. A future removed field, changed meaning, enum incompatibility, or operation change requires a new `schemaVersion`. GraphPatch and other input objects remain strict and reject unknown fields.

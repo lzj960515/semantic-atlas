@@ -1283,28 +1283,24 @@ async function expectCapabilityNavigation(
 
   using query = new WorldGraphQuery(context.repository, context.graph, structural);
   const capability = { domain: "business" as const, key: options.capability.key };
-  await expect(query.roots()).resolves.toEqual([
-    expect.objectContaining(capability),
-  ]);
+  await expect(query.view()).resolves.toMatchObject({
+    regions: [{ node: capability, role: "root" }],
+  });
 
   const expectedChildren = upsertedNodes(result.patch)
     .filter((node) => node.kind !== "Capability")
     .map((node) => node.key)
     .sort();
-  const children = await query.children(capability);
-  if (children === undefined) {
-    throw new Error("Expected the learned capability to remain queryable");
-  }
-  expect(children.flatMap((node) => (
-    node.domain === "business" ? [node.key] : []
-  )).sort()).toEqual(expectedChildren);
+  const focused = await query.view(capability.key);
+  expect(focused?.regions.filter(({ role }) => role === "child")
+    .map(({ node }) => node.key).sort()).toEqual(expectedChildren);
   expect(upsertedRelations(result.patch).filter((relation) => (
     relation.type === "part_of"
   )).every((relation) => relation.certainty !== "exact")).toBe(true);
 
-  const view = await query.show(capability, { maxDepth: 3 });
+  const view = await query.showBusiness(capability.key);
   expect(view).toBeDefined();
-  expect(view?.neighbors.flatMap(({ node }) => (
+  expect(view?.relations.flatMap(({ node }) => (
     node.domain === "business" ? [node.key] : []
   ))).toEqual(expect.arrayContaining(expectedChildren));
 }

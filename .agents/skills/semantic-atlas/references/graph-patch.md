@@ -99,9 +99,11 @@ Node kinds:
 - `Interface`: an API, event, queue, or integration contract;
 - `Data`: a business data concept or persisted record.
 
-Use stable lowercase hierarchical keys such as
-`<domain>/<capability>/<concept>`. Labels and aliases provide vocabulary;
-summaries state evidence-bound assertions.
+Use stable lowercase slash-separated keys such as
+`<namespace>/<concept>`. A key is durable vocabulary identity; its readable
+namespace does not define its hierarchy. Labels and aliases provide vocabulary,
+summaries state evidence-bound assertions, and `part_of` alone defines current
+placement. Preserve a node's key when its parent changes.
 
 Business relation types:
 
@@ -120,6 +122,19 @@ Every learned relation originates at a business node.
 - A structural target is `{ "domain": "structural", "id": "symbol:..." }` or
   a current `test:...` declaration ID.
 
+## Hierarchy and reparenting
+
+Any business node kind may be a provisional root while no verified parent is
+known. Each node has at most one outgoing `part_of` parent, and the complete
+`part_of` graph remains acyclic.
+
+When later work verifies a different or broader parent, submit one patch that
+can upsert the parent, remove the old `part_of`, and upsert the new `part_of`.
+Keep the moved node and descendants unchanged so their keys, evidence, and
+non-hierarchy relationships remain reusable. Atlas validates the final graph
+after removals and rejects the whole patch when it would create a second parent
+or a cycle.
+
 ## Evidence
 
 Every upserted node summary and relation includes at least one evidence item:
@@ -136,7 +151,8 @@ Every upserted node summary and relation includes at least one evidence item:
 }
 ```
 
-Copy structural identity, path, range, and hash from a current Atlas map result.
+Copy structural identity, path, range, and hash from a current `code search` or
+direct `map show` evidence result.
 Atlas validates that the symbol resolves, path and range match, and file hash is
 current. Evidence outside the worktree or fabricated from source text is not a
 valid binding.
@@ -170,4 +186,5 @@ partially replaying operations.
 
 After success, inspect the returned operation counts and run `map show` for the
 learned key. Confirm its certainty, `valid` status, evidence, and intended
-relationships before relying on it in later tasks.
+relationships, then use `map view` at the world and parent levels to confirm its
+placement before relying on it in later tasks.

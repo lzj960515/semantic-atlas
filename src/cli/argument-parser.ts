@@ -1,5 +1,5 @@
 import { contentIdentifierSchema } from "../contracts/identifiers.js";
-import { businessKeySchema, structuralNodeIdSchema } from "../contracts/graph.js";
+import { businessKeySchema } from "../contracts/graph.js";
 import { invalidInput } from "./cli-error.js";
 import type {
   CliCommandName,
@@ -74,19 +74,22 @@ function parseCommand(
   if (command === "map") {
     return parseMap(subcommand, rest);
   }
+  if (command === "code") {
+    return parseCode(subcommand, rest);
+  }
   throw invalidInput("The command arguments are invalid.", identified);
 }
 
 function parseMap(subcommand: string | undefined, arguments_: readonly string[]): ParsedCommand {
-  if (subcommand === "roots") {
-    requireNoArguments(arguments_, "map.roots");
-    return { name: "map.roots" };
-  }
-  if (subcommand === "children") {
-    if (arguments_.length !== 1) {
-      throw invalidInput("map children requires one node ID.", "map.children");
+  if (subcommand === "view") {
+    if (arguments_.length > 1) {
+      throw invalidInput("map view accepts at most one business key.", "map.view");
     }
-    return { name: "map.children", nodeId: requireNodeId(arguments_[0]!, "map.children") };
+    const focusKey = arguments_[0];
+    return {
+      name: "map.view",
+      ...(focusKey === undefined ? {} : { focusKey: requireBusinessKey(focusKey, "map.view") }),
+    };
   }
   if (subcommand === "search") {
     const [query, ...options] = arguments_;
@@ -100,17 +103,30 @@ function parseMap(subcommand: string | undefined, arguments_: readonly string[])
     };
   }
   if (subcommand === "show") {
-    const [nodeId, ...options] = arguments_;
-    if (nodeId === undefined) {
-      throw invalidInput("map show requires one node ID.", "map.show");
+    if (arguments_.length !== 1) {
+      throw invalidInput("map show requires one business key.", "map.show");
     }
     return {
       name: "map.show",
-      nodeId: requireNodeId(nodeId, "map.show"),
-      depth: parsePositiveIntegerOption(options, "--depth", 1, "map.show", 3),
+      businessKey: requireBusinessKey(arguments_[0]!, "map.show"),
     };
   }
   throw invalidInput("The map command is invalid.", identifyMapCommand(subcommand));
+}
+
+function parseCode(subcommand: string | undefined, arguments_: readonly string[]): ParsedCommand {
+  if (subcommand === "search") {
+    const [query, ...options] = arguments_;
+    if (query === undefined || query.trim().length === 0) {
+      throw invalidInput("code search requires a structural query.", "code.search");
+    }
+    return {
+      name: "code.search",
+      query,
+      limit: parsePositiveIntegerOption(options, "--limit", 20, "code.search"),
+    };
+  }
+  throw invalidInput("The code command is invalid.", identifyCodeCommand(subcommand));
 }
 
 function parseChanges(arguments_: readonly string[]): ParsedCommand {
@@ -157,12 +173,12 @@ function parsePositiveIntegerOption(
   return value;
 }
 
-function requireNodeId(value: string, command: CliCommandName): string {
-  const structural = structuralNodeIdSchema.safeParse(value);
-  if (structural.success) return structural.data;
+function requireBusinessKey(value: string, command: CliCommandName): string {
   const business = businessKeySchema.safeParse(value);
-  if (business.success) return business.data;
-  throw invalidInput("The node ID must be a structural ID or business key.", command);
+  if (!business.success) {
+    throw invalidInput("Expected a business key.", command);
+  }
+  return business.data;
 }
 
 function parseSnapshotId(value: string): string {
@@ -185,14 +201,19 @@ function identifyCommand(arguments_: readonly string[]): CliCommandName | null {
   if (command === "status" || command === "index" || command === "learn" || command === "changes") {
     return command;
   }
-  return command === "map" ? identifyMapCommand(subcommand) : null;
+  if (command === "map") return identifyMapCommand(subcommand);
+  return command === "code" ? identifyCodeCommand(subcommand) : null;
 }
 
 function identifyMapCommand(subcommand: string | undefined): CliCommandName | null {
-  if (subcommand === "roots" || subcommand === "children" || subcommand === "search" || subcommand === "show") {
+  if (subcommand === "view" || subcommand === "search" || subcommand === "show") {
     return `map.${subcommand}`;
   }
   return null;
+}
+
+function identifyCodeCommand(subcommand: string | undefined): CliCommandName | null {
+  return subcommand === "search" ? "code.search" : null;
 }
 
 function isDefined(value: string | undefined): value is string {

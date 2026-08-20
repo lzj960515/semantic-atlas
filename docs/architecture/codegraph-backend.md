@@ -74,9 +74,9 @@ private-worker execution does not degenerate into a process-per-node traversal.
 
 `WorldModelService` owns orchestration. `BusinessKnowledgeStore` owns Atlas tables and transactions. `WorldGraphQuery` resolves cross-domain references and returns the existing versioned CLI graph contract.
 
-`WorldGraphQuery` is the only read coordinator used by map and change workflows. It requires one published world snapshot, combines business hierarchy and evidence relations with backend traversal, and verifies that the published snapshot did not change while an asynchronous structural query was running. Structural results retain normalized support and provenance; business results retain certainty, validity, and evidence.
+`WorldGraphQuery` is the read coordinator used by map, code-search, and change workflows. It requires one published world snapshot, projects the business hierarchy into semantic zoom views, resolves direct evidence links, delegates bounded structural search to the adapter, and verifies that the published snapshot did not change while an asynchronous structural query was running. Structural results retain normalized support and provenance; business results retain certainty, validity, and evidence.
 
-Lexical search uses deterministic reciprocal-rank fusion across Atlas business vocabulary and CodeGraph structural search. Raw backend scores are not compared across domains because their scales are implementation-specific. The query layer performs no embeddings, model calls, or natural-language inference.
+Lexical search keeps its ownership domains explicit. `map search` ranks only Atlas business vocabulary. `code search` ranks only CodeGraph structural results and normalizes their order into bounded public scores. The query layer performs no cross-domain score fusion, embeddings, model calls, or natural-language inference.
 
 When CodeGraph has no explicit module or namespace nodes, the adapter exposes deterministic top-directory module roots with Atlas `module:` references. These roots are computed from the current backend file manifest and traverse to backend file nodes; they are not stored in Atlas tables or presented as business facts.
 

@@ -27,123 +27,221 @@ describe("unified world graph queries", () => {
     await Promise.all(contexts.splice(0).map((context) => context.cleanup()));
   });
 
-  it("uses structural module roots until business capabilities are learned", async () => {
+  it("uses provisional parentless knowledge as world regions", async () => {
     const context = await createGraphTestContext();
     contexts.push(context);
     const query = createQuery(context);
 
-    await expect(query.roots()).resolves.toEqual([
-      expect.objectContaining({ domain: "structural", id: "module:src", kind: "Module" }),
-    ]);
+    await expect(query.view()).resolves.toMatchObject({ regions: [] });
+
+    const evidence = evidenceFor(context.snapshot);
+    context.graph.mutateBusinessGraph({
+      baseSnapshotId: context.snapshot.snapshotId,
+      upsertNodes: [{
+        key: "fixture/checkout",
+        kind: "Operation",
+        label: "Run checkout",
+        summary: "Processes checkout requests.",
+        aliases: ["checkout"],
+        certainty: "exact",
+        evidence: [evidence],
+      }],
+      removeNodeKeys: [],
+      upsertRelations: [],
+      removeRelations: [],
+    });
+
+    await expect(query.view()).resolves.toMatchObject({
+      regions: [{
+        node: { domain: "business", key: "fixture/checkout", kind: "Operation" },
+        role: "root",
+      }],
+    });
 
     learnBusinessWorld(context);
 
-    await expect(query.roots()).resolves.toEqual([
-      expect.objectContaining({ domain: "business", key: "fixture", kind: "Capability" }),
-    ]);
+    await expect(query.view()).resolves.toMatchObject({
+      regions: [{
+        node: { domain: "business", key: "fixture", kind: "Capability" },
+        role: "root",
+      }],
+    });
   });
 
-  it("traverses hierarchy, evidence links, constraints, tests, structure, and unknowns", async () => {
+  it("projects one business graph into deterministic semantic zoom views", async () => {
+    const context = await createGraphTestContext();
+    contexts.push(context);
+    learnZoomableBusinessWorld(context);
+    const query = createQuery(context);
+
+    const world = await query.view();
+    expect(world).toMatchObject({
+      focus: null,
+      breadcrumbs: [],
+      regions: [
+        {
+          node: { key: "commerce" },
+          role: "root",
+          childCount: 2,
+          expandable: true,
+        },
+        {
+          node: { key: "payments" },
+          role: "root",
+          childCount: 1,
+          expandable: true,
+        },
+      ],
+      connections: [{
+        from: { domain: "business", key: "commerce" },
+        to: { domain: "business", key: "payments" },
+        relations: [{
+          type: "invokes",
+          directCount: 0,
+          aggregatedCount: 1,
+          certainty: { exact: 1, inferred: 0, hypothesis: 0 },
+          validity: { valid: 1, stale: 0 },
+        }],
+      }],
+    });
+
+    const commerce = await query.view("commerce");
+    expect(commerce).toMatchObject({
+      focus: { key: "commerce" },
+      breadcrumbs: [{ key: "commerce" }],
+      regions: [
+        { node: { key: "orders" }, role: "child", childCount: 2, expandable: true },
+        { node: { key: "users" }, role: "child", childCount: 1, expandable: true },
+        { node: { key: "payments" }, role: "context", childCount: 1, expandable: true },
+      ],
+      connections: [
+        {
+          from: { domain: "business", key: "orders" },
+          to: { domain: "business", key: "payments" },
+          relations: [{
+            type: "invokes",
+            directCount: 0,
+            aggregatedCount: 1,
+            certainty: { exact: 1, inferred: 0, hypothesis: 0 },
+            validity: { valid: 1, stale: 0 },
+          }],
+        },
+        {
+          from: { domain: "business", key: "orders" },
+          to: { domain: "business", key: "users" },
+          relations: [{
+            type: "reads",
+            directCount: 0,
+            aggregatedCount: 1,
+            certainty: { exact: 1, inferred: 0, hypothesis: 0 },
+            validity: { valid: 1, stale: 0 },
+          }],
+        },
+      ],
+    });
+
+    const orders = await query.view("orders");
+    expect(orders).toMatchObject({
+      focus: { key: "orders" },
+      breadcrumbs: [{ key: "commerce" }, { key: "orders" }],
+      regions: [
+        { node: { key: "place-order" }, role: "child", childCount: 0, expandable: false },
+        { node: { key: "refund" }, role: "child", childCount: 0, expandable: false },
+        { node: { key: "payments" }, role: "context", childCount: 1, expandable: true },
+        { node: { key: "users" }, role: "context", childCount: 1, expandable: true },
+      ],
+      connections: [
+        {
+          from: { domain: "business", key: "place-order" },
+          to: { domain: "business", key: "refund" },
+          relations: [{
+            type: "invokes",
+            directCount: 1,
+            aggregatedCount: 0,
+            certainty: { exact: 1, inferred: 0, hypothesis: 0 },
+            validity: { valid: 1, stale: 0 },
+          }],
+        },
+        {
+          from: { domain: "business", key: "place-order" },
+          to: { domain: "business", key: "users" },
+          relations: [{
+            type: "reads",
+            directCount: 0,
+            aggregatedCount: 1,
+            certainty: { exact: 1, inferred: 0, hypothesis: 0 },
+            validity: { valid: 1, stale: 0 },
+          }],
+        },
+        {
+          from: { domain: "business", key: "refund" },
+          to: { domain: "business", key: "payments" },
+          relations: [{
+            type: "invokes",
+            directCount: 0,
+            aggregatedCount: 1,
+            certainty: { exact: 1, inferred: 0, hypothesis: 0 },
+            validity: { valid: 1, stale: 0 },
+          }],
+        },
+      ],
+    });
+    await expect(query.view("missing-business")).resolves.toBeUndefined();
+    await expect(query.view("orders")).resolves.toEqual(orders);
+  });
+
+  it("shows only direct business relations and structural evidence", async () => {
     const context = await createGraphTestContext();
     contexts.push(context);
     learnBusinessWorld(context);
     const query = createQuery(context);
 
-    const children = await query.children({ domain: "business", key: "fixture" });
-    expect(children?.map((node) => node.kind)).toEqual(["Operation"]);
-    await expect(query.children({ domain: "business", key: "missing" }))
-      .resolves.toBeUndefined();
-
-    const business = await query.show(
-      { domain: "business", key: "fixture/checkout" },
-      { maxDepth: 1 },
-    );
+    const business = await query.showBusiness("fixture/checkout");
     expect(business).toBeDefined();
     if (business === undefined) throw new Error("Expected business graph view");
-    expect(business.neighbors.map(({ relation, node }) => [relation.type, node.kind])).toEqual([
+    expect(business.relations.map(({ relation, node }) => [relation.type, node.kind])).toEqual([
       ["constrained_by", "Invariant"],
       ["part_of", "Capability"],
       ["realized_by", "Symbol"],
       ["verified_by", "Symbol"],
     ]);
-    expect(business.invariants).toEqual([
-      expect.objectContaining({ key: "fixture/checkout/rule", certainty: "inferred" }),
-    ]);
-    expect(business.tests).toEqual([
-      expect.objectContaining({
-        id: "symbol:src/example.test.ts#checkout",
-        kind: "Symbol",
-        support: exactSupport,
-      }),
-    ]);
-
-    const structural = await query.show(
-      { domain: "structural", id: "symbol:src/example.ts#value" },
-      { maxDepth: 1 },
-    );
-    expect(structural).toBeDefined();
-    if (structural === undefined) throw new Error("Expected structural graph view");
-    expect(structural.neighbors).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        direction: "incoming",
-        relation: expect.objectContaining({ domain: "business", certainty: "exact" }),
-        node: expect.objectContaining({ key: "fixture/checkout" }),
-      }),
-      expect.objectContaining({
-        direction: "incoming",
-        relation: expect.objectContaining({ domain: "structural", type: "calls" }),
-        node: expect.objectContaining({ id: "symbol:src/caller.ts#caller" }),
-      }),
+    expect(business.relations).toEqual(expect.arrayContaining([
       expect.objectContaining({
         direction: "outgoing",
         relation: expect.objectContaining({
-          domain: "structural",
-          type: "calls",
-          certainty: null,
-          support: inferredSupport,
+          domain: "business",
+          type: "realized_by",
+          certainty: "exact",
         }),
-        node: expect.objectContaining({ id: "symbol:src/target.ts#target" }),
+        node: expect.objectContaining({
+          id: "symbol:src/example.ts#value",
+          support: exactSupport,
+        }),
       }),
     ]));
-    expect(structural.unknowns).toEqual([
-      expect.objectContaining({
-        id: "unknown:dynamic-checkout",
-        validity: "unknown",
-        support: { status: "unresolved", provenance: "backend" },
-      }),
-    ]);
-
-    const file = await query.show(
-      { domain: "structural", id: "file:src/example.ts" },
-      { maxDepth: 1 },
-    );
-    expect(file?.neighbors).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        direction: "outgoing",
-        relation: expect.objectContaining({ domain: "structural", type: "imports" }),
-        node: expect.objectContaining({ id: "file:src/dependency.ts" }),
-      }),
-    ]));
+    await expect(query.showBusiness("missing")).resolves.toBeUndefined();
   });
 
-  it("deterministically combines business vocabulary and structural search", async () => {
+  it("keeps business vocabulary and structural search deterministic and separate", async () => {
     const context = await createGraphTestContext();
     contexts.push(context);
     learnBusinessWorld(context);
     const query = createQuery(context);
 
-    const first = await query.search("checkout", { limit: 4 });
-    const second = await query.search("checkout", { limit: 4 });
+    const first = await query.searchBusiness("checkout", { limit: 4 });
+    const second = await query.searchBusiness("checkout", { limit: 4 });
 
     expect(first).toEqual(second);
-    expect(first.map(({ node }) => node.domain === "business" ? node.key : node.id)).toEqual([
+    expect(first.map(({ node }) => node.key)).toEqual([
       "fixture/checkout",
-      "symbol:src/target.ts#target",
       "fixture/checkout/rule",
       "fixture",
     ]);
+    const code = await query.searchCode("checkout", { limit: 4 });
+    expect(code.map(({ node }) => node.id)).toEqual(["symbol:src/target.ts#target"]);
     expect(first.every(({ score }) => score >= 0 && score <= 1)).toBe(true);
-    await expect(query.search("!!!", { limit: 4 })).resolves.toEqual([]);
+    await expect(query.searchBusiness("!!!", { limit: 4 })).resolves.toEqual([]);
+    await expect(query.searchCode("!!!", { limit: 4 })).resolves.toEqual([]);
   });
 
   it("aggregates persisted structural changes between Atlas snapshot endpoints", async () => {
@@ -405,7 +503,7 @@ describe("unified world graph queries", () => {
     const backend = structuralBackend();
     const query = new WorldGraphQuery(context.repository, context.graph, {
       ...backend,
-      listRoots: async () => {
+      search: async (options) => {
         await context.fixture.write("src/next.ts", "export const next = true;\n");
         const nextSnapshot = await createRepositorySnapshot(context.repository);
         using store = new WorldSnapshotStore(context.repository);
@@ -415,11 +513,11 @@ describe("unified world graph queries", () => {
           toSnapshotId: nextSnapshot.snapshotId,
           structural: { added: ["src/next.ts"], modified: [], removed: [] },
         });
-        return backend.listRoots();
+        return backend.search(options);
       },
     });
 
-    await expect(query.roots()).rejects.toThrow(/World publication changed/);
+    await expect(query.searchCode("checkout")).rejects.toThrow(/World publication changed/);
     expect(query.changes()).toEqual({
       fromSnapshotId: context.snapshot.snapshotId,
       toSnapshotId: expect.any(String),
@@ -435,7 +533,7 @@ describe("unified world graph queries", () => {
     const backend = structuralBackend();
     const query = new WorldGraphQuery(context.repository, context.graph, {
       ...backend,
-      listRoots: async () => {
+      search: async (options) => {
         using store = new WorldSnapshotStore(context.repository);
         store.begin(context.snapshot.snapshotId);
         store.publish(context.snapshot, "1.5.0", 1, emptyResolver(), {
@@ -443,11 +541,11 @@ describe("unified world graph queries", () => {
           toSnapshotId: context.snapshot.snapshotId,
           structural: { added: [], modified: [], removed: [] },
         });
-        return backend.listRoots();
+        return backend.search(options);
       },
     });
 
-    await expect(query.roots()).rejects.toThrow(/World publication changed/);
+    await expect(query.searchCode("checkout")).rejects.toThrow(/World publication changed/);
   });
 });
 
@@ -670,6 +768,13 @@ function learnBusinessWorld(context: GraphTestContext): void {
       ),
       businessRelation(
         evidence,
+        "fixture/checkout/rule",
+        "part_of",
+        { domain: "business", key: "fixture" },
+        "inferred",
+      ),
+      businessRelation(
+        evidence,
         "fixture/checkout",
         "constrained_by",
         { domain: "business", key: "fixture/checkout/rule" },
@@ -691,6 +796,45 @@ function learnBusinessWorld(context: GraphTestContext): void {
     removeRelations: [],
   };
   context.graph.mutateBusinessGraph(mutation);
+}
+
+function learnZoomableBusinessWorld(context: GraphTestContext): void {
+  const evidence = evidenceFor(context.snapshot);
+  const nodes = [
+    ["commerce", "Capability", "Commerce"],
+    ["orders", "Capability", "Orders"],
+    ["place-order", "Operation", "Place order"],
+    ["refund", "Operation", "Refund"],
+    ["users", "Capability", "Users"],
+    ["user-profile", "Data", "User profile"],
+    ["payments", "Capability", "Payments"],
+    ["payment-refund", "Operation", "Payment refund"],
+  ] as const;
+  context.graph.mutateBusinessGraph({
+    baseSnapshotId: context.snapshot.snapshotId,
+    upsertNodes: nodes.map(([key, kind, label]) => ({
+      key,
+      kind,
+      label,
+      summary: `${label} business knowledge.`,
+      aliases: [],
+      certainty: "exact",
+      evidence: [evidence],
+    })),
+    removeNodeKeys: [],
+    upsertRelations: [
+      businessRelation(evidence, "orders", "part_of", { domain: "business", key: "commerce" }),
+      businessRelation(evidence, "users", "part_of", { domain: "business", key: "commerce" }),
+      businessRelation(evidence, "place-order", "part_of", { domain: "business", key: "orders" }),
+      businessRelation(evidence, "refund", "part_of", { domain: "business", key: "orders" }),
+      businessRelation(evidence, "user-profile", "part_of", { domain: "business", key: "users" }),
+      businessRelation(evidence, "payment-refund", "part_of", { domain: "business", key: "payments" }),
+      businessRelation(evidence, "place-order", "reads", { domain: "business", key: "user-profile" }),
+      businessRelation(evidence, "place-order", "invokes", { domain: "business", key: "refund" }),
+      businessRelation(evidence, "refund", "invokes", { domain: "business", key: "payment-refund" }),
+    ],
+    removeRelations: [],
+  });
 }
 
 function businessRelation(

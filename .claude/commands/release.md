@@ -17,13 +17,13 @@ provenance publication through the protected `npm` environment.
 `$ARGUMENTS` must be one of:
 
 - `patch` for backward-compatible fixes and documentation releases.
-- `minor` for backward-compatible features.
+- `minor` for features and intentional pre-adoption contract changes.
 
 Use `patch` when no argument is provided. Commit the release candidate before
 starting this workflow so the version commit contains only package metadata.
 README installation references stay version-independent: npm resolves the CLI
-through `latest`, and the Skill installer follows the repository's `main`
-branch.
+through `latest`, and `semantic-atlas setup` installs the exact Skill bundled
+with that package.
 
 ## Execution steps
 
@@ -87,8 +87,9 @@ git tag -a "v${version}" -m "Semantic Atlas v${version}"
 
 Confirm the commit contains only the package version. README installation
 commands remain version-independent: npm resolves the CLI through `latest`,
-and the Skill installer follows `main`. Public workflow validation remains
-anonymous and contains no private repository names or internal measurements.
+and `semantic-atlas setup` installs its bundled Skill. Public workflow
+validation remains anonymous and contains no private repository names or
+internal measurements.
 
 ### 6. Push the release commit and tag
 

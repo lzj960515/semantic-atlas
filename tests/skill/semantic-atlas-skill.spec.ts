@@ -54,10 +54,10 @@ describe("Semantic Atlas Skill", () => {
     for (const command of [
       "semantic-atlas status",
       "semantic-atlas index",
-      "semantic-atlas map roots",
+      "semantic-atlas map view",
       "semantic-atlas map search",
-      "semantic-atlas map children",
       "semantic-atlas map show",
+      "semantic-atlas code search",
       "semantic-atlas changes",
       "semantic-atlas learn --stdin",
     ]) {
@@ -92,8 +92,8 @@ describe("Semantic Atlas Skill", () => {
     expect(skill).toMatch(/Read \[result routing\].+only/iu);
     expect(skill).toMatch(/Read \[GraphPatch authoring\].+only/iu);
     expect(skill).toContain("Source code remains authoritative");
-    expect(skill).toContain("owner-linked unknown boundary");
-    expect(skill).toContain("relevant structural nodes but no relevant business");
+    expect(skill).toContain("explicit task-scoped `code search` fallback");
+    expect(skill).toMatch(/business results trigger result\s+routing/isu);
   });
 
   it("places the conditional-reference checkpoint before source confirmation", () => {
@@ -103,8 +103,8 @@ describe("Semantic Atlas Skill", () => {
       .split("## Query before broad source discovery")[0]!
       .toLowerCase();
 
-    expect(requiredLoop).toContain("relevant structural nodes");
-    expect(requiredLoop.indexOf("relevant structural nodes"))
+    expect(requiredLoop).toContain("code search");
+    expect(requiredLoop.indexOf("code search"))
       .toBeLessThan(requiredLoop.indexOf("open cited ranges"));
   });
 
@@ -146,6 +146,45 @@ describe("Semantic Atlas Skill", () => {
     expect(skill).toContain("semantic-atlas learn --stdin");
     expect(skill).toMatch(/semantic-atlas map show[\s\S]+reusable/iu);
     expect(skill).toContain("transient or unverified observations");
+  });
+
+  it("grows and reorganizes business knowledge during real engineering tasks", () => {
+    const skill = readFileSync(skillPath, "utf8");
+    const bootstrap = readFileSync(
+      join(skillDirectory, "references", "snapshot-bootstrap.md"),
+      "utf8",
+    );
+    const graphPatch = readFileSync(
+      join(skillDirectory, "references", "graph-patch.md"),
+      "utf8",
+    );
+    const routing = readFileSync(
+      join(skillDirectory, "references", "result-routing.md"),
+      "utf8",
+    );
+
+    expect(skill).toContain("Business knowledge grows during real engineering tasks");
+    expect(skill).toContain("semantic-atlas map view <business-key>");
+    expect(skill).toContain("`breadcrumbs`, `child` regions, `context` regions");
+    expect(skill).not.toContain("semantic-atlas map roots");
+    expect(skill).not.toContain("semantic-atlas map children");
+    for (const decision of [
+      "reuse",
+      "extend",
+      "introduce",
+      "reparent",
+      "refine",
+      "transient",
+    ]) {
+      expect(skill).toContain(`\`${decision}\``);
+    }
+    expect(bootstrap).toContain("`BUSINESS_KNOWLEDGE_EMPTY`");
+    expect(bootstrap).toMatch(/bounded structural.+source/iu);
+    expect(bootstrap).not.toContain("Bootstrap an explicitly requested project map");
+    expect(routing).toContain("## Empty business knowledge");
+    expect(routing).toContain("`BUSINESS_KNOWLEDGE_EMPTY`");
+    expect(graphPatch).toContain("does not define its hierarchy");
+    expect(graphPatch).toMatch(/remove.+old `part_of`.+upsert.+new `part_of`/isu);
   });
 
   it("keeps engineering work and repository-local paths outside the Skill", () => {

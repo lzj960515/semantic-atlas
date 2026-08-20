@@ -12,8 +12,14 @@ revision-aware projection that supplies bounded evidence, business context,
 certainty, validity, and explicit structural limits.
 
 The calling Agent owns task interpretation, source changes, tests, Git, and
-review. The CLI accepts lexical queries, graph identifiers, snapshot identifiers,
-and structured GraphPatch input; it does not interpret natural-language tasks.
+review. The CLI accepts business vocabulary, stable business keys, structural
+search terms, snapshot identifiers, and structured GraphPatch input; it does
+not interpret natural-language tasks.
+
+Business knowledge grows during real engineering tasks. Indexing publishes
+structural evidence and refreshes existing assertions; it does not invent an
+upfront business map. A root is any currently parentless business node, and a
+later verified task may place that root beneath a newly discovered parent.
 
 ## Required business-understanding loop
 
@@ -26,15 +32,15 @@ and structured GraphPatch input; it does not interpret natural-language tasks.
 3. Start with `semantic-atlas status` before broad source discovery. Read the
    versioned envelope, `data.freshness`, snapshot, warnings, and
    `data.backend.completeness` by stable fields and codes.
-4. Complete the matching procedure in [Conditional references](#conditional-references)
-   as soon as the observed status needs indexing or bootstrap.
-5. Query the current map with compact task vocabulary before broad source
-   search. Let map evidence, owners, candidates, and unknown boundaries define
-   the initial source seed set.
-6. Classify the map response and complete every triggered reference before
-   source confirmation. Relevant structural nodes with no relevant business
-   node trigger snapshot bootstrap; weak, partial, unknown, unsupported, or
-   otherwise insufficient results trigger result routing.
+4. Complete the matching snapshot-bootstrap procedure as soon as status reports
+   missing, stale, failed, or incomplete publication state.
+5. Query the business world before broad source search: inspect the world
+   `map view`, search compact business vocabulary, then zoom into and show the
+   most relevant business region.
+6. Classify the business response and complete every triggered reference before
+   source confirmation. `BUSINESS_KNOWLEDGE_EMPTY`, weak, partial, stale,
+   unsupported, or otherwise insufficient business results trigger result
+   routing and explicit task-scoped `code search` fallback.
 7. Open cited ranges and confirm decisive behavior in authoritative source.
    Follow only the dependencies, interfaces, data, invariants, or tests needed
    to answer or change the behavior.
@@ -47,23 +53,27 @@ and structured GraphPatch input; it does not interpret natural-language tasks.
 
 Extract two to four compact concepts from the task: business vocabulary,
 likely symbols, interfaces or data, and dependency or impact terms. Query them
-in this order as useful:
+in this order:
 
-1. Use `semantic-atlas map search <query> [--limit <n>]` for each distinct
-   lexical concept.
-2. Use `semantic-atlas map show <node-id> [--depth <n>]` on promising business
-   or structural nodes. Begin at depth 1 and expand to 2 or 3 only for a needed
-   dependency path.
-3. Use `semantic-atlas map children <node-id>` to descend business `part_of` or
-   structural `contains` hierarchies.
-4. Use `semantic-atlas map roots` when the task crosses capabilities, the
-   initial vocabulary is weak, or the current map has no relevant business root.
+1. Run `semantic-atlas map view` to see the current world regions and
+   cross-region business connections.
+2. Use `semantic-atlas map search <business-term> [--limit <n>]` for distinct
+   business concepts that are not obvious from the world view.
+3. Use `semantic-atlas map view <business-key>` to zoom one level at a time.
+   Follow `breadcrumbs`, `child` regions, `context` regions, and connection
+   summaries until the task's owning business area is visible.
+4. Use `semantic-atlas map show <business-key>` to inspect the selected
+   assertion, its direct business relationships, and direct structural evidence.
+5. When the map is empty or insufficient, use
+   `semantic-atlas code search <structural-term> [--limit <n>]` for likely
+   symbols, interfaces, data, or framework entry points. Open the returned
+   source locations directly.
 
-When search and roots return relevant structural nodes but no relevant business
-node, read snapshot bootstrap before opening source. That state starts the
-incremental business-map path rather than the abnormal-result path alone.
+An empty business world is a normal continuous-learning state. Structural
+results provide a bounded evidence path for the active task and never become a
+second map or substitute business regions.
 
-Treat search score as ranking rather than certainty. Stop map traversal when it
+Treat search score as ranking rather than certainty. Stop semantic zoom when it
 identifies the necessary symbols, files, relationships, evidence, and explicit
 uncertainty. If the map remains weak, use its best seeds for bounded source
 inspection and route the observed weak state through the conditional reference.
@@ -81,9 +91,9 @@ certainty, and evidence validity separate:
 - `stale`, `unknown`, `unsupported`, `partial`, and `insufficient` results bound
   source fallback rather than authorizing a decisive claim.
 
-Preserve every owner-linked unknown boundary with its reason, location, and
-finite candidates. Source inspection may resolve the task while the Atlas
-boundary remains honestly unknown.
+When index warnings or source reveal dynamic ambiguity, preserve the unresolved
+boundary in the task conclusion. Source inspection may resolve the current task
+without turning the structural ambiguity into an exact Atlas claim.
 
 ## After source changes
 
@@ -106,29 +116,35 @@ source as authority.
 Before completing every supported task, classify the business meaning learned
 during source confirmation:
 
-- Persist every new durable, verified `Capability`, `Scenario`, `Operation`,
-  `Invariant`, `Interface`, or `Data` concept, plus every supported relationship
-  between them, when missing or insufficient Atlas knowledge caused the source
-  inspection.
-- Keep transient or unverified observations only in task context. Examples
-  include debugging symptoms, one-off implementation notes, tentative runtime
-  paths, Git facts, and hypotheses that lack durable evidence.
-- When current Atlas knowledge already expresses the verified business meaning,
-  reuse it and avoid a duplicate patch.
+- `reuse`: current knowledge already expresses the verified business meaning;
+- `extend`: add a durable, verified `Capability`, `Scenario`, `Operation`,
+  `Invariant`, `Interface`, or `Data` concept or supported relationship;
+- `introduce`: create a verified concept as a provisional root when no credible
+  parent is known yet;
+- `reparent`: attach an existing node or subtree to a newly verified parent while
+  preserving its key, evidence, and non-hierarchy relationships;
+- `refine`: update an existing kind, label, summary, aliases, certainty, or
+  evidence when source proves a better assertion;
+- `transient`: keep transient or unverified observations only in task context,
+  including symptoms, one-off notes, tentative runtime paths, Git facts, and
+  hypotheses without durable evidence.
+
+Persist every new durable, verified concept and supported relationship that
+will help a later task. Reuse current knowledge without a duplicate patch when
+it already captures the result.
 
 When durable knowledge exists, read GraphPatch authoring, recheck status, submit
 one atomic patch with `semantic-atlas learn --stdin`, then run
 `semantic-atlas map show <learned-key>` to verify current validity, certainty,
 evidence, and relationships. The verified node must be reusable by a later
-fresh task through normal map search and traversal.
+fresh task through world view, business search, semantic zoom, and direct show.
 
 ## Conditional references
 
 Load detailed procedures only after their matching observable state:
 
 - Read [snapshot bootstrap](references/snapshot-bootstrap.md) only when status
-  reports `missing`, `stale`, or incomplete state; a current map has no relevant
-  business knowledge; or the user explicitly requests project initialization.
+  reports `missing`, `stale`, failed, or incomplete state.
 - Read [result routing](references/result-routing.md) only when a command returns
   an error, warning, `hypothesis`, `unknown`, `unsupported`, `partial`, empty,
   competing, or otherwise `insufficient` result.

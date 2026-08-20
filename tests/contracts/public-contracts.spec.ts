@@ -68,29 +68,6 @@ const businessRoot = {
   aliases: ["shopping"],
 };
 
-const unknownBoundary = {
-  domain: "structural",
-  id: "unknown:src/orders/order.module.ts#runtime-provider",
-  kind: "UnknownBoundary",
-  label: "Runtime provider lookup",
-  validity: "unknown",
-  owner: {
-    domain: "structural",
-    id: "symbol:src/orders/order.module.ts#OrdersModule",
-  },
-  operation: "provider_lookup",
-  reason: "Provider token is computed at runtime.",
-  location: {
-    file: "src/orders/order.module.ts",
-    range: {
-      start: { line: 12, column: 3 },
-      end: { line: 12, column: 30 },
-    },
-  },
-  candidates: ["symbol:src/orders/order.service.ts#OrderService"],
-  support: { status: "unresolved", provenance: "backend" },
-};
-
 describe("GraphPatch v1 contract", () => {
   it("accepts evidence-bound business node and relation assertions", () => {
     const patch = {
@@ -258,15 +235,28 @@ describe("CLI response envelope v1", () => {
       },
     },
     {
-      command: "map.roots",
-      data: { command: "map.roots", nodes: [businessRoot] },
-    },
-    {
-      command: "map.children",
+      command: "map.view",
       data: {
-        command: "map.children",
-        nodeId: "commerce/orders",
-        children: [staleBusinessNode],
+        command: "map.view",
+        focus: null,
+        breadcrumbs: [],
+        regions: [{
+          node: businessRoot,
+          role: "root",
+          childCount: 1,
+          expandable: true,
+        }],
+        connections: [{
+          from: { domain: "business", key: "commerce" },
+          to: { domain: "business", key: "payments" },
+          relations: [{
+            type: "invokes",
+            directCount: 0,
+            aggregatedCount: 2,
+            certainty: { exact: 1, inferred: 1, hypothesis: 0 },
+            validity: { valid: 1, stale: 1 },
+          }],
+        }],
       },
     },
     {
@@ -279,12 +269,20 @@ describe("CLI response envelope v1", () => {
       },
     },
     {
+      command: "code.search",
+      data: {
+        command: "code.search",
+        query: "OrderService.placeOrder",
+        limit: 20,
+        results: [{ score: 0.98, node: structuralNode }],
+      },
+    },
+    {
       command: "map.show",
       data: {
         command: "map.show",
         node: staleBusinessNode,
-        depth: 1,
-        neighbors: [
+        relations: [
           {
             type: "realized_by",
             direction: "outgoing",
@@ -294,9 +292,6 @@ describe("CLI response envelope v1", () => {
             evidence: [evidence],
           },
         ],
-        invariants: [],
-        tests: [],
-        unknowns: [unknownBoundary],
       },
     },
     {
@@ -341,8 +336,16 @@ describe("CLI response envelope v1", () => {
       snapshot,
       status: "partial",
       data: {
-        command: "map.roots",
-        nodes: [businessRoot],
+        command: "map.view",
+        focus: null,
+        breadcrumbs: [],
+        regions: [{
+          node: businessRoot,
+          role: "root",
+          childCount: 0,
+          expandable: false,
+        }],
+        connections: [],
         nextContractField: "additive fields remain compatible",
       },
       warnings: [
@@ -356,6 +359,42 @@ describe("CLI response envelope v1", () => {
     expect(cliEnvelopeSchema.parse(response)).toEqual(response);
   });
 
+  it("keeps map regions business-only while allowing every business node kind", () => {
+    const operationRoot = {
+      ...staleBusinessNode,
+      key: "refunds",
+      validity: "valid",
+    };
+    const response = {
+      schemaVersion: 1,
+      repository,
+      snapshot,
+      status: "ok",
+      data: {
+        command: "map.view",
+        focus: null,
+        breadcrumbs: [],
+        regions: [{
+          node: operationRoot,
+          role: "root",
+          childCount: 0,
+          expandable: false,
+        }],
+        connections: [],
+      },
+      warnings: [],
+    };
+
+    expect(cliEnvelopeSchema.parse(response)).toEqual(response);
+    expect(() => cliEnvelopeSchema.parse({
+      ...response,
+      data: {
+        ...response.data,
+        regions: [{ ...response.data.regions[0], node: { ...structuralNode, kind: "Module" } }],
+      },
+    })).toThrow();
+  });
+
   it("does not allow map results to hide business assertion validity", () => {
     const { validity: _validity, ...nodeWithoutValidity } = businessRoot;
     const response = {
@@ -363,7 +402,18 @@ describe("CLI response envelope v1", () => {
       repository,
       snapshot,
       status: "ok",
-      data: { command: "map.roots", nodes: [nodeWithoutValidity] },
+      data: {
+        command: "map.view",
+        focus: null,
+        breadcrumbs: [],
+        regions: [{
+          node: nodeWithoutValidity,
+          role: "root",
+          childCount: 0,
+          expandable: false,
+        }],
+        connections: [],
+      },
       warnings: [],
     };
 
@@ -379,8 +429,7 @@ describe("CLI response envelope v1", () => {
       data: {
         command: "map.show",
         node: staleBusinessNode,
-        depth: 1,
-        neighbors: [
+        relations: [
           {
             type: "realized_by",
             direction: "outgoing",
@@ -390,9 +439,6 @@ describe("CLI response envelope v1", () => {
             evidence: [],
           },
         ],
-        invariants: [],
-        tests: [],
-        unknowns: [],
       },
       warnings: [],
     };
@@ -410,7 +456,7 @@ describe("CLI response envelope v1", () => {
       snapshot,
       status: "ok",
       data: {
-        command: "map.search",
+        command: "code.search",
         query: "place order",
         limit: 20,
         results: [{ score: 0.92, node: nodeWithoutSupport }],
@@ -419,6 +465,35 @@ describe("CLI response envelope v1", () => {
     };
 
     expect(() => cliEnvelopeSchema.parse(response)).toThrow(/support/);
+  });
+
+  it("keeps business and structural search results in separate commands", () => {
+    const base = {
+      schemaVersion: 1,
+      repository,
+      snapshot,
+      status: "ok",
+      warnings: [],
+    } as const;
+
+    expect(() => cliEnvelopeSchema.parse({
+      ...base,
+      data: {
+        command: "map.search",
+        query: "place order",
+        limit: 20,
+        results: [{ score: 0.92, node: structuralNode }],
+      },
+    })).toThrow();
+    expect(() => cliEnvelopeSchema.parse({
+      ...base,
+      data: {
+        command: "code.search",
+        query: "place order",
+        limit: 20,
+        results: [{ score: 0.92, node: staleBusinessNode }],
+      },
+    })).toThrow();
   });
 
   it("requires a reason when a language is unsupported", () => {

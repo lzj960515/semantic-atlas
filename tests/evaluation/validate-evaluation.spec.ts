@@ -181,6 +181,7 @@ describe("published evaluation validation", () => {
       ),
       "utf8",
     ));
+    upgradeRetainedRunAtlasCommands(retainedRun);
     retainedRun.protocol.commandAudit.commands = retainedRun.protocol.commandAudit.commands
       .filter((command: string) => !command.includes("references/graph-patch.md"));
     retainedRun.observations.skillLoads = retainedRun.observations.skillLoads
@@ -215,6 +216,7 @@ describe("published evaluation validation", () => {
       ),
       "utf8",
     ));
+    upgradeRetainedRunAtlasCommands(retainedRun);
     retainedRun.adjudication.knowledgeCaptureDecision = {
       outcome: "unverified",
       correct: true,
@@ -253,6 +255,7 @@ describe("published evaluation validation", () => {
       ),
       "utf8",
     ));
+    upgradeRetainedRunAtlasCommands(retainedRun);
     retainedRun.answer.knowledgeCaptureDecision = {
       outcome: "reuse",
       summary: "The verified business meaning is already represented in Atlas.",
@@ -282,6 +285,127 @@ describe("published evaluation validation", () => {
     )).toThrow(/knowledge-capture adjudication must evaluate the answer decision/);
   });
 });
+
+interface MutableRetainedRun {
+  readonly protocol: {
+    readonly commandAudit: { commands: string[] };
+    readonly skillDiscovery: {
+      readonly conditionalReferences: {
+        snapshotBootstrap: Record<string, unknown>;
+        resultRouting: Record<string, unknown>;
+        graphPatch: Record<string, unknown>;
+      };
+    };
+  };
+  readonly observations: {
+    readonly atlasCalls: {
+      commandSequence: number;
+      command: string;
+      output: string;
+    }[];
+    skillLoads: { sequence: number; file: string }[];
+    readonly sourceOpens: { commandSequence?: number }[];
+  };
+}
+
+function upgradeRetainedRunAtlasCommands(run: MutableRetainedRun): void {
+  const removedCommandSequence = run.protocol.commandAudit.commands.findIndex((command) => (
+    command.includes("references/snapshot-bootstrap.md")
+  )) + 1;
+  run.protocol.commandAudit.commands = run.protocol.commandAudit.commands
+    .filter((command) => !command.includes("references/snapshot-bootstrap.md"));
+
+  let firstLegacySearch = true;
+  run.protocol.commandAudit.commands = run.protocol.commandAudit.commands.map((command) => {
+    if (firstLegacySearch && command.includes("semantic-atlas map search")) {
+      firstLegacySearch = false;
+      return command.replace(/semantic-atlas map search .+ --limit \d+/u, "semantic-atlas map view");
+    }
+    return upgradeRetainedAtlasCommand(command);
+  });
+
+  firstLegacySearch = true;
+  run.observations.atlasCalls.forEach((call) => {
+    const envelope = JSON.parse(call.output) as {
+      data: {
+        command: string;
+        node?: unknown;
+        unknowns?: unknown;
+      };
+    };
+    if (firstLegacySearch && envelope.data.command === "map.search") {
+      firstLegacySearch = false;
+      call.command = call.command.replace(
+        /semantic-atlas map search .+ --limit \d+/u,
+        "semantic-atlas map view",
+      );
+      envelope.data = {
+        command: "map.view",
+        focus: null,
+        breadcrumbs: [],
+        regions: [],
+        connections: [],
+      } as typeof envelope.data;
+    } else if (envelope.data.command === "map.search") {
+      call.command = upgradeRetainedAtlasCommand(call.command);
+      envelope.data.command = "code.search";
+    } else if (envelope.data.command === "map.show") {
+      call.command = upgradeRetainedAtlasCommand(call.command);
+      const node = envelope.data.node;
+      const query = typeof node === "object" && node !== null && "id" in node
+        ? String(node.id)
+        : "structural-evidence";
+      envelope.data = {
+        command: "code.search",
+        query,
+        limit: 1,
+        results: node === undefined ? [] : [{ score: 1, node }],
+        unknowns: envelope.data.unknowns ?? [],
+      } as typeof envelope.data;
+    }
+    if (removedCommandSequence > 0 && call.commandSequence > removedCommandSequence) {
+      call.commandSequence -= 1;
+    }
+    call.output = JSON.stringify(envelope);
+  });
+
+  run.observations.sourceOpens.forEach((sourceOpen) => {
+    if (
+      removedCommandSequence > 0
+      && sourceOpen.commandSequence !== undefined
+      && sourceOpen.commandSequence > removedCommandSequence
+    ) {
+      sourceOpen.commandSequence -= 1;
+    }
+  });
+  run.observations.skillLoads = run.observations.skillLoads
+    .filter(({ file }) => !file.endsWith("snapshot-bootstrap.md"))
+    .map((load, index) => ({ ...load, sequence: index + 1 }));
+
+  const references = run.protocol.skillDiscovery.conditionalReferences;
+  references.snapshotBootstrap = { outcome: "not-required" };
+  references.resultRouting = {
+    outcome: "loaded-after-trigger",
+    triggerCommandSequence: 3,
+    loadCommandSequence: decrementAfterRemoval(6, removedCommandSequence),
+  };
+  references.graphPatch = {
+    ...references.graphPatch,
+    sourceCommandSequence: decrementAfterRemoval(10, removedCommandSequence),
+    loadCommandSequence: decrementAfterRemoval(11, removedCommandSequence),
+  };
+}
+
+function upgradeRetainedAtlasCommand(command: string): string {
+  return command
+    .replace("semantic-atlas map search", "semantic-atlas code search")
+    .replace("semantic-atlas map show", "semantic-atlas code search")
+    .replace(" --depth 1", " --limit 1");
+}
+
+function decrementAfterRemoval(sequence: number, removed: number): number {
+  return removed > 0 && sequence > removed ? sequence - 1 : sequence;
+}
 
 const plan = {
   schemaVersion: 1,

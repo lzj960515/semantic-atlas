@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   assertionCertaintySchema,
   businessKeySchema,
+  businessNodeReferenceSchema,
   businessNodeKindSchema,
   businessRelationTypeSchema,
   evidenceSchema,
@@ -11,7 +12,6 @@ import {
   sourceRangeSchema,
   structuralNodeKindSchema,
   structuralNodeIdSchema,
-  structuralRelationTypeSchema,
   structuralSupportSchema,
 } from "./graph.js";
 import {
@@ -65,49 +65,18 @@ export const businessMapNodeSchema = z.looseObject({
   evidence: z.array(evidenceSchema).min(1),
 });
 
-const unknownBoundarySchema = z.looseObject({
-  domain: z.literal("structural"),
-  id: structuralNodeIdSchema,
-  kind: z.literal("UnknownBoundary"),
-  label: z.string().min(1),
-  validity: z.literal("unknown"),
-  owner: z.strictObject({
-    domain: z.literal("structural"),
-    id: structuralNodeIdSchema,
-  }),
-  operation: z.string().min(1),
-  reason: z.string().min(1),
-  location: sourceLocationSchema,
-  candidates: z.array(z.string().min(1)),
-  support: structuralSupportSchema,
-});
-
 export const mapNodeSchema = z.union([
   structuralMapNodeSchema,
   businessMapNodeSchema,
-  unknownBoundarySchema,
 ]);
-
-const mapRootNodeSchema = z.union([
-  structuralMapNodeSchema.safeExtend({ kind: z.literal("Module") }),
-  businessMapNodeSchema.safeExtend({ kind: z.literal("Capability") }),
-]);
-
-const invariantMapNodeSchema = businessMapNodeSchema.safeExtend({
-  kind: z.literal("Invariant"),
-});
-
-const testMapNodeSchema = structuralMapNodeSchema.safeExtend({
-  kind: z.enum(["Symbol", "Test"]),
-});
 
 const commandNameSchema = z.enum([
   "status",
   "index",
-  "map.roots",
-  "map.children",
+  "map.view",
   "map.search",
   "map.show",
+  "code.search",
   "learn",
   "changes",
 ]);
@@ -158,15 +127,42 @@ const indexDataSchema = z.looseObject({
   }),
 });
 
-const mapRootsDataSchema = z.looseObject({
-  command: z.literal("map.roots"),
-  nodes: z.array(mapRootNodeSchema),
+const mapRelationTypeSchema = businessRelationTypeSchema.exclude([
+  "part_of",
+  "realized_by",
+  "verified_by",
+]);
+
+const mapRelationSummarySchema = z.looseObject({
+  type: mapRelationTypeSchema,
+  directCount: countSchema,
+  aggregatedCount: countSchema,
+  certainty: z.looseObject({
+    exact: countSchema,
+    inferred: countSchema,
+    hypothesis: countSchema,
+  }),
+  validity: z.looseObject({
+    valid: countSchema,
+    stale: countSchema,
+  }),
 });
 
-const mapChildrenDataSchema = z.looseObject({
-  command: z.literal("map.children"),
-  nodeId: z.string().min(1),
-  children: z.array(mapNodeSchema),
+const mapViewDataSchema = z.looseObject({
+  command: z.literal("map.view"),
+  focus: businessMapNodeSchema.nullable(),
+  breadcrumbs: z.array(businessMapNodeSchema),
+  regions: z.array(z.looseObject({
+    node: businessMapNodeSchema,
+    role: z.enum(["root", "child", "context"]),
+    childCount: countSchema,
+    expandable: z.boolean(),
+  })),
+  connections: z.array(z.looseObject({
+    from: businessNodeReferenceSchema,
+    to: businessNodeReferenceSchema,
+    relations: z.array(mapRelationSummarySchema),
+  })),
 });
 
 const mapSearchDataSchema = z.looseObject({
@@ -176,39 +172,34 @@ const mapSearchDataSchema = z.looseObject({
   results: z.array(
     z.looseObject({
       score: z.number().min(0).max(1),
-      node: mapNodeSchema,
+      node: businessMapNodeSchema,
     }),
   ),
 });
 
-const neighborSchema = z.union([
-  z.looseObject({
-    type: structuralRelationTypeSchema,
-    direction: z.enum(["incoming", "outgoing"]),
-    node: mapNodeSchema,
-    certainty: z.null(),
-    validity: knowledgeValiditySchema,
-    evidence: z.array(evidenceSchema),
-    support: structuralSupportSchema,
-  }),
-  z.looseObject({
-    type: businessRelationTypeSchema,
-    direction: z.enum(["incoming", "outgoing"]),
-    node: mapNodeSchema,
-    certainty: assertionCertaintySchema,
-    validity: knowledgeValiditySchema,
-    evidence: z.array(evidenceSchema).min(1),
-  }),
-]);
+const codeSearchDataSchema = z.looseObject({
+  command: z.literal("code.search"),
+  query: z.string().min(1),
+  limit: z.number().int().positive(),
+  results: z.array(z.looseObject({
+    score: z.number().min(0).max(1),
+    node: structuralMapNodeSchema,
+  })),
+});
+
+const directBusinessRelationSchema = z.looseObject({
+  type: businessRelationTypeSchema,
+  direction: z.enum(["incoming", "outgoing"]),
+  node: z.union([businessMapNodeSchema, structuralMapNodeSchema]),
+  certainty: assertionCertaintySchema,
+  validity: knowledgeValiditySchema,
+  evidence: z.array(evidenceSchema).min(1),
+});
 
 const mapShowDataSchema = z.looseObject({
   command: z.literal("map.show"),
-  node: mapNodeSchema,
-  depth: z.number().int().min(1).max(3),
-  neighbors: z.array(neighborSchema),
-  invariants: z.array(invariantMapNodeSchema),
-  tests: z.array(testMapNodeSchema),
-  unknowns: z.array(unknownBoundarySchema),
+  node: businessMapNodeSchema,
+  relations: z.array(directBusinessRelationSchema),
 });
 
 const learnDataSchema = z.looseObject({
@@ -239,10 +230,10 @@ const changesDataSchema = z.looseObject({
 export const cliCommandDataSchema = z.discriminatedUnion("command", [
   statusDataSchema,
   indexDataSchema,
-  mapRootsDataSchema,
-  mapChildrenDataSchema,
+  mapViewDataSchema,
   mapSearchDataSchema,
   mapShowDataSchema,
+  codeSearchDataSchema,
   learnDataSchema,
   changesDataSchema,
 ]);

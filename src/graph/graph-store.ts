@@ -135,6 +135,7 @@ export class GraphStore implements Disposable {
       for (const node of mutation.upsertNodes) {
         this.upsertBusinessNode(mutation.baseSnapshotId, node);
       }
+      this.validateBusinessHierarchy(mutation.upsertRelations);
       for (const relation of mutation.upsertRelations) {
         this.upsertBusinessRelation(mutation.baseSnapshotId, relation);
       }
@@ -165,13 +166,24 @@ export class GraphStore implements Disposable {
     return this.readBusinessRelations(snapshotId).map((row) => this.relationFromRow(row, snapshotId));
   }
 
-  listCapabilityRoots(snapshotId: string): readonly BusinessGraphNode[] {
+  listBusinessNodes(snapshotId: string): readonly BusinessGraphNode[] {
+    contentIdentifierSchema.parse(snapshotId);
+    const rows = this.database.prepare(`
+      SELECT node_key
+      FROM atlas_business_nodes
+      WHERE repository_id = ?
+      ORDER BY node_key ASC
+    `).all(this.#repositoryId) as unknown as { readonly node_key: string }[];
+    return rows.map(({ node_key }) => this.readBusinessNode(node_key, snapshotId))
+      .filter((node): node is BusinessGraphNode => node !== undefined);
+  }
+
+  listBusinessRoots(snapshotId: string): readonly BusinessGraphNode[] {
     contentIdentifierSchema.parse(snapshotId);
     const rows = this.database.prepare(`
       SELECT node.node_key
       FROM atlas_business_nodes AS node
       WHERE node.repository_id = ?
-        AND node.kind = 'Capability'
         AND NOT EXISTS (
           SELECT 1
           FROM atlas_business_relations AS parent
@@ -365,6 +377,50 @@ export class GraphStore implements Disposable {
     const expectedDomain = requiresStructuralTarget ? "structural" : "business";
     if (relation.to.domain !== expectedDomain) {
       throw new Error(`${relation.type} relations require a ${expectedDomain} target`);
+    }
+  }
+
+  private validateBusinessHierarchy(
+    upsertRelations: readonly BusinessRelationInput[],
+  ): void {
+    const storedParents = this.database.prepare(`
+      SELECT from_key, to_key
+      FROM atlas_business_relations
+      WHERE repository_id = ?
+        AND relation_type = 'part_of'
+        AND to_domain = 'business'
+      ORDER BY from_key, to_key
+    `).all(this.#repositoryId) as unknown as {
+      readonly from_key: string;
+      readonly to_key: string;
+    }[];
+    const parents = new Map<string, string>();
+
+    const registerParent = (child: string, parent: string): void => {
+      const existingParent = parents.get(child);
+      if (existingParent !== undefined && existingParent !== parent) {
+        throw new Error(`Business node ${child} may have only one outgoing part_of parent`);
+      }
+      parents.set(child, parent);
+    };
+
+    storedParents.forEach(({ from_key, to_key }) => registerParent(from_key, to_key));
+    upsertRelations.forEach((relation) => {
+      if (relation.type === "part_of" && relation.to.domain === "business") {
+        registerParent(relation.from.key, relation.to.key);
+      }
+    });
+
+    for (const child of parents.keys()) {
+      const path = new Set<string>();
+      let current: string | undefined = child;
+      while (current !== undefined) {
+        if (path.has(current)) {
+          throw new Error(`Business part_of hierarchy contains a cycle involving ${current}`);
+        }
+        path.add(current);
+        current = parents.get(current);
+      }
     }
   }
 

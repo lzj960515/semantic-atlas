@@ -93,6 +93,11 @@ interface CliResult {
   readonly envelope: CliEnvelope;
 }
 
+interface StandaloneCliResult {
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
 function selectedPackageManager(): PackageManager {
   const configured = process.env.SEMANTIC_ATLAS_PACKAGE_MANAGER ?? "pnpm";
   assert.ok(configured === "npm" || configured === "pnpm",
@@ -214,6 +219,41 @@ async function verifyInstalledCli(
   repositoryRoot: string,
   version: string,
 ) {
+  const userHome = join(temporaryRoot, "user-home");
+  const legacySkill = join(userHome, ".codex", "skills", "semantic-atlas");
+  await mkdir(legacySkill, { recursive: true });
+  await writeFile(join(legacySkill, "SKILL.md"), [
+    "---",
+    "name: semantic-atlas",
+    "description: legacy packaged Skill",
+    "---",
+    "",
+  ].join("\n"));
+  const help = await runStandaloneCli(consumerRoot, ["-h"], userHome);
+  assert.match(help.stdout, /Usage: semantic-atlas <command> \[options\]/u);
+  assert.match(help.stdout, /setup/u);
+  assert.equal(help.stderr, "");
+  const installedVersion = await runStandaloneCli(consumerRoot, ["--version"], userHome);
+  assert.equal(installedVersion.stdout, `${version}\n`);
+  assert.equal(installedVersion.stderr, "");
+  const setup = await runStandaloneCli(consumerRoot, ["setup"], userHome);
+  const installedSkill = join(userHome, ".agents", "skills", "semantic-atlas");
+  assert.match(setup.stdout, /Installed Semantic Atlas Skill/u);
+  assert.equal(setup.stderr, "");
+  await access(join(installedSkill, "SKILL.md"));
+  assert.equal(await fileExists(legacySkill), false);
+  const marker = JSON.parse(await readFile(
+    join(installedSkill, ".semantic-atlas-managed.json"),
+    "utf8",
+  )) as { readonly version: string; readonly fingerprint: string };
+  assert.equal(marker.version, version);
+  assert.match(marker.fingerprint, /^[a-f0-9]{64}$/u);
+  await writeFile(join(installedSkill, "SKILL.md"), "---\nname: semantic-atlas\n---\nchanged\n");
+  const updatedSetup = await runStandaloneCli(consumerRoot, ["setup"], userHome);
+  assert.match(updatedSetup.stdout, /Updated Semantic Atlas Skill/u);
+  const currentSetup = await runStandaloneCli(consumerRoot, ["setup"], userHome);
+  assert.match(currentSetup.stdout, /already current/u);
+
   const api = await import(pathToFileURL(join(installedRoot, "dist", "index.js")).href) as
     typeof import("../src/index.js");
   const initialStatus = await runCli(consumerRoot, ["status"], repositoryRoot);
@@ -315,21 +355,18 @@ async function verifyInstalledCli(
   await git(repositoryRoot, "worktree", "remove", linkedWorktree);
   const retainedQuery = new api.WorldGraphQuery(primaryRepository);
   try {
-    const retained = await retainedQuery.show(
-      { domain: "business", key: learnedKey },
-      { maxDepth: 1 },
-    );
+    const retained = await retainedQuery.showBusiness(learnedKey);
     assert.ok(retained, "Repository knowledge must survive linked-worktree removal");
   } finally {
     retainedQuery.close();
   }
   assertRetainedWorktreeKnowledge(initialStatusData.storeLocation, learnedKey);
 
-  const roots = await runCli(consumerRoot, ["map", "roots"], repositoryRoot);
-  assert.equal(roots.exitCode, 0);
-  assert.ok(roots.envelope.status === "ok" || roots.envelope.status === "partial");
-  assert.equal(roots.envelope.data.command, "map.roots");
-  assert.ok(commandData(roots, "map.roots").nodes.length > 0);
+  const worldView = await runCli(consumerRoot, ["map", "view"], repositoryRoot);
+  assert.equal(worldView.exitCode, 0);
+  assert.ok(worldView.envelope.status === "ok" || worldView.envelope.status === "partial");
+  assert.equal(worldView.envelope.data.command, "map.view");
+  assert.ok(commandData(worldView, "map.view").regions.length > 0);
   assert.equal(await git(repositoryRoot, "status", "--porcelain=v1", "--untracked-files=all"), "");
   assert.equal(isPathWithin(projectRoot, consumerRoot), false);
 
@@ -341,17 +378,41 @@ async function verifyInstalledCli(
       installedOutsideSourceCheckout: true,
       status: "missing",
       index: "current",
-      mapRoots: commandData(roots, "map.roots").nodes.length,
+      businessRegions: commandData(worldView, "map.view").regions.length,
       learnedKey,
       linkedBootstrap: "incremental",
       linkedSmallEditFilesIndexed: linkedSync.structural.counts.filesIndexed,
       mergeSideFilesIndexed: mergeSync.structural.counts.filesIndexed,
       worktreeRemovalKnowledge: "retained",
+      skillSetup: "current",
+      legacySkillMigration: "removed",
       privateWorker: usesPrivateWorkerRuntime(),
       atlasDatabase: initialStatusData.storeLocation,
       trackedRepositoryIntrusion: false,
     },
   };
+}
+
+async function runStandaloneCli(
+  consumerRoot: string,
+  arguments_: readonly string[],
+  userHome: string,
+): Promise<StandaloneCliResult> {
+  const cliEntry = join(
+    consumerRoot,
+    "node_modules",
+    "semantic-atlas",
+    "dist",
+    "cli",
+    "bin.js",
+  );
+  const result = await executeFile(process.execPath, [cliEntry, ...arguments_], {
+    cwd: consumerRoot,
+    encoding: "utf8",
+    maxBuffer: 10 * 1024 * 1024,
+    env: { ...process.env, HOME: userHome },
+  });
+  return { stdout: result.stdout, stderr: result.stderr };
 }
 
 async function learnGreetingCapability(
@@ -363,13 +424,9 @@ async function learnGreetingCapability(
   const query = new api.WorldGraphQuery(repository);
   let structuralNode: StructuralGraphNode | undefined;
   try {
-    structuralNode = (await query.search("greeting", { limit: 20 }))
+    structuralNode = (await query.searchCode("greeting", { limit: 20 }))
       .map(({ node }) => node)
-      .find((node): node is StructuralGraphNode => (
-        node.domain === "structural"
-        && node.kind !== "UnknownBoundary"
-        && node.label === "greeting"
-      ));
+      .find((node) => node.label === "greeting");
   } finally {
     query.close();
   }

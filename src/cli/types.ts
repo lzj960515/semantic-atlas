@@ -5,10 +5,10 @@ export type CliCommandName = Exclude<CliEnvelope["data"]["command"], null>;
 export type ParsedCommand =
   | { readonly name: "status" }
   | { readonly name: "index" }
-  | { readonly name: "map.roots" }
-  | { readonly name: "map.children"; readonly nodeId: string }
+  | { readonly name: "map.view"; readonly focusKey?: string }
   | { readonly name: "map.search"; readonly query: string; readonly limit: number }
-  | { readonly name: "map.show"; readonly nodeId: string; readonly depth: number }
+  | { readonly name: "map.show"; readonly businessKey: string }
+  | { readonly name: "code.search"; readonly query: string; readonly limit: number }
   | { readonly name: "learn" }
   | {
       readonly name: "changes";

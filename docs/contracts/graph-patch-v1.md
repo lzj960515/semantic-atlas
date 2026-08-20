@@ -65,7 +65,7 @@ GraphPatch is the only public write contract for agent-learned knowledge. It can
 
 ## Operations
 
-Business node upserts contain a stable hierarchical `key`, one of `Capability`, `Scenario`, `Operation`, `Invariant`, `Interface`, or `Data`, plus a label, summary, aliases, certainty, and at least one evidence record. The key, kind, label, and aliases form vocabulary identity; the summary is an assertion governed by certainty and evidence. A node-only patch without assertion evidence is invalid. Removing a node uses `{ "op": "remove", "key": "..." }`.
+Business node upserts contain a stable slash-separated `key`, one of `Capability`, `Scenario`, `Operation`, `Invariant`, `Interface`, or `Data`, plus a label, summary, aliases, certainty, and at least one evidence record. The key is stable vocabulary identity and does not encode authoritative hierarchy; the summary is an assertion governed by certainty and evidence. A node-only patch without assertion evidence is invalid. Removing a node uses `{ "op": "remove", "key": "..." }`.
 
 Business relation upserts contain a source reference, relation type, target reference, certainty, and at least one evidence record. Removing a relation supplies its source, type, and target selector. The stable relation identity is that `(from, type, to)` tuple; repeated upserts replace the assertion and its evidence idempotently.
 
@@ -75,6 +75,12 @@ Reference domains make ownership explicit:
 - `{ "domain": "structural", "id": "symbol:..." }` addresses an Atlas-normalized CodeGraph node in the base snapshot.
 
 All learned relations originate at a business node. `realized_by` and `verified_by` target structural nodes; `part_of`, `invokes`, `reads`, `writes`, `publishes`, `consumes`, and `constrained_by` target business nodes.
+
+### Business hierarchy
+
+`part_of` alone defines current parent placement. Every business node may have at most one outgoing `part_of` parent, and the complete `part_of` graph must remain acyclic. A parentless node of any business kind is a current root.
+
+Reparent an existing node or subtree in one patch: optionally upsert the new parent, remove the old `part_of` selector, and upsert the new `part_of` relation. Preserve the moved node key. Atlas applies relation removals before validating the final candidate hierarchy, so a valid reparent succeeds atomically while a second parent or cycle rejects the complete patch.
 
 ## Evidence and certainty
 
@@ -92,6 +98,7 @@ Each node or relation evidence item binds an Atlas structural symbol or test ref
 4. Relation endpoints and kinds satisfy the graph contract.
 5. Every node and relation evidence symbol, path, range, and hash belongs to the current repository snapshot.
 6. Removes do not leave dangling business relations.
+7. The final `part_of` hierarchy has at most one parent per node and contains no cycle.
 
 The patch is one transaction. Any failure rejects every operation with exit code 5 and a machine-readable error; retries start from a freshly read snapshot. No partial success is exposed.
 

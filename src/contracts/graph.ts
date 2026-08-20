@@ -49,7 +49,7 @@ export const businessKeySchema = z
   .string()
   .regex(
     /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$/,
-    "Expected a stable hierarchical business key",
+    "Expected a stable slash-separated business key",
   );
 
 export const structuralNodeIdSchema = z
@@ -71,7 +71,7 @@ export const relativeSourcePathSchema = z
     "Expected a normalized repository-relative path",
   );
 
-const businessNodeReferenceSchema = z.strictObject({
+export const businessNodeReferenceSchema = z.strictObject({
   domain: z.literal("business"),
   key: businessKeySchema,
 });
