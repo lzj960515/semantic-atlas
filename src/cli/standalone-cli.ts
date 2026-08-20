@@ -1,4 +1,5 @@
 import { readPackageVersion } from "../package-metadata.js";
+import { SemanticAtlasPackageUpgrader } from "../setup/package-upgrader.js";
 import { SkillInstaller } from "../setup/skill-installer.js";
 import type { CliIo } from "./types.js";
 
@@ -16,6 +17,7 @@ Project understanding:
 
 Installation and information:
   setup                               Install or update the bundled user Skill
+  upgrade                             Install the latest release and sync its Skill
   -h, --help                          Show this help
   --version                           Print the installed package version
 
@@ -56,6 +58,32 @@ export async function runStandaloneCli(
     } catch (error) {
       io.stderr.write(
         `Semantic Atlas setup failed: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      return 1;
+    }
+  }
+  if (command === "upgrade") {
+    if (rest.length > 0) {
+      io.stderr.write("semantic-atlas upgrade does not accept arguments.\n");
+      return 2;
+    }
+    try {
+      const currentVersion = await readPackageVersion();
+      io.stdout.write("Checking the latest stable Semantic Atlas release...\n");
+      const result = await new SemanticAtlasPackageUpgrader({ currentVersion }).upgrade();
+      if (result.outcome === "current") {
+        io.stdout.write(`Semantic Atlas ${result.targetVersion} is already current.\n`);
+        io.stdout.write(`Semantic Atlas Skill is synchronized at ${result.skillDirectory}\n`);
+      } else {
+        io.stdout.write(
+          `Upgraded Semantic Atlas from ${result.previousVersion} to ${result.targetVersion}.\n`,
+        );
+        io.stdout.write(`Semantic Atlas Skill is synchronized at ${result.skillDirectory}\n`);
+      }
+      return 0;
+    } catch (error) {
+      io.stderr.write(
+        `Semantic Atlas upgrade failed: ${error instanceof Error ? error.message : String(error)}\n`,
       );
       return 1;
     }

@@ -60,6 +60,7 @@ describe("Semantic Atlas release command", () => {
       expect(readme).toContain("npm install --global semantic-atlas");
       expect(readme).not.toMatch(/npm install --global semantic-atlas@/);
       expect(readme).toContain("semantic-atlas setup");
+      expect(readme).toContain("semantic-atlas upgrade");
       expect(readme).toContain("~/.agents/skills/semantic-atlas");
       expect(readme).not.toContain("$skill-installer");
     }

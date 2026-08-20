@@ -10,6 +10,7 @@ opened:
 | Command | Contract |
 | --- | --- |
 | `setup` | Atomically install or update the exact bundled Skill at `~/.agents/skills/semantic-atlas`. A recognized legacy `~/.codex/skills/semantic-atlas` copy is removed after the shared installation succeeds. |
+| `upgrade` | Resolve npm's `latest` tag, install that exact release globally, verify the new executable, and invoke the new package's `setup`. An already-current package still verifies and repairs its bundled Skill. |
 | `-h`, `--help` | Print top-level usage and command help. |
 | `--version` | Print the installed package version. |
 
@@ -18,6 +19,15 @@ standard error. `setup` records the package version and a content fingerprint;
 repeated execution verifies the installed files and restores a changed managed
 copy. A directory that does not identify itself as the Semantic Atlas Skill is
 reported as a conflict and left unchanged.
+
+`upgrade` resolves a version before mutation and installs
+`semantic-atlas@<resolved-version>` rather than leaving the install step bound to
+a moving tag. It locates the new package through npm's global root and starts its
+CLI through the current Node executable, so Skill synchronization is owned by
+the package that was actually installed. Registry lookup, package installation,
+new-version verification, and Skill synchronization are one fail-closed command:
+any failed step returns exit code `1` and does not report the upgrade as ready.
+These lifecycle commands do not discover a Git repository or open Atlas storage.
 
 Global project options:
 

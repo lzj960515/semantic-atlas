@@ -177,6 +177,7 @@ async function assertPackagedArtifacts(installedRoot: string): Promise<void> {
     "schemas/graph-patch-v1.schema.json",
     ".agents/skills/semantic-atlas/SKILL.md",
     "README.md",
+    "README.zh-CN.md",
     "LICENSE",
   ].map((path) => access(join(installedRoot, path))));
 }
@@ -232,6 +233,7 @@ async function verifyInstalledCli(
   const help = await runStandaloneCli(consumerRoot, ["-h"], userHome);
   assert.match(help.stdout, /Usage: semantic-atlas <command> \[options\]/u);
   assert.match(help.stdout, /setup/u);
+  assert.match(help.stdout, /upgrade/u);
   assert.equal(help.stderr, "");
   const installedVersion = await runStandaloneCli(consumerRoot, ["--version"], userHome);
   assert.equal(installedVersion.stdout, `${version}\n`);

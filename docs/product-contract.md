@@ -1,4 +1,4 @@
-# Semantic Atlas v0.1 Product Contract
+# Semantic Atlas Product Contract
 
 ## Purpose and authority
 
@@ -6,7 +6,7 @@ Semantic Atlas is a local project world model used by AI coding agents. It conne
 
 Source code remains authoritative. Atlas is a revision-aware projection with explicit evidence and validity. A stale, unsupported, unresolved, or insufficient result sends the calling agent back to source inspection.
 
-This document fixes the v0.1 product boundary. The versioned machine contracts live in `schemas/`; the storage and integration design is defined in [CodeGraph backend architecture](architecture/codegraph-backend.md).
+This document defines the current product boundary. The versioned machine contracts live in `schemas/`; the storage and integration design is defined in [CodeGraph backend architecture](architecture/codegraph-backend.md).
 
 ## One-product boundary
 
@@ -43,7 +43,7 @@ An indexed repository may legitimately have no business nodes. In that state, th
 | Concern | Semantic Atlas | Calling agent |
 | --- | --- | --- |
 | Product interface | Exposes the `semantic-atlas` CLI and Skill | Chooses the repository and task scope |
-| Skill installation | Ships one version-matched Skill and synchronizes it into the shared user Skill directory through `semantic-atlas setup` | Installs or upgrades the npm package and invokes setup |
+| Installation lifecycle | Ships one version-matched Skill, synchronizes it through `semantic-atlas setup`, and upgrades the global package plus Skill through `semantic-atlas upgrade` | Performs the initial global npm installation and can invoke setup or upgrade from any directory |
 | Structural code model | Uses the embedded CodeGraph SDK for extraction, cross-file resolution, incremental sync, and structural queries | Reads source when the structural map is insufficient |
 | Business world model | Stores and queries capabilities, scenarios, operations, invariants, interfaces, data, and their relationships | Understands natural language and decides which business assertions are justified |
 | Unified graph | Connects business assertions to structural evidence and returns one Atlas graph contract | Uses graph results as bounded context |
@@ -108,13 +108,13 @@ Root placement is provisional. Business keys remain stable vocabulary identifier
 
 ## Supported scope
 
-v0.1 supports business understanding for TypeScript and JavaScript projects, with initial evaluation coverage for NestJS, GraphQL, TypeORM, and BullMQ flows. CodeGraph supplies the structural coverage available from the pinned dependency version. Atlas reports unsupported or unresolved structure instead of promising complete JavaScript runtime semantics.
+The current release supports business understanding for TypeScript and JavaScript projects, with initial evaluation coverage for NestJS, GraphQL, TypeORM, and BullMQ flows. CodeGraph supplies the structural coverage available from the pinned dependency version. Atlas reports unsupported or unresolved structure instead of promising complete JavaScript runtime semantics.
 
 Framework knowledge is implemented as Atlas-owned business interpretation over structural queries. It focuses on capabilities, operations, interfaces, data flow, rules, tests, and their evidence. Language parsing, cross-file symbol resolution, callers, callees, and file dependencies remain the structural backend's responsibility.
 
 ## Non-goals
 
-v0.1 does not provide:
+Semantic Atlas does not provide:
 
 - a second CodeGraph-facing product, CLI, MCP server, or user workflow;
 - a new compiler, language server, or general-purpose JavaScript runtime analyzer;
@@ -132,7 +132,7 @@ The fallback order is direct dependency, a small upstream extension, a thin main
 
 ## Release gate
 
-The v0.1.0 release requires all of the following on the release commit:
+Every public release requires all of the following on the release commit:
 
 1. A packaged install uses the pinned CodeGraph SDK through an Atlas-owned adapter and exposes no CodeGraph CLI or MCP workflow.
 2. `semantic-atlas index` creates only ignored `.atlas/` state in the target worktree and leaves tracked files and normal Git status unchanged.

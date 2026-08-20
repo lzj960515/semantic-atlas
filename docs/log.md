@@ -3,6 +3,18 @@
 This log records material documentation ingestion and revisions. Current
 conclusions live on their owning pages rather than in this chronology.
 
+## [2026-08-20] revise | Business-first README and managed package upgrade
+
+- Rebuilt the bilingual README around the product gap between file search and
+  business understanding, task-driven learning, and one semantically zoomable
+  map.
+- Added repository-independent `upgrade`: resolve npm `latest`, install the
+  exact target, verify the new CLI, and synchronize the new package's Skill.
+- Kept `setup` as the repair and synchronization command for the currently
+  installed package, including the already-current upgrade path.
+- Affected pages: `README.md`, `README.zh-CN.md`, `product-contract.md`, and
+  `contracts/cli-v1.md`.
+
 ## [2026-08-20] revise | Versioned evaluation command replay
 
 - Bound each Fresh Agent run to the command-policy version that produced it.

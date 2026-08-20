@@ -26,7 +26,7 @@ describe("semantic-atlas CLI", () => {
     )));
   });
 
-  it("provides repository-independent help, version, and Skill setup commands", async () => {
+  it("provides repository-independent help, version, setup, and upgrade commands", async () => {
     const nonRepository = await mkdtemp(join(tmpdir(), "semantic-atlas-standalone-"));
     const userHome = await mkdtemp(join(tmpdir(), "semantic-atlas-user-home-"));
     temporaryDirectories.push(nonRepository, userHome);
@@ -34,6 +34,7 @@ describe("semantic-atlas CLI", () => {
     const help = await runTextCli(["-h"], nonRepository, userHome);
     const longHelp = await runTextCli(["--help"], nonRepository, userHome);
     const version = await runTextCli(["--version"], nonRepository, userHome);
+    const invalidUpgrade = await runTextCli(["upgrade", "unexpected"], nonRepository, userHome);
     const setup = await runTextCli(["setup"], nonRepository, userHome);
     const repeatedSetup = await runTextCli(["setup"], nonRepository, userHome);
     const packageVersion = (JSON.parse(
@@ -44,9 +45,15 @@ describe("semantic-atlas CLI", () => {
     expect(help).toMatchObject({ exitCode: 0, stderr: "" });
     expect(help.stdout).toContain("Usage: semantic-atlas <command> [options]");
     expect(help.stdout).toContain("setup");
+    expect(help.stdout).toContain("upgrade");
     expect(help.stdout).toContain("map view [business-key]");
     expect(longHelp).toEqual(help);
     expect(version).toEqual({ exitCode: 0, stdout: `${packageVersion}\n`, stderr: "" });
+    expect(invalidUpgrade).toEqual({
+      exitCode: 2,
+      stdout: "",
+      stderr: "semantic-atlas upgrade does not accept arguments.\n",
+    });
     expect(setup).toMatchObject({ exitCode: 0, stderr: "" });
     expect(setup.stdout).toContain(installedSkill);
     expect(repeatedSetup.stdout).toContain("already current");
