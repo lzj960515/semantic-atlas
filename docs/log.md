@@ -3,6 +3,85 @@
 This log records material documentation ingestion and revisions. Current
 conclusions live on their owning pages rather than in this chronology.
 
+## [2026-08-21] revise | Anonymous Web viewer example
+
+- Replaced a local project name in the public Web viewer layout example with a
+  neutral project label before npm packaging.
+- Affected page: `architecture/web-viewer.md`.
+
+## [2026-08-21] revise | Browse latest primary publication
+
+- Defined stale source freshness as non-blocking for the human Web viewer: map,
+  search, and node reads serve the latest complete publication on the eligible
+  `main` or `master` working tree.
+- Kept missing, building, failed, and structurally incomplete publications
+  unavailable because no complete map exists to browse.
+- Defined semantic zoom consistency: a relationship line is visible only while
+  both endpoint regions are visible.
+- Affected pages: `architecture/web-viewer.md` and `contracts/http-api-v1.md`.
+
+## [2026-08-21] revise | Minimal map node metadata
+
+- Removed visible kind and leaf-detail labels from business-map nodes.
+- Kept child counts as the sole optional node secondary text, rendered only
+  when an expandable region contains child business regions.
+- Affected page: `architecture/web-viewer.md`.
+
+## [2026-08-21] revise | Chinese minimal business viewer
+
+- Simplified the human-facing desktop chrome to project selection, path,
+  search, map controls, and concise business details; removed decorative and
+  diagnostic presentation from the normal viewing surface.
+- Defined Chinese fixed UI copy, localized existing business kinds, and a
+  business-only detail panel that omits Agent-facing evidence, certainty,
+  validity, source symbols, and raw relation metadata.
+- Defined wrapping behavior for long recorded detail and relationship labels.
+- Affected page: `architecture/web-viewer.md`.
+
+## [2026-08-21] revise | Immersive business map view
+
+- Added one toolbar control for a desktop-only immersive map view that hides
+  surrounding project and detail UI without changing the loaded map or Atlas
+  state; the control and `Escape` restore the normal view.
+- Kept `Fit` as a camera action over the loaded map rather than treating it as
+  an application-layout switch.
+- Affected page: `architecture/web-viewer.md`.
+
+## [2026-08-21] revise | Continuous business map interaction
+
+- Replaced the interim region-card grid with a deterministic continuous canvas:
+  project roots form a ring and focused children expand outward while previously
+  loaded regions retain their positions.
+- Defined the project-local, disposable browser cache; focused-map requests
+  load once, retain hierarchy and asserted connections, and are cleared only
+  when the selected project changes.
+- Defined pointer-anchored camera zoom, pan, fit, semantic level thresholds,
+  focused-region camera movement, and separate hierarchy versus business
+  relationship visibility.
+- Affected page: `architecture/web-viewer.md`.
+
+## [2026-08-21] add | Desktop read-only Web viewer
+
+- Accepted `semantic-atlas web` as a human-facing desktop surface over the
+  existing evidence-bound business map.
+- Defined a shared read application boundary and loopback HTTP API instead of
+  driving the browser through CLI subprocesses.
+- Restricted project discovery to one primary working tree per repository on
+  `main` or `master`; linked worktrees and branch selection remain outside the
+  Web product.
+- Kept the viewer read-only and business-oriented with project selection,
+  hierarchy navigation, business search, node details, and existing kinds,
+  certainty, and validity.
+- Implemented and bundled the loopback server, read application services, and
+  desktop client; packaged-installation and browser interaction checks cover
+  the project catalog, map navigation, search, node details, and mutation
+  rejection.
+- Revised the desktop interaction contract after product review: the main
+  surface is a pannable and zoomable spatial node-and-connection map. A card
+  grid is a supporting presentation pattern and cannot replace the map canvas.
+- Affected pages: `product-contract.md`, `architecture/web-viewer.md`,
+  `contracts/cli-v1.md`, `contracts/http-api-v1.md`, and `index.md`.
+
 ## [2026-08-21] add | Local product insights and separate maintenance Skill
 
 - Added passive, installation-level command observations plus explicit,

@@ -17,6 +17,7 @@ import type {
   StructuralNode,
 } from "../structural-backend/types.js";
 import type { RepositorySnapshot } from "../snapshots/types.js";
+import type { AtlasDatabaseAccess } from "../storage/atlas-database.js";
 import { BusinessMapProjector } from "./business-map-projector.js";
 import { WorldSnapshotStore } from "./world-snapshot-store.js";
 import type {
@@ -30,22 +31,29 @@ interface WorldGraphQueryDependencies {
   readonly ownsGraph: boolean;
 }
 
+export interface WorldGraphQueryOptions {
+  readonly atlasAccess?: AtlasDatabaseAccess;
+}
+
 export class WorldGraphQuery implements Disposable {
   readonly #repository: GitRepository;
   readonly #graph: GraphStore;
   readonly #structural: StructuralIndexBackend;
   readonly #ownsGraph: boolean;
+  readonly #atlasAccess: AtlasDatabaseAccess;
 
   constructor(
     repository: GitRepository,
     graph?: GraphStore,
     structural: StructuralIndexBackend = new CodeGraphStructuralBackend(repository),
+    options: WorldGraphQueryOptions = {},
   ) {
     const dependencies = createDependencies(repository, graph, structural);
     this.#repository = repository;
     this.#graph = dependencies.graph;
     this.#structural = dependencies.structural;
     this.#ownsGraph = dependencies.ownsGraph;
+    this.#atlasAccess = options.atlasAccess ?? "read-write";
   }
 
   async view(focusKey?: string): Promise<BusinessMapView | undefined> {
@@ -123,7 +131,7 @@ export class WorldGraphQuery implements Disposable {
   }
 
   private currentWorld(): ReturnType<WorldSnapshotStore["requireCurrentWorld"]> {
-    using store = new WorldSnapshotStore(this.#repository);
+    using store = new WorldSnapshotStore(this.#repository, { access: this.#atlasAccess });
     return store.requireCurrentWorld();
   }
 

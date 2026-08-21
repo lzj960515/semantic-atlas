@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f3f0e8" />
+    <title>Semantic Atlas</title>
+    <script type="module" src="/main.ts"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="project-rail" aria-label="项目">
+        <header class="rail-header">
+          <h1>项目</h1>
+        </header>
+        <nav id="project-list" class="project-list" aria-live="polite"></nav>
+      </aside>
+
+      <main class="workspace">
+        <header class="workspace-header">
+          <nav id="breadcrumbs" class="breadcrumbs" aria-label="业务路径"></nav>
+          <form id="search-form" class="search" role="search">
+            <label class="sr-only" for="business-search">搜索当前项目的业务知识</label>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5"></circle>
+              <path d="m16 16 4 4"></path>
+            </svg>
+            <input
+              id="business-search"
+              name="q"
+              type="search"
+              autocomplete="off"
+              placeholder="搜索业务"
+              disabled
+            />
+            <div id="search-results" class="search-results" hidden></div>
+          </form>
+        </header>
+
+        <div class="content-layout">
+          <section id="map-surface" class="map-surface" aria-live="polite">
+            <div class="welcome-state">
+              <h3>选择一个项目</h3>
+              <p>地图会展示已整理的业务知识。</p>
+            </div>
+          </section>
+
+          <aside id="detail-panel" class="detail-panel" aria-label="业务详情" aria-live="polite">
+            <div class="detail-placeholder">
+              <h3>选择一个业务区域</h3>
+              <p>在地图上点击节点查看简介和相关业务。</p>
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+    <div id="notice" class="notice" role="status" hidden></div>
+  </body>
+</html>

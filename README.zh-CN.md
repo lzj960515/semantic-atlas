@@ -90,6 +90,8 @@ status
 - **Semantic Atlas Insights Skill** 承担独立的每日产品复盘和反馈分诊，保证
   常规开发上下文保持聚焦。
 - **`semantic-atlas` CLI** 提供确定性的本地 JSON 操作。
+- **桌面 Web 查看器**让人可以浏览同一张已建立的业务地图，不需要先阅读源码，
+  也不会改变 Atlas 知识。
 - 结构分析器只是内部证据来源，它的目录图、CLI、存储结构和术语不会变成
   对外的业务地图。
 
@@ -148,6 +150,23 @@ semantic-atlas code search "CheckoutService" --limit 10
 
 项目命令向标准输出写入一个带版本的 JSON 信封，诊断信息留在标准错误中。
 `setup`、`upgrade`、`-h`/`--help` 和 `--version` 是不依赖仓库的文本命令。
+
+## 浏览业务地图
+
+在任意目录启动本地桌面查看器：
+
+```sh
+semantic-atlas web
+```
+
+命令会在 `127.0.0.1:4310` 提供打包内置的界面和带版本的只读 HTTP API，
+然后打开默认浏览器。`--no-open` 可以关闭自动打开浏览器，`--port <n>` 可以
+选择另一个 loopback 端口，`--repo <path>` 可以选择一个符合条件的初始项目。
+
+项目栏只展示每个仓库当前位于 `main` 或 `master` 的主工作目录；linked
+worktree 和其他分支不会出现。查看器支持项目选择、业务地图层级导航、业务
+搜索，以及包含现有类型、确定性、有效性、关系和证据的节点详情。它不能执行
+索引、学习、源码修改、Git 操作或 Atlas 数据变更。
 
 ## 产品洞察
 
@@ -224,6 +243,7 @@ semantic-atlas setup
 semantic-atlas upgrade
 semantic-atlas -h | --help
 semantic-atlas --version
+semantic-atlas web [--repo <path>] [--port <n>] [--no-open]
 
 semantic-atlas status [--repo <path>] [--pretty]
 semantic-atlas index [--repo <path>] [--pretty]
@@ -242,7 +262,8 @@ semantic-atlas insights feedback update --stdin [--pretty]
 
 字段级行为由带版本的 [CLI v1](docs/contracts/cli-v1.md)和
 [GraphPatch v1](docs/contracts/graph-patch-v1.md)契约定义。产品洞察和反馈行为
-由 [Insights v1](docs/contracts/insights-v1.md) 契约定义。
+由 [Insights v1](docs/contracts/insights-v1.md) 契约定义。查看器使用 loopback
+[HTTP API v1](docs/contracts/http-api-v1.md)。
 
 ## 开发
 
@@ -265,6 +286,8 @@ pnpm package:verify
 - [持续业务学习与语义缩放](docs/architecture/continuous-business-learning.md)
 - [图模型](docs/contracts/graph-model.md)
 - [CLI v1 契约](docs/contracts/cli-v1.md)
+- [桌面 Web 查看器](docs/architecture/web-viewer.md)
+- [HTTP API v1 契约](docs/contracts/http-api-v1.md)
 - [Insights v1 契约](docs/contracts/insights-v1.md)
 - [评测协议](docs/evaluation.md)
 

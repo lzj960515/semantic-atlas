@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   discoverTargetSources,
   inspectGitRepository,
+  readCurrentBranch,
   readCurrentHead,
 } from "../../src/repository/repository-inspector.js";
 import { createGitFixture, type GitFixture } from "../support/git-fixture.js";
@@ -27,8 +28,18 @@ describe("Git repository inspection", () => {
     const repository = await inspectGitRepository(nestedDirectory);
 
     expect(repository.worktreeRoot).toBe(await realpath(fixture.directory));
+    expect(await readCurrentBranch(repository)).toBe("main");
     expect(await readCurrentHead(repository)).toMatch(/^[0-9a-f]{40,64}$/u);
     expect(repository.repositoryId).toMatch(/^[0-9a-f]{64}$/u);
+  });
+
+  it("returns no branch for a detached primary working tree", async () => {
+    const fixture = await createGitFixture();
+    fixtures.push(fixture);
+    const repository = await inspectGitRepository(fixture.directory);
+    await fixture.git("checkout", "--detach");
+
+    expect(await readCurrentBranch(repository)).toBeNull();
   });
 
   it("shares repository identity across linked worktrees", async () => {

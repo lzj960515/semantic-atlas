@@ -1,7 +1,7 @@
 {
   "name": "semantic-atlas",
   "version": "0.3.0",
-  "description": "A local, revision-aware project world model for AI coding agents.",
+  "description": "A local, revision-aware business map for coding agents and read-only human browsing.",
   "keywords": [
     "ai-agents",
     "code-analysis",
@@ -53,10 +53,10 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.web.json",
     "evaluation:validate": "tsx scripts/validate-evaluation.ts --baseline evaluation/cases/plan.json evaluation/examples/no-atlas-run.json",
     "evaluation:discovery": "tsx scripts/validate-evaluation.ts evaluation/cases/plan.json evaluation/results/fresh-agent-discovery-v5/location-nestjs-provider-atlas.json",
     "evaluation:run": "tsx scripts/run-fresh-agent-evaluation.ts",
@@ -65,7 +65,7 @@
     "package:verify": "tsx scripts/verify-package.ts",
     "contracts:generate": "tsx scripts/generate-contracts.ts",
     "contracts:check": "tsx scripts/generate-contracts.ts --check",
-    "prepack": "tsx scripts/generate-contracts.ts --check && tsc -p tsconfig.build.json"
+    "prepack": "tsx scripts/generate-contracts.ts --check && tsc -p tsconfig.build.json && vite build"
   },
   "dependencies": {
     "@colbymchenry/codegraph": "1.5.0",
@@ -76,6 +76,7 @@
     "tiktoken": "1.0.22",
     "tsx": "^4.20.6",
     "typescript": "^5.9.0",
+    "vite": "^7.3.6",
     "vitest": "^3.2.0"
   }
 }

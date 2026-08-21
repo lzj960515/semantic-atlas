@@ -11,19 +11,37 @@ export const SEMANTIC_ATLAS_HOME_ENVIRONMENT_VARIABLE = "SEMANTIC_ATLAS_HOME";
 
 const require = createRequire(import.meta.url);
 
-type DatabaseSyncConstructor = new (path: string) => NodeDatabaseSync;
+type DatabaseSyncConstructor = new (
+  path: string,
+  options?: { readonly readOnly?: boolean },
+) => NodeDatabaseSync;
+
+export type AtlasDatabaseAccess = "read-write" | "read-only";
+
+export interface AtlasDatabaseOptions {
+  readonly access?: AtlasDatabaseAccess;
+}
 
 export class AtlasDatabase implements Disposable {
   readonly databasePath: string;
   readonly connection: NodeDatabaseSync;
   #closed = false;
 
-  constructor(repository: GitRepository) {
-    this.databasePath = resolveAtlasDatabasePath(repository);
+  constructor(repository: GitRepository, options: AtlasDatabaseOptions = {}) {
+    const access = options.access ?? "read-write";
+    this.databasePath = access === "read-only"
+      ? resolveExistingAtlasDatabasePath(repository)
+      : resolveAtlasDatabasePath(repository);
     const { DatabaseSync } = require("node:sqlite") as { DatabaseSync: DatabaseSyncConstructor };
-    this.connection = new DatabaseSync(this.databasePath);
+    this.connection = new DatabaseSync(this.databasePath, { readOnly: access === "read-only" });
     try {
-      this.connection.exec("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;");
+      this.connection.exec(access === "read-only"
+        ? "PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;"
+        : "PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;");
+      if (access === "read-only") {
+        this.requireCurrentSchema();
+        return;
+      }
       this.initializeSchema();
       this.registerRepository(repository);
     } catch (error) {
@@ -92,6 +110,17 @@ export class AtlasDatabase implements Disposable {
     }
   }
 
+  private requireCurrentSchema(): void {
+    const atlasSchema = this.connection.prepare(`
+      SELECT name
+      FROM sqlite_schema
+      WHERE type = 'table' AND name = 'atlas_schema'
+    `).get();
+    if (atlasSchema === undefined || this.schemaVersion !== CURRENT_ATLAS_SCHEMA_VERSION) {
+      throw new Error(`The Atlas database is not a supported schema v${CURRENT_ATLAS_SCHEMA_VERSION} store`);
+    }
+  }
+
   private registerRepository(repository: GitRepository): void {
     const timestamp = new Date().toISOString();
     this.connection.exec("BEGIN IMMEDIATE");
@@ -133,13 +162,33 @@ export class AtlasDatabase implements Disposable {
 
 export function resolveAtlasHome(repository: GitRepository): string {
   const realAtlasHome = resolveConfiguredAtlasHome();
+  requireAtlasHomeOutsideRepository(realAtlasHome, repository);
+  return realAtlasHome;
+}
+
+export function resolveExistingAtlasHome(): string | null {
+  const atlasHome = configuredAtlasHomePath();
+  try {
+    requireRealDirectory(atlasHome, "The Semantic Atlas home");
+    return realpathSync(atlasHome);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function requireAtlasHomeOutsideRepository(
+  realAtlasHome: string,
+  repository: GitRepository,
+): void {
   for (const worktreeRoot of repository.worktreeRoots) {
     const realWorktreeRoot = realpathExistingPath(worktreeRoot);
     if (realWorktreeRoot !== null && isPathInside(realAtlasHome, realWorktreeRoot)) {
       throw new Error("The Semantic Atlas home must be outside every repository worktree");
     }
   }
-  return realAtlasHome;
 }
 
 export function resolveInsightsDatabasePath(): string {
@@ -147,11 +196,7 @@ export function resolveInsightsDatabasePath(): string {
 }
 
 function resolveConfiguredAtlasHome(): string {
-  const configuredHome = process.env[SEMANTIC_ATLAS_HOME_ENVIRONMENT_VARIABLE];
-  if (configuredHome !== undefined && !isAbsolute(configuredHome)) {
-    throw new Error(`${SEMANTIC_ATLAS_HOME_ENVIRONMENT_VARIABLE} must be an absolute path`);
-  }
-  const atlasHome = resolve(configuredHome ?? join(homedir(), ".semantic-atlas"));
+  const atlasHome = configuredAtlasHomePath();
   mkdirSync(atlasHome, { recursive: true, mode: 0o700 });
   requireRealDirectory(atlasHome, "The Semantic Atlas home");
 
@@ -159,11 +204,32 @@ function resolveConfiguredAtlasHome(): string {
   return realAtlasHome;
 }
 
+function configuredAtlasHomePath(): string {
+  const configuredHome = process.env[SEMANTIC_ATLAS_HOME_ENVIRONMENT_VARIABLE];
+  if (configuredHome !== undefined && !isAbsolute(configuredHome)) {
+    throw new Error(`${SEMANTIC_ATLAS_HOME_ENVIRONMENT_VARIABLE} must be an absolute path`);
+  }
+  return resolve(configuredHome ?? join(homedir(), ".semantic-atlas"));
+}
+
 export function resolveAtlasDatabasePath(repository: GitRepository): string {
   const atlasHome = resolveAtlasHome(repository);
   const repositoriesDirectory = join(atlasHome, "repositories");
   const repositoryDirectory = join(repositoriesDirectory, repository.repositoryId);
   mkdirSync(repositoryDirectory, { recursive: true, mode: 0o700 });
+  requireRealDirectory(repositoriesDirectory, "The Semantic Atlas repositories directory");
+  requireRealDirectory(repositoryDirectory, "The repository Atlas directory");
+  return join(repositoryDirectory, "atlas.db");
+}
+
+function resolveExistingAtlasDatabasePath(repository: GitRepository): string {
+  const atlasHome = resolveExistingAtlasHome();
+  if (atlasHome === null) {
+    throw new Error("The Semantic Atlas home does not exist");
+  }
+  requireAtlasHomeOutsideRepository(atlasHome, repository);
+  const repositoriesDirectory = join(atlasHome, "repositories");
+  const repositoryDirectory = join(repositoriesDirectory, repository.repositoryId);
   requireRealDirectory(repositoriesDirectory, "The Semantic Atlas repositories directory");
   requireRealDirectory(repositoryDirectory, "The repository Atlas directory");
   return join(repositoryDirectory, "atlas.db");

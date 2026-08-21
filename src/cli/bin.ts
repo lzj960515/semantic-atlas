@@ -26,12 +26,18 @@ if (standaloneExitCode !== undefined) {
   process.exitCode = await runWithExperimentalSqlite(arguments_);
 } else {
   const io = { stdin: process.stdin, stdout: process.stdout, stderr: process.stderr };
-  const insightsExitCode = await runInsightsCli(arguments_, io);
-  if (insightsExitCode !== undefined) {
-    process.exitCode = insightsExitCode;
+  const { runWebCli } = await import("./web-cli.js");
+  const webExitCode = await runWebCli(arguments_, io, process.cwd());
+  if (webExitCode !== undefined) {
+    process.exitCode = webExitCode;
   } else {
-    const { runCli } = await import("./main.js");
-    process.exitCode = await runCli(arguments_, io, process.cwd());
+    const insightsExitCode = await runInsightsCli(arguments_, io);
+    if (insightsExitCode !== undefined) {
+      process.exitCode = insightsExitCode;
+    } else {
+      const { runCli } = await import("./main.js");
+      process.exitCode = await runCli(arguments_, io, process.cwd());
+    }
   }
 }
 

@@ -11,6 +11,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { createServer as createNetServer } from "node:net";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -174,6 +175,7 @@ async function assertPackagedArtifacts(installedRoot: string): Promise<void> {
     "dist/index.js",
     "dist/index.d.ts",
     "dist/cli/bin.js",
+    "dist/web-client/index.html",
     "schemas/cli-envelope-v1.schema.json",
     "schemas/graph-patch-v1.schema.json",
     "schemas/insights-envelope-v1.schema.json",
@@ -237,6 +239,7 @@ async function verifyInstalledCli(
   assert.match(help.stdout, /Usage: semantic-atlas <command> \[options\]/u);
   assert.match(help.stdout, /setup/u);
   assert.match(help.stdout, /upgrade/u);
+  assert.match(help.stdout, /web \[--repo path\] \[--port n\]/u);
   assert.equal(help.stderr, "");
   const installedVersion = await runStandaloneCli(consumerRoot, ["--version"], userHome);
   assert.equal(installedVersion.stdout, `${version}\n`);
@@ -378,6 +381,7 @@ async function verifyInstalledCli(
   assert.ok(worldView.envelope.status === "ok" || worldView.envelope.status === "partial");
   assert.equal(worldView.envelope.data.command, "map.view");
   assert.ok(commandData(worldView, "map.view").regions.length > 0);
+  const web = await verifyInstalledWeb(consumerRoot, repositoryRoot);
   assert.equal(await git(repositoryRoot, "status", "--porcelain=v1", "--untracked-files=all"), "");
   assert.equal(isPathWithin(projectRoot, consumerRoot), false);
 
@@ -390,6 +394,7 @@ async function verifyInstalledCli(
       status: "missing",
       index: "current",
       businessRegions: commandData(worldView, "map.view").regions.length,
+      web,
       learnedKey,
       linkedBootstrap: "incremental",
       linkedSmallEditFilesIndexed: linkedSync.structural.counts.filesIndexed,
@@ -402,6 +407,121 @@ async function verifyInstalledCli(
       trackedRepositoryIntrusion: false,
     },
   };
+}
+
+async function verifyInstalledWeb(
+  consumerRoot: string,
+  repositoryRoot: string,
+): Promise<{ readonly projectCount: number; readonly businessRegions: number }> {
+  const cliEntry = join(
+    consumerRoot,
+    "node_modules",
+    "semantic-atlas",
+    "dist",
+    "cli",
+    "bin.js",
+  );
+  const port = await reserveLoopbackPort();
+  const child = spawn(process.execPath, [
+    cliEntry,
+    "web",
+    "--repo",
+    repositoryRoot,
+    "--port",
+    String(port),
+    "--no-open",
+  ], {
+    cwd: consumerRoot,
+    env: process.env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (chunk: string) => { stderr += chunk; });
+  const origin = `http://127.0.0.1:${port}`;
+  try {
+    await waitForHttpServer(origin, child, () => stderr);
+    const page = await fetch(origin);
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /<title>Semantic Atlas<\/title>/u);
+
+    const projectsResponse = await fetch(`${origin}/api/v1/projects`);
+    assert.equal(projectsResponse.status, 200);
+    const projectsEnvelope = await projectsResponse.json() as {
+      readonly schemaVersion: number;
+      readonly data: { readonly projects: readonly { readonly id: string; readonly root: string }[] };
+    };
+    assert.equal(projectsEnvelope.schemaVersion, 1);
+    const project = projectsEnvelope.data.projects.find(({ root }) => root === repositoryRoot);
+    assert.ok(project, "Packaged Web catalog must expose the primary main fixture");
+
+    const mapResponse = await fetch(`${origin}/api/v1/projects/${project.id}/map`);
+    assert.equal(mapResponse.status, 200);
+    const mapEnvelope = await mapResponse.json() as {
+      readonly data: { readonly regions: readonly unknown[] };
+    };
+    assert.ok(mapEnvelope.data.regions.length > 0);
+    const mutationResponse = await fetch(`${origin}/api/v1/projects`, { method: "POST" });
+    assert.equal(mutationResponse.status, 405);
+    return {
+      projectCount: projectsEnvelope.data.projects.length,
+      businessRegions: mapEnvelope.data.regions.length,
+    };
+  } finally {
+    child.kill("SIGTERM");
+    await new Promise<void>((resolveExit) => {
+      if (child.exitCode !== null) {
+        resolveExit();
+        return;
+      }
+      const timer = setTimeout(() => {
+        child.kill("SIGKILL");
+        resolveExit();
+      }, 5_000);
+      child.once("close", () => {
+        clearTimeout(timer);
+        resolveExit();
+      });
+    });
+  }
+}
+
+async function reserveLoopbackPort(): Promise<number> {
+  const server = createNetServer();
+  await new Promise<void>((resolveListen, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolveListen);
+  });
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    server.close();
+    throw new Error("Could not reserve a loopback port for packaged Web verification");
+  }
+  await new Promise<void>((resolveClose, reject) => {
+    server.close((error) => error === undefined ? resolveClose() : reject(error));
+  });
+  return address.port;
+}
+
+async function waitForHttpServer(
+  origin: string,
+  child: ReturnType<typeof spawn>,
+  readStderr: () => string,
+): Promise<void> {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error(`Packaged Web server exited early: ${readStderr()}`);
+    }
+    try {
+      const response = await fetch(origin);
+      if (response.ok) return;
+    } catch {
+      // The loopback listener may still be starting.
+    }
+    await new Promise((resolveWait) => setTimeout(resolveWait, 50));
+  }
+  throw new Error(`Packaged Web server did not start: ${readStderr()}`);
 }
 
 async function runStandaloneCli(

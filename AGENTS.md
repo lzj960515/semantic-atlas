@@ -1,12 +1,18 @@
 # Semantic Atlas Agent Guide
 
-Semantic Atlas is a standalone public TypeScript repository for an AI-agent-only project world model.
+Semantic Atlas is a standalone public TypeScript repository for a local project
+world model. AI coding agents build and consume evidence-bound business
+knowledge; people can browse eligible primary-branch knowledge through the
+read-only desktop Web viewer.
 
 ## Product boundaries
 
 - Keep source code as the authority and Atlas data as a revision-aware projection.
 - Keep the runtime local, deterministic, and free of model or network dependencies.
 - Expose agent workflows through the `semantic-atlas` CLI and a Codex Skill.
+- Expose human browsing through `semantic-atlas web`, a loopback GET-only HTTP
+  API, and a bundled desktop interface. Keep linked worktrees, non-main branches,
+  knowledge mutation, and source mutation outside the Web surface.
 - Keep durable repository knowledge under `~/.semantic-atlas` and disposable CodeGraph state inside the target worktree's ignored `.atlas/` directory. Leave tracked source and project configuration unchanged.
 - Represent unresolved dynamic behavior with explicit unknown boundaries.
 - Leave natural-language reasoning, source editing, tests, Git operations, and review to the calling agent.

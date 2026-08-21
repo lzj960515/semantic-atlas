@@ -98,6 +98,8 @@ This workflow is delivered as one product:
 - The **Semantic Atlas Insights Skill** supports a separate daily product review
   and feedback-triage loop, keeping routine development context focused.
 - The **`semantic-atlas` CLI** provides deterministic local JSON operations.
+- The **desktop Web viewer** lets people browse the same established business
+  map without changing Atlas knowledge or reading source first.
 - The structural analyzer remains an internal evidence provider. Its directory
   graph, CLI, storage schema, and terminology do not become the business map.
 
@@ -162,6 +164,26 @@ semantic-atlas code search "CheckoutService" --limit 10
 Project commands write one versioned JSON envelope to standard output and keep
 diagnostics on standard error. `setup`, `upgrade`, `-h`/`--help`, and `--version`
 are repository-independent text commands.
+
+## Browse the business map
+
+Start the local desktop viewer from any directory:
+
+```sh
+semantic-atlas web
+```
+
+The command serves a bundled interface and versioned read-only HTTP API on
+`127.0.0.1:4310`, then opens the default browser. Use `--no-open` to suppress
+browser launch, `--port <n>` to select another loopback port, or `--repo <path>`
+to select an eligible initial project.
+
+The project rail contains only each repository's primary working tree when it
+is currently on `main` or `master`. Linked worktrees and other branches never
+appear. The viewer supports project selection, hierarchical business-map
+navigation, business search, and node details with existing kind, certainty,
+validity, relationships, and evidence. It cannot index, learn, modify source,
+operate Git, or change Atlas data.
 
 ## Product insights
 
@@ -246,6 +268,7 @@ semantic-atlas setup
 semantic-atlas upgrade
 semantic-atlas -h | --help
 semantic-atlas --version
+semantic-atlas web [--repo <path>] [--port <n>] [--no-open]
 
 semantic-atlas status [--repo <path>] [--pretty]
 semantic-atlas index [--repo <path>] [--pretty]
@@ -265,7 +288,8 @@ semantic-atlas insights feedback update --stdin [--pretty]
 Field-level behavior is defined by the versioned [CLI v1](docs/contracts/cli-v1.md)
 and [GraphPatch v1](docs/contracts/graph-patch-v1.md) contracts. Product
 observability and feedback behavior are defined by
-[Insights v1](docs/contracts/insights-v1.md).
+[Insights v1](docs/contracts/insights-v1.md). The viewer uses the loopback
+[HTTP API v1](docs/contracts/http-api-v1.md).
 
 ## Develop
 
@@ -288,6 +312,8 @@ evidence rebinding, sibling bootstrap, and worktree-isolation gates.
 - [Continuous business learning and semantic zoom](docs/architecture/continuous-business-learning.md)
 - [Graph model](docs/contracts/graph-model.md)
 - [CLI v1 contract](docs/contracts/cli-v1.md)
+- [Desktop Web viewer](docs/architecture/web-viewer.md)
+- [HTTP API v1 contract](docs/contracts/http-api-v1.md)
 - [Insights v1 contract](docs/contracts/insights-v1.md)
 - [Evaluation protocol](docs/evaluation.md)
 

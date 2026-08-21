@@ -18,6 +18,9 @@ source and tests.
 - [CodeGraph backend](architecture/codegraph-backend.md): ownership and
   consistency boundaries between durable Atlas knowledge and disposable
   structural projections.
+- [Desktop Web viewer](architecture/web-viewer.md): the human-facing read-only
+  browser, primary `main`/`master` repository scope, application boundary, and
+  desktop information architecture.
 - [Semantic Atlas overview mind map](mindmaps/semantic-atlas-overview.png):
   visual overview; editable sources are available in the same directory.
 
@@ -29,6 +32,8 @@ source and tests.
   contract.
 - [CLI v1](contracts/cli-v1.md): deterministic commands, envelopes, warnings,
   and exit codes.
+- [HTTP API v1](contracts/http-api-v1.md): loopback GET endpoints used by the
+  bundled desktop Web viewer.
 - [Insights v1](contracts/insights-v1.md): local product signals, explicit
   feedback, triage, storage boundary, and interpretation.
 

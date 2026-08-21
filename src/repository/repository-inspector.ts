@@ -108,3 +108,16 @@ export async function discoverTargetSources(repository: GitRepository): Promise<
 export async function readCurrentHead(repository: GitRepository): Promise<string> {
   return runGitText(repository.worktreeRoot, ["rev-parse", "--verify", "HEAD"]);
 }
+
+export async function readCurrentBranch(repository: GitRepository): Promise<string | null> {
+  try {
+    return await runGitText(repository.worktreeRoot, [
+      "symbolic-ref",
+      "--quiet",
+      "--short",
+      "HEAD",
+    ]);
+  } catch {
+    return null;
+  }
+}

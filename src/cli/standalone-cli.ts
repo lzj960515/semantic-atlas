@@ -16,6 +16,9 @@ Project understanding:
   changes [--from id] [--to id]       Report semantic changes
   feedback report --stdin              Record confirmed product friction
 
+Human browsing:
+  web [--repo path] [--port n]         Start the local read-only desktop viewer
+
 Installation and information:
   insights summary [--period period]  Summarize local Atlas product signals
   insights feedback [options]          List local Agent feedback reports
@@ -28,6 +31,11 @@ Installation and information:
 Global project options:
   --repo <path>                       Select a Git worktree (default: cwd)
   --pretty                            Indent JSON project or insights output
+
+Web options:
+  --port <n>                          Bind 127.0.0.1 on this port (default: 4310)
+  --no-open                           Do not open the default browser
+  --repo <path>                       Select an eligible initial project
 `;
 
 export async function runStandaloneCli(

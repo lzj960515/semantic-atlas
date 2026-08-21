@@ -2,7 +2,11 @@
 
 ## Purpose and authority
 
-Semantic Atlas is a local project world model used by AI coding agents. It connects code structure to durable business concepts, flows, data, rules, and interfaces so an agent can understand a project through business meaning instead of repeatedly reconstructing that meaning from source search.
+Semantic Atlas is a local project world model used by AI coding agents and by
+people who need a read-only view of established business knowledge. It connects
+code structure to durable business concepts, flows, data, rules, and interfaces
+so an agent can work from business meaning and a person can browse the resulting
+map without reading implementation code first.
 
 Source code remains authoritative. Atlas is a revision-aware projection with explicit evidence and validity. A stale, unsupported, unresolved, or insufficient result sends the calling agent back to source inspection.
 
@@ -15,6 +19,8 @@ Users and calling agents interact with one product:
 - the `semantic-atlas` CLI supplies deterministic, machine-readable operations;
 - the `semantic-atlas` Skill teaches the calling agent when and how to use those operations;
 - the separate `semantic-atlas-insights` Skill supports deliberate product review and feedback triage;
+- `semantic-atlas web` serves a local desktop viewer and read-only HTTP API over
+  eligible primary `main` or `master` working trees;
 - `@colbymchenry/codegraph` is an internal structural-index dependency behind an Atlas-owned adapter;
 - CodeGraph's CLI, MCP server, storage model, and public types are not exposed as Semantic Atlas workflows.
 
@@ -39,11 +45,25 @@ A normal task adds only the durable business knowledge it verifies while doing t
 
 An indexed repository may legitimately have no business nodes. In that state, the world `map view` returns `regions: []` with `BUSINESS_KNOWLEDGE_EMPTY`; the agent uses `code search` and source as a bounded fallback for the current task. After source and tests establish durable meaning, the agent records only that reusable knowledge. Later tasks may add a broader parent and place an existing root beneath it without changing the existing node identity.
 
+### Human read workflow
+
+`semantic-atlas web` starts a loopback server and bundled desktop interface. The
+viewer lists one primary working tree per Atlas repository only when that tree
+is on `main` or `master`; linked worktrees and other branches are outside the
+Web product. A person selects a project, reads the world view, enters established
+business regions, searches business vocabulary, and inspects direct node
+details and evidence.
+
+The Web surface is read-only. It does not index, learn, submit GraphPatch,
+search arbitrary code, select a worktree, switch branches, or mutate source,
+Git, configuration, Skills, or Atlas knowledge. Its HTTP adapter and the CLI
+call shared Atlas application services rather than invoking one another.
+
 ## Responsibility boundary
 
 | Concern | Semantic Atlas | Calling agent |
 | --- | --- | --- |
-| Product interface | Exposes the `semantic-atlas` CLI and two focused Skills | Chooses the repository, task scope, and maintenance cadence |
+| Product interface | Exposes the `semantic-atlas` CLI, two focused Skills, and a local desktop read-only Web viewer | Chooses the repository, task scope, and maintenance cadence; people browse eligible primary-branch knowledge without changing it |
 | Installation lifecycle | Ships version-matched primary and insights Skills, synchronizes them through `semantic-atlas setup`, and upgrades the global package plus Skills through `semantic-atlas upgrade` | Performs the initial global npm installation and can invoke setup or upgrade from any directory |
 | Structural code model | Uses the embedded CodeGraph SDK for extraction, cross-file resolution, incremental sync, and structural queries | Reads source when the structural map is insufficient |
 | Business world model | Stores and queries capabilities, scenarios, operations, invariants, interfaces, data, and their relationships | Understands natural language and decides which business assertions are justified |
@@ -128,7 +148,8 @@ Semantic Atlas does not provide:
 - a language model, embeddings, vector search, or natural-language inference inside the CLI;
 - source editing, test execution, Git mutation, code review, or release automation;
 - exact claims for runtime-only behavior that the structural backend cannot establish;
-- a human-facing IDE, documentation site, or graph explorer.
+- a human-facing IDE, source editor, business-knowledge authoring UI, mobile
+  application, or remote collaboration service.
 
 ## Dependency policy
 
@@ -150,6 +171,11 @@ Every public release requires all of the following on the release commit:
 8. Static and Fresh Agent verification of the packaged Semantic Atlas Skill passes.
 9. At least 12 paired Fresh Agent business-location and dependency/impact cases preserve necessary-file recall, necessary-symbol recall, and answer correctness while reducing either median unique opened source files or median source input tokens by at least 30 percent.
 10. No evaluated answer presents stale, hypothesis, unresolved, or unsupported knowledge as exact.
+11. The packaged `web` command serves the bundled desktop application and the
+    versioned loopback HTTP API without executing CLI map subprocesses.
+12. The Web catalog returns only primary working trees on `main` or `master`,
+    excludes linked worktrees, exposes no mutation route, and leaves Agent CLI
+    behavior and stored graph contracts unchanged.
 
 The gate is fixed before comparative results are collected. A failed gate creates follow-up work; it does not broaden the current task until it passes.
 
@@ -159,5 +185,7 @@ The gate is fixed before comparative results are collected. A failed gate create
 - [Graph model](contracts/graph-model.md)
 - [CLI v1](contracts/cli-v1.md)
 - [Insights v1](contracts/insights-v1.md)
+- [HTTP API v1](contracts/http-api-v1.md)
 - [GraphPatch v1](contracts/graph-patch-v1.md)
+- [Desktop Web viewer](architecture/web-viewer.md)
 - [Evaluation protocol](evaluation.md)

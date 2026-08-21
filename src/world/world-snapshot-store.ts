@@ -4,7 +4,7 @@ import { contentIdentifierSchema } from "../contracts/identifiers.js";
 import { isSupportedSource } from "../repository/repository-inspector.js";
 import type { GitRepository } from "../repository/types.js";
 import type { RepositorySnapshot } from "../snapshots/types.js";
-import { AtlasDatabase } from "../storage/atlas-database.js";
+import { AtlasDatabase, type AtlasDatabaseOptions } from "../storage/atlas-database.js";
 import type {
   CurrentWorldSnapshot,
   EvidenceLocator,
@@ -64,8 +64,8 @@ export class WorldSnapshotStore implements Disposable {
   readonly #repositoryId: string;
   readonly #gitDirectory: string;
 
-  constructor(repository: GitRepository) {
-    this.#database = new AtlasDatabase(repository);
+  constructor(repository: GitRepository, options: AtlasDatabaseOptions = {}) {
+    this.#database = new AtlasDatabase(repository, options);
     this.#repositoryId = repository.repositoryId;
     this.#gitDirectory = repository.gitDirectory;
   }

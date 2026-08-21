@@ -16,6 +16,7 @@ import type { RepositorySnapshot } from "../snapshots/types.js";
 import {
   AtlasDatabase,
   CURRENT_ATLAS_SCHEMA_VERSION,
+  type AtlasDatabaseOptions,
 } from "../storage/atlas-database.js";
 import type {
   AssertionCertainty,
@@ -101,8 +102,8 @@ export class GraphStore implements Disposable {
   readonly #repositoryId: string;
   readonly #gitDirectory: string;
 
-  constructor(repository: GitRepository) {
-    this.#atlasDatabase = new AtlasDatabase(repository);
+  constructor(repository: GitRepository, options: AtlasDatabaseOptions = {}) {
+    this.#atlasDatabase = new AtlasDatabase(repository, options);
     this.databasePath = this.#atlasDatabase.databasePath;
     this.#repositoryId = repository.repositoryId;
     this.#gitDirectory = repository.gitDirectory;

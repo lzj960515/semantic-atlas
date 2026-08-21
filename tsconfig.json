@@ -17,5 +17,6 @@
     "scripts/**/*.ts",
     "tests/**/*.ts",
     "vitest.config.ts"
-  ]
+  ],
+  "exclude": ["src/web/client/**/*.ts"]
 }

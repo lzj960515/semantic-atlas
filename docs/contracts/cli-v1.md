@@ -11,6 +11,7 @@ SQLite is opened:
 | --- | --- |
 | `setup` | Atomically install or update the exact bundled `semantic-atlas` and `semantic-atlas-insights` Skills at `~/.agents/skills/`. A recognized legacy `~/.codex/skills/semantic-atlas` copy is removed after the shared installation succeeds. |
 | `upgrade` | Resolve npm's `latest` tag, install that exact release globally, verify the new executable, and invoke the new package's `setup`. An already-current package still verifies and repairs its bundled Skills. |
+| `web` | Start the loopback, desktop-only, read-only Web viewer and HTTP API. The project catalog contains only primary working trees on `main` or `master` and excludes linked worktrees. |
 | `-h`, `--help` | Print top-level usage and command help. |
 | `--version` | Print the installed package version. |
 
@@ -27,7 +28,12 @@ CLI through the current Node executable, so Skill synchronization is owned by
 the package that was actually installed. Registry lookup, package installation,
 new-version verification, and Skill synchronization are one fail-closed command:
 any failed step returns exit code `1` and does not report the upgrade as ready.
-These lifecycle commands do not discover a Git repository or open Atlas storage.
+`setup` and `upgrade` do not discover a Git repository or open Atlas storage.
+`web` discovers existing Atlas repository stores, validates their primary Git
+working trees, starts on `127.0.0.1`, and remains active until interrupted. It
+does not write a project JSON envelope because its output is the local server
+address and lifecycle diagnostics. The browser uses [HTTP API v1](http-api-v1.md),
+not CLI subprocesses.
 Installation-scoped `insights` commands also avoid Git and repository Atlas
 storage, while opening the separate local insights store described in
 [Insights v1](insights-v1.md).
@@ -36,6 +42,15 @@ Global project options:
 
 - `--repo <path>` selects a directory within the target repository; the default is the current directory.
 - `--pretty` indents a project or insights JSON envelope without changing fields or values.
+
+Web options:
+
+- `--port <n>` selects a TCP port from `1` through `65535`; the default is
+  `4310`.
+- `--no-open` starts the server without opening the default browser.
+- `--repo <path>` selects the initial project only when the path resolves to an
+  eligible primary working tree on `main` or `master`. It does not add or expose
+  a linked worktree.
 
 Project commands:
 
