@@ -36,6 +36,7 @@
   },
   "files": [
     ".agents/skills/semantic-atlas",
+    ".agents/skills/semantic-atlas-insights",
     "dist",
     "docs",
     "schemas",

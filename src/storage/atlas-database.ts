@@ -132,6 +132,21 @@ export class AtlasDatabase implements Disposable {
 }
 
 export function resolveAtlasHome(repository: GitRepository): string {
+  const realAtlasHome = resolveConfiguredAtlasHome();
+  for (const worktreeRoot of repository.worktreeRoots) {
+    const realWorktreeRoot = realpathExistingPath(worktreeRoot);
+    if (realWorktreeRoot !== null && isPathInside(realAtlasHome, realWorktreeRoot)) {
+      throw new Error("The Semantic Atlas home must be outside every repository worktree");
+    }
+  }
+  return realAtlasHome;
+}
+
+export function resolveInsightsDatabasePath(): string {
+  return join(resolveConfiguredAtlasHome(), "insights.db");
+}
+
+function resolveConfiguredAtlasHome(): string {
   const configuredHome = process.env[SEMANTIC_ATLAS_HOME_ENVIRONMENT_VARIABLE];
   if (configuredHome !== undefined && !isAbsolute(configuredHome)) {
     throw new Error(`${SEMANTIC_ATLAS_HOME_ENVIRONMENT_VARIABLE} must be an absolute path`);
@@ -141,12 +156,6 @@ export function resolveAtlasHome(repository: GitRepository): string {
   requireRealDirectory(atlasHome, "The Semantic Atlas home");
 
   const realAtlasHome = realpathSync(atlasHome);
-  for (const worktreeRoot of repository.worktreeRoots) {
-    const realWorktreeRoot = realpathExistingPath(worktreeRoot);
-    if (realWorktreeRoot !== null && isPathInside(realAtlasHome, realWorktreeRoot)) {
-      throw new Error("The Semantic Atlas home must be outside every repository worktree");
-    }
-  }
   return realAtlasHome;
 }
 

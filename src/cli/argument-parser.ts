@@ -68,6 +68,12 @@ function parseCommand(
     }
     return { name: "learn" };
   }
+  if (command === "feedback") {
+    if (subcommand !== "report" || rest.length !== 1 || rest[0] !== "--stdin") {
+      throw invalidInput("feedback report requires exactly --stdin.", "feedback.report");
+    }
+    return { name: "feedback.report" };
+  }
   if (command === "changes") {
     return parseChanges([subcommand, ...rest].filter(isDefined));
   }
@@ -202,7 +208,8 @@ function identifyCommand(arguments_: readonly string[]): CliCommandName | null {
     return command;
   }
   if (command === "map") return identifyMapCommand(subcommand);
-  return command === "code" ? identifyCodeCommand(subcommand) : null;
+  if (command === "code") return identifyCodeCommand(subcommand);
+  return command === "feedback" && subcommand === "report" ? "feedback.report" : null;
 }
 
 function identifyMapCommand(subcommand: string | undefined): CliCommandName | null {

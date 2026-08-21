@@ -18,6 +18,7 @@ import {
   contentIdentifierSchema,
   gitObjectIdSchema,
 } from "./identifiers.js";
+import { feedbackReportResultSchema } from "./insights.js";
 
 const repositoryDescriptorSchema = z.strictObject({
   id: contentIdentifierSchema,
@@ -79,6 +80,7 @@ const commandNameSchema = z.enum([
   "code.search",
   "learn",
   "changes",
+  "feedback.report",
 ]);
 
 const countSchema = z.number().int().nonnegative();
@@ -227,6 +229,11 @@ const changesDataSchema = z.looseObject({
   staleAssertions: z.array(z.string().min(1)),
 });
 
+const feedbackReportDataSchema = z.looseObject({
+  command: z.literal("feedback.report"),
+  report: feedbackReportResultSchema,
+});
+
 export const cliCommandDataSchema = z.discriminatedUnion("command", [
   statusDataSchema,
   indexDataSchema,
@@ -236,6 +243,7 @@ export const cliCommandDataSchema = z.discriminatedUnion("command", [
   codeSearchDataSchema,
   learnDataSchema,
   changesDataSchema,
+  feedbackReportDataSchema,
 ]);
 
 const errorDataSchema = z.looseObject({

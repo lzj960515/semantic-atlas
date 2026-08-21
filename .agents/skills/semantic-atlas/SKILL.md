@@ -150,6 +150,9 @@ Load detailed procedures only after their matching observable state:
   competing, or otherwise `insufficient` result.
 - Read [GraphPatch authoring](references/graph-patch.md) only when the
   knowledge-capture decision identifies durable verified knowledge to persist.
+- Read [product feedback](references/product-feedback.md) only when source
+  confirmation shows that Atlas materially blocked or slowed the completed
+  task, or produced a confirmed misleading result.
 
 ## Answer contract
 

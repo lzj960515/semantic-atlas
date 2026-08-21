@@ -12,6 +12,7 @@ const temporaryRoots: string[] = [];
 const contractPaths = [
   "schemas/cli-envelope-v1.schema.json",
   "schemas/graph-patch-v1.schema.json",
+  "schemas/insights-envelope-v1.schema.json",
   "schemas/evaluation-plan-v1.schema.json",
   "schemas/evaluation-run-v1.schema.json",
 ] as const;
@@ -43,6 +44,6 @@ describe("generated contract verification", () => {
     });
 
     expect(result.stderr).toBe("");
-    expect(result.stdout).toBe("Verified 4 generated contracts.\n");
+    expect(result.stdout).toBe("Verified 5 generated contracts.\n");
   });
 });

@@ -16,6 +16,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { cliEnvelopeSchema, type CliEnvelope } from "../src/contracts/cli.js";
+import { insightsEnvelopeSchema } from "../src/contracts/insights.js";
 import type { StructuralGraphNode } from "../src/graph/types.js";
 import {
   createSqliteCompatibilityArguments,
@@ -175,7 +176,9 @@ async function assertPackagedArtifacts(installedRoot: string): Promise<void> {
     "dist/cli/bin.js",
     "schemas/cli-envelope-v1.schema.json",
     "schemas/graph-patch-v1.schema.json",
+    "schemas/insights-envelope-v1.schema.json",
     ".agents/skills/semantic-atlas/SKILL.md",
+    ".agents/skills/semantic-atlas-insights/SKILL.md",
     "README.md",
     "README.zh-CN.md",
     "LICENSE",
@@ -240,9 +243,11 @@ async function verifyInstalledCli(
   assert.equal(installedVersion.stderr, "");
   const setup = await runStandaloneCli(consumerRoot, ["setup"], userHome);
   const installedSkill = join(userHome, ".agents", "skills", "semantic-atlas");
-  assert.match(setup.stdout, /Installed Semantic Atlas Skill/u);
+  const installedInsightsSkill = join(userHome, ".agents", "skills", "semantic-atlas-insights");
+  assert.match(setup.stdout, /Installed Semantic Atlas Skills/u);
   assert.equal(setup.stderr, "");
   await access(join(installedSkill, "SKILL.md"));
+  await access(join(installedInsightsSkill, "SKILL.md"));
   assert.equal(await fileExists(legacySkill), false);
   const marker = JSON.parse(await readFile(
     join(installedSkill, ".semantic-atlas-managed.json"),
@@ -252,9 +257,13 @@ async function verifyInstalledCli(
   assert.match(marker.fingerprint, /^[a-f0-9]{64}$/u);
   await writeFile(join(installedSkill, "SKILL.md"), "---\nname: semantic-atlas\n---\nchanged\n");
   const updatedSetup = await runStandaloneCli(consumerRoot, ["setup"], userHome);
-  assert.match(updatedSetup.stdout, /Updated Semantic Atlas Skill/u);
+  assert.match(updatedSetup.stdout, /Updated Semantic Atlas Skills/u);
   const currentSetup = await runStandaloneCli(consumerRoot, ["setup"], userHome);
   assert.match(currentSetup.stdout, /already current/u);
+
+  const insights = await runStandaloneCli(consumerRoot, ["insights", "summary", "--period", "all"], userHome);
+  assert.equal(insights.stderr, "");
+  assert.equal(insightsEnvelopeSchema.parse(JSON.parse(insights.stdout)).data.command, "insights.summary");
 
   const api = await import(pathToFileURL(join(installedRoot, "dist", "index.js")).href) as
     typeof import("../src/index.js");

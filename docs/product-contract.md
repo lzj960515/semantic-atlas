@@ -13,7 +13,8 @@ This document defines the current product boundary. The versioned machine contra
 Users and calling agents interact with one product:
 
 - the `semantic-atlas` CLI supplies deterministic, machine-readable operations;
-- the Semantic Atlas Skill teaches the calling agent when and how to use those operations;
+- the `semantic-atlas` Skill teaches the calling agent when and how to use those operations;
+- the separate `semantic-atlas-insights` Skill supports deliberate product review and feedback triage;
 - `@colbymchenry/codegraph` is an internal structural-index dependency behind an Atlas-owned adapter;
 - CodeGraph's CLI, MCP server, storage model, and public types are not exposed as Semantic Atlas workflows.
 
@@ -42,13 +43,14 @@ An indexed repository may legitimately have no business nodes. In that state, th
 
 | Concern | Semantic Atlas | Calling agent |
 | --- | --- | --- |
-| Product interface | Exposes the `semantic-atlas` CLI and Skill | Chooses the repository and task scope |
-| Installation lifecycle | Ships one version-matched Skill, synchronizes it through `semantic-atlas setup`, and upgrades the global package plus Skill through `semantic-atlas upgrade` | Performs the initial global npm installation and can invoke setup or upgrade from any directory |
+| Product interface | Exposes the `semantic-atlas` CLI and two focused Skills | Chooses the repository, task scope, and maintenance cadence |
+| Installation lifecycle | Ships version-matched primary and insights Skills, synchronizes them through `semantic-atlas setup`, and upgrades the global package plus Skills through `semantic-atlas upgrade` | Performs the initial global npm installation and can invoke setup or upgrade from any directory |
 | Structural code model | Uses the embedded CodeGraph SDK for extraction, cross-file resolution, incremental sync, and structural queries | Reads source when the structural map is insufficient |
 | Business world model | Stores and queries capabilities, scenarios, operations, invariants, interfaces, data, and their relationships | Understands natural language and decides which business assertions are justified |
 | Unified graph | Connects business assertions to structural evidence and returns one Atlas graph contract | Uses graph results as bounded context |
 | Evidence lifecycle | Records source locators and hashes, then derives `valid` or `stale` after indexing | Revalidates or replaces stale assertions |
 | Generated state | Writes durable knowledge under the user Atlas home and disposable structure under ignored `.atlas/` | Edits source and project configuration |
+| Product observability | Best-effort records objective command events and explicit feedback in the installation-level insights store | Reviews signals, validates reports, and chooses product follow-up work |
 | Verification | Reports evidence, freshness, support, and unresolved boundaries | Runs tests, reviews diffs, and judges correctness |
 | Git workflow | Reads Git state for snapshots without changing tracked state | Commits, merges, rebases, reviews, and releases |
 
@@ -60,6 +62,9 @@ Atlas separates repository knowledge from worktree structure:
 ~/.semantic-atlas/repositories/<repository-id>/
 └── atlas.db                 repository-wide durable knowledge
 
+~/.semantic-atlas/
+└── insights.db              installation-level product observations and feedback
+
 <worktree>/
 └── .atlas/
     ├── .gitignore
@@ -68,6 +73,7 @@ Atlas separates repository knowledge from worktree structure:
 ```
 
 - The user-level `atlas.db` stores business knowledge, repository snapshots, snapshot-specific evidence bindings and validity, plus one publication chain for each Git directory.
+- The separate user-level `insights.db` stores product command metadata and explicit feedback. It contains no business assertions, structural projection data, command arguments, prompts, source text, or command output.
 - `SEMANTIC_ATLAS_HOME` is the only storage override. It must be absolute; the default is `~/.semantic-atlas`.
 - Atlas prepares `.atlas/.gitignore` so generated state does not change normal Git status. No tracked source file or project configuration is created or modified.
 - Every worktree has an independent CodeGraph index because its checked-out and dirty source state can differ. A missing index is copied from the best compatible sibling through SQLite backup and always incrementally synchronized before publication; full indexing is the fallback.
@@ -152,5 +158,6 @@ The gate is fixed before comparative results are collected. A failed gate create
 - [CodeGraph backend architecture](architecture/codegraph-backend.md)
 - [Graph model](contracts/graph-model.md)
 - [CLI v1](contracts/cli-v1.md)
+- [Insights v1](contracts/insights-v1.md)
 - [GraphPatch v1](contracts/graph-patch-v1.md)
 - [Evaluation protocol](evaluation.md)

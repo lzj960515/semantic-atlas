@@ -7,6 +7,7 @@ import {
   createSqliteCompatibilityArguments,
   requiresSqliteCompatibilityProcess,
 } from "../runtime/sqlite-compatibility-process.js";
+import { runInsightsCli } from "./insights-cli.js";
 import { runStandaloneCli } from "./standalone-cli.js";
 
 const arguments_ = process.argv.slice(2);
@@ -24,12 +25,14 @@ if (standaloneExitCode !== undefined) {
 })) {
   process.exitCode = await runWithExperimentalSqlite(arguments_);
 } else {
-  const { runCli } = await import("./main.js");
-  process.exitCode = await runCli(
-    arguments_,
-    { stdin: process.stdin, stdout: process.stdout, stderr: process.stderr },
-    process.cwd(),
-  );
+  const io = { stdin: process.stdin, stdout: process.stdout, stderr: process.stderr };
+  const insightsExitCode = await runInsightsCli(arguments_, io);
+  if (insightsExitCode !== undefined) {
+    process.exitCode = insightsExitCode;
+  } else {
+    const { runCli } = await import("./main.js");
+    process.exitCode = await runCli(arguments_, io, process.cwd());
+  }
 }
 
 async function runWithExperimentalSqlite(arguments_: readonly string[]): Promise<number> {

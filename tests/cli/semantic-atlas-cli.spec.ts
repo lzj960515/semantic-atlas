@@ -41,6 +41,7 @@ describe("semantic-atlas CLI", () => {
       await readFile(join(projectRoot(), "package.json"), "utf8"),
     ) as { version: string }).version;
     const installedSkill = join(userHome, ".agents", "skills", "semantic-atlas");
+    const installedInsightsSkill = join(userHome, ".agents", "skills", "semantic-atlas-insights");
 
     expect(help).toMatchObject({ exitCode: 0, stderr: "" });
     expect(help.stdout).toContain("Usage: semantic-atlas <command> [options]");
@@ -59,6 +60,8 @@ describe("semantic-atlas CLI", () => {
     expect(repeatedSetup.stdout).toContain("already current");
     expect(await readFile(join(installedSkill, "SKILL.md"), "utf8"))
       .toContain("name: semantic-atlas");
+    expect(await readFile(join(installedInsightsSkill, "SKILL.md"), "utf8"))
+      .toContain("name: semantic-atlas-insights");
     expect(JSON.parse(
       await readFile(join(installedSkill, ".semantic-atlas-managed.json"), "utf8"),
     )).toMatchObject({ version: packageVersion, fingerprint: expect.any(String) });

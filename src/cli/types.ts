@@ -10,6 +10,7 @@ export type ParsedCommand =
   | { readonly name: "map.show"; readonly businessKey: string }
   | { readonly name: "code.search"; readonly query: string; readonly limit: number }
   | { readonly name: "learn" }
+  | { readonly name: "feedback.report" }
   | {
       readonly name: "changes";
       readonly fromSnapshotId?: string;

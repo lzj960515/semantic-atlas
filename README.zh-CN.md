@@ -87,6 +87,8 @@ status
 
 - **Semantic Atlas Skill** 告诉兼容的编程 Agent 何时查询、何时回到源码、
   何时保留知识。
+- **Semantic Atlas Insights Skill** 承担独立的每日产品复盘和反馈分诊，保证
+  常规开发上下文保持聚焦。
 - **`semantic-atlas` CLI** 提供确定性的本地 JSON 操作。
 - 结构分析器只是内部证据来源，它的目录图、CLI、存储结构和术语不会变成
   对外的业务地图。
@@ -103,9 +105,9 @@ semantic-atlas --version
 semantic-atlas -h
 ```
 
-`setup` 会把当前软件包内置的 Skill 原子安装到
-`~/.agents/skills/semantic-atlas`。重复执行会校验受管理副本，并修复本地改动。
-只有共享目录安装成功后，能够确认为 Semantic Atlas 的旧
+`setup` 会把主 Skill 原子安装到 `~/.agents/skills/semantic-atlas`，并把维护
+Skill 安装到 `~/.agents/skills/semantic-atlas-insights`。重复执行会校验受管理
+副本，并修复本地改动。只有共享目录安装成功后，能够确认为 Semantic Atlas 的旧
 `~/.codex/skills/semantic-atlas` 副本才会被删除。
 
 索引、查询和学习全部在本机进行，不会调用模型或网络。只有安装和升级
@@ -147,6 +149,22 @@ semantic-atlas code search "CheckoutService" --limit 10
 项目命令向标准输出写入一个带版本的 JSON 信封，诊断信息留在标准错误中。
 `setup`、`upgrade`、`-h`/`--help` 和 `--version` 是不依赖仓库的文本命令。
 
+## 产品洞察
+
+正常开发不会多出一个报告步骤。只有源码确认 Atlas 确实阻塞或拖慢了任务时，
+主 Skill 才会记录一条精简、带证据上下文的反馈。日常维护由独立的 Insights
+Skill 负责：
+
+```sh
+semantic-atlas insights summary --period yesterday
+semantic-atlas insights feedback --period yesterday --status new
+semantic-atlas insights feedback update --stdin
+```
+
+本地存储只记录命令名、结果、告警码、耗时、仓库身份和快照身份等客观元数据，
+不会记录 prompt、命令参数、查询文本、源码文本或命令输出。它们反映产品使用和
+摩擦；需要结合全新 Agent 评测和已由源码确认的反馈，不能单独当成召回率指标。
+
 ## 可信边界
 
 Semantic Atlas 的价值来自它始终区分“证据”和“理解”：
@@ -166,6 +184,9 @@ Semantic Atlas 的价值来自它始终区分“证据”和“理解”：
 ```text
 ~/.semantic-atlas/repositories/<repository-id>/
 └── atlas.db                    仓库级持久业务知识
+
+~/.semantic-atlas/
+└── insights.db                 安装级使用与反馈信号
 
 <worktree>/.atlas/
 ├── .gitignore
@@ -212,10 +233,16 @@ semantic-atlas map show <business-key> [--repo <path>] [--pretty]
 semantic-atlas code search <structural-term> [--limit <n>] [--repo <path>] [--pretty]
 semantic-atlas learn --stdin [--repo <path>] [--pretty]
 semantic-atlas changes [--from <snapshot-id>] [--to <snapshot-id>] [--repo <path>] [--pretty]
+semantic-atlas feedback report --stdin [--repo <path>] [--pretty]
+
+semantic-atlas insights summary [--period today|yesterday|7d|30d|all] [--pretty]
+semantic-atlas insights feedback [--period today|yesterday|7d|30d|all] [--status new|triaged|resolved|dismissed] [--pretty]
+semantic-atlas insights feedback update --stdin [--pretty]
 ```
 
 字段级行为由带版本的 [CLI v1](docs/contracts/cli-v1.md)和
-[GraphPatch v1](docs/contracts/graph-patch-v1.md)契约定义。
+[GraphPatch v1](docs/contracts/graph-patch-v1.md)契约定义。产品洞察和反馈行为
+由 [Insights v1](docs/contracts/insights-v1.md) 契约定义。
 
 ## 开发
 
@@ -238,6 +265,7 @@ pnpm package:verify
 - [持续业务学习与语义缩放](docs/architecture/continuous-business-learning.md)
 - [图模型](docs/contracts/graph-model.md)
 - [CLI v1 契约](docs/contracts/cli-v1.md)
+- [Insights v1 契约](docs/contracts/insights-v1.md)
 - [评测协议](docs/evaluation.md)
 
 ## 许可证

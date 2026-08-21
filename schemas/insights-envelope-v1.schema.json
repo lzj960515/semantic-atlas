@@ -1,0 +1,428 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/lzj960515/semantic-atlas/main/schemas/insights-envelope-v1.schema.json",
+  "title": "Semantic Atlas insights envelope v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "status": {
+          "type": "string",
+          "const": "ok"
+        },
+        "data": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string",
+                  "const": "insights.summary"
+                },
+                "range": {
+                  "$ref": "#/$defs/__schema0"
+                },
+                "summary": {
+                  "type": "object",
+                  "properties": {
+                    "commands": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "$ref": "#/$defs/__schema2"
+                        },
+                        "outcomes": {
+                          "type": "object",
+                          "properties": {
+                            "ok": {
+                              "$ref": "#/$defs/__schema2"
+                            },
+                            "partial": {
+                              "$ref": "#/$defs/__schema2"
+                            },
+                            "error": {
+                              "$ref": "#/$defs/__schema2"
+                            }
+                          },
+                          "required": [
+                            "ok",
+                            "partial",
+                            "error"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "byCommand": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "command": {
+                                "type": "string",
+                                "enum": [
+                                  "status",
+                                  "index",
+                                  "map.view",
+                                  "map.search",
+                                  "map.show",
+                                  "code.search",
+                                  "learn",
+                                  "changes",
+                                  "feedback.report"
+                                ]
+                              },
+                              "count": {
+                                "$ref": "#/$defs/__schema2"
+                              }
+                            },
+                            "required": [
+                              "command",
+                              "count"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "warningCodes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "code": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "count": {
+                                "$ref": "#/$defs/__schema2"
+                              }
+                            },
+                            "required": [
+                              "code",
+                              "count"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "outcomes",
+                        "byCommand",
+                        "warningCodes"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "feedback": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "$ref": "#/$defs/__schema2"
+                        },
+                        "byCategory": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "category": {
+                                "$ref": "#/$defs/__schema3"
+                              },
+                              "count": {
+                                "$ref": "#/$defs/__schema2"
+                              }
+                            },
+                            "required": [
+                              "category",
+                              "count"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "byCategory"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "commands",
+                    "feedback"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "command",
+                "range",
+                "summary"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string",
+                  "const": "insights.feedback"
+                },
+                "range": {
+                  "$ref": "#/$defs/__schema0"
+                },
+                "reports": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/__schema4"
+                  }
+                }
+              },
+              "required": [
+                "command",
+                "range",
+                "reports"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string",
+                  "const": "insights.feedback.update"
+                },
+                "report": {
+                  "$ref": "#/$defs/__schema4"
+                }
+              },
+              "required": [
+                "command",
+                "report"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "status",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "number",
+          "const": 1
+        },
+        "status": {
+          "type": "string",
+          "const": "error"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "insights.summary",
+                    "insights.feedback",
+                    "insights.feedback.update"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "error": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]*$"
+                },
+                "message": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "command",
+            "error"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "status",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "$defs": {
+    "__schema0": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "to": {
+          "$ref": "#/$defs/__schema1"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "additionalProperties": false
+    },
+    "__schema1": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+    },
+    "__schema2": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "__schema3": {
+      "type": "string",
+      "enum": [
+        "misleading-result",
+        "missing-knowledge",
+        "workflow-friction",
+        "performance",
+        "cli-error",
+        "skill-instruction"
+      ]
+    },
+    "__schema4": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "problem",
+            "suggestion"
+          ]
+        },
+        "category": {
+          "$ref": "#/$defs/__schema3"
+        },
+        "impact": {
+          "type": "string",
+          "enum": [
+            "blocked",
+            "slowed",
+            "minor"
+          ]
+        },
+        "observed": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "expected": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "suggestion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "sourceConfirmed": {
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "repositoryId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "snapshotId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "contextEventIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "new",
+            "triaged",
+            "resolved",
+            "dismissed"
+          ]
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "$ref": "#/$defs/__schema1"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/__schema1"
+        }
+      },
+      "required": [
+        "kind",
+        "category",
+        "impact",
+        "observed",
+        "expected",
+        "sourceConfirmed",
+        "id",
+        "repositoryId",
+        "snapshotId",
+        "contextEventIds",
+        "status",
+        "note",
+        "createdAt",
+        "updatedAt"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

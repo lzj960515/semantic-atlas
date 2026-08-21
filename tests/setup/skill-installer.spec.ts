@@ -17,24 +17,30 @@ describe("SkillInstaller", () => {
 
   it("installs, migrates, verifies, and updates the bundled Semantic Atlas Skill", async () => {
     const source = await temporaryDirectory("semantic-atlas-skill-source-");
+    const insightsSource = await temporaryDirectory("semantic-atlas-insights-skill-source-");
     const userHome = await temporaryDirectory("semantic-atlas-skill-home-");
     await createSkill(source, "first version");
+    await createSkill(insightsSource, "first insights version", "semantic-atlas-insights");
     const legacy = join(userHome, ".codex", "skills", "semantic-atlas");
     await createSkill(legacy, "legacy version");
 
     const first = await new SkillInstaller({
       sourceDirectory: source,
+      insightsSourceDirectory: insightsSource,
       userHome,
       version: "0.2.0",
     }).install();
     const target = join(userHome, ".agents", "skills", "semantic-atlas");
+    const insightsTarget = join(userHome, ".agents", "skills", "semantic-atlas-insights");
 
     expect(first).toEqual({
       outcome: "installed",
       targetDirectory: target,
+      insightsTargetDirectory: insightsTarget,
       removedLegacyDirectories: [legacy],
     });
     expect(await readFile(join(target, "SKILL.md"), "utf8")).toContain("first version");
+    expect(await readFile(join(insightsTarget, "SKILL.md"), "utf8")).toContain("first insights version");
     await expect(readFile(join(legacy, "SKILL.md"), "utf8"))
       .rejects.toMatchObject({ code: "ENOENT" });
     expect(JSON.parse(await readFile(
@@ -44,13 +50,16 @@ describe("SkillInstaller", () => {
 
     await expect(new SkillInstaller({
       sourceDirectory: source,
+      insightsSourceDirectory: insightsSource,
       userHome,
       version: "0.2.0",
     }).install()).resolves.toMatchObject({ outcome: "current" });
 
     await createSkill(source, "second version");
+    await createSkill(insightsSource, "second insights version", "semantic-atlas-insights");
     const updated = await new SkillInstaller({
       sourceDirectory: source,
+      insightsSourceDirectory: insightsSource,
       userHome,
       version: "0.2.1",
     }).install();
@@ -92,11 +101,15 @@ describe("SkillInstaller", () => {
   }
 });
 
-async function createSkill(directory: string, description: string): Promise<void> {
+async function createSkill(
+  directory: string,
+  description: string,
+  name = "semantic-atlas",
+): Promise<void> {
   await mkdir(join(directory, "references"), { recursive: true });
   await writeFile(
     join(directory, "SKILL.md"),
-    `---\nname: semantic-atlas\ndescription: ${description}\n---\n`,
+    `---\nname: ${name}\ndescription: ${description}\n---\n`,
     "utf8",
   );
   await writeFile(join(directory, "references", "guide.md"), `${description}\n`, "utf8");

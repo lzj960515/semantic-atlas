@@ -29,6 +29,8 @@ source and tests.
   contract.
 - [CLI v1](contracts/cli-v1.md): deterministic commands, envelopes, warnings,
   and exit codes.
+- [Insights v1](contracts/insights-v1.md): local product signals, explicit
+  feedback, triage, storage boundary, and interpretation.
 
 ## Evaluation
 

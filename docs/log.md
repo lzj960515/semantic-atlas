@@ -3,6 +3,18 @@
 This log records material documentation ingestion and revisions. Current
 conclusions live on their owning pages rather than in this chronology.
 
+## [2026-08-21] add | Local product insights and separate maintenance Skill
+
+- Added passive, installation-level command observations plus explicit,
+  evidence-contextual feedback and a strict `insights` JSON envelope.
+- Kept normal task context lean: the primary Skill loads feedback guidance only
+  after confirmed material friction, while a separately installed insights Skill
+  owns daily review and feedback triage.
+- Defined the privacy boundary, interpretation limits, and independent
+  repository/worktree storage in `contracts/insights-v1.md`.
+- Affected pages: `product-contract.md`, `contracts/cli-v1.md`,
+  `contracts/insights-v1.md`, and `index.md`.
+
 ## [2026-08-20] revise | Business-first README and managed package upgrade
 
 - Rebuilt the bilingual README around the product gap between file search and

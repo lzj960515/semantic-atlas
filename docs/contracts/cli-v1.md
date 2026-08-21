@@ -4,13 +4,13 @@
 
 The npm package and executable are both named `semantic-atlas`. Development uses Node.js 24; the published CLI supports Node.js 22.12 through 24.
 
-Repository-independent commands run before Git, Atlas storage, or SQLite is
-opened:
+Repository-independent lifecycle commands run before Git, Atlas storage, or
+SQLite is opened:
 
 | Command | Contract |
 | --- | --- |
-| `setup` | Atomically install or update the exact bundled Skill at `~/.agents/skills/semantic-atlas`. A recognized legacy `~/.codex/skills/semantic-atlas` copy is removed after the shared installation succeeds. |
-| `upgrade` | Resolve npm's `latest` tag, install that exact release globally, verify the new executable, and invoke the new package's `setup`. An already-current package still verifies and repairs its bundled Skill. |
+| `setup` | Atomically install or update the exact bundled `semantic-atlas` and `semantic-atlas-insights` Skills at `~/.agents/skills/`. A recognized legacy `~/.codex/skills/semantic-atlas` copy is removed after the shared installation succeeds. |
+| `upgrade` | Resolve npm's `latest` tag, install that exact release globally, verify the new executable, and invoke the new package's `setup`. An already-current package still verifies and repairs its bundled Skills. |
 | `-h`, `--help` | Print top-level usage and command help. |
 | `--version` | Print the installed package version. |
 
@@ -28,11 +28,14 @@ the package that was actually installed. Registry lookup, package installation,
 new-version verification, and Skill synchronization are one fail-closed command:
 any failed step returns exit code `1` and does not report the upgrade as ready.
 These lifecycle commands do not discover a Git repository or open Atlas storage.
+Installation-scoped `insights` commands also avoid Git and repository Atlas
+storage, while opening the separate local insights store described in
+[Insights v1](insights-v1.md).
 
 Global project options:
 
 - `--repo <path>` selects a directory within the target repository; the default is the current directory.
-- `--pretty` indents JSON without changing fields or values.
+- `--pretty` indents a project or insights JSON envelope without changing fields or values.
 
 Project commands:
 
@@ -46,6 +49,7 @@ Project commands:
 | `code search <structural-term> [--limit <n>]` | Return bounded structural symbols and source locations when business knowledge is absent or insufficient; the default limit is 20. |
 | `learn --stdin` | Read one complete GraphPatch v1 JSON value from standard input and apply it atomically. |
 | `changes [--from <snapshot-id>] [--to <snapshot-id>]` | Report net semantic graph changes between persisted Atlas snapshot endpoints, not a raw Git diff. The source must be an ancestor of the target in the publication chain; defaults compare the previous and current snapshots. |
+| `feedback report --stdin` | Store an explicit, evidence-contextual product problem or suggestion after source confirmation. The report links nearby local command-event IDs without storing arguments or output. |
 
 `map` commands expose business navigation. `code search` is the explicit structural fallback. The calling agent extracts concepts, reformulates searches, opens returned source locations, and judges impact.
 
@@ -100,6 +104,7 @@ The schema requires these fields while allowing additive fields inside command d
 | `code.search` | `query`, `limit`, scored structural-only `results` with source locations and support |
 | `learn` | `baseSnapshotId`, `snapshotId`, applied operation counts |
 | `changes` | source and target snapshot IDs, node/relation change sets, stale assertions |
+| `feedback.report` | created report ID, classification, source-confirmed flag, status, and linked-event count |
 
 `index.facts` uses one structural-fact unit across every publication: one backend node or
 relation is one fact. `added`, `changed`, and `reused` partition the facts in the newly
@@ -114,6 +119,12 @@ In a world view, `focus` is null, `breadcrumbs` is empty, and every region has r
 Each connection identifies visible business endpoints and groups summaries by relation type. `directCount` counts stored relations whose endpoints are already visible at this level; `aggregatedCount` counts stored deeper relations lifted to the visible frontier. Certainty and validity objects count the underlying contributors. A relation projected to the same visible region is hidden until the agent zooms further in.
 
 `BUSINESS_KNOWLEDGE_EMPTY` is the stable warning code for a current indexed world with no learned business nodes. World `map.view` returns an empty `regions` array in this state. Structural modules and symbols remain discoverable through `code.search`; they are never emitted as business regions.
+
+`feedback report --stdin` accepts one strict JSON object with `kind`, `category`,
+`impact`, `observed`, `expected`, optional `suggestion`, and `sourceConfirmed`.
+The report itself is explicit feedback; the surrounding passive command event
+contains only objective metadata. It is operational product data and never a
+GraphPatch or business-world assertion.
 
 Change ranges follow the current publication history and fold the requested endpoints into one content comparison. When a content-addressed snapshot was published more than once, `--to` selects its latest occurrence in that history and `--from` selects the latest matching occurrence at or before the target; equal IDs compare the selected occurrence with itself. Paths that have the same presence and content at both endpoints are omitted even if they changed in between, while `staleAssertions` reports the selected target occurrence's final validity state. An unknown target has no change result.
 

@@ -14,16 +14,20 @@ Project understanding:
   code search <structural-term>       Find bounded structural source evidence
   learn --stdin                       Apply one GraphPatch JSON value
   changes [--from id] [--to id]       Report semantic changes
+  feedback report --stdin              Record confirmed product friction
 
 Installation and information:
-  setup                               Install or update the bundled user Skill
-  upgrade                             Install the latest release and sync its Skill
+  insights summary [--period period]  Summarize local Atlas product signals
+  insights feedback [options]          List local Agent feedback reports
+  insights feedback update --stdin     Record a feedback triage decision
+  setup                               Install or update the bundled user Skills
+  upgrade                             Install the latest release and sync its Skills
   -h, --help                          Show this help
   --version                           Print the installed package version
 
 Global project options:
   --repo <path>                       Select a Git worktree (default: cwd)
-  --pretty                            Indent JSON project-command output
+  --pretty                            Indent JSON project or insights output
 `;
 
 export async function runStandaloneCli(
@@ -46,11 +50,12 @@ export async function runStandaloneCli(
       const version = await readPackageVersion();
       const result = await new SkillInstaller({ version }).install();
       const action = result.outcome === "current"
-        ? "Semantic Atlas Skill is already current at"
+        ? "Semantic Atlas Skills are already current at"
         : result.outcome === "installed"
-          ? "Installed Semantic Atlas Skill at"
-          : "Updated Semantic Atlas Skill at";
+          ? "Installed Semantic Atlas Skills at"
+          : "Updated Semantic Atlas Skills at";
       io.stdout.write(`${action} ${result.targetDirectory}\n`);
+      io.stdout.write(`Semantic Atlas Insights Skill is synchronized at ${result.insightsTargetDirectory}\n`);
       for (const directory of result.removedLegacyDirectories) {
         io.stdout.write(`Removed legacy Semantic Atlas Skill at ${directory}\n`);
       }
@@ -73,12 +78,12 @@ export async function runStandaloneCli(
       const result = await new SemanticAtlasPackageUpgrader({ currentVersion }).upgrade();
       if (result.outcome === "current") {
         io.stdout.write(`Semantic Atlas ${result.targetVersion} is already current.\n`);
-        io.stdout.write(`Semantic Atlas Skill is synchronized at ${result.skillDirectory}\n`);
+        io.stdout.write(`Semantic Atlas Skills are synchronized at ${result.skillDirectory}\n`);
       } else {
         io.stdout.write(
           `Upgraded Semantic Atlas from ${result.previousVersion} to ${result.targetVersion}.\n`,
         );
-        io.stdout.write(`Semantic Atlas Skill is synchronized at ${result.skillDirectory}\n`);
+        io.stdout.write(`Semantic Atlas Skills are synchronized at ${result.skillDirectory}\n`);
       }
       return 0;
     } catch (error) {

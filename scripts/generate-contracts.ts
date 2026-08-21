@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   cliEnvelopeSchema,
   graphPatchV1Schema,
+  insightsEnvelopeSchema,
 } from "../src/contracts/public-contracts.js";
 import {
   evaluationPlanSchema,
@@ -25,6 +26,12 @@ const contracts = [
     id: "https://raw.githubusercontent.com/lzj960515/semantic-atlas/main/schemas/graph-patch-v1.schema.json",
     title: "Semantic Atlas GraphPatch v1",
     schema: graphPatchV1Schema,
+  },
+  {
+    path: "schemas/insights-envelope-v1.schema.json",
+    id: "https://raw.githubusercontent.com/lzj960515/semantic-atlas/main/schemas/insights-envelope-v1.schema.json",
+    title: "Semantic Atlas insights envelope v1",
+    schema: insightsEnvelopeSchema,
   },
   {
     path: "schemas/evaluation-plan-v1.schema.json",

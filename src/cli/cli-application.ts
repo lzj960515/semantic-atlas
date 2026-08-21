@@ -1,5 +1,6 @@
 import { cliEnvelopeSchema, type CliEnvelope } from "../contracts/cli.js";
 import { graphPatchV1Schema } from "../contracts/graph.js";
+import { feedbackReportInputSchema } from "../contracts/insights.js";
 import type { GraphNeighbor } from "../graph/types.js";
 import { GraphStore } from "../graph/graph-store.js";
 import { BusinessKnowledgeService } from "../knowledge/business-knowledge-service.js";
@@ -19,6 +20,7 @@ import {
   type StoredRepositorySnapshot,
 } from "../storage/snapshot-store.js";
 import { resolveAtlasDatabasePath } from "../storage/atlas-database.js";
+import { InsightsStore } from "../insights/insights-store.js";
 import { CodeGraphStructuralBackend } from "../structural-backend/codegraph-backend.js";
 import type { StructuralIndexState } from "../structural-backend/types.js";
 import { WorldGraphQuery } from "../world/world-graph-query.js";
@@ -98,6 +100,8 @@ export class CliApplication {
         return this.codeSearch(command.query, command.limit, context);
       case "learn":
         return this.learn(context);
+      case "feedback.report":
+        return this.feedbackReport(context);
       case "changes":
         return this.changes(command, context);
     }
@@ -290,6 +294,44 @@ export class CliApplication {
     return {
       data: { command: "learn", ...applied },
       warnings: unsupportedLanguageWarnings(context.languages),
+    };
+  }
+
+  private async feedbackReport(context: RepositoryContext): Promise<CommandResult> {
+    const input = await readStandardInput(this.io.stdin);
+    let inputValue: unknown;
+    try {
+      inputValue = JSON.parse(input);
+    } catch {
+      throw invalidInput("Standard input must contain one complete JSON value.", "feedback.report");
+    }
+    const parsed = feedbackReportInputSchema.safeParse(inputValue);
+    if (!parsed.success) {
+      throw invalidInput("The feedback report input is invalid.", "feedback.report", {
+        issues: parsed.error.issues.map(({ code, message, path }) => ({ code, message, path })),
+      });
+    }
+    using insights = new InsightsStore();
+    const report = insights.recordFeedback({
+      ...parsed.data,
+      repositoryId: context.repository.repositoryId,
+      snapshotId: snapshotDescriptor(context)?.id ?? null,
+    });
+    return {
+      data: {
+        command: "feedback.report",
+        report: {
+          id: report.id,
+          kind: report.kind,
+          category: report.category,
+          impact: report.impact,
+          sourceConfirmed: report.sourceConfirmed,
+          status: report.status,
+          contextEventCount: report.contextEventIds.length,
+          createdAt: report.createdAt,
+        },
+      },
+      warnings: [],
     };
   }
 

@@ -95,6 +95,8 @@ This workflow is delivered as one product:
 
 - The **Semantic Atlas Skill** teaches compatible coding agents when to query,
   return to source, and retain knowledge.
+- The **Semantic Atlas Insights Skill** supports a separate daily product review
+  and feedback-triage loop, keeping routine development context focused.
 - The **`semantic-atlas` CLI** provides deterministic local JSON operations.
 - The structural analyzer remains an internal evidence provider. Its directory
   graph, CLI, storage schema, and terminology do not become the business map.
@@ -111,9 +113,10 @@ semantic-atlas --version
 semantic-atlas -h
 ```
 
-`setup` atomically installs the Skill bundled with the current package at
-`~/.agents/skills/semantic-atlas`. Re-running it verifies the managed copy and
-repairs local changes. A recognized legacy copy at
+`setup` atomically installs the primary Skill at
+`~/.agents/skills/semantic-atlas` and the maintenance Skill at
+`~/.agents/skills/semantic-atlas-insights`. Re-running it verifies the managed
+copies and repairs local changes. A recognized legacy copy at
 `~/.codex/skills/semantic-atlas` is removed only after the shared installation
 succeeds.
 
@@ -160,6 +163,25 @@ Project commands write one versioned JSON envelope to standard output and keep
 diagnostics on standard error. `setup`, `upgrade`, `-h`/`--help`, and `--version`
 are repository-independent text commands.
 
+## Product insights
+
+Normal work does not gain a new reporting step. When source confirmation shows
+that Atlas materially blocked or slowed a task, the primary Skill can record one
+compact, evidence-contextual report. Daily maintenance is handled by the
+separate Insights Skill:
+
+```sh
+semantic-atlas insights summary --period yesterday
+semantic-atlas insights feedback --period yesterday --status new
+semantic-atlas insights feedback update --stdin
+```
+
+The local store records objective command metadata such as command name,
+outcome, warning codes, duration, repository identity, and snapshot identity.
+It never records prompts, command arguments, query text, source text, or command
+output. Use the signals with fresh-agent evaluation and source-confirmed reports;
+they show product usage and friction, not a standalone recall score.
+
 ## Trust model
 
 Semantic Atlas is useful because it preserves the line between evidence and
@@ -181,6 +203,9 @@ understanding:
 ```text
 ~/.semantic-atlas/repositories/<repository-id>/
 └── atlas.db                    durable repository business knowledge
+
+~/.semantic-atlas/
+└── insights.db                 installation-level usage and feedback signals
 
 <worktree>/.atlas/
 ├── .gitignore
@@ -230,10 +255,17 @@ semantic-atlas map show <business-key> [--repo <path>] [--pretty]
 semantic-atlas code search <structural-term> [--limit <n>] [--repo <path>] [--pretty]
 semantic-atlas learn --stdin [--repo <path>] [--pretty]
 semantic-atlas changes [--from <snapshot-id>] [--to <snapshot-id>] [--repo <path>] [--pretty]
+semantic-atlas feedback report --stdin [--repo <path>] [--pretty]
+
+semantic-atlas insights summary [--period today|yesterday|7d|30d|all] [--pretty]
+semantic-atlas insights feedback [--period today|yesterday|7d|30d|all] [--status new|triaged|resolved|dismissed] [--pretty]
+semantic-atlas insights feedback update --stdin [--pretty]
 ```
 
 Field-level behavior is defined by the versioned [CLI v1](docs/contracts/cli-v1.md)
-and [GraphPatch v1](docs/contracts/graph-patch-v1.md) contracts.
+and [GraphPatch v1](docs/contracts/graph-patch-v1.md) contracts. Product
+observability and feedback behavior are defined by
+[Insights v1](docs/contracts/insights-v1.md).
 
 ## Develop
 
@@ -256,6 +288,7 @@ evidence rebinding, sibling bootstrap, and worktree-isolation gates.
 - [Continuous business learning and semantic zoom](docs/architecture/continuous-business-learning.md)
 - [Graph model](docs/contracts/graph-model.md)
 - [CLI v1 contract](docs/contracts/cli-v1.md)
+- [Insights v1 contract](docs/contracts/insights-v1.md)
 - [Evaluation protocol](docs/evaluation.md)
 
 ## License
