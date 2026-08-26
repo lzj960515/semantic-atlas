@@ -4,7 +4,7 @@ This page defines the initial vertical delivery slices. Tasks preserve one
 coherent user workflow and become eligible only when their stated predecessor
 is integrated.
 
-**Status: baseline and Slices 1-2 complete; later slices await Codrive
+**Status: baseline and Slices 1-3 complete; later slices await Codrive
 delivery.**
 
 ## Baseline: Establish The Product Contract
@@ -79,6 +79,8 @@ Acceptance:
   canonical graph.
 
 ## Slice 3: Guide Agents From Map Context To Current Evidence
+
+**Status: implemented and locally verified.**
 
 Start after Slices 1 and 2 are integrated. Package the repository Agent Skill
 and prove its behavior on controlled engineering fixtures.

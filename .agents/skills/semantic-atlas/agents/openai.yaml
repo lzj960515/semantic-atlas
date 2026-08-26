@@ -1,0 +1,4 @@
+interface:
+  display_name: "Semantic Atlas"
+  short_description: "Guide engineering work from business context to current evidence"
+  default_prompt: "Use $semantic-atlas to map this business-changing task to current repository evidence before implementing it."

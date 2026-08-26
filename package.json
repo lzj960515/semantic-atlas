@@ -16,6 +16,7 @@
     }
   },
   "files": [
+    ".agents",
     "dist",
     "docs",
     "examples",
@@ -28,7 +29,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
-    "test:built": "pnpm build && node tests/smoke/built-render.mjs",
+    "test:built": "pnpm build && node tests/smoke/built-render.mjs && node tests/smoke/built-skill.mjs",
+    "test:package": "node tests/smoke/packaged-skill.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "prepack": "pnpm typecheck && pnpm build"
   },

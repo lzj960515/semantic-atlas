@@ -5,10 +5,11 @@ agent a durable but advisory view of business boundaries, relationships, data,
 rules, interfaces, and likely source entry points before the agent confirms
 current behavior in source code and tests.
 
-The first two product slices load tracked YAML files, validate the complete
-repository graph, return a local business neighborhood, and render the same
-normalized graph as a deterministic static HTML artifact. The repository Agent
-Skill and real-task accuracy evaluation remain later delivery slices.
+The first three product slices load tracked YAML files, validate the complete
+repository graph, return a local business neighborhood, render the same
+normalized graph as a deterministic static HTML artifact, and guide coding
+agents from that context into decisive current repository evidence. Private
+real-task accuracy evaluation remains a later delivery slice.
 
 ## CLI
 
@@ -29,6 +30,19 @@ horizontal scrolling and contains no editing or mutation path.
 
 A missing or stale map remains an advisory discovery result; current source,
 tests, and tracked product documents control engineering conclusions.
+
+## Agent Skill
+
+Mapped repositories discover `.agents/skills/semantic-atlas/SKILL.md`. For a
+business-changing task, the Skill queries one small context neighborhood before
+broad source discovery, treats the result as investigation leads, and confirms
+every claim that controls the change in current evidence. Missing concepts,
+ambiguous terms, absent or stale anchors, and contradicted relations all route
+to bounded ordinary discovery. Durable map discrepancies become separate
+reconciliation candidates rather than mandatory map edits.
+
+The Skill's query adapter prefers the CLI from the same package and verifies
+the versioned `context` envelope before exposing it to the Agent.
 
 ## Authority
 

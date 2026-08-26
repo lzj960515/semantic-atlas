@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "upstream-root-cause",
+      "task": "A 20% coupon lowers the order-confirmation total by 20 cents instead of 20%. Identify the correct change boundary.",
+      "selector": "Order confirmation",
+      "mapExpectation": {
+        "outcome": "context",
+        "selectedId": "engagement.notifications.send-order-confirmation",
+        "relations": [
+          {
+            "direction": "incoming",
+            "type": "invokes",
+            "from": "commerce.checkout.place-order",
+            "to": "engagement.notifications.send-order-confirmation"
+          },
+          {
+            "direction": "outgoing",
+            "type": "reads",
+            "from": "engagement.notifications.send-order-confirmation",
+            "to": "commerce.orders.order"
+          }
+        ]
+      },
+      "requiredEvidence": [
+        "src/notifications/send-order-confirmation.ts",
+        "src/checkout/place-order.ts",
+        "src/pricing/calculate-total.ts",
+        "src/pricing/calculate-total.test.ts",
+        "docs/product/pricing.md"
+      ],
+      "oracle": {
+        "conclusion": "The notification only formats the stored order total. The defect belongs in calculateTotal, whose current implementation subtracts a percentage as cents despite the tracked pricing rule and test requiring a percentage of subtotal."
+      }
+    },
+    {
+      "id": "downstream-consumer",
+      "task": "Add buyer locale to the Order placed event. Identify every source and test boundary required for a compatible change.",
+      "selector": "Order placed event",
+      "mapExpectation": {
+        "outcome": "context",
+        "selectedId": "commerce.orders.order-placed",
+        "relations": [
+          {
+            "direction": "incoming",
+            "type": "publishes",
+            "from": "commerce.checkout.place-order",
+            "to": "commerce.orders.order-placed"
+          },
+          {
+            "direction": "incoming",
+            "type": "consumes",
+            "from": "analytics.orders.record-order",
+            "to": "commerce.orders.order-placed"
+          }
+        ]
+      },
+      "requiredEvidence": [
+        "src/checkout/place-order.ts",
+        "src/analytics/record-order.ts",
+        "src/analytics/record-order.test.ts"
+      ],
+      "oracle": {
+        "conclusion": "The current publisher must serialize locale and the analytics consumer contract and test must accept it; both endpoints are confirmed in source."
+      }
+    },
+    {
+      "id": "missing-map-knowledge",
+      "task": "Gift orders are denied refunds during the documented return window. Locate the current rule and change boundary.",
+      "selector": "Refund eligibility",
+      "mapExpectation": {
+        "outcome": "error",
+        "code": "CONCEPT_NOT_FOUND"
+      },
+      "requiredEvidence": [
+        "src/refunds/is-refund-eligible.ts",
+        "src/refunds/is-refund-eligible.test.ts",
+        "docs/product/refunds.md"
+      ],
+      "oracle": {
+        "conclusion": "Ordinary bounded discovery finds the refund rule and its regression test; the map supplies no current claim for this capability.",
+        "mapObservation": "The durable refund-eligibility operation is missing from the controlled map."
+      }
+    },
+    {
+      "id": "ambiguous-term",
+      "task": "Check which current risk policy authorizes an order and identify the decisive source.",
+      "selector": "risk policy",
+      "mapExpectation": {
+        "outcome": "error",
+        "code": "CONCEPT_AMBIGUOUS"
+      },
+      "requiredEvidence": [
+        "src/checkout/authorize-order.ts",
+        "src/risk/current-risk-policy.ts",
+        "src/risk/legacy-risk-policy.ts"
+      ],
+      "oracle": {
+        "conclusion": "The ambiguous map candidates cannot choose current behavior. authorize-order.ts imports and calls currentRiskPolicy, which is the decisive current implementation."
+      }
+    },
+    {
+      "id": "missing-anchor",
+      "task": "Determine whether the analytics Order placed consumer records buyer locale.",
+      "selector": "Record order analytics",
+      "mapExpectation": {
+        "outcome": "context",
+        "selectedId": "analytics.orders.record-order",
+        "anchorValues": [],
+        "relations": [
+          {
+            "direction": "outgoing",
+            "type": "consumes",
+            "from": "analytics.orders.record-order",
+            "to": "commerce.orders.order-placed"
+          }
+        ]
+      },
+      "requiredEvidence": [
+        "src/analytics/record-order.ts",
+        "src/analytics/record-order.test.ts"
+      ],
+      "oracle": {
+        "conclusion": "The node has no source anchor, so bounded discovery from its business name and Order placed interface leads to the consumer, which currently does not record locale.",
+        "mapObservation": "The analytics consumer has no navigation anchor."
+      }
+    },
+    {
+      "id": "stale-anchor",
+      "task": "Change inventory reservation to reject zero quantities. Locate the current implementation and test boundary.",
+      "selector": "Reserve inventory",
+      "mapExpectation": {
+        "outcome": "context",
+        "selectedId": "fulfillment.inventory.reserve",
+        "anchorValues": [
+          "src/inventory/reserve-stock.ts"
+        ],
+        "absentAnchorPaths": [
+          "src/inventory/reserve-stock.ts"
+        ]
+      },
+      "requiredEvidence": [
+        "src/fulfillment/reserve-inventory.ts",
+        "src/fulfillment/reserve-inventory.test.ts"
+      ],
+      "oracle": {
+        "conclusion": "The mapped file is absent, but the stable operation name leads to the current fulfillment implementation and its test; those files control the change.",
+        "mapObservation": "Replace the stale src/inventory/reserve-stock.ts anchor with src/fulfillment/reserve-inventory.ts."
+      }
+    },
+    {
+      "id": "contradicted-relation",
+      "task": "Update order authorization for the active risk policy. Confirm which invariant currently controls the operation.",
+      "selector": "Authorize order",
+      "mapExpectation": {
+        "outcome": "context",
+        "selectedId": "commerce.risk.authorize-order",
+        "relations": [
+          {
+            "direction": "outgoing",
+            "type": "constrained_by",
+            "from": "commerce.risk.authorize-order",
+            "to": "commerce.risk.legacy-policy"
+          }
+        ]
+      },
+      "requiredEvidence": [
+        "src/checkout/authorize-order.ts",
+        "src/checkout/authorize-order.test.ts",
+        "src/risk/current-risk-policy.ts",
+        "src/risk/legacy-risk-policy.ts"
+      ],
+      "oracle": {
+        "conclusion": "Current source and tests call currentRiskPolicy. They override the mapped constrained_by relation to the legacy policy for this engineering task.",
+        "mapObservation": "Change the authorize-order constraint from legacy-risk-policy to current-risk-policy after reconciliation."
+      }
+    }
+  ]
+}

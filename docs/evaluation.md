@@ -4,7 +4,8 @@ This page defines how the initial product proves that an advisory business map
 improves engineering accuracy and reduces routine human supervision. It applies
 to the CLI, renderer, Agent Skill, and real-project evaluation.
 
-**Status: accepted initial protocol; measured runs have not started.**
+**Status: accepted initial protocol; controlled Skill fixtures pass, while
+private real-project measured runs have not started.**
 
 ## Evaluation Question
 
@@ -81,6 +82,22 @@ The first real-project suite contains at least:
 Cases use real repository structure and behavior. Private business facts stay
 inside the private evaluation workspace and are summarized publicly only in
 de-identified form.
+
+## Controlled Skill Fixtures
+
+The public repository contains a de-identified miniature engineering system at
+`tests/fixtures/agent-skill/repository`. Its case contract covers an upstream
+root cause, an interface with a downstream consumer, missing map knowledge, an
+ambiguous term, a node without anchors, a stale anchor, and a relation that
+current source contradicts.
+
+Automated checks prove that each initial selector produces the intended public
+CLI outcome and that every acceptance oracle points to present source, test, or
+tracked product evidence. Fresh Agent runs then judge the workflow behavior:
+the Agent must begin with the bounded map result, reach the current-evidence
+conclusion, and report durable map discrepancies separately. These fixtures
+protect the Skill contract; they do not replace the private real-project paired
+evaluation defined in this page.
 
 ## Paired Execution
 

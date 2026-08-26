@@ -25,3 +25,10 @@ ownership.
 - Added a deterministic static HTML projection over the same validated
   in-memory graph. Dagre owns node placement and relation routing; containment
   and directed collaboration use separate visual and accessible channels.
+- Added the repository-discovered `semantic-atlas` Agent Skill. It starts
+  business-changing work with bounded map context, routes missing, ambiguous,
+  stale, and contradicted knowledge into current evidence, and keeps durable
+  map observations separate from ordinary engineering completion.
+- Added de-identified controlled fixtures for upstream cause, downstream
+  consumer, missing knowledge, ambiguous vocabulary, missing and stale anchors,
+  and contradicted relations, plus packaged Skill and CLI-adapter checks.

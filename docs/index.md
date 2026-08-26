@@ -1,8 +1,8 @@
 # Semantic Atlas Next Documentation
 
 This index routes product, implementation, and evaluation questions to their
-authoritative pages. The documentation baseline and queryable-map slice are
-implemented; rendering, the Agent Skill, and real-task evaluation remain.
+authoritative pages. The documentation baseline, queryable map, rendering, and
+repository Agent Skill are implemented; private real-task evaluation remains.
 
 ## Product
 

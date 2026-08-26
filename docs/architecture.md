@@ -4,8 +4,8 @@ This page defines the stable responsibilities, data lifecycle, dependency
 direction, and failure semantics for the initial product. It applies to the
 public CLI, renderer, and repository Agent Skill.
 
-**Status: query, validation, and visual projection paths implemented; the
-repository Agent adapter remains.**
+**Status: query, validation, visual projection, and repository Agent paths are
+implemented.**
 
 ## System Model
 
@@ -83,6 +83,11 @@ task into bounded map queries, interprets advisory results, opens current
 evidence, and continues through the repository's normal implementation and
 verification process. It does not move source editing or engineering judgment
 into the CLI.
+
+The Skill invokes `context` through a small contract-checking adapter. The
+adapter prefers the CLI distributed with the Skill and accepts a PATH command
+only when it returns the current versioned envelope. This preserves one query
+contract when another installed product uses the same executable name.
 
 ## Data Lifecycles
 

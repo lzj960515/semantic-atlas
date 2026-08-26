@@ -1,0 +1,276 @@
+schemaVersion: 1
+map:
+  id: controlled-commerce
+  title: Controlled Commerce
+  summary: De-identified business concepts for Agent Skill workflow evaluation.
+
+nodes:
+  - id: commerce
+    kind: domain
+    name: Commerce
+    summary: Customer ordering, pricing, and risk decisions.
+    aliases: []
+    anchors: []
+  - id: commerce.orders
+    kind: capability
+    name: Orders
+    summary: Creates orders and publishes their business outcomes.
+    aliases: []
+    anchors:
+      - kind: directory
+        value: src/checkout
+        description: Current ordering source area.
+  - id: commerce.checkout
+    kind: scenario
+    name: Checkout
+    summary: Turns a priced customer request into an order.
+    aliases: []
+    anchors:
+      - kind: file
+        value: src/checkout/place-order.ts
+        description: Current checkout orchestration.
+  - id: commerce.checkout.place-order
+    kind: operation
+    name: Place order
+    summary: Prices a request, creates an order, notifies the buyer, and publishes the result.
+    aliases: [Create order]
+    anchors:
+      - kind: symbol
+        value: placeOrder
+        description: Current order orchestration symbol.
+  - id: commerce.pricing
+    kind: capability
+    name: Pricing
+    summary: Calculates the amount recorded for an order.
+    aliases: []
+    anchors:
+      - kind: directory
+        value: src/pricing
+        description: Current pricing source area.
+  - id: commerce.pricing.calculate-total
+    kind: operation
+    name: Calculate order total
+    summary: Applies a percentage coupon to the order subtotal.
+    aliases: [Calculate total]
+    anchors:
+      - kind: file
+        value: src/pricing/calculate-total.ts
+        description: Current total calculation.
+      - kind: document
+        value: docs/product/pricing.md
+        description: Durable percentage-coupon rule.
+  - id: commerce.orders.order
+    kind: data
+    name: Order
+    summary: The durable priced order recorded after checkout.
+    aliases: []
+    anchors:
+      - kind: file
+        value: src/orders/order.ts
+        description: Current order contract.
+  - id: commerce.orders.order-placed
+    kind: interface
+    name: Order placed event
+    summary: Announces a newly created order to asynchronous consumers.
+    aliases: [OrderPlaced]
+    anchors:
+      - kind: search
+        value: OrderPlacedEvent
+        description: Current publisher and consumer contract vocabulary.
+  - id: commerce.risk
+    kind: capability
+    name: Order risk
+    summary: Authorizes orders against the active business risk policy.
+    aliases: []
+    anchors:
+      - kind: directory
+        value: src/risk
+        description: Current risk-policy source area.
+  - id: commerce.risk.authorize-order
+    kind: operation
+    name: Authorize order
+    summary: Applies the active risk policy before an order proceeds.
+    aliases: []
+    anchors:
+      - kind: file
+        value: src/checkout/authorize-order.ts
+        description: Current authorization orchestration.
+  - id: commerce.risk.legacy-policy
+    kind: invariant
+    name: Legacy risk policy
+    summary: Historical risk rule retained for a controlled contradiction.
+    aliases: [Old risk policy]
+    anchors:
+      - kind: file
+        value: src/risk/legacy-risk-policy.ts
+        description: Historical policy implementation.
+  - id: commerce.risk.current-policy
+    kind: invariant
+    name: Current risk policy
+    summary: The currently implemented risk rule for order authorization.
+    aliases: [Active risk policy]
+    anchors:
+      - kind: file
+        value: src/risk/current-risk-policy.ts
+        description: Current policy implementation.
+  - id: engagement
+    kind: domain
+    name: Engagement
+    summary: Communicates order outcomes to buyers.
+    aliases: []
+    anchors: []
+  - id: engagement.notifications
+    kind: capability
+    name: Notifications
+    summary: Sends transactional buyer messages.
+    aliases: []
+    anchors:
+      - kind: directory
+        value: src/notifications
+        description: Current notification source area.
+  - id: engagement.notifications.send-order-confirmation
+    kind: operation
+    name: Send order confirmation
+    summary: Formats the recorded order total in the buyer confirmation.
+    aliases: [Order confirmation]
+    anchors:
+      - kind: file
+        value: src/notifications/send-order-confirmation.ts
+        description: Current confirmation formatter.
+  - id: analytics
+    kind: domain
+    name: Analytics
+    summary: Records business outcomes for reporting.
+    aliases: []
+    anchors: []
+  - id: analytics.orders
+    kind: capability
+    name: Order analytics
+    summary: Records order outcomes for reporting.
+    aliases: []
+    anchors: []
+  - id: analytics.orders.record-order
+    kind: operation
+    name: Record order analytics
+    summary: Consumes Order placed events into the analytics record.
+    aliases: [Order placed consumer]
+    anchors: []
+  - id: fulfillment
+    kind: domain
+    name: Fulfillment
+    summary: Reserves and fulfills ordered inventory.
+    aliases: []
+    anchors: []
+  - id: fulfillment.inventory
+    kind: capability
+    name: Inventory
+    summary: Reserves available units for orders.
+    aliases: []
+    anchors: []
+  - id: fulfillment.inventory.reserve
+    kind: operation
+    name: Reserve inventory
+    summary: Reserves a positive quantity of inventory for an order.
+    aliases: [Reserve stock]
+    anchors:
+      - kind: file
+        value: src/inventory/reserve-stock.ts
+        description: Historical reservation location retained as a stale anchor.
+
+relations:
+  - from: commerce.orders
+    type: part_of
+    to: commerce
+    summary: Orders is owned by Commerce.
+  - from: commerce.checkout
+    type: part_of
+    to: commerce.orders
+    summary: Checkout is an Orders scenario.
+  - from: commerce.checkout.place-order
+    type: part_of
+    to: commerce.checkout
+    summary: Place order completes Checkout.
+  - from: commerce.pricing
+    type: part_of
+    to: commerce
+    summary: Pricing is owned by Commerce.
+  - from: commerce.pricing.calculate-total
+    type: part_of
+    to: commerce.pricing
+    summary: Calculate total is a Pricing operation.
+  - from: commerce.orders.order
+    type: part_of
+    to: commerce.orders
+    summary: Order is durable Orders data.
+  - from: commerce.orders.order-placed
+    type: part_of
+    to: commerce.orders
+    summary: Order placed is the Orders outcome interface.
+  - from: commerce.risk
+    type: part_of
+    to: commerce
+    summary: Order risk is owned by Commerce.
+  - from: commerce.risk.authorize-order
+    type: part_of
+    to: commerce.risk
+    summary: Authorize order is the risk decision operation.
+  - from: commerce.risk.legacy-policy
+    type: part_of
+    to: commerce.risk
+    summary: Legacy policy belongs to Order risk.
+  - from: commerce.risk.current-policy
+    type: part_of
+    to: commerce.risk
+    summary: Current policy belongs to Order risk.
+  - from: engagement.notifications
+    type: part_of
+    to: engagement
+    summary: Notifications is owned by Engagement.
+  - from: engagement.notifications.send-order-confirmation
+    type: part_of
+    to: engagement.notifications
+    summary: Send order confirmation is a Notifications operation.
+  - from: analytics.orders
+    type: part_of
+    to: analytics
+    summary: Order analytics is owned by Analytics.
+  - from: analytics.orders.record-order
+    type: part_of
+    to: analytics.orders
+    summary: Record order is an Order analytics operation.
+  - from: fulfillment.inventory
+    type: part_of
+    to: fulfillment
+    summary: Inventory is owned by Fulfillment.
+  - from: fulfillment.inventory.reserve
+    type: part_of
+    to: fulfillment.inventory
+    summary: Reserve inventory is an Inventory operation.
+  - from: commerce.checkout.place-order
+    type: invokes
+    to: commerce.pricing.calculate-total
+    summary: Checkout obtains the amount recorded on the order.
+  - from: commerce.checkout.place-order
+    type: invokes
+    to: engagement.notifications.send-order-confirmation
+    summary: Checkout sends the buyer confirmation after creating the order.
+  - from: commerce.pricing.calculate-total
+    type: writes
+    to: commerce.orders.order
+    summary: The calculated amount becomes the order total.
+  - from: engagement.notifications.send-order-confirmation
+    type: reads
+    to: commerce.orders.order
+    summary: The confirmation formats the recorded order total.
+  - from: commerce.checkout.place-order
+    type: publishes
+    to: commerce.orders.order-placed
+    summary: Checkout announces the created order.
+  - from: analytics.orders.record-order
+    type: consumes
+    to: commerce.orders.order-placed
+    summary: Analytics records the created order outcome.
+  - from: commerce.risk.authorize-order
+    type: constrained_by
+    to: commerce.risk.legacy-policy
+    summary: The controlled map intentionally retains the historical policy relation.
