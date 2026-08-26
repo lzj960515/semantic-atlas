@@ -5,11 +5,12 @@ agent a durable but advisory view of business boundaries, relationships, data,
 rules, interfaces, and likely source entry points before the agent confirms
 current behavior in source code and tests.
 
-The first three product slices load tracked YAML files, validate the complete
+The first four product slices load tracked YAML files, validate the complete
 repository graph, return a local business neighborhood, render the same
-normalized graph as a deterministic static HTML artifact, and guide coding
-agents from that context into decisive current repository evidence. Private
-real-task accuracy evaluation remains a later delivery slice.
+normalized graph as a deterministic static HTML artifact, guide coding agents
+from that context into decisive current repository evidence, and verify the
+workflow through a private paired real-task evaluation. Initial local-product
+acceptance remains a later delivery slice.
 
 ## CLI
 

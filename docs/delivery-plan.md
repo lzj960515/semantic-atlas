@@ -4,8 +4,7 @@ This page defines the initial vertical delivery slices. Tasks preserve one
 coherent user workflow and become eligible only when their stated predecessor
 is integrated.
 
-**Status: baseline and Slices 1-3 complete; later slices await Codrive
-delivery.**
+**Status: baseline and Slices 1-4 complete; Slice 5 awaits Codrive delivery.**
 
 ## Baseline: Establish The Product Contract
 
@@ -104,6 +103,8 @@ Acceptance:
   checks pass.
 
 ## Slice 4: Verify Accuracy On Real Pietra Engineering Tasks
+
+**Status: completed and privately verified.**
 
 Start after Slice 3 is integrated. Use a private, isolated evaluation workspace
 to test the complete product against real Pietra behavior without publishing

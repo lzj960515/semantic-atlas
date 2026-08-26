@@ -4,8 +4,8 @@ This page defines how the initial product proves that an advisory business map
 improves engineering accuracy and reduces routine human supervision. It applies
 to the CLI, renderer, Agent Skill, and real-project evaluation.
 
-**Status: accepted initial protocol; controlled Skill fixtures pass, while
-private real-project measured runs have not started.**
+**Status: accepted initial protocol; controlled Skill fixtures and the private
+real-project evaluation pass.**
 
 ## Evaluation Question
 
@@ -167,6 +167,44 @@ The initial product passes when:
 The first acceptance does not require lower token usage, fewer source files,
 shorter runtime, cheaper map maintenance, public publication, or automatic map
 updates.
+
+## Private Real-Project Result
+
+The first private evaluation completed on 2026-08-26 against one fixed revision
+of a real Pietra service repository. The isolated workspace retained the frozen
+tasks, source-supported oracles, private map, command traces, answers, candidate
+changes, and independent reviews. None of those private artifacts or target
+repository changes entered this repository.
+
+The measured suite used four paired cases and eight fresh task-agent contexts.
+Cases combined related concerns while covering all eight required types. Every
+pair used the same model, source revision, task wording, shell tools, and output
+contract; only the ordinary or repository-discovered map workflow differed.
+
+The de-identified acceptance results are:
+
+- all four map-assisted runs and all four ordinary runs reached the correct,
+  source-supported business and engineering conclusion;
+- the map-assisted runs detected the deliberately missing concept, stale source
+  anchor, and contradicted relation, then let current evidence control the
+  result;
+- no map-assisted run introduced a correctness regression or unsupported final
+  business claim;
+- one pair produced a material accuracy improvement: the map-assisted run found
+  a tenant-specific volume invariant in a shared-work reuse path that the
+  ordinary run missed, expanding the required implementation and regression-test
+  scope;
+- both candidates for the implementation case passed the focused behavioral
+  suite and received independent code-quality approval;
+- no task agent required a human product, business, investigation, design, or
+  acceptance correction after the frozen task contract was established.
+
+One provider-routing failure occurred before any measured task work and was
+excluded. Independent adjudication then exposed a mode-scope defect that asked
+the ordinary control to report unavailable map state. The evaluator retained
+that invalid adjudication, applied a general mode-aware correction, and reran
+all four comparisons without changing the measured task inputs or answers.
+These evaluation-harness events do not count as task-agent human intervention.
 
 ## Delivery Stages
 

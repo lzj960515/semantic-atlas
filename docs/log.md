@@ -32,3 +32,8 @@ ownership.
 - Added de-identified controlled fixtures for upstream cause, downstream
   consumer, missing knowledge, ambiguous vocabulary, missing and stale anchors,
   and contradicted relations, plus packaged Skill and CLI-adapter checks.
+- Completed the private paired real-project evaluation with all required case
+  types, correct map-assisted conclusions, explicit stale and missing knowledge
+  recovery, no map-caused regression, one material accuracy improvement, and
+  independently approved implementation evidence. Only aggregate,
+  de-identified conclusions are recorded in this repository.

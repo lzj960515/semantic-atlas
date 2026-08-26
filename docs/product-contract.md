@@ -4,8 +4,9 @@ This page defines the accepted initial product. It answers what Semantic Atlas
 Next must improve, how agents and people use it, and which results establish
 that the product works.
 
-**Status: accepted product contract; the queryable-map, visual-projection, and
-repository Agent Skill slices are implemented.**
+**Status: accepted product contract; the queryable-map, visual-projection,
+repository Agent Skill, and private real-project evaluation slices are
+implemented.**
 
 ## Purpose
 
