@@ -1,0 +1,204 @@
+schemaVersion: 1
+map:
+  id: commerce
+  title: Commerce
+  summary: Capabilities that let a shopper discover and purchase products.
+
+nodes:
+  - id: commerce
+    kind: domain
+    name: Commerce
+    summary: Customer-facing product discovery and purchase.
+    aliases: []
+    anchors: []
+
+  - id: commerce.catalog
+    kind: capability
+    name: Catalog
+    summary: Makes products available for discovery.
+    aliases:
+      - Product catalog
+    anchors:
+      - kind: directory
+        value: src/catalog
+        description: Likely source area for catalog behavior.
+
+  - id: commerce.inventory
+    kind: capability
+    name: Inventory
+    summary: Tracks and reserves sellable stock.
+    aliases:
+      - Stock management
+    anchors:
+      - kind: directory
+        value: src/inventory
+        description: Likely source area for inventory behavior.
+
+  - id: commerce.orders
+    kind: capability
+    name: Orders
+    summary: Creates and manages customer purchase records.
+    aliases: []
+    anchors:
+      - kind: directory
+        value: src/orders
+        description: Likely source area for order behavior.
+
+  - id: commerce.orders.place-order
+    kind: scenario
+    name: Place order
+    summary: Coordinates product selection, stock checks, order creation, and reservation.
+    aliases:
+      - Checkout
+    anchors:
+      - kind: symbol
+        value: PlaceOrderService.execute
+        description: Historical orchestration entry point to confirm in current source.
+
+  - id: commerce.orders.place-order.search-products
+    kind: operation
+    name: Search products
+    summary: Finds products that can participate in an order.
+    aliases: []
+    anchors: []
+
+  - id: commerce.orders.place-order.check-inventory
+    kind: operation
+    name: Check inventory
+    summary: Determines whether requested stock is available.
+    aliases:
+      - Check stock
+    anchors: []
+
+  - id: commerce.orders.place-order.create-order
+    kind: operation
+    name: Create order
+    summary: Creates the durable customer order record.
+    aliases: []
+    anchors: []
+
+  - id: commerce.orders.place-order.reserve-inventory
+    kind: operation
+    name: Reserve inventory
+    summary: Reserves available stock for the created order.
+    aliases:
+      - Reserve stock
+    anchors: []
+
+  - id: commerce.catalog.product
+    kind: data
+    name: Product
+    summary: A sellable product presented to shoppers.
+    aliases: []
+    anchors: []
+
+  - id: commerce.inventory.stock
+    kind: data
+    name: Stock
+    summary: Available and reserved quantity for a product.
+    aliases:
+      - Inventory record
+    anchors: []
+
+  - id: commerce.orders.order
+    kind: data
+    name: Order
+    summary: A customer's durable purchase record.
+    aliases: []
+    anchors: []
+
+relations:
+  - from: commerce.catalog
+    type: part_of
+    to: commerce
+    summary: Catalog is a durable Commerce capability.
+
+  - from: commerce.inventory
+    type: part_of
+    to: commerce
+    summary: Inventory is a durable Commerce capability.
+
+  - from: commerce.orders
+    type: part_of
+    to: commerce
+    summary: Orders is a durable Commerce capability.
+
+  - from: commerce.orders.place-order
+    type: part_of
+    to: commerce.orders
+    summary: Placing an order is an Orders scenario.
+
+  - from: commerce.orders.place-order.search-products
+    type: part_of
+    to: commerce.orders.place-order
+    summary: Product search participates in placing an order.
+
+  - from: commerce.orders.place-order.check-inventory
+    type: part_of
+    to: commerce.orders.place-order
+    summary: Inventory checking participates in placing an order.
+
+  - from: commerce.orders.place-order.create-order
+    type: part_of
+    to: commerce.orders.place-order
+    summary: Order creation participates in placing an order.
+
+  - from: commerce.orders.place-order.reserve-inventory
+    type: part_of
+    to: commerce.orders.place-order
+    summary: Inventory reservation participates in placing an order.
+
+  - from: commerce.catalog.product
+    type: part_of
+    to: commerce.catalog
+    summary: Product belongs to the Catalog capability.
+
+  - from: commerce.inventory.stock
+    type: part_of
+    to: commerce.inventory
+    summary: Stock belongs to the Inventory capability.
+
+  - from: commerce.orders.order
+    type: part_of
+    to: commerce.orders
+    summary: Order belongs to the Orders capability.
+
+  - from: commerce.orders.place-order
+    type: invokes
+    to: commerce.orders.place-order.search-products
+    summary: Placing an order starts by finding relevant products.
+
+  - from: commerce.orders.place-order
+    type: invokes
+    to: commerce.orders.place-order.check-inventory
+    summary: Placing an order checks whether requested stock is available.
+
+  - from: commerce.orders.place-order
+    type: invokes
+    to: commerce.orders.place-order.create-order
+    summary: Placing an order creates a durable order record.
+
+  - from: commerce.orders.place-order.create-order
+    type: invokes
+    to: commerce.orders.place-order.reserve-inventory
+    summary: Creating an order coordinates reservation of its stock.
+
+  - from: commerce.orders.place-order.search-products
+    type: reads
+    to: commerce.catalog.product
+    summary: Product search reads the product catalog.
+
+  - from: commerce.orders.place-order.check-inventory
+    type: reads
+    to: commerce.inventory.stock
+    summary: Inventory checking reads current stock.
+
+  - from: commerce.orders.place-order.create-order
+    type: writes
+    to: commerce.orders.order
+    summary: Order creation writes the durable order record.
+
+  - from: commerce.orders.place-order.reserve-inventory
+    type: writes
+    to: commerce.inventory.stock
+    summary: Inventory reservation updates stock availability.
