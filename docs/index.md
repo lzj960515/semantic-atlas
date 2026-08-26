@@ -1,8 +1,8 @@
 # Semantic Atlas Next Documentation
 
 This index routes product, implementation, and evaluation questions to their
-authoritative pages. The current state is an accepted documentation baseline;
-product implementation has not started.
+authoritative pages. The documentation baseline and queryable-map slice are
+implemented; rendering, the Agent Skill, and real-task evaluation remain.
 
 ## Product
 

@@ -4,7 +4,7 @@ This page defines the accepted initial product. It answers what Semantic Atlas
 Next must improve, how agents and people use it, and which results establish
 that the product works.
 
-**Status: accepted documentation target; implementation has not started.**
+**Status: accepted product contract; the queryable-map slice is implemented.**
 
 ## Purpose
 

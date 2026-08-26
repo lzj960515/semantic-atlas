@@ -16,3 +16,9 @@ ownership.
   confirm, refine, or contradict.
 - Separated ordinary map-assisted engineering from slower periodic map
   reconciliation.
+- Implemented the first stateless product path from tracked YAML through strict
+  graph validation and immutable in-memory indexes to deterministic `validate`
+  and `context` CLI envelopes.
+- Kept parsing, complete-graph validation, graph navigation, context projection,
+  and CLI behavior in separate responsibilities, backed by public-flow tests
+  and an external packaged-command check.

@@ -5,9 +5,24 @@ agent a durable but advisory view of business boundaries, relationships, data,
 rules, interfaces, and likely source entry points before the agent confirms
 current behavior in source code and tests.
 
-The project is currently at its accepted documentation baseline. Product code
-starts with one narrow flow: load tracked map files, validate the graph, query a
-business neighborhood, and render the same graph for human inspection.
+The first product slice now loads tracked YAML files, validates the complete
+repository graph, and returns a local business neighborhood through a stable
+CLI contract. Rendering, the repository Agent Skill, and real-task accuracy
+evaluation remain later delivery slices.
+
+## CLI
+
+Repositories place map documents in `docs/business-map/*.yaml` and can query
+them without creating durable runtime state:
+
+```bash
+semantic-atlas validate --repo /path/to/repository
+semantic-atlas context "Checkout" --repo /path/to/repository
+```
+
+Both commands return versioned JSON envelopes and meaningful exit codes. A
+missing or stale map remains an advisory discovery result; current source,
+tests, and tracked product documents control engineering conclusions.
 
 ## Authority
 

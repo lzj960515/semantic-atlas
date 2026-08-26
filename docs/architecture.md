@@ -4,7 +4,7 @@ This page defines the stable responsibilities, data lifecycle, dependency
 direction, and failure semantics for the initial product. It applies to the
 public CLI, renderer, and repository Agent Skill.
 
-**Status: accepted initial architecture; implementation has not started.**
+**Status: query and validation path implemented; later adapters remain.**
 
 ## System Model
 

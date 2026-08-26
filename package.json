@@ -1,0 +1,44 @@
+{
+  "name": "semantic-atlas-next",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A Git-native advisory business map for coding agents.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "semantic-atlas": "./dist/cli/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "docs",
+    "examples",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "pnpm@11.5.1",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "prepack": "pnpm typecheck && pnpm build"
+  },
+  "dependencies": {
+    "commander": "^14.0.0",
+    "yaml": "^2.8.1",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

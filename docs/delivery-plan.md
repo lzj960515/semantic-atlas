@@ -4,7 +4,7 @@ This page defines the initial vertical delivery slices. Tasks preserve one
 coherent user workflow and become eligible only when their stated predecessor
 is integrated.
 
-**Status: accepted initial plan; no Codrive project is registered yet.**
+**Status: baseline and Slice 1 complete; later slices await Codrive delivery.**
 
 ## Baseline: Establish The Product Contract
 
@@ -26,6 +26,8 @@ Acceptance:
 - the repository has a clean committed Git baseline.
 
 ## Slice 1: Deliver A Queryable Business Map
+
+**Status: implemented and locally verified.**
 
 Build the complete minimum path from tracked YAML documents to a structured
 local business context result.

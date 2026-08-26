@@ -4,7 +4,7 @@ This page defines the initial tracked document model, graph meaning, validation
 rules, and context projection. The implementation will publish a machine schema
 that follows this contract.
 
-**Status: accepted v1 design; implementation has not started.**
+**Status: implemented by the v1 validation and context-query path.**
 
 ## Repository Layout
 
