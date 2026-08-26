@@ -29,8 +29,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
+    "test:acceptance": "pnpm test && pnpm typecheck && pnpm build && pnpm pack --dry-run && node tests/smoke/built-render.mjs && node tests/smoke/built-skill.mjs && node tests/smoke/packaged-product.mjs",
     "test:built": "pnpm build && node tests/smoke/built-render.mjs && node tests/smoke/built-skill.mjs",
-    "test:package": "node tests/smoke/packaged-skill.mjs",
+    "test:package": "node tests/smoke/packaged-product.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "prepack": "pnpm typecheck && pnpm build"
   },

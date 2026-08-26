@@ -37,3 +37,7 @@ ownership.
   recovery, no map-caused regression, one material accuracy improvement, and
   independently approved implementation evidence. Only aggregate,
   de-identified conclusions are recorded in this repository.
+- Accepted the complete initial candidate through one local command covering
+  the full regression suite, typecheck, build, package dry-run, Commerce example
+  rendering, Skill checks, and an external temporary consumer of the packed CLI.
+  Codrive review, integration, and any public release remain separate stages.

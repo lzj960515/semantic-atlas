@@ -4,7 +4,8 @@ This page defines the initial vertical delivery slices. Tasks preserve one
 coherent user workflow and become eligible only when their stated predecessor
 is integrated.
 
-**Status: baseline and Slices 1-4 complete; Slice 5 awaits Codrive delivery.**
+**Status: baseline and Slices 1-4 are integrated; the Slice 5 candidate is
+locally accepted and awaits Codrive review and integration.**
 
 ## Baseline: Establish The Product Contract
 
@@ -128,6 +129,8 @@ Acceptance:
 - any product defect becomes a bounded regression and repair before acceptance.
 
 ## Slice 5: Accept The Initial Local Product
+
+**Status: candidate complete and locally verified.**
 
 Start after the real-task evidence is integrated. Verify the complete candidate
 as one local product without publishing it.

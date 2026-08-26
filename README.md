@@ -5,12 +5,12 @@ agent a durable but advisory view of business boundaries, relationships, data,
 rules, interfaces, and likely source entry points before the agent confirms
 current behavior in source code and tests.
 
-The first four product slices load tracked YAML files, validate the complete
-repository graph, return a local business neighborhood, render the same
-normalized graph as a deterministic static HTML artifact, guide coding agents
-from that context into decisive current repository evidence, and verify the
-workflow through a private paired real-task evaluation. Initial local-product
-acceptance remains a later delivery slice.
+The initial local product loads tracked YAML files, validates the complete
+repository graph, returns a local business neighborhood, renders the same
+normalized graph as a deterministic static HTML artifact, guides coding agents
+from that context into decisive current repository evidence, and verifies the
+workflow through controlled fixtures and a private paired real-task evaluation.
+The complete packed candidate is accepted locally without publishing it.
 
 ## CLI
 
@@ -45,6 +45,20 @@ reconciliation candidates rather than mandatory map edits.
 The Skill's query adapter prefers the CLI from the same package and verifies
 the versioned `context` envelope before exposing it to the Agent.
 
+## Local Acceptance
+
+Run the complete local-product acceptance path from a clean checkout:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm test:acceptance
+```
+
+The acceptance command runs the full regression suite, typecheck, build,
+package dry-run, built example rendering, built Skill checks, and a temporary
+external consumer that installs the packed archive and exercises its CLI,
+Commerce example, renderer, and bundled Skill adapter.
+
 ## Authority
 
 - [Product contract](docs/product-contract.md)
@@ -55,6 +69,8 @@ the versioned `context` envelope before exposing it to the Agent.
 
 ## Current Status
 
-The previous Semantic Atlas implementation remains a separate, frozen
-experiment. This repository starts from the new product model and imports no
-runtime code or persistence lifecycle from that implementation.
+The current candidate has passed initial local-product acceptance. Codrive
+review and integration remain separate delivery stages. Public naming,
+publication, external installation, and migration from the previous Semantic
+Atlas are future product decisions; that previous implementation remains a
+separate, frozen experiment.
