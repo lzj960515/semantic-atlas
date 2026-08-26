@@ -1,4 +1,5 @@
 import dagre from "@dagrejs/dagre";
+import stringWidth from "string-width";
 import type { MapProjection } from "../contracts/projection.js";
 import type {
   BusinessNode,
@@ -14,6 +15,7 @@ const TITLE_LINE_HEIGHT = 22;
 const LEGEND_HEIGHT = 82;
 const CANVAS_PADDING = 28;
 const MINIMUM_CANVAS_WIDTH = 960;
+const graphemeSegmenter = new Intl.Segmenter("und", { granularity: "grapheme" });
 
 interface NodePresentation {
   readonly node: BusinessNode;
@@ -423,25 +425,25 @@ function middlePoint(
   return points[Math.floor(points.length / 2)] ?? { x: 0, y: 0 };
 }
 
-function wrapText(value: string, maximumLength: number): readonly string[] {
+function wrapText(value: string, maximumDisplayWidth: number): readonly string[] {
   const words = value.trim().split(/\s+/u);
   const lines: string[] = [];
   let currentLine = "";
 
   for (const word of words) {
     const candidate = currentLine ? `${currentLine} ${word}` : word;
-    if (candidate.length <= maximumLength) {
+    if (stringWidth(candidate) <= maximumDisplayWidth) {
       currentLine = candidate;
       continue;
     }
 
     if (currentLine) lines.push(currentLine);
-    if (word.length <= maximumLength) {
+    if (stringWidth(word) <= maximumDisplayWidth) {
       currentLine = word;
       continue;
     }
 
-    const chunks = chunkWord(word, maximumLength);
+    const chunks = chunkWord(word, maximumDisplayWidth);
     lines.push(...chunks.slice(0, -1));
     currentLine = chunks.at(-1) ?? "";
   }
@@ -450,12 +452,22 @@ function wrapText(value: string, maximumLength: number): readonly string[] {
   return lines.length > 0 ? lines : [""];
 }
 
-function chunkWord(word: string, maximumLength: number): readonly string[] {
-  const characters = Array.from(word);
+function chunkWord(word: string, maximumDisplayWidth: number): readonly string[] {
   const chunks: string[] = [];
-  for (let index = 0; index < characters.length; index += maximumLength) {
-    chunks.push(characters.slice(index, index + maximumLength).join(""));
+  let currentChunk = "";
+
+  for (const { segment } of graphemeSegmenter.segment(word)) {
+    const candidate = `${currentChunk}${segment}`;
+    if (currentChunk && stringWidth(candidate) > maximumDisplayWidth) {
+      chunks.push(currentChunk);
+      currentChunk = segment;
+      continue;
+    }
+
+    currentChunk = candidate;
   }
+
+  if (currentChunk) chunks.push(currentChunk);
   return chunks;
 }
 

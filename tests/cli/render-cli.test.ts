@@ -80,6 +80,39 @@ describe("semantic-atlas render", () => {
     expect(firstProjection).not.toContain("<script");
   });
 
+  it("wraps wide-character labels within the card and includes every line in its height", async () => {
+    const nodeId = "commerce.cross-border-fulfillment";
+    const repositoryRoot = await trackedRepository({
+      "commerce.yaml": mapDocument(
+        "commerce",
+        [node(nodeId, "capability", "跨境订单履约协作与售后退款处理业务能力中心平台服务", {
+          summary: "协调跨境订单履约协作与售后退款处理业务能力中心平台服务的完整业务结果。",
+        })],
+        [],
+      ),
+    });
+    const outputPath = path.join(repositoryRoot, "artifacts", "wide-character.html");
+
+    const result = await runCli([
+      "render",
+      "--repo",
+      repositoryRoot,
+      "--output",
+      outputPath,
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    const projection = await readFile(outputPath, "utf8");
+    const nodeMarkup = extractNodeMarkup(projection, nodeId);
+    const titleMarkup = extractTextMarkup(nodeMarkup, "node-card__title");
+    const summaryMarkup = extractTextMarkup(nodeMarkup, "node-card__summary");
+    const cardHeight = extractCardHeight(nodeMarkup);
+
+    expect(titleMarkup.match(/<tspan /gu)).toHaveLength(2);
+    expect(summaryMarkup.match(/<tspan /gu)).toHaveLength(2);
+    expect(cardHeight).toBeGreaterThan(124);
+  });
+
   it("reports an actionable output failure after successfully loading the graph", async () => {
     const repositoryRoot = await trackedRepository({
       "commerce.yaml": mapDocument(
@@ -164,4 +197,29 @@ function mapDocument(
     nodes,
     relations,
   };
+}
+
+function extractNodeMarkup(projection: string, nodeId: string): string {
+  const escapedNodeId = nodeId.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const match = projection.match(new RegExp(
+    `<g class="node-card[^>]*id="node-${escapedNodeId}"[\\s\\S]*?</g>`,
+    "u",
+  ));
+  expect(match, `Expected rendered node ${nodeId}`).not.toBeNull();
+  return match?.[0] ?? "";
+}
+
+function extractTextMarkup(nodeMarkup: string, className: string): string {
+  const match = nodeMarkup.match(new RegExp(
+    `<text class="${className}"[^>]*>[\\s\\S]*?</text>`,
+    "u",
+  ));
+  expect(match, `Expected rendered text ${className}`).not.toBeNull();
+  return match?.[0] ?? "";
+}
+
+function extractCardHeight(nodeMarkup: string): number {
+  const match = nodeMarkup.match(/<rect class="node-card__surface"[^>]*height="([^"]+)"/u);
+  expect(match, "Expected rendered node card surface").not.toBeNull();
+  return Number(match?.[1]);
 }
