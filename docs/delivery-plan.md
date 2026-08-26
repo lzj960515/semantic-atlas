@@ -4,7 +4,8 @@ This page defines the initial vertical delivery slices. Tasks preserve one
 coherent user workflow and become eligible only when their stated predecessor
 is integrated.
 
-**Status: baseline and Slice 1 complete; later slices await Codrive delivery.**
+**Status: baseline and Slices 1-2 complete; later slices await Codrive
+delivery.**
 
 ## Baseline: Establish The Product Contract
 
@@ -53,6 +54,8 @@ Acceptance:
   remain separate and that no durable runtime state was introduced.
 
 ## Slice 2: Render The Same Graph For Human Inspection
+
+**Status: implemented and locally verified.**
 
 Start after Slice 1 is integrated. Add deterministic visual projection without
 creating another authoring model.

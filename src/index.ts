@@ -3,6 +3,8 @@ export type {
   CliRunResult,
   ContextData,
   ContextEnvelope,
+  RenderData,
+  RenderEnvelope,
   ValidateData,
   ValidateEnvelope,
 } from "./contracts/cli.js";

@@ -53,6 +53,11 @@ export type CliError =
       readonly message: string;
     }
   | {
+      readonly code: "OUTPUT_FAILED";
+      readonly message: string;
+      readonly outputPath: string;
+    }
+  | {
       readonly code: "INVALID_COMMAND";
       readonly message: string;
     }
@@ -95,6 +100,13 @@ export interface ContextData {
   readonly outgoing: readonly ContextRelation[];
 }
 
+export interface RenderData {
+  readonly format: "html";
+  readonly outputPath: string;
+  readonly nodeCount: number;
+  readonly relationCount: number;
+}
+
 export type ValidateEnvelope =
   | CliSuccessEnvelope<"validate", ValidateData>
   | CliErrorEnvelope<"validate">;
@@ -102,3 +114,7 @@ export type ValidateEnvelope =
 export type ContextEnvelope =
   | CliSuccessEnvelope<"context", ContextData>
   | CliErrorEnvelope<"context">;
+
+export type RenderEnvelope =
+  | CliSuccessEnvelope<"render", RenderData>
+  | CliErrorEnvelope<"render">;

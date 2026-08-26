@@ -28,10 +28,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
+    "test:built": "pnpm build && node tests/smoke/built-render.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "prepack": "pnpm typecheck && pnpm build"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^1.1.8",
     "commander": "^14.0.0",
     "yaml": "^2.8.1",
     "zod": "^4.1.5"

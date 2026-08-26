@@ -3,6 +3,7 @@ import type {
   ContextEnvelope,
   ValidateEnvelope,
 } from "../contracts/cli.js";
+import type { MapProjection } from "../contracts/projection.js";
 import type {
   RepositoryMapSource,
   ValidatedBusinessMap,
@@ -11,11 +12,24 @@ import { MapDocumentLoader, RepositoryResolutionError } from "../map/map-documen
 import { BusinessGraph } from "../map/business-graph.js";
 import { MapValidator } from "../map/map-validator.js";
 import { ContextQueryService } from "../query/context-query-service.js";
+import { MapProjector } from "../rendering/map-projector.js";
 
 type ValidatedMapResult =
   | {
       readonly ok: true;
       readonly map: ValidatedBusinessMap;
+    }
+  | {
+      readonly ok: false;
+      readonly repository?: RepositoryMapSource;
+      readonly error: CliError;
+    };
+
+export type MapProjectionResult =
+  | {
+      readonly ok: true;
+      readonly repository: RepositoryMapSource;
+      readonly projection: MapProjection;
     }
   | {
       readonly ok: false;
@@ -81,6 +95,18 @@ export class MapApplication {
       command: "context",
       repository: result.map.source,
       data: query.data,
+    };
+  }
+
+  public async project(repositoryPath: string): Promise<MapProjectionResult> {
+    const result = await this.loadValidatedMap(repositoryPath);
+    if (!result.ok) return result;
+
+    const graph = new BusinessGraph(result.map);
+    return {
+      ok: true,
+      repository: result.map.source,
+      projection: new MapProjector(graph).project(),
     };
   }
 

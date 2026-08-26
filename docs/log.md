@@ -22,3 +22,6 @@ ownership.
 - Kept parsing, complete-graph validation, graph navigation, context projection,
   and CLI behavior in separate responsibilities, backed by public-flow tests
   and an external packaged-command check.
+- Added a deterministic static HTML projection over the same validated
+  in-memory graph. Dagre owns node placement and relation routing; containment
+  and directed collaboration use separate visual and accessible channels.

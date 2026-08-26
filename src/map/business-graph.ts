@@ -61,6 +61,14 @@ export class BusinessGraph {
     return resolveMatches(partial, "partial") ?? { found: false, ambiguous: false };
   }
 
+  public nodes(): readonly BusinessNode[] {
+    return this.map.nodes;
+  }
+
+  public relations(): readonly BusinessRelation[] {
+    return this.map.relations;
+  }
+
   public ancestors(nodeId: string): readonly BusinessNode[] {
     const ancestors: BusinessNode[] = [];
     let currentId = this.parentByChild.get(nodeId);
