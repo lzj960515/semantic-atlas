@@ -143,10 +143,17 @@ boundary. It creates a repository-bound artifact only after strict schema
 validation. Review recording additionally resolves the referenced task
 observation from the same repository partition before persistence.
 
+### ObservationClaimManager
+
+Owns the observation-ID claim lifecycle. It publishes complete synced owner
+metadata without overwrite, distinguishes process instances, recovers the
+earlier directory claim format, and verifies ownership again before final
+observation publication.
+
 ### ObservationStore
 
-Owns immutable, versioned user-local observation files. Each observation ID has
-one path and one concurrency claim. The store writes and syncs a complete
+Owns immutable, versioned user-local observation files and composes the claim
+manager around each write. The store writes and syncs a complete observation
 staging file, atomically renames it into place, returns idempotency for an exact
 replay, and reports a conflict for changed content under an existing ID.
 

@@ -1,13 +1,11 @@
 import { randomUUID } from "node:crypto";
 import {
-  access,
   mkdir,
   open,
   readFile,
   readdir,
   rename,
   rm,
-  writeFile,
 } from "node:fs/promises";
 import path from "node:path";
 import type {
@@ -20,6 +18,8 @@ import {
   reviewObservationSchema,
   taskObservationSchema,
 } from "../contracts/observation.js";
+import type { ObservationClaim } from "./observation-claim-manager.js";
+import { ObservationClaimManager } from "./observation-claim-manager.js";
 
 const observationDirectoryNames = {
   task: "tasks",
@@ -66,6 +66,7 @@ export class ObservationStorageError extends Error {
 export class ObservationStore {
   private readonly observationRoot: string;
   private readonly moveFile: ObservationStoreDependencies["rename"];
+  private readonly claims = new ObservationClaimManager();
 
   public constructor(
     options: ObservationStoreOptions,
@@ -144,15 +145,15 @@ export class ObservationStore {
       ".claims",
     );
     await mkdir(claimRoot, { recursive: true, mode: 0o700 });
-    const lockDirectory = path.join(claimRoot, `${observation.id}.lock`);
-    const claimResult = await this.acquireClaim(
-      lockDirectory,
+    const claimPath = path.join(claimRoot, `${observation.id}.lock`);
+    const claim = await this.acquireClaim(
+      claimPath,
       observation.repository,
       serialized,
       kind,
       observation.id,
     );
-    if (claimResult) return claimResult;
+    if ("outcome" in claim) return claim;
 
     const stagePath = path.join(
       directory,
@@ -174,6 +175,7 @@ export class ObservationStore {
       } finally {
         await stage.close();
       }
+      await this.claims.assertOwnership(claimPath, claim);
       await this.moveFile(stagePath, observationPath);
       return {
         outcome: "recorded",
@@ -189,40 +191,26 @@ export class ObservationStore {
       );
     } finally {
       await rm(stagePath, { force: true });
-      await rm(lockDirectory, { recursive: true, force: true });
+      await this.claims.release(claimPath, claim);
     }
   }
 
   private async acquireClaim(
-    lockDirectory: string,
+    claimPath: string,
     repository: RepositoryIdentity,
     serialized: string,
     kind: ObservationKind,
     id: string,
-  ): Promise<ObservationWriteResult | undefined> {
+  ): Promise<ObservationWriteResult | ObservationClaim> {
     for (let attempt = 0; attempt < 200; attempt += 1) {
-      let claimed = false;
-      try {
-        await mkdir(lockDirectory, { mode: 0o700 });
-        claimed = true;
-      } catch (error) {
-        if (!hasErrorCode(error, "EEXIST")) throw error;
-      }
-      if (claimed) {
-        try {
-          await writeClaimOwner(lockDirectory);
-        } catch (error) {
-          await rm(lockDirectory, { recursive: true, force: true });
-          throw error;
-        }
-        return undefined;
-      }
+      const claim = await this.claims.acquire(claimPath);
+      if (claim) return claim;
 
       const existing = await this.findExistingObservation(repository, id);
       if (existing) {
         return replayResult(kind, id, existing, serialized);
       }
-      if (await recoverAbandonedClaim(lockDirectory)) continue;
+      if (await this.claims.recoverAbandoned(claimPath)) continue;
       await waitForClaim();
     }
     throw new ObservationStorageError(
@@ -346,47 +334,6 @@ function parseStoredDocument(document: string, filePath: string): unknown {
 
 async function waitForClaim(): Promise<void> {
   await new Promise<void>((resolve) => setTimeout(resolve, 5));
-}
-
-async function writeClaimOwner(lockDirectory: string): Promise<void> {
-  await writeFile(
-    path.join(lockDirectory, "owner.json"),
-    `${JSON.stringify({ pid: process.pid })}\n`,
-    { encoding: "utf8", mode: 0o600, flag: "wx" },
-  );
-}
-
-async function recoverAbandonedClaim(lockDirectory: string): Promise<boolean> {
-  let owner: unknown;
-  try {
-    owner = JSON.parse(
-      await readFile(path.join(lockDirectory, "owner.json"), "utf8"),
-    ) as unknown;
-  } catch (error) {
-    if (hasErrorCode(error, "ENOENT")) return false;
-    return false;
-  }
-  if (
-    typeof owner !== "object"
-    || owner === null
-    || !("pid" in owner)
-    || typeof owner.pid !== "number"
-    || !Number.isInteger(owner.pid)
-  ) {
-    return false;
-  }
-  if (isProcessRunning(owner.pid)) return false;
-  await rm(lockDirectory, { recursive: true, force: true });
-  return true;
-}
-
-function isProcessRunning(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    return !hasErrorCode(error, "ESRCH");
-  }
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {

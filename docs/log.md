@@ -11,6 +11,9 @@ ownership.
 - Added anonymous repository identities shared across Git worktrees, immutable
   user-local per-ID JSON files, atomic publication, exact replay idempotency,
   changed-content conflicts, and same-repository review references.
+- Closed the interrupted-claim retry window by atomically publishing complete
+  claim metadata, distinguishing process instances, and retaining compatible
+  recovery for empty, damaged, dead-owner, and live-owner directory claims.
 - Added read-only accuracy summaries for review correctness, upstream cause,
   impact completeness, rework, map regression, human correction, and
   independently approved stale, missing, and contradicted-map recovery.

@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   access,
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
   readdir,
+  rename,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -181,6 +183,47 @@ describe("accuracy observation boundary", () => {
     expect(results.filter(({ outcome }) => outcome === "idempotent")).toHaveLength(11);
   });
 
+  it("publishes complete claim metadata before exposing a live writer", async () => {
+    let continuePublication: () => void = () => undefined;
+    const publicationGate = new Promise<void>((resolve) => {
+      continuePublication = resolve;
+    });
+    let markPublicationStarted: () => void = () => undefined;
+    const publicationStarted = new Promise<void>((resolve) => {
+      markPublicationStarted = resolve;
+    });
+    const fixture = await createFixture({
+      rename: async (source, target) => {
+        markPublicationStarted();
+        await publicationGate;
+        await rename(source, target);
+      },
+    });
+
+    const firstWrite = fixture.application.recordTask(
+      fixture.repositoryRoot,
+      taskObservation(),
+    );
+    await publicationStarted;
+    const claimPath = await observationClaimPath(fixture);
+    try {
+      expect((await lstat(claimPath)).isFile()).toBe(true);
+      expect(JSON.parse(await readFile(claimPath, "utf8"))).toMatchObject({
+        schemaVersion: 1,
+        pid: process.pid,
+        processInstanceId: expect.any(String),
+        claimId: expect.any(String),
+      });
+    } finally {
+      continuePublication();
+    }
+    await expect(firstWrite).resolves.toMatchObject({ outcome: "recorded" });
+
+    await expect(
+      fixture.application.recordTask(fixture.repositoryRoot, taskObservation()),
+    ).resolves.toMatchObject({ outcome: "idempotent" });
+  });
+
   it("removes staging state when atomic publication fails", async () => {
     const fixture = await createFixture({
       rename: async () => {
@@ -202,16 +245,9 @@ describe("accuracy observation boundary", () => {
     expect(await readdir(taskDirectory)).toEqual([]);
   });
 
-  it("recovers an abandoned observation claim before publishing", async () => {
+  it("recovers an abandoned legacy observation claim before publishing", async () => {
     const fixture = await createFixture();
-    const repositoryIdentity = await fixture.resolver.resolve(fixture.repositoryRoot);
-    const claimDirectory = path.join(
-      fixture.observationRoot,
-      "repositories",
-      repositoryIdentity.identity.id,
-      ".claims",
-      "task-observation-1.lock",
-    );
+    const claimDirectory = await observationClaimPath(fixture);
     await mkdir(claimDirectory, { recursive: true });
     await writeFile(
       path.join(claimDirectory, "owner.json"),
@@ -222,6 +258,63 @@ describe("accuracy observation boundary", () => {
       fixture.application.recordTask(fixture.repositoryRoot, taskObservation()),
     ).resolves.toMatchObject({ outcome: "recorded" });
     await expect(access(claimDirectory)).rejects.toThrow();
+  });
+
+  it("recovers a legacy claim interrupted before owner publication", async () => {
+    const fixture = await createFixture();
+    const claimDirectory = await observationClaimPath(fixture);
+    await mkdir(claimDirectory, { recursive: true });
+
+    const results = await Promise.all(Array.from({ length: 12 }, () =>
+      fixture.application.recordTask(fixture.repositoryRoot, taskObservation())
+    ));
+    expect(results.filter(({ outcome }) => outcome === "recorded")).toHaveLength(1);
+    expect(results.filter(({ outcome }) => outcome === "idempotent")).toHaveLength(11);
+    await expect(access(claimDirectory)).rejects.toThrow();
+  });
+
+  it("recovers a legacy claim with damaged owner metadata", async () => {
+    const fixture = await createFixture();
+    const claimDirectory = await observationClaimPath(fixture);
+    await mkdir(claimDirectory, { recursive: true });
+    await writeFile(path.join(claimDirectory, "owner.json"), "{\"pid\":");
+
+    await expect(
+      fixture.application.recordTask(fixture.repositoryRoot, taskObservation()),
+    ).resolves.toMatchObject({ outcome: "recorded" });
+    await expect(access(claimDirectory)).rejects.toThrow();
+  });
+
+  it("does not mistake a reused process ID for a live atomic claim", async () => {
+    const fixture = await createFixture();
+    const claimPath = await observationClaimPath(fixture);
+    await mkdir(path.dirname(claimPath), { recursive: true });
+    await writeFile(claimPath, `${JSON.stringify({
+      schemaVersion: 1,
+      pid: process.pid,
+      processInstanceId: "previous-process-instance",
+      claimId: "abandoned-claim",
+    })}\n`);
+
+    await expect(
+      fixture.application.recordTask(fixture.repositoryRoot, taskObservation()),
+    ).resolves.toMatchObject({ outcome: "recorded" });
+    await expect(access(claimPath)).rejects.toThrow();
+  });
+
+  it("preserves a legacy claim owned by a running writer", async () => {
+    const fixture = await createFixture();
+    const claimDirectory = await observationClaimPath(fixture);
+    await mkdir(claimDirectory, { recursive: true });
+    await writeFile(
+      path.join(claimDirectory, "owner.json"),
+      `${JSON.stringify({ pid: process.pid })}\n`,
+    );
+
+    await expect(
+      fixture.application.recordTask(fixture.repositoryRoot, taskObservation()),
+    ).rejects.toBeInstanceOf(ObservationStorageError);
+    await expect(access(claimDirectory)).resolves.toBeUndefined();
   });
 
   it("uses one private repository identity across Git worktrees", async () => {
@@ -267,6 +360,21 @@ describe("accuracy observation boundary", () => {
 
 interface FixtureOptions {
   readonly rename?: (source: string, target: string) => Promise<void>;
+}
+
+async function observationClaimPath(fixture: {
+  readonly observationRoot: string;
+  readonly repositoryRoot: string;
+  readonly resolver: RepositoryIdentityResolver;
+}): Promise<string> {
+  const repositoryIdentity = await fixture.resolver.resolve(fixture.repositoryRoot);
+  return path.join(
+    fixture.observationRoot,
+    "repositories",
+    repositoryIdentity.identity.id,
+    ".claims",
+    "task-observation-1.lock",
+  );
 }
 
 async function createFixture(options: FixtureOptions = {}): Promise<{

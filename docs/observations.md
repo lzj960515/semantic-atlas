@@ -87,8 +87,13 @@ semantic-atlas observe review --stdin [--repo <path>]
 The CLI parses and strictly validates the complete input before resolving a
 write destination. Review recording then confirms that its task observation
 already exists in the same repository partition. The store serializes the
-complete versioned artifact, writes and syncs a private staging file, and
-atomically renames it into place while holding an observation-ID claim.
+complete versioned artifact. It writes and syncs claim metadata before exposing
+the claim through an atomic, non-overwriting link, then writes and syncs a
+private observation staging file and atomically renames it into place. A
+process-instance identity prevents a retrying process from treating its reused
+PID as proof that it still owns an earlier claim. Interrupted directory claims
+from the earlier local candidate remain recoverable without removing a claim
+whose owner is running.
 Different IDs never share a file or append boundary.
 
 The first successful write returns `recorded`. Replaying the same ID and exact
