@@ -282,11 +282,12 @@ unresolved observations out of the canonical map.
 
 ### Real-use acceptance
 
-The first pilot starts with one stable `pietra-ex-api` business domain rather
-than the whole repository. Its initial map is independently reviewed before
-merge. Normal Codrive development keeps its existing develop, independent
-review, rework, and fast-forward integration lifecycle; Semantic Atlas supplies
-advisory context and observation evidence only.
+The first pilot starts with one stable business domain in a private target
+repository rather than mapping the whole repository. Its initial map is
+independently reviewed before merge. Normal Codrive development keeps its
+existing develop, independent review, rework, and fast-forward integration
+lifecycle; Semantic Atlas supplies advisory context and observation evidence
+only.
 
 Longitudinal acceptance requires at least 20 natural business-changing tasks
 with independent review, at least one period of real code drift, and two
