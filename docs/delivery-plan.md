@@ -1,4 +1,4 @@
-# Semantic Atlas Next Delivery Plan
+# Semantic Atlas Delivery Plan
 
 This page defines the integrated initial vertical slices and the ordered v1
 rollout gates. Tasks preserve one coherent user workflow and become eligible
@@ -171,10 +171,12 @@ Delivery keeps these gates separate:
 7. integrate one target-repository map and verify installed-Skill discovery;
 8. evaluate natural longitudinal use and concurrent development.
 
-The Gate 3 local candidate now includes explicit candidate domain ownership and
-disposition, deterministic read-only grouping with duplicate and review
-provenance, one-domain maintenance guidance, and package-managed installation
-of both bundled Skills. Review and integration remain the next separate stage.
+Gate 4 now prepares the clean `semantic-atlas@1.0.0` source candidate. Package
+metadata, public documentation, repository guidance, CI, a
+GitHub-Release-driven provenance workflow, tarball privacy checks, anonymous
+installed-product coverage, and a public v0.4 transition rehearsal form one
+local verification gate. Independent review remains required before any remote
+rename, push, tag, GitHub Release, npm publication, or target-repository change.
 
 Each gate starts from directly verified evidence from its predecessor. Local
 integration does not authorize or prove setup, remote changes, publication,

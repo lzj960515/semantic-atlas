@@ -1,22 +1,78 @@
-# Semantic Atlas Next
+# Semantic Atlas
 
-Semantic Atlas Next is a Git-native business map for coding agents. It gives an
-agent a durable but advisory view of business boundaries, relationships, data,
-rules, interfaces, and likely source entry points before the agent confirms
-current behavior in source code and tests.
+[![CI](https://github.com/lzj960515/semantic-atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/lzj960515/semantic-atlas/actions/workflows/ci.yml)
 
-The initial local product loads tracked YAML files, validates the complete
-repository graph, returns a local business neighborhood, renders the same
-normalized graph as a deterministic static HTML artifact, guides coding agents
-from that context into decisive current repository evidence, and verifies the
-workflow through controlled fixtures and a private paired real-task evaluation.
-The complete local product is accepted and integrated at `decac0c` without
-publishing it.
+Semantic Atlas gives coding agents a compact map of the business before they
+change the code. A repository describes stable domains, capabilities,
+operations, data, rules, interfaces, and their relationships in tracked YAML.
+The CLI validates that map, returns a small neighborhood for investigation, and
+renders the same graph for people.
 
-## CLI
+The map is deliberately advisory. It helps an agent enter through the right
+business boundary; current source, tests, tracked product documents, and
+required runtime evidence still decide what the system does now.
 
-Repositories place map documents in `docs/business-map/*.yaml` and can query
-them without creating durable runtime state:
+## Install
+
+Semantic Atlas requires Node.js 24.
+
+```bash
+npm install --global semantic-atlas
+semantic-atlas setup
+semantic-atlas --version
+```
+
+`setup` installs the package's exact engineering and maintenance Skills under
+`~/.agents/skills/`. Repeating it verifies the installed payloads, repairs a
+modified managed copy, and upgrades a recognized Semantic Atlas v0.4 Skill. It
+refuses to replace an unrelated same-named directory.
+
+## Upgrade
+
+```bash
+semantic-atlas upgrade
+```
+
+`upgrade` resolves npm's current stable version, installs that exact package,
+verifies the installed CLI identity, and asks the new CLI to synchronize both
+managed Skills. The executable and Skills therefore move as one versioned
+product.
+
+## Add A Business Map
+
+A target repository owns only its Git-tracked map documents:
+
+```text
+docs/business-map/*.yaml
+```
+
+Start with one file per stable business domain:
+
+```yaml
+schemaVersion: 1
+map:
+  id: commerce
+  title: Commerce
+  summary: Customer-facing product discovery and purchase.
+
+nodes:
+  - id: commerce
+    kind: domain
+    name: Commerce
+    summary: Customer-facing product discovery and purchase.
+    aliases: []
+    anchors:
+      - kind: directory
+        value: src/commerce
+        description: Likely source entry point for Commerce behavior.
+
+relations: []
+```
+
+The [map format](docs/map-format.md) defines supported concepts, relations,
+anchors, validation rules, and lookup behavior.
+
+## Query And Render
 
 ```bash
 semantic-atlas validate --repo /path/to/repository
@@ -24,135 +80,109 @@ semantic-atlas context "Checkout" --repo /path/to/repository
 semantic-atlas render --repo /path/to/repository --output ./business-map.html
 ```
 
-All commands return versioned JSON envelopes and meaningful exit codes.
-`render` writes static HTML after the same complete-graph validation used by
-`context`; when `--output` is omitted, it writes `semantic-atlas.html` in the
-selected repository. The artifact keeps labels readable on narrow screens with
-horizontal scrolling and contains no editing or mutation path.
+`validate` checks every map document as one graph. `context` returns the
+selected concept, containment, direct incoming and outgoing relationships,
+related concepts, and source-navigation anchors in a versioned JSON envelope.
+`render` produces deterministic static HTML from that same normalized graph.
 
-A missing or stale map remains an advisory discovery result; current source,
-tests, and tracked product documents control engineering conclusions.
+## Evidence Order
+
+For a business-changing engineering task:
+
+1. Query the smallest useful map neighborhood.
+2. Treat concepts, relations, summaries, and anchors as investigation leads.
+3. Confirm every change-controlling claim in current source and tests.
+4. Use tracked product documents for durable intent and runtime evidence for
+   state-dependent behavior.
+5. Let current evidence override missing, stale, or contradicted map knowledge.
+6. Implement and verify through the repository's normal engineering workflow.
+
+The final engineering conclusion is expected to be more accurate than the map
+that helped locate it.
+
+## Agent Skills
+
+`semantic-atlas setup` installs two package-owned Skills:
+
+- `semantic-atlas` guides business-changing work from a bounded context query
+  into current-source confirmation.
+- `semantic-atlas-maintenance` reviews retained candidates for one business
+  domain and prepares a normal reviewed YAML change.
+
+Target repositories do not copy these Skills. They share only their business
+maps through Git.
 
 ## Accuracy Observations
 
-Business-changing runs can retain task investigation evidence and independent
-review evidence without changing the Git business map:
+Normal engineering work can retain task evidence and independent review
+evidence without changing the business map:
 
 ```bash
 semantic-atlas observe task --stdin --repo /path/to/repository
 semantic-atlas observe review --stdin --repo /path/to/repository
 semantic-atlas insights summary --repo /path/to/repository --period 4w
+```
+
+A task observation records queries, current-evidence classifications, candidate
+map corrections, and explicit human corrections. It never grades its own
+accuracy. An independent review observation owns correctness, impact,
+required-rework, and map-regression judgments. IDs are immutable: an exact
+replay is idempotent and changed content conflicts.
+
+See [accuracy observations](docs/observations.md) for the schemas and evidence
+semantics.
+
+## Reconciliation
+
+```bash
 semantic-atlas reconcile candidates --repo /path/to/repository
 ```
 
-The strict task schema records map outcomes, current-evidence dispositions,
-reconciliation candidates, and explicit human corrections. Accuracy judgments
-belong to the referenced independent review observation. Each ID publishes one
-immutable JSON file under a private user-local repository partition; exact
-replays are idempotent and changed-content replays are conflicts. Summaries are
-derived read-only from retained task and review evidence. See the
-[observation contract](docs/observations.md) for schemas, privacy, persistence,
-and failure semantics.
+The command groups retained candidates by explicit business-domain ownership
+while preserving each origin, evidence disposition, and linked independent
+review. It is read-only. The maintenance Skill then confirms one domain against
+current evidence and submits any accepted map correction through an ordinary
+Git diff and independent review.
 
-`reconcile candidates` groups durable leads by explicit business-domain
-ownership while retaining candidate dispositions, duplicate task provenance,
-and linked independent reviews. The report is deterministic and read-only. It
-does not edit observations, source, maps, rendered artifacts, or Git state.
+## Local Data And Privacy
 
-## Install And Upgrade
+Business maps stay in the target repository. Accuracy observations stay in
+immutable JSON files under a hashed user-local repository partition:
 
-After the separately verified v1 publication, one global package owns the
-Semantic Atlas CLI and its user Skills:
-
-```bash
-npm install --global semantic-atlas
-semantic-atlas setup
+```text
+~/.semantic-atlas/observations/v1/repositories/<repository-id>/
 ```
 
-`setup` copies the exact bundled engineering and maintenance Skills to
-`~/.agents/skills/semantic-atlas` and
-`~/.agents/skills/semantic-atlas-maintenance`. Each management marker records
-the package name, package version, Skill name, and deterministic content
-fingerprint. Repeated setup verifies both payloads, repairs a changed managed
-copy, recovers an interrupted directory swap, and upgrades the supported v0.4
-primary Skill. A same-named directory without recognized ownership remains
-untouched and is reported as a conflict.
+Observation files contain neither repository paths nor remote URLs. Semantic
+Atlas has no remote observation service, account, telemetry upload, persistent
+graph database, or automatic source/map mutation. `setup` and observation
+commands do not add files to a target repository; `render` writes only the
+explicitly requested local output.
 
-Use the package-owned upgrade path to keep the executable and managed Skills on
-one identity:
-
-```bash
-semantic-atlas upgrade
-```
-
-`upgrade` resolves npm's current stable version before mutation, installs the
-exact `semantic-atlas@<version>` when needed, starts that installed package by
-its npm global path, verifies `--version`, and delegates Skills synchronization
-to that exact CLI. Target repositories continue to share only
-`docs/business-map/*.yaml`; setup and upgrade do not add Skill files to them.
-
-## Agent Skill
-
-Mapped repositories discover `.agents/skills/semantic-atlas/SKILL.md`. For a
-business-changing task, the Skill queries one small context neighborhood before
-broad source discovery, treats the result as investigation leads, and confirms
-every claim that controls the change in current evidence. Missing concepts,
-ambiguous terms, absent or stale anchors, and contradicted relations all route
-to bounded ordinary discovery. Durable map discrepancies become separate
-reconciliation candidates rather than mandatory map edits.
-
-The Skill's query adapter invokes its package sibling when present. From the
-managed user directory, it first checks that the PATH CLI version matches the
-setup marker, then verifies the versioned `context` envelope before exposing it
-to the Agent.
-
-## Maintenance Skill
-
-The bundled `semantic-atlas-maintenance` Skill starts from the read-only
-candidate report, selects one business domain, confirms every proposed
-correction in current source and tracked product documents, and classifies
-unsupported or implementation-local leads without promoting them. Accepted
-work edits one owning `docs/business-map` YAML file, validates the complete
-graph, renders the result, and uses the ordinary Git diff and independent
-review path.
-
-## Local Acceptance
-
-Run the complete local-product acceptance path from a clean checkout:
+## Development
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm test:acceptance
+pnpm release:verify
 ```
 
-The acceptance command runs the full regression suite, typecheck, build,
-package dry-run, built example rendering, built Skill checks, and a temporary
-external consumer that installs the packed archive and exercises its CLI,
-Commerce example, renderer, and bundled Skill adapter.
+The release-candidate gate runs contract and source tests, typecheck, build,
+rendering checks, packed-tarball privacy checks, an anonymous installed-product
+flow, a real public v0.4-to-v1 transition rehearsal, package dry-run, and Git
+diff validation.
 
-## Authority
+Publication is a separate operation. A non-prerelease GitHub Release for an
+annotated version tag triggers the protected npm workflow, which repeats the
+candidate gate and publishes with npm provenance.
+
+## Documentation
 
 - [Product contract](docs/product-contract.md)
 - [Architecture](docs/architecture.md)
 - [Map format](docs/map-format.md)
 - [Accuracy observations](docs/observations.md)
 - [Evaluation](docs/evaluation.md)
-- [Documentation index](docs/index.md)
 
-## Current Status
+## License
 
-The documentation baseline and all five initial delivery slices are integrated
-at `decac0c`. That revision passes source, built-product, packed-tarball, Skill,
-renderer, privacy, and private real-task accuracy acceptance.
-
-The approved next stage is a breaking `semantic-atlas@1.0.0` rollout. Its
-contract covers managed user Skills, independently owned task and review
-observations, read-only reconciliation candidates, and preservation of the
-previous repository and npm versions. The managed-Skills setup path is
-implemented locally, and the accuracy-observation plus read-only reconciliation
-path is the current local candidate. Review and integration of that candidate,
-public repository cutover, publication, target-repository rollout, and
-longitudinal acceptance remain separate delivery gates.
-See the [product contract](docs/product-contract.md#v1-real-repository-rollout)
-and [delivery plan](docs/delivery-plan.md#v1-real-repository-rollout) for the
-authoritative scope and sequence.
+[MIT](LICENSE)

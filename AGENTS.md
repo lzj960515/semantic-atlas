@@ -1,6 +1,6 @@
-# Semantic Atlas Next Agent Guide
+# Semantic Atlas Agent Guide
 
-Semantic Atlas Next is a Git-native, advisory business map for coding agents.
+Semantic Atlas is a Git-native, advisory business map for coding agents.
 It improves the accuracy of engineering work by giving an agent durable
 business context before the agent confirms decisive behavior in current source,
 tests, tracked product documentation, and runtime evidence.
@@ -90,6 +90,23 @@ For business-changing engineering tasks in a mapped repository:
 
 The final engineering conclusion is expected to be more accurate than the map
 that helped locate it.
+
+## Public Release Contract
+
+- Treat `pnpm release:verify` as the complete source candidate gate. It covers
+  contracts, tests, typecheck, build, render, installed package behavior,
+  tarball privacy, the public v0.4 transition, pack output, and Git diff checks.
+- Keep the package version and annotated `v<version>` tag on one exact commit.
+  Publish that tag as a non-prerelease GitHub Release before npm automation can
+  start.
+- Let the protected `npm` GitHub environment own credentials. The release
+  workflow repeats source verification and uses npm provenance; local release
+  instructions never publish directly.
+- Verify the exact workflow run, GitHub Release, remote tag, and anonymous
+  `npm view` result before reporting a public release complete.
+- Preserve release stages: this repository candidate does not authorize a
+  remote rename, push, tag, GitHub Release, npm publication, target-repository
+  change, or runtime rollout.
 
 ## Git And Task State
 

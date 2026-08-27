@@ -1,8 +1,27 @@
 {
-  "name": "semantic-atlas-next",
-  "version": "0.0.0",
-  "private": true,
+  "name": "semantic-atlas",
+  "version": "1.0.0",
   "description": "A Git-native advisory business map for coding agents.",
+  "keywords": [
+    "ai-agents",
+    "business-map",
+    "coding-agents",
+    "typescript",
+    "cli"
+  ],
+  "homepage": "https://github.com/lzj960515/semantic-atlas#readme",
+  "bugs": {
+    "url": "https://github.com/lzj960515/semantic-atlas/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lzj960515/semantic-atlas.git"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Zijian Liao",
+    "email": "lzj960515@163.com"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -18,20 +37,33 @@
   "files": [
     ".agents",
     "dist",
-    "docs",
+    "docs/architecture.md",
+    "docs/evaluation.md",
+    "docs/index.md",
+    "docs/map-format.md",
+    "docs/observations.md",
+    "docs/product-contract.md",
     "examples",
+    "LICENSE",
     "README.md"
   ],
   "engines": {
     "node": ">=24 <25"
   },
   "packageManager": "pnpm@11.5.1",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "contracts:check": "vitest run tests/release/release-contract.test.ts",
+    "release:verify": "pnpm contracts:check && pnpm test && pnpm typecheck && pnpm build && node tests/smoke/built-render.mjs && node tests/smoke/built-skill.mjs && node tests/smoke/packaged-product.mjs && node tests/smoke/v1-transition.mjs && pnpm pack --dry-run && git diff --check",
     "test": "vitest run",
-    "test:acceptance": "pnpm test && pnpm typecheck && pnpm build && pnpm pack --dry-run && node tests/smoke/built-render.mjs && node tests/smoke/built-skill.mjs && node tests/smoke/packaged-product.mjs",
+    "test:acceptance": "pnpm release:verify",
     "test:built": "pnpm build && node tests/smoke/built-render.mjs && node tests/smoke/built-skill.mjs",
     "test:package": "node tests/smoke/packaged-product.mjs",
+    "test:transition": "node tests/smoke/v1-transition.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "prepack": "pnpm typecheck && pnpm build"
   },

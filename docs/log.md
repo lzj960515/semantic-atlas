@@ -5,6 +5,17 @@ ownership.
 
 ## 2026-08-27
 
+- Prepared the clean repository as the local `semantic-atlas@1.0.0` release
+  candidate with MIT licensing and the intended future public source identity.
+- Added one repository-owned verification gate across source contracts, Node
+  support, CI syntax, build and render behavior, tarball privacy, anonymous
+  installed commands, the public v0.4 transition, package output, and Git diff.
+- Restricted npm publication to a matching annotated tag published as a
+  non-prerelease GitHub Release, using the protected `npm` environment,
+  provenance, and public registry read-back.
+- Reframed the public README around install, setup, upgrade, target-repository
+  maps, advisory evidence order, local observations, and read-only
+  reconciliation without exposing private evaluation artifacts.
 - Versioned current task observations as v2 after adding explicit candidate
   ownership and disposition, while retaining read-only compatibility for
   immutable task v1 evidence. Legacy unowned candidates remain outside

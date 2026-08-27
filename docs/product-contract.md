@@ -1,7 +1,7 @@
-# Semantic Atlas Next Product Contract
+# Semantic Atlas Product Contract
 
 This page defines the accepted initial product. It answers what Semantic Atlas
-Next must improve, how agents and people use it, and which results establish
+must improve, how agents and people use it, and which results establish
 that the product works.
 
 **Status: the initial local product is accepted and integrated; the v1
@@ -9,7 +9,7 @@ real-repository rollout is approved.**
 
 ## Purpose
 
-Semantic Atlas Next helps coding agents make more accurate engineering changes.
+Semantic Atlas helps coding agents make more accurate engineering changes.
 It supplies a shared map of stable business boundaries, meaningful concepts,
 relationships, data, rules, interfaces, and likely source entry points before
 an agent confirms current behavior in authoritative evidence.
@@ -194,17 +194,14 @@ human-intervention evidence as acceptance conditions.
 
 ## Current Delivery State
 
-The documentation baseline and Slices 1-5 are integrated at commit `decac0c`.
-The complete candidate passes local source, built-product, packed-tarball,
-Skill, renderer, privacy, and private real-task accuracy acceptance. The
-previous Semantic Atlas repository and project remain separate and paused.
-
-The primary managed-Skill setup and exact-package upgrade path is integrated
-through `5223b59`. The immutable accuracy-observation, derived-insights,
-read-only reconciliation, and maintenance-Skill path is the current local
-candidate. Review, integration, public repository cutover,
-publication, target-repository changes, and longitudinal use remain separate
-verified stages.
+The documentation baseline and initial product are integrated. Managed setup,
+versioned observations, and read-only reconciliation are included in the v1
+candidate. The clean repository now carries the `semantic-atlas@1.0.0` package
+identity, public documentation, CI, privacy and transition checks, and a
+GitHub-Release-driven npm provenance workflow for independent release review.
+The previous Semantic Atlas repository remains separate and unchanged. Review,
+public repository cutover, publication, target-repository changes, and
+longitudinal use remain separate verified stages.
 
 ## V1 Real-Repository Rollout
 

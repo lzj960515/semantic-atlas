@@ -12,6 +12,7 @@ import {
   realpath,
   rename,
   rm,
+  stat,
   writeFile,
 } from "node:fs/promises";
 import os from "node:os";
@@ -27,6 +28,7 @@ const archiveDirectory = path.join(sandbox, "archive");
 const consumerDirectory = path.join(sandbox, "consumer");
 const repositoryRoot = path.join(sandbox, "repository");
 const userHome = path.join(sandbox, "home");
+const renderedOutputPath = path.join(sandbox, "business-map.html");
 const installedPackageRoot = path.join(
   consumerDirectory,
   "node_modules",
@@ -45,22 +47,23 @@ const maintenanceSkillDirectory = path.join(
   "skills",
   "semantic-atlas-maintenance",
 );
-const cliEnvironment = {
+const cliEnvironment = withoutRegistryCredentials({
   ...process.env,
   HOME: userHome,
   USERPROFILE: userHome,
   PATH: `${path.join(consumerDirectory, "node_modules", ".bin")}${path.delimiter}${process.env.PATH ?? ""}`,
-};
+});
 
 try {
   await mkdir(archiveDirectory, { recursive: true });
   const archivePath = await packProduct(archiveDirectory);
-  assertPublicArchive(archivePath);
+  await assertPublicArchive(archivePath);
 
   await installPackedProduct(archivePath);
   await exerciseInstalledProduct();
   await exerciseInstalledObservations();
   await exerciseManagedSkillLifecycle();
+  assert.equal(run("git", ["status", "--short"], repositoryRoot).stdout, "");
 } finally {
   await rm(sandbox, { recursive: true, force: true });
 }
@@ -73,7 +76,7 @@ async function packProduct(directory) {
   return path.join(directory, archiveName);
 }
 
-function assertPublicArchive(archivePath) {
+async function assertPublicArchive(archivePath) {
   const entries = run("tar", ["-tzf", archivePath], packageRoot)
     .stdout.trim().split("\n");
   const requiredEntries = [
@@ -86,6 +89,7 @@ function assertPublicArchive(archivePath) {
     "package/.agents/skills/semantic-atlas-maintenance/references/reconciliation.md",
     "package/dist/cli/bin.js",
     "package/examples/commerce.yaml",
+    "package/LICENSE",
     "package/package.json",
     "package/README.md",
   ];
@@ -94,6 +98,7 @@ function assertPublicArchive(archivePath) {
     "package/dist/",
     "package/docs/",
     "package/examples/",
+    "package/LICENSE",
     "package/package.json",
     "package/README.md",
   ];
@@ -107,6 +112,11 @@ function assertPublicArchive(archivePath) {
       `packed archive exposes an unintended path: ${entry}`,
     );
   }
+
+  const unpackedDirectory = path.join(sandbox, "unpacked");
+  await mkdir(unpackedDirectory, { recursive: true });
+  run("tar", ["-xzf", archivePath, "-C", unpackedDirectory], packageRoot);
+  await assertPublicContents(unpackedDirectory);
 }
 
 async function installPackedProduct(archivePath) {
@@ -124,7 +134,6 @@ async function installPackedProduct(archivePath) {
 
 async function exerciseInstalledProduct() {
   const mapDirectory = path.join(repositoryRoot, "docs", "business-map");
-  const outputPath = path.join(repositoryRoot, "semantic-atlas.html");
   await mkdir(mapDirectory, { recursive: true });
   await copyFile(
     path.join(installedPackageRoot, "examples", "commerce.yaml"),
@@ -187,11 +196,11 @@ async function exerciseInstalledProduct() {
     "--repo",
     repositoryRoot,
     "--output",
-    outputPath,
+    renderedOutputPath,
   ]);
   assert.equal(render.stderr, "");
-  assert.equal(JSON.parse(render.stdout).data.outputPath, outputPath);
-  const projection = await readFile(outputPath, "utf8");
+  assert.equal(JSON.parse(render.stdout).data.outputPath, renderedOutputPath);
+  const projection = await readFile(renderedOutputPath, "utf8");
   assert.match(projection, /data-node-id="commerce\.orders\.place-order"/u);
   assert.match(projection, /data-channel="directed-relation"/u);
 
@@ -428,10 +437,10 @@ function reviewObservation(taskObservationId) {
 
 async function exerciseManagedSkillLifecycle() {
   const siblingSkill = path.join(userHome, ".agents", "skills", "user-owned-skill");
-  const repositorySentinel = path.join(repositoryRoot, "setup-must-not-touch.txt");
+  const repositoryDocument = path.join(repositoryRoot, "docs", "business-map", "commerce.yaml");
+  const repositoryDocumentBeforeSetup = await readFile(repositoryDocument, "utf8");
   await mkdir(siblingSkill, { recursive: true });
   await writeFile(path.join(siblingSkill, "keep.txt"), "user-owned\n");
-  await writeFile(repositorySentinel, "repository-owned\n");
 
   const firstSetup = JSON.parse(runInstalledCli(["setup"]).stdout);
   assert.equal(firstSetup.ok, true);
@@ -588,7 +597,41 @@ async function exerciseManagedSkillLifecycle() {
     unrelatedDocument,
   );
   assert.equal(await readFile(path.join(siblingSkill, "keep.txt"), "utf8"), "user-owned\n");
-  assert.equal(await readFile(repositorySentinel, "utf8"), "repository-owned\n");
+  assert.equal(await readFile(repositoryDocument, "utf8"), repositoryDocumentBeforeSetup);
+}
+
+async function assertPublicContents(unpackedDirectory) {
+  const relativeEntries = await readdir(unpackedDirectory, { recursive: true });
+  const forbiddenPath = /(?:^|\/)(?:\.worktrees|tmp|tests|tasks|prompts|answers|oracles)(?:\/|$)/u;
+  const forbiddenContents = [
+    ["absolute macOS path", /\/Users\/[^\s"']+/u],
+    ["absolute Linux home path", /\/home\/[^\s"']+/u],
+    ["absolute Windows user path", /[A-Z]:\\Users\\[^\s"']+/iu],
+    ["Codrive task identity", /\b(?:task|attempt|report_opportunity)_[a-f0-9-]{8,}\b/iu],
+    ["private repository identity", /\b(?:pietra-ex-api|Pietra)\b/u],
+    ["private key", /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/u],
+    ["credential-like token", /\b(?:ghp_|github_pat_|npm_|sk-)[A-Za-z0-9_-]{12,}/u],
+  ];
+
+  for (const relativePath of relativeEntries) {
+    const normalizedPath = relativePath.split(path.sep).join("/");
+    assert.doesNotMatch(normalizedPath, forbiddenPath);
+    const absolutePath = path.join(unpackedDirectory, relativePath);
+    if (!(await stat(absolutePath)).isFile()) continue;
+    const contents = await readFile(absolutePath);
+    if (contents.includes(0)) continue;
+    const text = contents.toString("utf8");
+    for (const [label, pattern] of forbiddenContents) {
+      assert.doesNotMatch(text, pattern, `${normalizedPath} contains ${label}`);
+    }
+    if (normalizedPath.endsWith(".md")) {
+      assert.doesNotMatch(
+        text,
+        /\b[0-9a-f]{7,40}\b/gu,
+        `${normalizedPath} contains a source revision`,
+      );
+    }
+  }
 }
 
 function setupSkill(envelope, skillName) {
@@ -666,4 +709,10 @@ function runCommand(command, arguments_, cwd, environment = process.env, input) 
     env: environment,
     input,
   });
+}
+
+function withoutRegistryCredentials(environment) {
+  return Object.fromEntries(Object.entries(environment).filter(([name]) =>
+    !/(?:AUTH|TOKEN|NPM_CONFIG_USERCONFIG)/iu.test(name)
+  ));
 }

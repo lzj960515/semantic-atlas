@@ -1,4 +1,4 @@
-# Semantic Atlas Next Evaluation
+# Semantic Atlas Evaluation
 
 This page defines how the initial product proves that an advisory business map
 improves engineering accuracy and reduces routine human supervision. It applies
@@ -171,7 +171,7 @@ updates.
 ## Private Real-Project Result
 
 The first private evaluation completed on 2026-08-26 against one fixed revision
-of a real Pietra service repository. The isolated workspace retained the frozen
+of a real service repository. The isolated workspace retained the frozen
 tasks, source-supported oracles, private map, command traces, answers, candidate
 changes, and independent reviews. None of those private artifacts or target
 repository changes entered this repository.

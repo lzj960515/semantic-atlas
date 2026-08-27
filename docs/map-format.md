@@ -1,4 +1,4 @@
-# Semantic Atlas Next Map Format
+# Semantic Atlas Map Format
 
 This page defines the initial tracked document model, graph meaning, validation
 rules, and context projection. The implementation will publish a machine schema

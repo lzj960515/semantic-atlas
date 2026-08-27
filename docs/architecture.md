@@ -1,12 +1,12 @@
-# Semantic Atlas Next Architecture
+# Semantic Atlas Architecture
 
 This page defines the stable responsibilities, data lifecycle, dependency
 direction, and failure semantics for the initial product. It applies to the
 public CLI, renderer, and repository Agent Skill.
 
 **Status: query, validation, visual projection, repository Agents, managed
-Skill lifecycle, accuracy-observation, and read-only reconciliation paths are
-implemented locally.**
+Skill lifecycle, accuracy observations, read-only reconciliation, and public
+release-candidate verification are implemented locally.**
 
 ## System Model
 
@@ -60,6 +60,14 @@ Independent review -----------+                      v
                                                       |
                                                       v
                                        current evidence + reviewed YAML
+
+verified source candidate -> annotated release tag -> published GitHub Release
+                                                      |
+                                                      v
+                                             protected npm environment
+                                                      |
+                                                      v
+                                        provenance publication + public read-back
 ```
 
 The tracked documents and their Git history are the shared product state. Each
@@ -207,6 +215,24 @@ origins as duplicates. It reads repository identity and observations without
 loading or editing the business map. Legacy task v1 candidates remain retained
 evidence but do not enter a domain group because their ownership is unknown.
 
+### Release Candidate Verification
+
+The repository-owned release gate composes contract and source tests,
+typecheck, build, deterministic render checks, packed-tarball privacy, an
+anonymous installed-product flow, a public v0.4-to-v1 transition rehearsal,
+package dry-run, and Git diff validation. CI invokes the same gate used by a
+release tag so the public package is not validated through a weaker path.
+
+### Release Automation
+
+The release workflow starts only from a published, non-prerelease GitHub
+Release. It checks out the event's annotated tag, proves that the tag, commit,
+and stable package version agree, repeats release-candidate verification, and
+publishes through the protected `npm` environment with provenance. It then
+reads the exact version, latest tag, shasum, and integrity back from the public
+registry. Remote rename, tag creation, GitHub Release publication, and npm
+publication remain explicit later operations rather than local build effects.
+
 ## Data Lifecycles
 
 | Data | Owner | Lifetime | Mutation path |
@@ -223,6 +249,9 @@ evidence but do not enter a domain group because their ownership is unknown.
 | Review observation | User-local repository partition | Immutable retained evidence | Existing task reference plus strict validation and atomic publication |
 | Accuracy summary | One CLI invocation | Read phase | Re-derived from retained task and review files |
 | Reconciliation candidate report | One CLI invocation | Read phase | Re-derived from retained candidate and review provenance |
+| Packed npm candidate | One verified source revision | Release review | Rebuilt from the package allowlist |
+| Public release identity | Annotated tag and GitHub Release | Permanent remote history | Explicit release command after repository cutover |
+| Published npm package | Protected npm environment | Immutable registry version | GitHub Release workflow with provenance |
 | Task-specific source understanding | Calling agent | Engineering task | Current evidence investigation |
 | Candidate map observation | Task or maintenance record | Until reconciled | Reviewed by periodic maintenance |
 

@@ -1,11 +1,10 @@
-# Semantic Atlas Next Documentation
+# Semantic Atlas Documentation
 
 This index routes product, implementation, and evaluation questions to their
-authoritative pages. The initial queryable map, renderer, repository Agent
-Skill, private real-task evaluation, and local-product acceptance are integrated
-at `decac0c`. The approved v1 rollout remains divided into separately verified
-setup, observation and reconciliation, release, target-repository, and real-use
-gates.
+authoritative pages. The queryable map, renderer, repository Agent Skills,
+managed setup, observations, reconciliation, and local release candidate are
+implemented. The approved v1 rollout remains divided into separately verified
+repository cutover, publication, target-repository, and real-use gates.
 
 ## Product
 
