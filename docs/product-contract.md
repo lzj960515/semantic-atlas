@@ -199,8 +199,9 @@ versioned observations, and read-only reconciliation are included in the v1
 candidate. The clean repository now carries the `semantic-atlas@1.0.0` package
 identity, public documentation, CI, privacy and transition checks, and a
 GitHub-Release-driven npm provenance workflow for independent release review.
-The previous Semantic Atlas repository remains separate and unchanged. Review,
-public repository cutover, publication, target-repository changes, and
+The existing `lzj960515/semantic-atlas` repository remains the public product
+identity and carries the protected npm environment used by the approved direct
+v1 cutover. Review, branch cutover, publication, target-repository changes, and
 longitudinal use remain separate verified stages.
 
 ## V1 Real-Repository Rollout
@@ -208,19 +209,22 @@ longitudinal use remain separate verified stages.
 The next product stage turns the accepted local candidate into the one installed
 Semantic Atlas product used by real engineering repositories.
 
-### Product identity and legacy preservation
+### Product identity and direct cutover
 
 - The new implementation takes over the npm package name `semantic-atlas` as a
   breaking `v1.0.0` release.
-- The new implementation keeps its clean Git history and becomes the active
-  `semantic-atlas` source repository.
-- The previous public GitHub repository is preserved, renamed, and archived
-  only through a separately verified cutover. It is never deleted or
-  force-overwritten.
-- The previous local repository contains unpublished commits and remains intact.
-  Its exact HEAD and remote identity are preserved before any remote rename.
-- Existing npm versions remain available. The old CLI's supported upgrade path
-  must install v1 and invoke the v1 `setup` successfully.
+- The existing `lzj960515/semantic-atlas` GitHub repository remains the active
+  repository and keeps its configured release environment and public identity.
+- Its `main` branch changes directly from the published v0 line to the clean v1
+  history through one explicitly authorized, lease-checked history replacement.
+  This discontinuity is the intended breaking repository upgrade.
+- Existing v0 Git tags, GitHub Releases, and npm versions remain available while
+  the new clean `main`, annotated `v1.0.0` tag, and immutable Release become the
+  current source identity.
+- Local legacy history and recovery bundles are optional operator artifacts,
+  not cutover prerequisites or release authority.
+- The old CLI's supported upgrade path must install v1 and invoke the v1
+  `setup` successfully.
 
 ### Installed CLI and managed Skills
 

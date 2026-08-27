@@ -164,8 +164,8 @@ Delivery keeps these gates separate:
 3. implement immutable task and review observations plus read-only candidate
    reconciliation;
 4. verify the public repository, CI, privacy, and release candidate;
-5. preserve and archive the legacy repository while cutting over the new
-   repository identity;
+5. replace the existing `lzj960515/semantic-atlas` repository's `main` with the
+   clean v1 history through one lease-checked direct cutover;
 6. create the Git tag and GitHub Release, publish with npm provenance, and test
    an anonymous install;
 7. integrate one target-repository map and verify installed-Skill discovery;
@@ -175,8 +175,9 @@ Gate 4 now prepares the clean `semantic-atlas@1.0.0` source candidate. Package
 metadata, public documentation, repository guidance, CI, a
 GitHub-Release-driven provenance workflow, tarball privacy checks, anonymous
 installed-product coverage, and a public v0.4 transition rehearsal form one
-local verification gate. Independent review remains required before any remote
-rename, push, tag, GitHub Release, npm publication, or target-repository change.
+local verification gate. Independent review remains required before the direct
+`main` replacement, tag, GitHub Release, npm publication, or target-repository
+change.
 
 Each gate starts from directly verified evidence from its predecessor. Local
 integration does not authorize or prove setup, remote changes, publication,

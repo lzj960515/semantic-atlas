@@ -106,8 +106,12 @@ that helped locate it.
   instructions never publish directly.
 - Verify the exact workflow run, GitHub Release, remote tag, and anonymous
   `npm view` result before reporting a public release complete.
-- Preserve release stages: this repository candidate does not authorize a
-  remote rename, push, tag, GitHub Release, npm publication, target-repository
+- Treat the v1 repository discontinuity as one explicit release stage: record
+  the observed remote `main`, then replace it only through the exact
+  `--force-with-lease` form in `.claude/commands/release.md`. Preserve existing
+  tags and Releases.
+- Preserve release stages: a repository candidate does not authorize a direct
+  `main` replacement, tag, GitHub Release, npm publication, target-repository
   change, or runtime rollout.
 
 ## Git And Task State

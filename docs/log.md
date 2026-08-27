@@ -5,6 +5,11 @@ ownership.
 
 ## 2026-08-27
 
+- Approved the existing `lzj960515/semantic-atlas` repository as the direct v1
+  source identity. Its `main` changes to the clean v1 history through one
+  lease-checked discontinuity while existing v0 tags, Releases, npm versions,
+  and the repository-owned npm environment remain in place; a second repository
+  and legacy-history backup are not cutover prerequisites.
 - Prepared the clean repository as the local `semantic-atlas@1.0.0` release
   candidate with MIT licensing and the intended future public source identity.
 - Added one repository-owned verification gate across source contracts, Node

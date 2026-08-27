@@ -235,9 +235,9 @@ environment, checks out the annotated tag, proves that the tag, commit, and
 stable package version agree, repeats the Release check as defense in depth,
 runs release-candidate verification, and publishes with provenance. Finally, it
 reads the exact version, latest tag, shasum, and integrity back from the public
-registry. Remote rename, repository setting changes, tag creation, GitHub
-Release publication, and npm publication remain explicit later operations
-rather than local build effects.
+registry. The lease-checked v1 `main` discontinuity, repository setting changes,
+tag creation, GitHub Release publication, and npm publication remain explicit
+later operations rather than local build effects.
 
 ## Data Lifecycles
 
