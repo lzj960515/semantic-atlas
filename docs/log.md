@@ -3,6 +3,29 @@
 This page records durable changes to the product model and documentation
 ownership.
 
+## 2026-08-27
+
+- Recorded that the documentation baseline and all five initial product slices
+  are accepted and integrated at `decac0c`; setup, publication, installation,
+  target-repository rollout, and real-use acceptance remain separate gates.
+- Approved `semantic-atlas@1.0.0` as the breaking identity for the new product
+  while preserving the previous public repository, local unpublished history,
+  and existing npm versions through an explicit later cutover.
+- Made the published CLI responsible for atomically installing and repairing
+  its version-matched managed user Skills without replacing an unrelated
+  same-named directory.
+- Defined immutable, independently identified `TaskObservation` and
+  `ReviewObservation` artifacts under user-local repository partitions. The task
+  Agent records task evidence, while independent review or explicit human
+  correction owns accuracy judgments.
+- Kept observations separate from the Git business map, made reconciliation
+  candidate discovery read-only, and retained normal reviewed YAML edits as the
+  only way to change the canonical map. This workflow uses neither SQLite nor a
+  remote observation service.
+- Established separately verified v1 gates for setup, observations, release
+  readiness, legacy preservation, publication, target-repository rollout, and
+  longitudinal acceptance.
+
 ## 2026-08-26
 
 - Established Semantic Atlas Next as a clean Git-native product rather than an
@@ -40,4 +63,5 @@ ownership.
 - Accepted the complete initial candidate through one local command covering
   the full regression suite, typecheck, build, package dry-run, Commerce example
   rendering, Skill checks, and an external temporary consumer of the packed CLI.
-  Codrive review, integration, and any public release remain separate stages.
+  Later Codrive review and integration completed at `decac0c`; public release
+  remains a separate v1 delivery gate.

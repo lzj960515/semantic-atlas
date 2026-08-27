@@ -4,8 +4,8 @@ This page defines the accepted initial product. It answers what Semantic Atlas
 Next must improve, how agents and people use it, and which results establish
 that the product works.
 
-**Status: accepted product contract; the complete initial candidate is locally
-accepted and awaits Codrive review and integration.**
+**Status: the initial local product is accepted and integrated; the v1
+real-repository rollout is approved.**
 
 ## Purpose
 
@@ -191,3 +191,117 @@ the following:
 Token usage, opened files, wall time, compute cost, and map-maintenance effort
 are recorded to explain product behavior. They do not replace accuracy and
 human-intervention evidence as acceptance conditions.
+
+## Current Delivery State
+
+The documentation baseline and Slices 1-5 are integrated at commit `decac0c`.
+The complete candidate passes local source, built-product, packed-tarball,
+Skill, renderer, privacy, and private real-task accuracy acceptance. The
+previous Semantic Atlas repository and project remain separate and paused.
+
+## V1 Real-Repository Rollout
+
+The next product stage turns the accepted local candidate into the one installed
+Semantic Atlas product used by real engineering repositories.
+
+### Product identity and legacy preservation
+
+- The new implementation takes over the npm package name `semantic-atlas` as a
+  breaking `v1.0.0` release.
+- The new implementation keeps its clean Git history and becomes the active
+  `semantic-atlas` source repository.
+- The previous public GitHub repository is preserved, renamed, and archived
+  only through a separately verified cutover. It is never deleted or
+  force-overwritten.
+- The previous local repository contains unpublished commits and remains intact.
+  Its exact HEAD and remote identity are preserved before any remote rename.
+- Existing npm versions remain available. The old CLI's supported upgrade path
+  must install v1 and invoke the v1 `setup` successfully.
+
+### Installed CLI and managed Skills
+
+The published CLI owns installation of its bundled user Skills:
+
+```text
+npm install --global semantic-atlas
+semantic-atlas setup
+```
+
+`setup` installs the exact bundled Semantic Atlas Skill under
+`~/.agents/skills/semantic-atlas` using a package version, content fingerprint,
+and atomic replacement. It is idempotent, repairs a modified managed copy,
+preserves the previous copy on failure, and refuses to replace an unrelated
+same-named directory. A maintenance Skill may be installed beside it when the
+observation workflow is delivered.
+
+Business repositories share only `docs/business-map/*.yaml` through Git. They do
+not duplicate the managed user Skill. The package, installed CLI, and installed
+Skills must have one verifiable version identity.
+
+### Accuracy observations
+
+Real-use evidence is separate from the Git business map and from business-map
+authority. The product records two immutable, versioned local artifacts:
+
+- `TaskObservation`: map query and selected concepts, current-evidence
+  classification, map-update candidates, and any explicit human correction
+  known to the task Agent;
+- `ReviewObservation`: the independent review verdict, correctness of the
+  business boundary and upstream cause, impact completeness, required rework,
+  and whether the map caused a wrong conclusion.
+
+The task Agent never grades its own engineering accuracy. Review or explicit
+human correction owns correctness. Each observation uses an independent ID and
+atomic file write under a user-local repository partition. The implementation
+does not use SQLite, a remote API, or a shared append-only JSONL file. Summaries
+are reproducible from immutable observations.
+
+The deterministic CLI exposes the observation boundary:
+
+```text
+semantic-atlas observe task --stdin
+semantic-atlas observe review --stdin
+semantic-atlas insights summary [--repo <path>] [--period <duration>]
+semantic-atlas reconcile candidates --repo <path>
+```
+
+Observation failures are reported and never turn a successful engineering task
+into a successful accuracy claim. The main accuracy measures are correct
+business boundary, correct upstream cause, complete required impact, map-caused
+regression, independent-review rework, human correction, and safe recovery from
+missing, stale, or contradicted map knowledge. Tokens, files, time, compute, and
+map-maintenance effort remain explanatory measures.
+
+### Reconciliation
+
+Normal engineering work records durable map-update candidates without editing
+the shared map. `reconcile candidates` is read-only. A periodic maintenance task
+groups candidates by business domain, checks current source and durable product
+meaning, updates one owning YAML map through normal Git review, and leaves
+unresolved observations out of the canonical map.
+
+### Real-use acceptance
+
+The first pilot starts with one stable `pietra-ex-api` business domain rather
+than the whole repository. Its initial map is independently reviewed before
+merge. Normal Codrive development keeps its existing develop, independent
+review, rework, and fast-forward integration lifecycle; Semantic Atlas supplies
+advisory context and observation evidence only.
+
+Longitudinal acceptance requires at least 20 natural business-changing tasks
+with independent review, at least one period of real code drift, and two
+domain-scoped reconciliations. Every fifth suitable task adds an ordinary
+analysis-only shadow for bounded comparison without duplicating production
+writes. Natural use is not replaced with manufactured jobs or provider activity.
+
+Any map-caused wrong conclusion, Store/authorization/data-boundary regression,
+or installed CLI/Skill version mismatch blocks acceptance. The final stage also
+tests multiple Agents in independent worktrees reading one map revision and
+writing independent observations, with canonical map changes deferred to a
+separate reconciliation task.
+
+## V1 Delivery Boundary
+
+The [delivery plan](delivery-plan.md) owns the ordered v1 gates. An earlier gate
+never implies that a later remote, publication, target-repository, or real-use
+gate has completed.

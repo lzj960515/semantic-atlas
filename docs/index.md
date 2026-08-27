@@ -1,9 +1,10 @@
 # Semantic Atlas Next Documentation
 
 This index routes product, implementation, and evaluation questions to their
-authoritative pages. The initial candidate implements the queryable map,
-rendering, repository Agent Skill, private real-task evaluation, and local
-product acceptance; review and integration remain separate stages.
+authoritative pages. The initial queryable map, renderer, repository Agent
+Skill, private real-task evaluation, and local-product acceptance are integrated
+at `decac0c`. The approved v1 rollout remains divided into separately verified
+setup, observation, release, target-repository, and real-use gates.
 
 ## Product
 
@@ -15,8 +16,8 @@ product acceptance; review and integration remain separate stages.
   anchors, validation, and query projections.
 - [Evaluation](evaluation.md): real-task accuracy, stale-map recovery, code
   quality, and human-intervention evidence.
-- [Delivery plan](delivery-plan.md): ordered vertical slices, dependencies, and
-  observable acceptance for the initial product.
+- [Delivery plan](delivery-plan.md): integrated initial slices and the ordered,
+  separately verified v1 delivery gates.
 
 ## Maintenance
 

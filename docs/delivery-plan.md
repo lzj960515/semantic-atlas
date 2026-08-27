@@ -1,11 +1,11 @@
 # Semantic Atlas Next Delivery Plan
 
-This page defines the initial vertical delivery slices. Tasks preserve one
-coherent user workflow and become eligible only when their stated predecessor
-is integrated.
+This page defines the integrated initial vertical slices and the ordered v1
+rollout gates. Tasks preserve one coherent user workflow and become eligible
+only when their stated predecessor is integrated or directly verified.
 
-**Status: baseline and Slices 1-4 are integrated; the Slice 5 candidate is
-locally accepted and awaits Codrive review and integration.**
+**Status: the baseline and Slices 1-5 are accepted and integrated at `decac0c`;
+the v1 real-repository rollout contract is approved.**
 
 ## Baseline: Establish The Product Contract
 
@@ -28,7 +28,7 @@ Acceptance:
 
 ## Slice 1: Deliver A Queryable Business Map
 
-**Status: implemented and locally verified.**
+**Status: integrated.**
 
 Build the complete minimum path from tracked YAML documents to a structured
 local business context result.
@@ -50,12 +50,13 @@ Acceptance:
 - public-flow tests cover multiple domain files, cross-file relations, invalid
   graphs, missing maps, ambiguity, partial matching, and deterministic output;
 - typecheck, tests, build, packaged CLI smoke, and Git diff checks pass;
-- independent review confirms that parser, graph, query, and CLI responsibilities
-  remain separate and that no durable runtime state was introduced.
+- independent review confirms that parser, graph, query, and CLI
+  responsibilities remain separate and that no durable runtime state was
+  introduced.
 
 ## Slice 2: Render The Same Graph For Human Inspection
 
-**Status: implemented and locally verified.**
+**Status: integrated.**
 
 Start after Slice 1 is integrated. Add deterministic visual projection without
 creating another authoring model.
@@ -80,7 +81,7 @@ Acceptance:
 
 ## Slice 3: Guide Agents From Map Context To Current Evidence
 
-**Status: implemented and locally verified.**
+**Status: integrated.**
 
 Start after Slices 1 and 2 are integrated. Package the repository Agent Skill
 and prove its behavior on controlled engineering fixtures.
@@ -105,7 +106,7 @@ Acceptance:
 
 ## Slice 4: Verify Accuracy On Real Pietra Engineering Tasks
 
-**Status: completed and privately verified.**
+**Status: privately verified and integrated.**
 
 Start after Slice 3 is integrated. Use a private, isolated evaluation workspace
 to test the complete product against real Pietra behavior without publishing
@@ -130,7 +131,7 @@ Acceptance:
 
 ## Slice 5: Accept The Initial Local Product
 
-**Status: candidate complete and locally verified.**
+**Status: accepted and integrated at `decac0c`.**
 
 Start after the real-task evidence is integrated. Verify the complete candidate
 as one local product without publishing it.
@@ -149,5 +150,27 @@ Acceptance:
 - the report separates local implementation, integration, private evaluation,
   and the still-unperformed public release.
 
-Public naming, publication, installation, and migration from the previous
-Semantic Atlas remain later product decisions.
+## V1 Real-Repository Rollout
+
+The approved next stage turns the accepted local product into the installed
+`semantic-atlas@1.0.0` product. The [product contract](product-contract.md) owns
+the v1 identity, managed-Skill behavior, observation model, reconciliation
+rules, and real-use acceptance thresholds.
+
+Delivery keeps these gates separate:
+
+1. close the initial-product documentation against the integrated baseline;
+2. implement managed `setup` and old-CLI upgrade compatibility;
+3. implement immutable task and review observations plus read-only candidate
+   reconciliation;
+4. verify the public repository, CI, privacy, and release candidate;
+5. preserve and archive the legacy repository while cutting over the new
+   repository identity;
+6. create the Git tag and GitHub Release, publish with npm provenance, and test
+   an anonymous install;
+7. integrate one target-repository map and verify installed-Skill discovery;
+8. evaluate natural longitudinal use and concurrent development.
+
+Each gate starts from directly verified evidence from its predecessor. Local
+integration does not authorize or prove setup, remote changes, publication,
+target-repository changes, or real-use acceptance.

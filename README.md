@@ -10,7 +10,8 @@ repository graph, returns a local business neighborhood, renders the same
 normalized graph as a deterministic static HTML artifact, guides coding agents
 from that context into decisive current repository evidence, and verifies the
 workflow through controlled fixtures and a private paired real-task evaluation.
-The complete packed candidate is accepted locally without publishing it.
+The complete local product is accepted and integrated at `decac0c` without
+publishing it.
 
 ## CLI
 
@@ -69,8 +70,16 @@ Commerce example, renderer, and bundled Skill adapter.
 
 ## Current Status
 
-The current candidate has passed initial local-product acceptance. Codrive
-review and integration remain separate delivery stages. Public naming,
-publication, external installation, and migration from the previous Semantic
-Atlas are future product decisions; that previous implementation remains a
-separate, frozen experiment.
+The documentation baseline and all five initial delivery slices are integrated
+at `decac0c`. That revision passes source, built-product, packed-tarball, Skill,
+renderer, privacy, and private real-task accuracy acceptance.
+
+The approved next stage is a breaking `semantic-atlas@1.0.0` rollout. Its
+contract covers managed user Skills, independently owned task and review
+observations, read-only reconciliation candidates, and preservation of the
+previous repository and npm versions. Setup implementation, public repository
+cutover, publication, target-repository rollout, and longitudinal acceptance
+remain separate delivery gates; none is implied by local-product integration.
+See the [product contract](docs/product-contract.md#v1-real-repository-rollout)
+and [delivery plan](docs/delivery-plan.md#v1-real-repository-rollout) for the
+authoritative scope and sequence.
