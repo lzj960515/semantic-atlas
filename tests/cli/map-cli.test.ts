@@ -340,6 +340,8 @@ describe("semantic-atlas command boundary", () => {
     expect(result.stdout).toContain("context");
     expect(result.stdout).toContain("setup");
     expect(result.stdout).toContain("upgrade");
+    expect(result.stdout).toContain("observe");
+    expect(result.stdout).toContain("insights");
   });
 
   it("returns a stable command error and usage exit code for unknown commands", async () => {

@@ -4,8 +4,8 @@ This page defines the stable responsibilities, data lifecycle, dependency
 direction, and failure semantics for the initial product. It applies to the
 public CLI, renderer, and repository Agent Skill.
 
-**Status: query, validation, visual projection, repository Agent, and managed
-Skill lifecycle paths are implemented locally.**
+**Status: query, validation, visual projection, repository Agent, managed
+Skill lifecycle, and accuracy-observation paths are implemented locally.**
 
 ## System Model
 
@@ -35,6 +35,14 @@ ManagedSkillInstaller -> staged copy -> atomic directory replacement
         ^                                      |
         |                                      v
 verified installed CLI <- exact npm version <- PackageUpgrader
+
+Task Agent evidence -> ObservationApplication -> ObservationStore
+                              |                      |
+Independent review -----------+                      v
+                                               user-local files
+                                                      |
+                                                      v
+                                               InsightService
 ```
 
 The tracked documents and their Git history are the shared product state. Each
@@ -121,6 +129,34 @@ verifies its CLI version through the current Node executable, and invokes that
 CLI's `setup`. The old process never copies its own Skill after a package
 replacement.
 
+### RepositoryIdentityResolver
+
+Owns the private repository partition used by observations. Git worktrees
+resolve through their common Git directory so concurrent task branches share
+one logical repository identity. The resolver hashes the local identity source
+and exposes neither repository paths nor remote URLs in retained artifacts.
+
+### ObservationApplication
+
+Owns complete task and review input validation and the accuracy-authority
+boundary. It creates a repository-bound artifact only after strict schema
+validation. Review recording additionally resolves the referenced task
+observation from the same repository partition before persistence.
+
+### ObservationStore
+
+Owns immutable, versioned user-local observation files. Each observation ID has
+one path and one concurrency claim. The store writes and syncs a complete
+staging file, atomically renames it into place, returns idempotency for an exact
+replay, and reports a conflict for changed content under an existing ID.
+
+### InsightService
+
+Owns read-only derivation over retained observations. It filters by optional
+duration, aggregates independent review dimensions, and joins approved reviews
+to task evidence when counting safe recovery from missing, stale, or
+contradicted map knowledge.
+
 ## Data Lifecycles
 
 | Data | Owner | Lifetime | Mutation path |
@@ -132,11 +168,16 @@ replacement.
 | Bundled Skill payload | Installed npm package | Package version | Replaced only by exact package installation |
 | Managed user Skill | User home | Across repositories and CLI invocations | `semantic-atlas setup` atomic replacement |
 | Managed Skill marker | Managed Skill directory | Same as installed payload | Written into the staged copy before activation |
+| Repository identity | One local repository across worktrees | Observation lookup | Re-derived from the Git common directory or selected directory |
+| Task observation | User-local repository partition | Immutable retained evidence | Strict validation and one atomic file publication |
+| Review observation | User-local repository partition | Immutable retained evidence | Existing task reference plus strict validation and atomic publication |
+| Accuracy summary | One CLI invocation | Read phase | Re-derived from retained task and review files |
 | Task-specific source understanding | Calling agent | Engineering task | Current evidence investigation |
 | Candidate map observation | Task or maintenance record | Until reconciled | Reviewed by periodic maintenance |
 
-No command has to coordinate a durable runtime state with another worktree.
-Branches naturally see the map revision tracked with their own source.
+Map commands remain stateless and branches naturally see the map revision
+tracked with their own source. Observation writers coordinate only one
+repository-partitioned observation ID while publishing its immutable file.
 
 ## Dependency Direction
 
@@ -169,13 +210,16 @@ semantic-atlas context <id-or-term> [--repo <path>]
 semantic-atlas render [--repo <path>] [--output <path>]
 semantic-atlas setup
 semantic-atlas upgrade
+semantic-atlas observe task --stdin [--repo <path>]
+semantic-atlas observe review --stdin [--repo <path>]
+semantic-atlas insights summary [--repo <path>] [--period <duration>]
 semantic-atlas --version
 ```
 
-Every command resolves and reports the repository root and map-document set it
-used. Machine output uses a versioned envelope with a stable success or error
-discriminant. Human output summarizes the same result without requiring a
-separate behavior path.
+Map commands resolve and report the repository root and map-document set they
+used. Observation commands report the derived repository identity, while
+package lifecycle commands remain repository-independent. Machine output uses
+a versioned envelope with a stable success or error discriminant.
 
 `context` returns ambiguity when multiple concepts match the term. Callers can
 then use a stable ID. A missing concept is a bounded map result and routes the
@@ -185,6 +229,11 @@ agent to ordinary source discovery; it is not a repository failure.
 business map. Their results expose the package version and managed Skill path
 needed to verify one installed identity. Business repositories retain only
 their Git-tracked map documents.
+
+`observe task` and `observe review` read one complete JSON object from standard
+input. They derive a private repository identity, validate before publication,
+and return recorded, idempotent, or explicit conflict results. `insights
+summary` reads those retained files without changing them or the business map.
 
 ## Validation Boundary
 
@@ -226,6 +275,17 @@ Errors fall into stable categories:
 - `UPGRADE_FAILED`: the result identifies whether registry lookup, exact
   installation, package location, version verification, or delegated setup
   failed.
+- `OBSERVATION_INPUT_INVALID`: the complete stdin document violates the
+  versioned task or review contract and no observation is written.
+- `TASK_OBSERVATION_NOT_FOUND`: a review references no task observation in the
+  selected repository partition.
+- `OBSERVATION_CONFLICT`: an immutable ID already belongs to different content.
+- `OBSERVATION_STORAGE_FAILED`: atomic publication could not complete and no
+  new final artifact is reported.
+- `INSIGHTS_PERIOD_INVALID`: a requested duration does not use the supported
+  positive `h`, `d`, or `w` form.
+- `INSIGHTS_READ_FAILED`: retained observations cannot produce a trustworthy
+  summary.
 
 Unexpected infrastructure errors propagate to the CLI boundary with a safe
 message and a nonzero exit status. The implementation adds contextual details
@@ -254,10 +314,11 @@ provide YAML parsing, runtime schema validation, CLI parsing, and graph layout.
 The exact packages are selected in the first implementation task from their
 maintained APIs, footprint, and supported output needs.
 
-Tracked files and the in-memory model satisfy the current storage lifecycle.
-The calling agent's repository tools satisfy current source discovery. New
-persistence or structural-index responsibilities require real-task evidence
-and a separate product decision.
+Tracked files and the in-memory model satisfy map-query state. Immutable local
+JSON files satisfy the separately approved observation lifecycle. The calling
+agent's repository tools satisfy current source discovery. Structural indexes,
+remote observation services, and alternate persistence engines require
+real-task evidence and a separate product decision.
 
 ## Extension Seams
 

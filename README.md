@@ -33,6 +33,26 @@ horizontal scrolling and contains no editing or mutation path.
 A missing or stale map remains an advisory discovery result; current source,
 tests, and tracked product documents control engineering conclusions.
 
+## Accuracy Observations
+
+Business-changing runs can retain task investigation evidence and independent
+review evidence without changing the Git business map:
+
+```bash
+semantic-atlas observe task --stdin --repo /path/to/repository
+semantic-atlas observe review --stdin --repo /path/to/repository
+semantic-atlas insights summary --repo /path/to/repository --period 4w
+```
+
+The strict task schema records map outcomes, current-evidence dispositions,
+reconciliation candidates, and explicit human corrections. Accuracy judgments
+belong to the referenced independent review observation. Each ID publishes one
+immutable JSON file under a private user-local repository partition; exact
+replays are idempotent and changed-content replays are conflicts. Summaries are
+derived read-only from retained task and review evidence. See the
+[observation contract](docs/observations.md) for schemas, privacy, persistence,
+and failure semantics.
+
 ## Install And Upgrade
 
 After the separately verified v1 publication, one global package owns the
@@ -98,6 +118,7 @@ Commerce example, renderer, and bundled Skill adapter.
 - [Product contract](docs/product-contract.md)
 - [Architecture](docs/architecture.md)
 - [Map format](docs/map-format.md)
+- [Accuracy observations](docs/observations.md)
 - [Evaluation](docs/evaluation.md)
 - [Documentation index](docs/index.md)
 
@@ -110,9 +131,11 @@ renderer, privacy, and private real-task accuracy acceptance.
 The approved next stage is a breaking `semantic-atlas@1.0.0` rollout. Its
 contract covers managed user Skills, independently owned task and review
 observations, read-only reconciliation candidates, and preservation of the
-previous repository and npm versions. Setup implementation, public repository
-cutover, publication, target-repository rollout, and longitudinal acceptance
-remain separate delivery gates; none is implied by local-product integration.
+previous repository and npm versions. The managed-Skill setup path is
+implemented locally, and the accuracy-observation path is the current local
+candidate. Review and integration of that candidate, public repository cutover,
+publication, target-repository rollout, and longitudinal acceptance remain
+separate delivery gates.
 See the [product contract](docs/product-contract.md#v1-real-repository-rollout)
 and [delivery plan](docs/delivery-plan.md#v1-real-repository-rollout) for the
 authoritative scope and sequence.

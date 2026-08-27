@@ -98,6 +98,29 @@ Final conclusions identify the business boundary, the decisive current
 evidence, the implemented or proposed scope, and relevant verification. Phrase
 map-only statements as leads or uncertainty rather than current behavior.
 
+## Record The Task Observation
+
+For business-changing work, read [references/observations.md](references/observations.md)
+and record one task observation after the engineering result and verification
+are known. Use a stable observation ID for the run and reuse the same complete
+document when retrying an interrupted submission.
+
+The task observation records the map-query outcome, selected concepts,
+current-evidence dispositions, map-update candidates, and any explicit human
+correction. Independent review owns accuracy judgments, so the task document
+contains investigation evidence rather than a correctness verdict.
+
+Submit the complete JSON document through the installed CLI:
+
+```text
+semantic-atlas observe task --stdin [--repo <repository-root>]
+```
+
+Report the recorded or idempotent outcome with the engineering result. When
+the observation command fails, the engineering result remains unchanged;
+report the observation failure separately so review can distinguish delivery
+evidence from missing accuracy evidence.
+
 ## Report Durable Map Observations Separately
 
 Ordinary task completion does not require editing `docs/business-map`. When

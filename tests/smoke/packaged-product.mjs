@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   access,
   appendFile,
@@ -16,7 +16,7 @@ import {
 } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const packageRoot = fileURLToPath(new URL("../../", import.meta.url));
 const packageIdentity = JSON.parse(
@@ -53,6 +53,7 @@ try {
 
   await installPackedProduct(archivePath);
   await exerciseInstalledProduct();
+  await exerciseInstalledObservations();
   await exerciseManagedSkillLifecycle();
 } finally {
   await rm(sandbox, { recursive: true, force: true });
@@ -72,6 +73,7 @@ function assertPublicArchive(archivePath) {
   const requiredEntries = [
     "package/.agents/skills/semantic-atlas/SKILL.md",
     "package/.agents/skills/semantic-atlas/agents/openai.yaml",
+    "package/.agents/skills/semantic-atlas/references/observations.md",
     "package/.agents/skills/semantic-atlas/scripts/query-context.mjs",
     "package/dist/cli/bin.js",
     "package/examples/commerce.yaml",
@@ -119,9 +121,29 @@ async function exerciseInstalledProduct() {
     path.join(installedPackageRoot, "examples", "commerce.yaml"),
     path.join(mapDirectory, "commerce.yaml"),
   );
+  run("git", ["init", "--initial-branch=main"], repositoryRoot);
+  run("git", ["config", "user.name", "Semantic Atlas Test"], repositoryRoot);
+  run("git", ["config", "user.email", "semantic-atlas@example.invalid"], repositoryRoot);
+  run("git", ["add", "docs/business-map/commerce.yaml"], repositoryRoot);
+  run("git", ["commit", "-m", "test: create observation repository"], repositoryRoot);
 
   const version = runInstalledCli(["--version"]);
   assert.equal(version.stdout.trim(), packageIdentity.version);
+  const publicModule = await import(
+    pathToFileURL(path.join(installedPackageRoot, "dist", "index.js")).href
+  );
+  assert.equal(
+    publicModule.taskObservationInputSchema.safeParse(
+      taskObservation("public-schema-task", "public-schema-engineering-task"),
+    ).success,
+    true,
+  );
+  assert.equal(
+    publicModule.reviewObservationInputSchema.safeParse(
+      reviewObservation("public-schema-task"),
+    ).success,
+    true,
+  );
 
   const resolvedRepositoryRoot = await realpath(repositoryRoot);
   const validate = runInstalledCli(["validate", "--repo", repositoryRoot]);
@@ -183,6 +205,165 @@ async function exerciseInstalledProduct() {
     JSON.parse(packagedSkillContext.stdout).data.selected.id,
     "commerce.orders.place-order",
   );
+}
+
+async function exerciseInstalledObservations() {
+  const observationWorktree = path.join(sandbox, "observation-worktree");
+  run("git", ["worktree", "add", "--detach", observationWorktree, "HEAD"], repositoryRoot);
+
+  const concurrentInputs = Array.from({ length: 12 }, (_, index) =>
+    taskObservation(`installed-task-${index}`, `engineering-task-${index}`)
+  );
+  const concurrentResults = await Promise.all(concurrentInputs.map((input) =>
+    runInstalledCliAsync([
+      "observe",
+      "task",
+      "--stdin",
+      "--repo",
+      repositoryRoot,
+    ], JSON.stringify(input))
+  ));
+  for (const result of concurrentResults) {
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.equal(JSON.parse(result.stdout).data.outcome, "recorded");
+  }
+
+  const replayInput = taskObservation("installed-shared-task", "shared-task");
+  const replayResults = await Promise.all(Array.from({ length: 6 }, () =>
+    runInstalledCliAsync([
+      "observe",
+      "task",
+      "--stdin",
+      "--repo",
+      repositoryRoot,
+    ], JSON.stringify(replayInput))
+  ));
+  assert.equal(
+    replayResults.filter(({ stdout }) => JSON.parse(stdout).data.outcome === "recorded").length,
+    1,
+  );
+  assert.equal(
+    replayResults.filter(({ stdout }) => JSON.parse(stdout).data.outcome === "idempotent").length,
+    5,
+  );
+
+  const conflictingReplay = runInstalledCliWithInput([
+    "observe",
+    "task",
+    "--stdin",
+    "--repo",
+    repositoryRoot,
+  ], JSON.stringify({
+    ...replayInput,
+    humanCorrection: {
+      summary: "A person corrected the business boundary.",
+      dimensions: ["business_boundary"],
+    },
+  }));
+  assert.equal(conflictingReplay.status, 1);
+  assert.equal(JSON.parse(conflictingReplay.stdout).error.code, "OBSERVATION_CONFLICT");
+
+  const malformed = runInstalledCliWithInput([
+    "observe",
+    "task",
+    "--stdin",
+    "--repo",
+    repositoryRoot,
+  ], "{ incomplete");
+  assert.equal(malformed.status, 1);
+  assert.equal(JSON.parse(malformed.stdout).error.code, "OBSERVATION_INPUT_INVALID");
+
+  const review = reviewObservation("installed-task-0");
+  const reviewResult = runInstalledCliWithInput([
+    "observe",
+    "review",
+    "--stdin",
+    "--repo",
+    observationWorktree,
+  ], JSON.stringify(review));
+  assert.equal(reviewResult.status, 0, reviewResult.stderr || reviewResult.stdout);
+
+  const summary = JSON.parse(runInstalledCli([
+    "insights",
+    "summary",
+    "--repo",
+    repositoryRoot,
+  ]).stdout);
+  assert.deepEqual(summary.data.summary, {
+    taskObservations: 13,
+    reviewObservations: 1,
+    approvedReviews: 1,
+    businessBoundary: { correct: 1, incorrect: 0, notAssessed: 0 },
+    upstreamCause: { correct: 1, incorrect: 0, notAssessed: 0, notApplicable: 0 },
+    impactCompleteness: { complete: 1, incomplete: 0, notAssessed: 0 },
+    requiredRework: 0,
+    mapCausedRegressions: 0,
+    humanCorrections: 0,
+    recoveries: { stale: 1, missing: 0, contradicted: 0 },
+  });
+
+  const observationRoot = path.join(
+    userHome,
+    ".semantic-atlas",
+    "observations",
+    "v1",
+    "repositories",
+  );
+  const observationEntries = await readdir(observationRoot, { recursive: true });
+  const observationFiles = observationEntries
+    .filter((entry) => entry.endsWith(".json"));
+  assert.equal(observationFiles.length, 14);
+  assert.equal(
+    observationEntries.some((entry) => entry.endsWith(".tmp") || entry.endsWith(".lock")),
+    false,
+  );
+  for (const relativePath of observationFiles) {
+    const document = await readFile(path.join(observationRoot, relativePath), "utf8");
+    assert.doesNotThrow(() => JSON.parse(document));
+    assert.equal(document.includes(repositoryRoot), false);
+    assert.equal(document.includes(observationWorktree), false);
+  }
+}
+
+function taskObservation(id, taskId) {
+  return {
+    schemaVersion: 1,
+    id,
+    recordedAt: "2026-08-27T04:00:00.000Z",
+    task: { taskId, runId: `${taskId}-run` },
+    map: {
+      queries: [{
+        selector: "Checkout",
+        outcome: "context",
+        selectedConceptIds: ["commerce.orders.place-order"],
+      }],
+      dispositions: [{
+        status: "stale",
+        summary: "Current source confirmed the operation at a replacement anchor.",
+        evidence: [{ kind: "source", reference: "src/orders/place-order.ts" }],
+      }],
+    },
+    mapUpdateCandidates: [],
+  };
+}
+
+function reviewObservation(taskObservationId) {
+  return {
+    schemaVersion: 1,
+    id: "installed-review-0",
+    recordedAt: "2026-08-27T04:30:00.000Z",
+    taskObservationId,
+    review: {
+      taskId: "installed-review-task",
+      runId: "installed-review-run",
+      verdict: "approved",
+      businessBoundary: "correct",
+      upstreamCause: "correct",
+      impactCompleteness: "complete",
+      requiredRework: false,
+      mapCausedRegression: false,
+    },
+  };
 }
 
 async function exerciseManagedSkillLifecycle() {
@@ -334,6 +515,41 @@ function runInstalledCliAllowFailure(arguments_) {
   );
 }
 
+function runInstalledCliWithInput(arguments_, input) {
+  return runCommand(
+    process.execPath,
+    [installedCli, ...arguments_],
+    consumerDirectory,
+    cliEnvironment,
+    input,
+  );
+}
+
+function runInstalledCliAsync(arguments_, input) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [installedCli, ...arguments_], {
+      cwd: consumerDirectory,
+      env: cliEnvironment,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", reject);
+    child.on("close", (status) => {
+      resolve({ status, stdout, stderr });
+    });
+    child.stdin.end(input);
+  });
+}
+
 async function assertMissing(filePath) {
   await assert.rejects(access(filePath));
 }
@@ -348,10 +564,11 @@ function run(command, arguments_, cwd, environment = process.env) {
   return result;
 }
 
-function runCommand(command, arguments_, cwd, environment = process.env) {
+function runCommand(command, arguments_, cwd, environment = process.env, input) {
   return spawnSync(command, arguments_, {
     cwd,
     encoding: "utf8",
     env: environment,
+    input,
   });
 }

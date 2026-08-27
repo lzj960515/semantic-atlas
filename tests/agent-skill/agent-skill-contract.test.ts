@@ -98,6 +98,26 @@ describe("repository Agent Skill", () => {
     expect(skillDocument).toContain("map-update candidate");
   });
 
+  it("records task evidence without moving accuracy authority into the task Agent", async () => {
+    const skillDocument = await readFile(
+      path.join(skillDirectory, "SKILL.md"),
+      "utf8",
+    );
+    const observationReference = await readFile(
+      path.join(skillDirectory, "references/observations.md"),
+      "utf8",
+    );
+
+    expect(skillDocument).toContain("references/observations.md");
+    expect(skillDocument).toContain("semantic-atlas observe task --stdin");
+    expect(skillDocument).toContain("engineering result remains unchanged");
+    expect(skillDocument).toContain("Independent review owns accuracy judgments");
+    expect(observationReference).toContain('"schemaVersion": 1');
+    expect(observationReference).toContain('"mapUpdateCandidates"');
+    expect(observationReference).toContain("semantic-atlas observe review --stdin");
+    expect(observationReference).not.toContain("Pietra");
+  });
+
   it("keeps every controlled case queryable and grounded in current evidence", async () => {
     const suite = await readEvaluationSuite();
 

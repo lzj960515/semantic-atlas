@@ -3,6 +3,10 @@ export type {
   CliRunResult,
   ContextData,
   ContextEnvelope,
+  InsightsSummaryEnvelope,
+  ObservationRecordedData,
+  ObserveReviewEnvelope,
+  ObserveTaskEnvelope,
   RenderData,
   RenderEnvelope,
   SetupData,
@@ -13,9 +17,44 @@ export type {
   ValidateEnvelope,
 } from "./contracts/cli.js";
 export type {
+  AccuracyDimensionCounts,
+  ImpactCompletenessCounts,
+  InsightPeriod,
+  InsightSummary,
+  InsightSummaryResult,
+  UpstreamCauseCounts,
+} from "./contracts/insights.js";
+export type {
   BusinessNode,
   BusinessRelation,
   MapDocument,
   MapIssue,
   RepositoryMapSource,
 } from "./contracts/map.js";
+export {
+  evidenceDispositionSchema,
+  evidenceReferenceSchema,
+  humanCorrectionSchema,
+  mapQueryObservationSchema,
+  mapUpdateCandidateSchema,
+  repositoryIdentitySchema,
+  reviewAssessmentSchema,
+  reviewObservationInputSchema,
+  reviewObservationSchema,
+  taskObservationInputSchema,
+  taskObservationSchema,
+} from "./contracts/observation.js";
+export type {
+  EvidenceDisposition,
+  EvidenceReference,
+  HumanCorrection,
+  MapQueryObservation,
+  MapUpdateCandidate,
+  ObservationKind,
+  RepositoryIdentity,
+  ReviewAssessment,
+  ReviewObservation,
+  ReviewObservationInput,
+  TaskObservation,
+  TaskObservationInput,
+} from "./contracts/observation.js";

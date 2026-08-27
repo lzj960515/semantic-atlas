@@ -14,6 +14,9 @@ setup, observation, release, target-repository, and real-use gates.
   dependency direction, collaboration model, and failure semantics.
 - [Map format](map-format.md): tracked graph documents, concepts, relations,
   anchors, validation, and query projections.
+- [Accuracy observations](observations.md): task and independent-review
+  evidence schemas, immutable local persistence, replay, privacy, and derived
+  summaries.
 - [Evaluation](evaluation.md): real-task accuracy, stale-map recovery, code
   quality, and human-intervention evidence.
 - [Delivery plan](delivery-plan.md): integrated initial slices and the ordered,

@@ -4,6 +4,8 @@ import type {
   MapIssue,
   RepositoryMapSource,
 } from "./map.js";
+import type { InsightSummaryResult } from "./insights.js";
+import type { ObservationKind } from "./observation.js";
 
 export interface CliRunResult {
   readonly exitCode: number;
@@ -85,6 +87,37 @@ export type CliError =
       readonly code: "UPGRADE_FAILED";
       readonly message: string;
       readonly step: "check" | "install" | "locate" | "verify" | "setup";
+    }
+  | {
+      readonly code: "OBSERVATION_INPUT_INVALID";
+      readonly message: string;
+      readonly issues: readonly {
+        readonly path: string;
+        readonly message: string;
+      }[];
+    }
+  | {
+      readonly code: "OBSERVATION_CONFLICT";
+      readonly message: string;
+      readonly observationId: string;
+    }
+  | {
+      readonly code: "TASK_OBSERVATION_NOT_FOUND";
+      readonly message: string;
+      readonly taskObservationId: string;
+    }
+  | {
+      readonly code: "OBSERVATION_STORAGE_FAILED";
+      readonly message: string;
+    }
+  | {
+      readonly code: "INSIGHTS_PERIOD_INVALID";
+      readonly message: string;
+      readonly period: string;
+    }
+  | {
+      readonly code: "INSIGHTS_READ_FAILED";
+      readonly message: string;
     };
 
 export interface ValidateData {
@@ -146,6 +179,13 @@ export interface UpgradeData {
   readonly skillDirectory: string;
 }
 
+export interface ObservationRecordedData {
+  readonly outcome: "recorded" | "idempotent";
+  readonly kind: ObservationKind;
+  readonly id: string;
+  readonly path: string;
+}
+
 export type ValidateEnvelope =
   | CliSuccessEnvelope<"validate", ValidateData>
   | CliErrorEnvelope<"validate">;
@@ -165,3 +205,15 @@ export type SetupEnvelope =
 export type UpgradeEnvelope =
   | StandaloneCliSuccessEnvelope<"upgrade", UpgradeData>
   | CliErrorEnvelope<"upgrade">;
+
+export type ObserveTaskEnvelope =
+  | StandaloneCliSuccessEnvelope<"observe task", ObservationRecordedData>
+  | CliErrorEnvelope<"observe task">;
+
+export type ObserveReviewEnvelope =
+  | StandaloneCliSuccessEnvelope<"observe review", ObservationRecordedData>
+  | CliErrorEnvelope<"observe review">;
+
+export type InsightsSummaryEnvelope =
+  | StandaloneCliSuccessEnvelope<"insights summary", InsightSummaryResult>
+  | CliErrorEnvelope<"insights summary">;

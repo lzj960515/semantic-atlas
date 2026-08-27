@@ -5,6 +5,18 @@ ownership.
 
 ## 2026-08-27
 
+- Implemented strict versioned task and independent-review observation
+  contracts while keeping correctness, rework, and map-regression authority in
+  review evidence rather than task-agent self-scoring.
+- Added anonymous repository identities shared across Git worktrees, immutable
+  user-local per-ID JSON files, atomic publication, exact replay idempotency,
+  changed-content conflicts, and same-repository review references.
+- Added read-only accuracy summaries for review correctness, upstream cause,
+  impact completeness, rework, map regression, human correction, and
+  independently approved stale, missing, and contradicted-map recovery.
+- Extended the bundled managed Skill to record task evidence after
+  business-changing work and to report observation failure separately without
+  changing the engineering result.
 - Implemented the local managed-Skill lifecycle candidate: package-identity
   markers, deterministic payload fingerprints, idempotent repair, supported
   v0.4 replacement, conflict refusal, and recoverable atomic directory swaps.

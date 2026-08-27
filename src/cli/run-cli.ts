@@ -1,15 +1,23 @@
 import path from "node:path";
+import os from "node:os";
 import { Command, CommanderError } from "commander";
 import { MapApplication, type MapProjectionResult } from "../application/map-application.js";
 import type {
   CliErrorEnvelope,
   CliRunResult,
   ContextEnvelope,
+  InsightsSummaryEnvelope,
+  ObserveReviewEnvelope,
+  ObserveTaskEnvelope,
   RenderEnvelope,
   SetupEnvelope,
   UpgradeEnvelope,
   ValidateEnvelope,
 } from "../contracts/cli.js";
+import { InsightService } from "../insights/insight-service.js";
+import { ObservationApplication } from "../observations/observation-application.js";
+import { ObservationStore } from "../observations/observation-store.js";
+import { RepositoryIdentityResolver } from "../observations/repository-identity.js";
 import {
   ManagedSkillConflictError,
   ManagedSkillInstaller,
@@ -24,13 +32,25 @@ import {
   readPackageIdentity,
   type PackageIdentity,
 } from "../setup/package-identity.js";
+import {
+  type ObservationCliRuntime,
+  runInsightsSummaryCommand,
+  runObserveReviewCommand,
+  runObserveTaskCommand,
+} from "./observation-commands.js";
 import { writeProjection } from "./projection-writer.js";
 
-export interface CliRuntime {
+export interface CliRuntime extends ObservationCliRuntime {
   readonly packageIdentity: PackageIdentity;
   readonly mapApplication: MapApplication;
   installSkill(): Promise<ManagedSkillInstallation>;
   upgradePackage(): Promise<PackageUpgradeResult>;
+}
+
+export interface CliRuntimeOptions {
+  readonly userHome?: string;
+  readonly readStandardInput?: () => Promise<string>;
+  readonly now?: () => Date;
 }
 
 export async function runCli(
@@ -45,6 +65,9 @@ export async function runCli(
     | RenderEnvelope
     | SetupEnvelope
     | UpgradeEnvelope
+    | ObserveTaskEnvelope
+    | ObserveReviewEnvelope
+    | InsightsSummaryEnvelope
     | undefined;
   let commandOutput = "";
   let commandError = "";
@@ -103,6 +126,39 @@ export async function runCli(
       commandEnvelope = await application.context(options.repo, selector);
     });
 
+  const observe = program
+    .command("observe")
+    .description("Record immutable engineering accuracy evidence");
+
+  observe
+    .command("task")
+    .description("Record task-agent investigation evidence")
+    .requiredOption("--stdin", "read one JSON observation from standard input")
+    .option("--repo <path>", "repository root", process.cwd())
+    .action(async (options: { readonly repo: string }) => {
+      commandEnvelope = await runObserveTaskCommand(resolvedRuntime, options.repo);
+    });
+
+  observe
+    .command("review")
+    .description("Record independent review evidence")
+    .requiredOption("--stdin", "read one JSON observation from standard input")
+    .option("--repo <path>", "repository root", process.cwd())
+    .action(async (options: { readonly repo: string }) => {
+      commandEnvelope = await runObserveReviewCommand(resolvedRuntime, options.repo);
+    });
+
+  program
+    .command("insights")
+    .description("Summarize retained accuracy evidence")
+    .command("summary")
+    .description("Derive a read-only repository accuracy summary")
+    .option("--repo <path>", "repository root", process.cwd())
+    .option("--period <duration>", "positive duration such as 24h, 7d, or 4w")
+    .action(async (options: { readonly repo: string; readonly period?: string }) => {
+      commandEnvelope = await runInsightsSummaryCommand(resolvedRuntime, options);
+    });
+
   try {
     await program.parseAsync([...arguments_], { from: "user" });
   } catch (error) {
@@ -153,16 +209,36 @@ export async function runCli(
   return serialize(commandEnvelope.ok ? 0 : 1, commandEnvelope);
 }
 
-async function createCliRuntime(): Promise<CliRuntime> {
+export async function createCliRuntime(
+  options: CliRuntimeOptions = {},
+): Promise<CliRuntime> {
   const packageIdentity = await readPackageIdentity();
+  const repositoryResolver = new RepositoryIdentityResolver();
+  const observationStore = new ObservationStore({
+    userHome: options.userHome ?? os.homedir(),
+  });
   return {
     packageIdentity,
     mapApplication: new MapApplication(),
+    observationApplication: new ObservationApplication(
+      repositoryResolver,
+      observationStore,
+    ),
+    insightService: new InsightService(repositoryResolver, observationStore),
     installSkill: () => new ManagedSkillInstaller({ packageIdentity }).install(),
     upgradePackage: () => new SemanticAtlasPackageUpgrader({
       currentVersion: packageIdentity.version,
     }).upgrade(),
+    readStandardInput: options.readStandardInput ?? readStandardInput,
+    now: options.now ?? (() => new Date()),
   };
+}
+
+async function readStandardInput(): Promise<string> {
+  let input = "";
+  process.stdin.setEncoding("utf8");
+  for await (const chunk of process.stdin) input += chunk;
+  return input;
 }
 
 async function runSetupCommand(runtime: CliRuntime): Promise<SetupEnvelope> {

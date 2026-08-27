@@ -199,6 +199,12 @@ The complete candidate passes local source, built-product, packed-tarball,
 Skill, renderer, privacy, and private real-task accuracy acceptance. The
 previous Semantic Atlas repository and project remain separate and paused.
 
+The managed-Skill setup and exact-package upgrade path is integrated through
+`5223b59`. The immutable accuracy-observation and derived-insights path is the
+current local candidate. Review, integration, public repository cutover,
+publication, target-repository changes, and longitudinal use remain separate
+verified stages.
+
 ## V1 Real-Repository Rollout
 
 The next product stage turns the accepted local candidate into the one installed
