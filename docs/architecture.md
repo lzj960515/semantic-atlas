@@ -226,16 +226,18 @@ release tag so the public package is not validated through a weaker path.
 ### Release Automation
 
 The release workflow starts only from a published, non-prerelease GitHub
-Release after immutable releases have been enabled for the repository. It
-checks out the event's annotated tag, proves that the tag, commit, and stable
-package version agree, and reads the specific Release through GitHub's API. The
-workflow stops unless the Release tag matches and immutable protection is
-active. It then repeats release-candidate verification and publishes through
-the protected `npm` environment with provenance. Finally, it reads the exact
-version, latest tag, shasum, and integrity back from the public registry. Remote
-rename, repository setting changes, tag creation, GitHub Release publication,
-and npm publication remain explicit later operations rather than local build
-effects.
+Release after immutable releases have been enabled for the repository. A
+read-only gate job uses workflow-owned code to read the specific Release through
+GitHub's API before any tag checkout, protected environment, or OIDC permission
+is available. The gate fails unless the Release tag matches and immutable
+protection is active. A dependent publish job then enters the protected `npm`
+environment, checks out the annotated tag, proves that the tag, commit, and
+stable package version agree, repeats the Release check as defense in depth,
+runs release-candidate verification, and publishes with provenance. Finally, it
+reads the exact version, latest tag, shasum, and integrity back from the public
+registry. Remote rename, repository setting changes, tag creation, GitHub
+Release publication, and npm publication remain explicit later operations
+rather than local build effects.
 
 ## Data Lifecycles
 

@@ -12,8 +12,9 @@ deployment step. A release starts from an already versioned candidate on
 The protected `npm` GitHub environment owns the registry credential. Before a
 tag or Release is created, the repository is configured for immutable releases
 and that setting is read back. The release-published workflow verifies the
-specific Release is immutable, repeats `pnpm release:verify`, checks the tag
-against `package.json`, publishes with npm provenance, and performs public
+specific Release in a read-only gate before any tag checkout or npm credential
+boundary. A dependent protected job repeats `pnpm release:verify`, checks the
+tag against `package.json`, publishes with npm provenance, and performs public
 read-back.
 
 ## 1. Confirm Repository Identity
@@ -100,9 +101,10 @@ test "$(gh release view "$tag" --json isImmutable --jq '.isImmutable')" = "true"
 
 Publishing the non-prerelease GitHub Release is the only event that starts npm
 publication. The published Release must report `isImmutable: true`; the workflow
-independently reads the REST Release and stops before npm publication unless its
-tag matches and `immutable` is exactly `true`. Pushes and pull requests run CI
-but cannot publish.
+independently reads the REST Release in a read-only gate and stops before tag
+checkout, protected-environment access, or OIDC permission unless its tag
+matches and `immutable` is exactly `true`. Pushes and pull requests run CI but
+cannot publish.
 
 ## 7. Follow The Exact Workflow
 

@@ -65,11 +65,45 @@ describe("public release candidate", () => {
     const workflow = parse(await read(".github/workflows/release.yml")) as Workflow;
 
     expect(workflow.on).toEqual({ release: { types: ["published"] } });
-    expect(workflow.permissions).toEqual({ contents: "read", "id-token": "write" });
+    expect(workflow.permissions).toEqual({ contents: "read" });
+    const releaseGate = workflow.jobs.release_gate;
+    expect(releaseGate).toBeDefined();
+    if (!releaseGate) throw new Error("Trusted release gate job is missing");
+    expect(releaseGate.if).toContain("!github.event.release.prerelease");
+    expect(releaseGate.environment).toBeUndefined();
+    expect(releaseGate.permissions).toEqual({ contents: "read" });
+    expect(releaseGate.steps).toHaveLength(1);
+    expect(releaseGate.steps).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ uses: "actions/checkout@v4" }),
+    ]));
+    expect(releaseGate.steps).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        name: "Verify immutable GitHub Release before checkout",
+        run: expect.stringContaining("jq --exit-status"),
+        env: {
+          GH_TOKEN: "${{ github.token }}",
+          RELEASE_TAG: "${{ github.event.release.tag_name }}",
+        },
+      }),
+    ]));
+    const gateCommand = String(
+      releaseGate.steps.find((step) => step.name === "Verify immutable GitHub Release before checkout")?.run,
+    );
+    for (const immutableCondition of [
+      ".tag_name == $release_tag",
+      ".immutable == true",
+      ".draft == false",
+      ".prerelease == false",
+    ]) {
+      expect(gateCommand).toContain(immutableCondition);
+    }
+
     const publish = workflow.jobs.publish;
     expect(publish).toBeDefined();
     if (!publish) throw new Error("Release publish job is missing");
+    expect(publish.needs).toBe("release_gate");
     expect(publish.if).toContain("!github.event.release.prerelease");
+    expect(publish.permissions).toEqual({ contents: "read", "id-token": "write" });
     expect(publish.environment).toBe("npm");
     const immutableReleaseStepIndex = publish.steps.findIndex(
       (step) => step.name === "Verify immutable GitHub Release",
@@ -175,6 +209,8 @@ describe("public release candidate", () => {
 interface WorkflowJob {
   readonly environment?: string;
   readonly if?: string;
+  readonly needs?: string;
+  readonly permissions?: Record<string, string>;
   readonly "runs-on": string;
   readonly steps: readonly Record<string, unknown>[];
 }

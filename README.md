@@ -174,8 +174,9 @@ diff validation.
 Publication is a separate operation. After the repository's immutable-release
 setting is enabled, a non-prerelease GitHub Release for an annotated version tag
 triggers the protected npm workflow. The workflow verifies the specific Release
-is immutable before it repeats the candidate gate and publishes with npm
-provenance.
+is immutable in a read-only job before any tag checkout or npm credential
+boundary. Only then does the protected publish job repeat the candidate gate
+and publish with npm provenance.
 
 ## Documentation
 

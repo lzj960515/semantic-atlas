@@ -7,16 +7,38 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: npm-${{ github.event.release.tag_name }}
   cancel-in-progress: false
 
 jobs:
-  publish:
+  release_gate:
     if: ${{ !github.event.release.prerelease }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Verify immutable GitHub Release before checkout
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" \
+            | jq --exit-status --arg release_tag "$RELEASE_TAG" '
+                .tag_name == $release_tag
+                and .immutable == true
+                and .draft == false
+                and .prerelease == false
+              '
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+
+  publish:
+    needs: release_gate
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     environment: npm
     steps:
       - uses: actions/checkout@v4

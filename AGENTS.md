@@ -98,8 +98,9 @@ that helped locate it.
   tarball privacy, the public v0.4 transition, pack output, and Git diff checks.
 - Keep the package version and annotated `v<version>` tag on one exact commit.
   Enable immutable releases before publishing that tag as a non-prerelease
-  GitHub Release. The npm workflow reads the specific Release and stops unless
-  its tag matches and immutable protection is active.
+  GitHub Release. A read-only gate job verifies the specific Release before any
+  tag checkout or access to the protected `npm` environment; the publish job
+  starts only after that gate succeeds.
 - Let the protected `npm` GitHub environment own credentials. The release
   workflow repeats source verification and uses npm provenance; local release
   instructions never publish directly.
