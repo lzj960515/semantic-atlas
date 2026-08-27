@@ -273,10 +273,16 @@ async function exerciseManagedSkillLifecycle() {
 
   const fakeBin = path.join(sandbox, "incompatible-bin");
   const fakeCli = path.join(fakeBin, "semantic-atlas");
+  const misleadingHomeCli = path.join(userHome, "dist", "cli", "bin.js");
   await mkdir(fakeBin, { recursive: true });
+  await mkdir(path.dirname(misleadingHomeCli), { recursive: true });
   await writeFile(
     fakeCli,
     "#!/usr/bin/env node\nprocess.stdout.write('0.4.0\\n');\n",
+  );
+  await writeFile(
+    misleadingHomeCli,
+    "process.stdout.write(JSON.stringify({ schemaVersion: 1, ok: true, command: 'context' }) + '\\n');\n",
   );
   await chmod(fakeCli, 0o755);
   const incompatible = runCommand(

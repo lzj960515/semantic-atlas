@@ -39,13 +39,6 @@ process.stderr.write(result.stderr);
 process.exitCode = result.status ?? 2;
 
 async function resolveCliCommand() {
-  if (await fileExists(bundledCli)) {
-    return {
-      executable: process.execPath,
-      arguments: [bundledCli, "context", ...arguments_],
-    };
-  }
-
   const managedIdentity = await readManagedIdentity();
   if (managedIdentity) {
     const versionResult = spawnSync("semantic-atlas", ["--version"], {
@@ -60,6 +53,17 @@ async function resolveCliCommand() {
         `The managed Semantic Atlas Skill requires CLI ${managedIdentity.packageVersion}, but ${installedVersion || "no compatible CLI"} is available.`,
       );
     }
+    return {
+      executable: "semantic-atlas",
+      arguments: ["context", ...arguments_],
+    };
+  }
+
+  if (await fileExists(bundledCli)) {
+    return {
+      executable: process.execPath,
+      arguments: [bundledCli, "context", ...arguments_],
+    };
   }
 
   return {
