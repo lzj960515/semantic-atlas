@@ -254,7 +254,8 @@ authority. The product records two immutable, versioned local artifacts:
 - `TaskObservation`: map query and selected concepts, current-evidence
   classification, explicitly domain-owned map-update candidates with a
   candidate disposition, and any explicit human correction known to the task
-  Agent;
+  Agent. Current writes use task artifact v2; immutable task v1 evidence remains
+  readable after upgrade without promoting its unowned candidates;
 - `ReviewObservation`: the independent review verdict, correctness of the
   business boundary and upstream cause, impact completeness, required rework,
   and whether the map caused a wrong conclusion.

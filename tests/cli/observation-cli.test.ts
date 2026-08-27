@@ -142,7 +142,7 @@ async function createFixture(): Promise<{
 
 function taskObservation(): TaskObservationInput {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: "task-observation-cli",
     recordedAt: "2026-08-27T10:00:00.000Z",
     task: { taskId: "task-cli", runId: "run-cli" },

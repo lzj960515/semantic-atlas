@@ -7,7 +7,7 @@ import type {
 } from "../contracts/reconciliation.js";
 import type {
   ReviewObservation,
-  TaskObservation,
+  StoredTaskObservation,
 } from "../contracts/observation.js";
 import { ObservationStore } from "../observations/observation-store.js";
 import { RepositoryIdentityResolver } from "../observations/repository-identity.js";
@@ -80,11 +80,12 @@ function groupReviewsByTask(
 }
 
 function groupCandidates(
-  tasks: readonly TaskObservation[],
+  tasks: readonly StoredTaskObservation[],
   reviewsByTask: ReadonlyMap<string, readonly ReconciliationReviewOrigin[]>,
 ): readonly CandidateAccumulator[] {
   const grouped = new Map<string, CandidateAccumulator>();
   for (const task of tasks) {
+    if (task.schemaVersion === 1) continue;
     task.mapUpdateCandidates.forEach((candidate, candidateIndex) => {
       const key = candidateKey(candidate.businessDomainId, candidate.kind, candidate.summary);
       const current = grouped.get(key) ?? {

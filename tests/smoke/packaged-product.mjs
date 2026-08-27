@@ -237,6 +237,35 @@ async function exerciseInstalledObservations() {
     assert.equal(JSON.parse(result.stdout).data.outcome, "recorded");
   }
 
+  const observationRoot = path.join(
+    userHome,
+    ".semantic-atlas",
+    "observations",
+    "v1",
+    "repositories",
+  );
+  const [repositoryPartition] = await readdir(observationRoot);
+  assert.ok(repositoryPartition, "installed observation repository partition is missing");
+  const installedTaskDirectory = path.join(
+    observationRoot,
+    repositoryPartition,
+    "tasks",
+  );
+  const currentStoredTask = JSON.parse(await readFile(
+    path.join(installedTaskDirectory, "installed-task-0.json"),
+    "utf8",
+  ));
+  const legacyFixture = JSON.parse(await readFile(
+    path.join(packageRoot, "tests/fixtures/observations/task-observation-v1.json"),
+    "utf8",
+  ));
+  const legacyStoredDocument = `${JSON.stringify({
+    ...legacyFixture,
+    repository: currentStoredTask.repository,
+  }, null, 2)}\n`;
+  const legacyObservationPath = path.join(installedTaskDirectory, "legacy-v1.json");
+  await writeFile(legacyObservationPath, legacyStoredDocument, "utf8");
+
   const replayInput = taskObservation("installed-shared-task", "shared-task");
   const replayResults = await Promise.all(Array.from({ length: 6 }, () =>
     runInstalledCliAsync([
@@ -299,7 +328,7 @@ async function exerciseInstalledObservations() {
     repositoryRoot,
   ]).stdout);
   assert.deepEqual(summary.data.summary, {
-    taskObservations: 13,
+    taskObservations: 14,
     reviewObservations: 1,
     approvedReviews: 1,
     businessBoundary: { correct: 1, incorrect: 0, notAssessed: 0 },
@@ -331,17 +360,10 @@ async function exerciseInstalledObservations() {
     "approved",
   );
 
-  const observationRoot = path.join(
-    userHome,
-    ".semantic-atlas",
-    "observations",
-    "v1",
-    "repositories",
-  );
   const observationEntries = await readdir(observationRoot, { recursive: true });
   const observationFiles = observationEntries
     .filter((entry) => entry.endsWith(".json"));
-  assert.equal(observationFiles.length, 14);
+  assert.equal(observationFiles.length, 15);
   assert.equal(
     observationEntries.some((entry) => entry.endsWith(".tmp") || entry.endsWith(".lock")),
     false,
@@ -352,11 +374,12 @@ async function exerciseInstalledObservations() {
     assert.equal(document.includes(repositoryRoot), false);
     assert.equal(document.includes(observationWorktree), false);
   }
+  assert.equal(await readFile(legacyObservationPath, "utf8"), legacyStoredDocument);
 }
 
 function taskObservation(id, taskId) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id,
     recordedAt: "2026-08-27T04:00:00.000Z",
     task: { taskId, runId: `${taskId}-run` },

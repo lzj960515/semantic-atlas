@@ -5,6 +5,10 @@ ownership.
 
 ## 2026-08-27
 
+- Versioned current task observations as v2 after adding explicit candidate
+  ownership and disposition, while retaining read-only compatibility for
+  immutable task v1 evidence. Legacy unowned candidates remain outside
+  reconciliation reports instead of being inferred or treated as corruption.
 - Added explicit business-domain ownership and candidate-specific evidence
   dispositions to map-update observations so maintenance does not infer stable
   meaning from paths or free-form summaries.

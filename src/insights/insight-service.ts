@@ -1,7 +1,7 @@
 import type {
   EvidenceDisposition,
   ReviewObservation,
-  TaskObservation,
+  StoredTaskObservation,
 } from "../contracts/observation.js";
 import type {
   AccuracyDimensionCounts,
@@ -73,9 +73,9 @@ function filterByPeriod<TObservation extends { readonly recordedAt: string }>(
 }
 
 function summarizeObservations(
-  tasks: readonly TaskObservation[],
+  tasks: readonly StoredTaskObservation[],
   reviews: readonly ReviewObservation[],
-  allTasks: readonly TaskObservation[],
+  allTasks: readonly StoredTaskObservation[],
 ): InsightSummary {
   const taskById = new Map(allTasks.map((task) => [task.id, task]));
   const approvedReviews = reviews.filter(({ review }) => review.verdict === "approved");
@@ -140,7 +140,7 @@ function countImpactCompleteness(
 
 function countRecoveries(
   approvedReviews: readonly ReviewObservation[],
-  taskById: ReadonlyMap<string, TaskObservation>,
+  taskById: ReadonlyMap<string, StoredTaskObservation>,
 ): InsightSummary["recoveries"] {
   const recovered = {
     stale: new Set<string>(),

@@ -169,7 +169,7 @@ function taskObservation(
   controlledCase: ControlledCase,
 ): TaskObservationInput {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id,
     recordedAt: "2026-08-27T10:00:00.000Z",
     task: {

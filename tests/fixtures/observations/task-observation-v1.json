@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "legacy-v1",
+  "recordedAt": "2026-08-26T10:00:00.000Z",
+  "task": {
+    "taskId": "legacy-task",
+    "runId": "legacy-run"
+  },
+  "map": {
+    "queries": [
+      {
+        "selector": "Refund eligibility",
+        "outcome": "concept_not_found"
+      }
+    ],
+    "dispositions": [
+      {
+        "status": "missing",
+        "summary": "Current source established behavior that the map did not contain.",
+        "evidence": [
+          {
+            "kind": "source",
+            "reference": "src/refunds.ts"
+          }
+        ]
+      }
+    ]
+  },
+  "mapUpdateCandidates": [
+    {
+      "kind": "node",
+      "summary": "Add refund eligibility as a durable operation.",
+      "evidence": [
+        {
+          "kind": "source",
+          "reference": "src/refunds.ts"
+        }
+      ]
+    }
+  ],
+  "repository": {
+    "kind": "git",
+    "id": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

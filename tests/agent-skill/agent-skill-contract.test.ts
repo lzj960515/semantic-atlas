@@ -113,6 +113,7 @@ describe("repository Agent Skill", () => {
     expect(skillDocument).toContain("engineering result remains unchanged");
     expect(skillDocument).toContain("Independent review owns accuracy judgments");
     expect(observationReference).toContain('"schemaVersion": 1');
+    expect(observationReference).toContain('"schemaVersion": 2');
     expect(observationReference).toContain('"mapUpdateCandidates"');
     expect(observationReference).toContain('"businessDomainId"');
     expect(observationReference).toContain('"disposition"');

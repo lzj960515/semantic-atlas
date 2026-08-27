@@ -55,7 +55,7 @@ describe("accuracy observation boundary", () => {
     const storedTaskDocument = await readFile(recordedTask.path, "utf8");
     expect(storedTaskDocument).not.toContain(fixture.repositoryRoot);
     expect(JSON.parse(storedTaskDocument)).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       id: task.id,
       repository: {
         kind: "git",
@@ -424,7 +424,7 @@ function taskObservation(
   overrides: Partial<TaskObservationInput> = {},
 ): TaskObservationInput {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: "task-observation-1",
     recordedAt: "2026-08-27T03:00:00.000Z",
     task: {

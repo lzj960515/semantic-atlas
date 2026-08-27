@@ -119,7 +119,7 @@ function taskObservation(
   corrected = false,
 ): TaskObservationInput {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id,
     recordedAt,
     task: { taskId: `${id}-task`, runId: `${id}-run` },

@@ -1,11 +1,17 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import type { TaskObservationInput } from "../../src/contracts/observation.js";
+import { fileURLToPath } from "node:url";
+import type {
+  ReviewObservationInput,
+  TaskObservationInput,
+} from "../../src/contracts/observation.js";
 import { createCliRuntime, runCli } from "../../src/cli/run-cli.js";
+import { RepositoryIdentityResolver } from "../../src/observations/repository-identity.js";
 
 const sandboxes: string[] = [];
+const fixtureRoot = fileURLToPath(new URL("../fixtures", import.meta.url));
 
 afterEach(async () => {
   await Promise.all(sandboxes.splice(0).map((directory) =>
@@ -81,25 +87,96 @@ describe("semantic-atlas reconcile candidates", () => {
       error: { code: "REPOSITORY_INVALID" },
     });
   });
+
+  it("reads immutable v1 evidence without promoting its unowned candidate", async () => {
+    const fixture = await createFixture();
+    const repository = (await new RepositoryIdentityResolver().resolve(
+      fixture.repositoryRoot,
+    )).identity;
+    const legacyFixture = JSON.parse(await readFile(
+      path.join(fixtureRoot, "observations/task-observation-v1.json"),
+      "utf8",
+    )) as Record<string, unknown>;
+    const legacyObservation = {
+      ...legacyFixture,
+      repository,
+    };
+    const taskDirectory = path.join(
+      fixture.userHome,
+      ".semantic-atlas/observations/v1/repositories",
+      repository.id,
+      "tasks",
+    );
+    const observationPath = path.join(taskDirectory, "legacy-v1.json");
+    const storedDocument = `${JSON.stringify(legacyObservation, null, 2)}\n`;
+    await mkdir(taskDirectory, { recursive: true });
+    await writeFile(observationPath, storedDocument, "utf8");
+    await fixture.runtime.observationApplication.recordReview(
+      fixture.repositoryRoot,
+      legacyReviewObservation(),
+    );
+
+    const reconciliation = await runCli([
+      "reconcile",
+      "candidates",
+      "--repo",
+      fixture.repositoryRoot,
+    ], fixture.runtime);
+    const insights = await runCli([
+      "insights",
+      "summary",
+      "--repo",
+      fixture.repositoryRoot,
+    ], fixture.runtime);
+
+    expect(reconciliation.exitCode).toBe(0);
+    expect(JSON.parse(reconciliation.stdout)).toMatchObject({
+      ok: true,
+      data: {
+        summary: {
+          businessDomains: 0,
+          candidateGroups: 0,
+          candidateOccurrences: 0,
+          duplicateGroups: 0,
+        },
+        domains: [],
+      },
+    });
+    expect(insights.exitCode).toBe(0);
+    expect(JSON.parse(insights.stdout)).toMatchObject({
+      ok: true,
+      data: {
+        summary: {
+          taskObservations: 1,
+          approvedReviews: 1,
+          recoveries: { missing: 1 },
+        },
+      },
+    });
+    expect(await readFile(observationPath, "utf8")).toBe(storedDocument);
+  });
 });
 
 async function createFixture(): Promise<{
   readonly repositoryRoot: string;
+  readonly userHome: string;
   readonly runtime: Awaited<ReturnType<typeof createCliRuntime>>;
 }> {
   const sandbox = await mkdtemp(path.join(os.tmpdir(), "semantic-atlas-reconcile-cli-"));
   sandboxes.push(sandbox);
   const repositoryRoot = path.join(sandbox, "repository");
+  const userHome = path.join(sandbox, "home");
   await mkdir(path.join(repositoryRoot, ".git"), { recursive: true });
   return {
     repositoryRoot,
-    runtime: await createCliRuntime({ userHome: path.join(sandbox, "home") }),
+    userHome,
+    runtime: await createCliRuntime({ userHome }),
   };
 }
 
 function taskObservation(): TaskObservationInput {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: "task-observation-reconcile-cli",
     recordedAt: "2026-08-27T10:00:00.000Z",
     task: { taskId: "task-reconcile-cli", runId: "run-reconcile-cli" },
@@ -118,5 +195,24 @@ function taskObservation(): TaskObservationInput {
       summary: "Add refund eligibility as a durable Commerce operation.",
       evidence: [{ kind: "source", reference: "src/refunds.ts" }],
     }],
+  };
+}
+
+function legacyReviewObservation(): ReviewObservationInput {
+  return {
+    schemaVersion: 1,
+    id: "legacy-v1-review",
+    recordedAt: "2026-08-26T11:00:00.000Z",
+    taskObservationId: "legacy-v1",
+    review: {
+      taskId: "legacy-review-task",
+      runId: "legacy-review-run",
+      verdict: "approved",
+      businessBoundary: "correct",
+      upstreamCause: "not_applicable",
+      impactCompleteness: "complete",
+      requiredRework: false,
+      mapCausedRegression: false,
+    },
   };
 }

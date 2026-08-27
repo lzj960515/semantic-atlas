@@ -7,11 +7,12 @@ and replay the same document when a submission result is uncertain.
 ## Task Observation
 
 The task Agent records investigation evidence. It does not add review verdicts,
-correctness fields, rework judgments, or map-regression judgments.
+correctness fields, rework judgments, or map-regression judgments. Current task
+observations use schema version 2.
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "task-observation-unique-id",
   "recordedAt": "2026-08-27T03:00:00.000Z",
   "task": {
@@ -68,6 +69,9 @@ is `confirmed` when current evidence supports the proposed correction,
 evidence, or `unresolved` when it remains a maintenance lead. Periodic
 maintenance preserves these task-time judgments and linked independent reviews,
 then confirms durable business meaning again before editing canonical YAML.
+Immutable task v1 observations remain readable after package upgrades, but
+their candidates predate these ownership fields and therefore stay outside
+domain reconciliation.
 
 When a person explicitly corrects the task, add:
 

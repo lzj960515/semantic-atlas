@@ -184,7 +184,11 @@ observation publication.
 Owns immutable, versioned user-local observation files and composes the claim
 manager around each write. The store writes and syncs a complete observation
 staging file, atomically renames it into place, returns idempotency for an exact
-replay, and reports a conflict for changed content under an existing ID.
+replay, and reports a conflict for changed content under an existing ID. Its
+write boundary accepts current task v2 and review v1 artifacts. Its read
+boundary also accepts immutable task v1 artifacts so package upgrades preserve
+historical investigation evidence and review references without assigning a
+business domain to legacy candidates.
 
 ### InsightService
 
@@ -200,7 +204,8 @@ uses explicit business-domain ownership plus exact candidate kind and summary,
 preserves each candidate occurrence, evidence disposition, task query record,
 human correction, and linked independent review, and marks groups with multiple
 origins as duplicates. It reads repository identity and observations without
-loading or editing the business map.
+loading or editing the business map. Legacy task v1 candidates remain retained
+evidence but do not enter a domain group because their ownership is unknown.
 
 ## Data Lifecycles
 
