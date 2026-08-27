@@ -7,6 +7,7 @@ export type {
   ObservationRecordedData,
   ObserveReviewEnvelope,
   ObserveTaskEnvelope,
+  ReconciliationCandidatesEnvelope,
   RenderData,
   RenderEnvelope,
   SetupData,
@@ -44,6 +45,14 @@ export {
   taskObservationInputSchema,
   taskObservationSchema,
 } from "./contracts/observation.js";
+export type {
+  ReconciliationCandidateGroup,
+  ReconciliationCandidateOrigin,
+  ReconciliationCandidateReport,
+  ReconciliationDomainGroup,
+  ReconciliationReviewOrigin,
+  ReconciliationSummary,
+} from "./contracts/reconciliation.js";
 export type {
   EvidenceDisposition,
   EvidenceReference,

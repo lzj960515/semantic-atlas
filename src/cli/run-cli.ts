@@ -9,6 +9,7 @@ import type {
   InsightsSummaryEnvelope,
   ObserveReviewEnvelope,
   ObserveTaskEnvelope,
+  ReconciliationCandidatesEnvelope,
   RenderEnvelope,
   SetupEnvelope,
   UpgradeEnvelope,
@@ -18,10 +19,11 @@ import { InsightService } from "../insights/insight-service.js";
 import { ObservationApplication } from "../observations/observation-application.js";
 import { ObservationStore } from "../observations/observation-store.js";
 import { RepositoryIdentityResolver } from "../observations/repository-identity.js";
+import { ReconciliationService } from "../reconciliation/reconciliation-service.js";
 import {
   ManagedSkillConflictError,
-  ManagedSkillInstaller,
-  type ManagedSkillInstallation,
+  ManagedSkillsInstaller,
+  type ManagedSkillsInstallation,
 } from "../setup/managed-skill-installer.js";
 import {
   PackageUpgradeError,
@@ -39,11 +41,15 @@ import {
   runObserveTaskCommand,
 } from "./observation-commands.js";
 import { writeProjection } from "./projection-writer.js";
+import {
+  type ReconciliationCliRuntime,
+  runReconciliationCandidatesCommand,
+} from "./reconciliation-command.js";
 
-export interface CliRuntime extends ObservationCliRuntime {
+export interface CliRuntime extends ObservationCliRuntime, ReconciliationCliRuntime {
   readonly packageIdentity: PackageIdentity;
   readonly mapApplication: MapApplication;
-  installSkill(): Promise<ManagedSkillInstallation>;
+  installSkills(): Promise<ManagedSkillsInstallation>;
   upgradePackage(): Promise<PackageUpgradeResult>;
 }
 
@@ -68,6 +74,7 @@ export async function runCli(
     | ObserveTaskEnvelope
     | ObserveReviewEnvelope
     | InsightsSummaryEnvelope
+    | ReconciliationCandidatesEnvelope
     | undefined;
   let commandOutput = "";
   let commandError = "";
@@ -88,14 +95,14 @@ export async function runCli(
 
   program
     .command("setup")
-    .description("Install or repair the bundled user Skill")
+    .description("Install or repair the bundled user Skills")
     .action(async () => {
       commandEnvelope = await runSetupCommand(resolvedRuntime);
     });
 
   program
     .command("upgrade")
-    .description("Install the latest stable package and sync its Skill")
+    .description("Install the latest stable package and sync its Skills")
     .action(async () => {
       commandEnvelope = await runUpgradeCommand(resolvedRuntime);
     });
@@ -157,6 +164,19 @@ export async function runCli(
     .option("--period <duration>", "positive duration such as 24h, 7d, or 4w")
     .action(async (options: { readonly repo: string; readonly period?: string }) => {
       commandEnvelope = await runInsightsSummaryCommand(resolvedRuntime, options);
+    });
+
+  program
+    .command("reconcile")
+    .description("Prepare reviewed business-map maintenance")
+    .command("candidates")
+    .description("Group retained map-update candidates without editing the repository")
+    .option("--repo <path>", "repository root", process.cwd())
+    .action(async (options: { readonly repo: string }) => {
+      commandEnvelope = await runReconciliationCandidatesCommand(
+        resolvedRuntime,
+        options.repo,
+      );
     });
 
   try {
@@ -225,7 +245,11 @@ export async function createCliRuntime(
       observationStore,
     ),
     insightService: new InsightService(repositoryResolver, observationStore),
-    installSkill: () => new ManagedSkillInstaller({ packageIdentity }).install(),
+    reconciliationService: new ReconciliationService(
+      repositoryResolver,
+      observationStore,
+    ),
+    installSkills: () => new ManagedSkillsInstaller({ packageIdentity }).install(),
     upgradePackage: () => new SemanticAtlasPackageUpgrader({
       currentVersion: packageIdentity.version,
     }).upgrade(),
@@ -243,7 +267,7 @@ async function readStandardInput(): Promise<string> {
 
 async function runSetupCommand(runtime: CliRuntime): Promise<SetupEnvelope> {
   try {
-    const result = await runtime.installSkill();
+    const result = await runtime.installSkills();
     return {
       schemaVersion: 1,
       ok: true,

@@ -16,7 +16,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { PackageIdentity } from "./package-identity.js";
 
-const skillName = "semantic-atlas";
+const primarySkillName = "semantic-atlas";
+const managedSkillNames = [primarySkillName, "semantic-atlas-maintenance"] as const;
 const managerName = "semantic-atlas";
 const installationMarkerName = ".semantic-atlas-managed.json";
 const fingerprintPattern = /^[a-f0-9]{64}$/u;
@@ -28,10 +29,12 @@ export type ManagedSkillOutcome =
   | "upgraded"
   | "recovered";
 
+export type ManagedSkillName = typeof managedSkillNames[number];
+
 export interface ManagedSkillIdentity {
   readonly packageName: string;
   readonly packageVersion: string;
-  readonly skillName: typeof skillName;
+  readonly skillName: ManagedSkillName;
   readonly fingerprint: string;
 }
 
@@ -45,6 +48,17 @@ export interface ManagedSkillInstallerOptions {
   readonly packageIdentity: PackageIdentity;
   readonly sourceDirectory?: string;
   readonly userHome?: string;
+  readonly skillName?: ManagedSkillName;
+}
+
+export interface ManagedSkillsInstallerOptions {
+  readonly packageIdentity: PackageIdentity;
+  readonly sourceRoot?: string;
+  readonly userHome?: string;
+}
+
+export interface ManagedSkillsInstallation {
+  readonly skills: readonly ManagedSkillInstallation[];
 }
 
 export interface ManagedSkillInstallerDependencies {
@@ -76,6 +90,7 @@ export class ManagedSkillConflictError extends Error {
 }
 
 export class ManagedSkillInstaller {
+  private readonly skillName: ManagedSkillName;
   private readonly sourceDirectory: string;
   private readonly targetDirectory: string;
   private readonly moveDirectory: (source: string, target: string) => Promise<void>;
@@ -85,19 +100,25 @@ export class ManagedSkillInstaller {
     private readonly options: ManagedSkillInstallerOptions,
     dependencies: ManagedSkillInstallerDependencies = {},
   ) {
-    this.sourceDirectory = options.sourceDirectory ?? resolveBundledSkillDirectory();
+    this.skillName = options.skillName ?? primarySkillName;
+    this.sourceDirectory = options.sourceDirectory
+      ?? resolveBundledSkillDirectory(this.skillName);
     this.targetDirectory = path.join(
       options.userHome ?? homedir(),
       ".agents",
       "skills",
-      skillName,
+      this.skillName,
     );
     this.moveDirectory = dependencies.moveDirectory ?? rename;
     this.replacer = new AtomicDirectoryReplacer(this.moveDirectory);
   }
 
   public async install(): Promise<ManagedSkillInstallation> {
-    await requireSkillIdentity(this.sourceDirectory, "bundled Skill");
+    await requireSkillIdentity(
+      this.sourceDirectory,
+      "bundled Skill",
+      this.skillName,
+    );
     const fingerprint = await fingerprintSkill(this.sourceDirectory);
     const marker = this.createMarker(fingerprint);
     const recovered = await this.recoverInterruptedReplacement();
@@ -132,7 +153,7 @@ export class ManagedSkillInstaller {
       managedBy: managerName,
       packageName: this.options.packageIdentity.name,
       packageVersion: this.options.packageIdentity.version,
-      skillName,
+      skillName: this.skillName,
       fingerprint,
     };
   }
@@ -142,7 +163,7 @@ export class ManagedSkillInstaller {
     if (!await exists(backupDirectory) || await exists(this.targetDirectory)) {
       return false;
     }
-    if (!await readManagedMarker(backupDirectory)) {
+    if (!await readManagedMarker(backupDirectory, this.skillName)) {
       throw new ManagedSkillConflictError(backupDirectory);
     }
     await mkdir(path.dirname(this.targetDirectory), { recursive: true });
@@ -152,7 +173,7 @@ export class ManagedSkillInstaller {
 
   private async readExistingManagedSkill(): Promise<ExistingManagedSkill | undefined> {
     if (!await exists(this.targetDirectory)) return undefined;
-    const marker = await readManagedMarker(this.targetDirectory);
+    const marker = await readManagedMarker(this.targetDirectory, this.skillName);
     if (!marker) throw new ManagedSkillConflictError(this.targetDirectory);
     return marker;
   }
@@ -162,7 +183,7 @@ export class ManagedSkillInstaller {
     const targetName = path.basename(this.targetDirectory);
     const backupDirectory = backupPath(this.targetDirectory);
     if (await exists(backupDirectory)) {
-      if (!await readManagedMarker(backupDirectory)) {
+      if (!await readManagedMarker(backupDirectory, this.skillName)) {
         throw new ManagedSkillConflictError(backupDirectory);
       }
       await rm(backupDirectory, { recursive: true, force: true });
@@ -173,7 +194,9 @@ export class ManagedSkillInstaller {
     for (const entry of entries) {
       if (!entry.name.startsWith(`${targetName}.installing-`)) continue;
       const stageDirectory = path.join(parentDirectory, entry.name);
-      if (await readManagedMarker(stageDirectory)) ownedStages.push(stageDirectory);
+      if (await readManagedMarker(stageDirectory, this.skillName)) {
+        ownedStages.push(stageDirectory);
+      }
     }
     await Promise.all(ownedStages.map((directory) =>
       rm(directory, { recursive: true, force: true })
@@ -193,10 +216,28 @@ export class ManagedSkillInstaller {
       identity: {
         packageName: this.options.packageIdentity.name,
         packageVersion: this.options.packageIdentity.version,
-        skillName,
+        skillName: this.skillName,
         fingerprint,
       },
     };
+  }
+}
+
+export class ManagedSkillsInstaller {
+  public constructor(private readonly options: ManagedSkillsInstallerOptions) {}
+
+  public async install(): Promise<ManagedSkillsInstallation> {
+    const sourceRoot = this.options.sourceRoot ?? resolveBundledSkillsRoot();
+    const skills: ManagedSkillInstallation[] = [];
+    for (const skillName of managedSkillNames) {
+      skills.push(await new ManagedSkillInstaller({
+        packageIdentity: this.options.packageIdentity,
+        sourceDirectory: path.join(sourceRoot, skillName),
+        ...(this.options.userHome ? { userHome: this.options.userHome } : {}),
+        skillName,
+      }).install());
+    }
+    return { skills };
   }
 }
 
@@ -243,32 +284,49 @@ class AtomicDirectoryReplacer {
   }
 }
 
-export function resolveBundledSkillDirectory(): string {
-  const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
-  return path.join(moduleDirectory, "..", "..", ".agents", "skills", skillName);
+export function resolveBundledSkillDirectory(
+  skillName: ManagedSkillName = primarySkillName,
+): string {
+  return path.join(resolveBundledSkillsRoot(), skillName);
 }
 
-async function requireSkillIdentity(directory: string, description: string): Promise<void> {
+function resolveBundledSkillsRoot(): string {
+  const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
+  return path.join(moduleDirectory, "..", "..", ".agents", "skills");
+}
+
+async function requireSkillIdentity(
+  directory: string,
+  description: string,
+  skillName: ManagedSkillName,
+): Promise<void> {
   let skillDocument: string;
   try {
     skillDocument = await readFile(path.join(directory, "SKILL.md"), "utf8");
   } catch {
     throw new Error(`The ${description} at '${directory}' has no SKILL.md`);
   }
-  if (!/^---\r?\n[\s\S]*?^name:\s*["']?semantic-atlas["']?\s*$[\s\S]*?^---\s*$/mu.test(skillDocument)) {
-    throw new Error(`The ${description} at '${directory}' is not the Semantic Atlas Skill`);
+  const nameLine = new RegExp(
+    `^name:\\s*["']?${escapeRegularExpression(skillName)}["']?\\s*$`,
+    "mu",
+  );
+  const frontmatter = /^---\r?\n([\s\S]*?)^---\s*$/mu.exec(skillDocument)?.[1];
+  if (!frontmatter || !nameLine.test(frontmatter)) {
+    throw new Error(`The ${description} at '${directory}' is not the '${skillName}' Skill`);
   }
 }
 
 async function readManagedMarker(
   directory: string,
+  skillName: ManagedSkillName,
 ): Promise<ExistingManagedSkill | undefined> {
   try {
     const parsed = JSON.parse(
       await readFile(path.join(directory, installationMarkerName), "utf8"),
     ) as Record<string, unknown>;
     if (
-      parsed.version === "0.4.0"
+      skillName === primarySkillName
+      && parsed.version === "0.4.0"
       && typeof parsed.fingerprint === "string"
       && fingerprintPattern.test(parsed.fingerprint)
     ) {
@@ -374,4 +432,8 @@ async function exists(filePath: string): Promise<boolean> {
       throw error;
     },
   );
+}
+
+function escapeRegularExpression(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }

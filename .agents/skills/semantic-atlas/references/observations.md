@@ -41,7 +41,9 @@ correctness fields, rework judgments, or map-regression judgments.
   },
   "mapUpdateCandidates": [
     {
+      "businessDomainId": "commerce",
       "kind": "anchor",
+      "disposition": "confirmed",
       "summary": "Replace the stale source anchor during reconciliation.",
       "evidence": [
         {
@@ -59,6 +61,13 @@ Query outcomes are `context`, `concept_not_found`, `concept_ambiguous`,
 `selectedConceptIds`. Current-evidence dispositions are `confirmed`, `missing`,
 `stale`, `contradicted`, or `unresolved`. Evidence kinds are `source`, `test`,
 `document`, or `runtime`.
+
+Every map-update candidate names its stable `businessDomainId`. Its disposition
+is `confirmed` when current evidence supports the proposed correction,
+`contradicted` when it replaces a mapped statement contradicted by current
+evidence, or `unresolved` when it remains a maintenance lead. Periodic
+maintenance preserves these task-time judgments and linked independent reviews,
+then confirms durable business meaning again before editing canonical YAML.
 
 When a person explicitly corrects the task, add:
 

@@ -114,6 +114,8 @@ describe("repository Agent Skill", () => {
     expect(skillDocument).toContain("Independent review owns accuracy judgments");
     expect(observationReference).toContain('"schemaVersion": 1');
     expect(observationReference).toContain('"mapUpdateCandidates"');
+    expect(observationReference).toContain('"businessDomainId"');
+    expect(observationReference).toContain('"disposition"');
     expect(observationReference).toContain("semantic-atlas observe review --stdin");
     expect(observationReference).not.toContain("Pietra");
   });

@@ -199,9 +199,10 @@ The complete candidate passes local source, built-product, packed-tarball,
 Skill, renderer, privacy, and private real-task accuracy acceptance. The
 previous Semantic Atlas repository and project remain separate and paused.
 
-The managed-Skill setup and exact-package upgrade path is integrated through
-`5223b59`. The immutable accuracy-observation and derived-insights path is the
-current local candidate. Review, integration, public repository cutover,
+The primary managed-Skill setup and exact-package upgrade path is integrated
+through `5223b59`. The immutable accuracy-observation, derived-insights,
+read-only reconciliation, and maintenance-Skill path is the current local
+candidate. Review, integration, public repository cutover,
 publication, target-repository changes, and longitudinal use remain separate
 verified stages.
 
@@ -233,15 +234,16 @@ npm install --global semantic-atlas
 semantic-atlas setup
 ```
 
-`setup` installs the exact bundled Semantic Atlas Skill under
-`~/.agents/skills/semantic-atlas` using a package version, content fingerprint,
-and atomic replacement. It is idempotent, repairs a modified managed copy,
-preserves the previous copy on failure, and refuses to replace an unrelated
-same-named directory. A maintenance Skill may be installed beside it when the
-observation workflow is delivered.
+`setup` installs the exact bundled Semantic Atlas engineering and maintenance
+Skills under `~/.agents/skills/semantic-atlas` and
+`~/.agents/skills/semantic-atlas-maintenance`. Each uses the same package
+version, content fingerprint, ownership marker, and atomic replacement
+protocol. Setup is idempotent, repairs a modified managed copy, preserves the
+previous copy on failure, and refuses to replace an unrelated same-named
+directory.
 
 Business repositories share only `docs/business-map/*.yaml` through Git. They do
-not duplicate the managed user Skill. The package, installed CLI, and installed
+not duplicate the managed user Skills. The package, installed CLI, and installed
 Skills must have one verifiable version identity.
 
 ### Accuracy observations
@@ -250,8 +252,9 @@ Real-use evidence is separate from the Git business map and from business-map
 authority. The product records two immutable, versioned local artifacts:
 
 - `TaskObservation`: map query and selected concepts, current-evidence
-  classification, map-update candidates, and any explicit human correction
-  known to the task Agent;
+  classification, explicitly domain-owned map-update candidates with a
+  candidate disposition, and any explicit human correction known to the task
+  Agent;
 - `ReviewObservation`: the independent review verdict, correctness of the
   business boundary and upstream cause, impact completeness, required rework,
   and whether the map caused a wrong conclusion.
@@ -281,10 +284,12 @@ map-maintenance effort remain explanatory measures.
 ### Reconciliation
 
 Normal engineering work records durable map-update candidates without editing
-the shared map. `reconcile candidates` is read-only. A periodic maintenance task
-groups candidates by business domain, checks current source and durable product
-meaning, updates one owning YAML map through normal Git review, and leaves
-unresolved observations out of the canonical map.
+the shared map. `reconcile candidates` is read-only and preserves every task
+origin, candidate disposition, duplicate provenance, and linked independent
+review. A periodic maintenance task selects one business domain, checks current
+source and durable product meaning, updates one owning YAML map through normal
+Git review, and leaves unresolved or implementation-local observations out of
+the canonical map.
 
 ### Real-use acceptance
 

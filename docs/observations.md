@@ -43,7 +43,11 @@ least one map query with one of these outcomes:
 Current-evidence dispositions are `confirmed`, `missing`, `stale`,
 `contradicted`, or `unresolved`. Each disposition and map-update candidate
 contains evidence references classified as source, test, tracked document, or
-runtime evidence. Candidate kinds are node, relation, and anchor.
+runtime evidence. Candidate kinds are node, relation, and anchor. Every
+candidate names its stable `businessDomainId` and carries a candidate-specific
+`confirmed`, `contradicted`, or `unresolved` disposition. Domain ownership and
+disposition are recorded explicitly because they cannot be inferred safely from
+source paths or free-form summaries.
 
 Source, test, and document evidence uses normalized repository-relative paths.
 Runtime references use concise environment-independent evidence labels.
@@ -125,6 +129,28 @@ derives these counts from retained artifacts:
 A recovery count joins the task's current-evidence disposition to an approved
 review. The task Agent's own evidence never becomes an accuracy verdict merely
 because it was retained.
+
+## Read-Only Reconciliation Candidates
+
+The candidate discovery command is:
+
+```text
+semantic-atlas reconcile candidates --repo <path>
+```
+
+It derives one deterministic v1 report from the selected repository partition.
+Exact domain, candidate kind, and candidate summary form a group; every task
+occurrence remains visible with its candidate position, evidence disposition,
+task query and evidence record, human correction, and linked independent
+reviews. Duplicate groups produce one maintenance lead while preserving all
+origins. Observations without a durable candidate remain outside the report.
+
+The command reads repository identity and immutable observation files only. It
+does not edit observations, source, `docs/business-map`, rendered artifacts, or
+Git state. The bundled `semantic-atlas-maintenance` Skill selects one business
+domain, rechecks current source and tracked product meaning, and submits any
+accepted correction as a normal reviewed YAML change. Unresolved and
+implementation-local observations remain outside the canonical map.
 
 ## Engineering Result Semantics
 

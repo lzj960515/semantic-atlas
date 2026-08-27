@@ -5,6 +5,18 @@ ownership.
 
 ## 2026-08-27
 
+- Added explicit business-domain ownership and candidate-specific evidence
+  dispositions to map-update observations so maintenance does not infer stable
+  meaning from paths or free-form summaries.
+- Added deterministic read-only reconciliation reports that group exact
+  candidates while preserving every task occurrence, duplicate provenance,
+  human correction, and linked independent review.
+- Added the bundled `semantic-atlas-maintenance` Skill for one-domain current-
+  evidence confirmation, one owning YAML edit, complete validation, rendering,
+  Git diff, and independent review.
+- Extended `setup` and exact-package upgrade results to manage the engineering
+  and maintenance Skills with the same package identity and per-Skill atomic
+  replacement guarantees.
 - Implemented strict versioned task and independent-review observation
   contracts while keeping correctness, rework, and map-regression authority in
   review evidence rather than task-agent self-scoring.

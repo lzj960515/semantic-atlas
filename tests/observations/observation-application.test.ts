@@ -106,6 +106,14 @@ describe("accuracy observation boundary", () => {
     await expect(
       fixture.application.recordTask(fixture.repositoryRoot, absoluteEvidence),
     ).rejects.toBeInstanceOf(ObservationInputError);
+    const unownedCandidate = taskObservation() as unknown as {
+      mapUpdateCandidates: Array<Record<string, unknown>>;
+    };
+    delete unownedCandidate.mapUpdateCandidates[0]?.businessDomainId;
+    delete unownedCandidate.mapUpdateCandidates[0]?.disposition;
+    await expect(
+      fixture.application.recordTask(fixture.repositoryRoot, unownedCandidate),
+    ).rejects.toBeInstanceOf(ObservationInputError);
     await expect(
       fixture.application.recordReview(
         fixture.repositoryRoot,
@@ -439,7 +447,9 @@ function taskObservation(
       }],
     },
     mapUpdateCandidates: [{
+      businessDomainId: "commerce",
       kind: "anchor",
+      disposition: "confirmed",
       summary: "Replace the stale checkout source anchor.",
       evidence: [{
         kind: "source",

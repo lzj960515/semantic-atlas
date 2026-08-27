@@ -129,6 +129,8 @@ contradicted relation, add a separate map-update candidate to the task report:
 
 ```text
 Map-update candidate: <node, relation, or anchor>
+Business domain: <stable domain ID>
+Disposition: <confirmed, contradicted, or unresolved>
 Current evidence: <repository-relative source, test, or product document>
 Durable correction: <concise proposed business meaning>
 ```

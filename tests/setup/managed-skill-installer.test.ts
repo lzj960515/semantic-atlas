@@ -13,6 +13,7 @@ import path from "node:path";
 import {
   ManagedSkillConflictError,
   ManagedSkillInstaller,
+  ManagedSkillsInstaller,
 } from "../../src/setup/managed-skill-installer.js";
 
 const sandboxes: string[] = [];
@@ -28,6 +29,48 @@ afterEach(async () => {
 });
 
 describe("ManagedSkillInstaller", () => {
+  it("installs and repairs the primary and maintenance Skills from one package", async () => {
+    const fixture = await createBundleFixture();
+    const installer = new ManagedSkillsInstaller({
+      packageIdentity,
+      sourceRoot: fixture.sourceRoot,
+      userHome: fixture.userHome,
+    });
+
+    const installed = await installer.install();
+    expect(installed.skills).toHaveLength(2);
+    expect(installed.skills).toMatchObject([
+      {
+        outcome: "installed",
+        identity: { skillName: "semantic-atlas", packageVersion: "0.0.0" },
+      },
+      {
+        outcome: "installed",
+        identity: {
+          skillName: "semantic-atlas-maintenance",
+          packageVersion: "0.0.0",
+        },
+      },
+    ]);
+
+    const maintenanceDirectory = path.join(
+      fixture.userHome,
+      ".agents/skills/semantic-atlas-maintenance",
+    );
+    await writeFile(path.join(maintenanceDirectory, "SKILL.md"), "modified\n");
+
+    const repaired = await installer.install();
+    expect(repaired.skills).toMatchObject([
+      { outcome: "current", identity: { skillName: "semantic-atlas" } },
+      { outcome: "repaired", identity: { skillName: "semantic-atlas-maintenance" } },
+    ]);
+    await expect(readFile(path.join(maintenanceDirectory, "SKILL.md"), "utf8"))
+      .resolves.toBe(skillDocumentForName(
+        "maintenance workflow",
+        "semantic-atlas-maintenance",
+      ));
+  });
+
   it("installs, verifies, and repairs the package-owned Skill", async () => {
     const fixture = await createFixture();
     const installer = new ManagedSkillInstaller({
@@ -82,6 +125,24 @@ describe("ManagedSkillInstaller", () => {
     await expect(installer.install()).rejects.toBeInstanceOf(ManagedSkillConflictError);
     await expect(readFile(path.join(fixture.targetDirectory, "SKILL.md"), "utf8"))
       .resolves.toBe(unrelatedDocument);
+  });
+
+  it("requires the bundled Skill identity in frontmatter", async () => {
+    const fixture = await createFixture();
+    await writeFile(
+      path.join(fixture.sourceDirectory, "SKILL.md"),
+      "---\nname: another-skill\ndescription: wrong payload\n---\n\nname: semantic-atlas\n",
+    );
+    const installer = new ManagedSkillInstaller({
+      packageIdentity,
+      sourceDirectory: fixture.sourceDirectory,
+      userHome: fixture.userHome,
+    });
+
+    await expect(installer.install()).rejects.toThrow(
+      "is not the 'semantic-atlas' Skill",
+    );
+    await expect(access(fixture.targetDirectory)).rejects.toThrow();
   });
 
   it("upgrades the supported v0.4 marker and recovers an interrupted swap", async () => {
@@ -206,8 +267,35 @@ async function createFixture(): Promise<{
   return { sourceDirectory, userHome, targetDirectory };
 }
 
+async function createBundleFixture(): Promise<{
+  readonly sourceRoot: string;
+  readonly userHome: string;
+}> {
+  const sandbox = await mkdtemp(path.join(os.tmpdir(), "semantic-atlas-setup-bundle-"));
+  sandboxes.push(sandbox);
+  const sourceRoot = path.join(sandbox, "package-skills");
+  const userHome = path.join(sandbox, "home");
+  const primaryDirectory = path.join(sourceRoot, "semantic-atlas");
+  const maintenanceDirectory = path.join(sourceRoot, "semantic-atlas-maintenance");
+  await mkdir(primaryDirectory, { recursive: true });
+  await mkdir(maintenanceDirectory, { recursive: true });
+  await writeFile(
+    path.join(primaryDirectory, "SKILL.md"),
+    skillDocument("primary workflow"),
+  );
+  await writeFile(
+    path.join(maintenanceDirectory, "SKILL.md"),
+    skillDocumentForName("maintenance workflow", "semantic-atlas-maintenance"),
+  );
+  return { sourceRoot, userHome };
+}
+
 function skillDocument(description: string): string {
-  return `---\nname: semantic-atlas\ndescription: ${description}\n---\n\n# Semantic Atlas\n`;
+  return skillDocumentForName(description, "semantic-atlas");
+}
+
+function skillDocumentForName(description: string, name: string): string {
+  return `---\nname: ${name}\ndescription: ${description}\n---\n\n# Semantic Atlas\n`;
 }
 
 async function readManagedMarker(directory: string): Promise<unknown> {

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Semantic Atlas Maintenance"
+  short_description: "Review one domain's map candidates against current evidence"
+  default_prompt: "Use $semantic-atlas-maintenance to reconcile retained candidates for one business domain into a reviewed map change."

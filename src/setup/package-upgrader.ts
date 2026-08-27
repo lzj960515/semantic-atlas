@@ -30,7 +30,7 @@ export interface PackageUpgradeResult {
   readonly outcome: "current" | "upgraded";
   readonly previousVersion: string;
   readonly targetVersion: string;
-  readonly skillDirectory: string;
+  readonly skillDirectories: readonly string[];
 }
 
 export class PackageUpgradeError extends Error {
@@ -70,12 +70,10 @@ export class SemanticAtlasPackageUpgrader {
       outcome,
       previousVersion: this.options.currentVersion,
       targetVersion,
-      skillDirectory: path.join(
-        this.userHome,
-        ".agents",
-        "skills",
-        packageName,
-      ),
+      skillDirectories: [
+        path.join(this.userHome, ".agents", "skills", packageName),
+        path.join(this.userHome, ".agents", "skills", "semantic-atlas-maintenance"),
+      ],
     };
   }
 

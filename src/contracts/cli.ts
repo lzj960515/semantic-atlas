@@ -6,6 +6,7 @@ import type {
 } from "./map.js";
 import type { InsightSummaryResult } from "./insights.js";
 import type { ObservationKind } from "./observation.js";
+import type { ReconciliationCandidateReport } from "./reconciliation.js";
 
 export interface CliRunResult {
   readonly exitCode: number;
@@ -118,6 +119,10 @@ export type CliError =
   | {
       readonly code: "INSIGHTS_READ_FAILED";
       readonly message: string;
+    }
+  | {
+      readonly code: "RECONCILIATION_READ_FAILED";
+      readonly message: string;
     };
 
 export interface ValidateData {
@@ -162,21 +167,23 @@ export interface RenderData {
 }
 
 export interface SetupData {
-  readonly outcome: "installed" | "current" | "repaired" | "upgraded" | "recovered";
-  readonly targetDirectory: string;
-  readonly identity: {
-    readonly packageName: string;
-    readonly packageVersion: string;
-    readonly skillName: "semantic-atlas";
-    readonly fingerprint: string;
-  };
+  readonly skills: readonly {
+    readonly outcome: "installed" | "current" | "repaired" | "upgraded" | "recovered";
+    readonly targetDirectory: string;
+    readonly identity: {
+      readonly packageName: string;
+      readonly packageVersion: string;
+      readonly skillName: "semantic-atlas" | "semantic-atlas-maintenance";
+      readonly fingerprint: string;
+    };
+  }[];
 }
 
 export interface UpgradeData {
   readonly outcome: "current" | "upgraded";
   readonly previousVersion: string;
   readonly targetVersion: string;
-  readonly skillDirectory: string;
+  readonly skillDirectories: readonly string[];
 }
 
 export interface ObservationRecordedData {
@@ -217,3 +224,7 @@ export type ObserveReviewEnvelope =
 export type InsightsSummaryEnvelope =
   | StandaloneCliSuccessEnvelope<"insights summary", InsightSummaryResult>
   | CliErrorEnvelope<"insights summary">;
+
+export type ReconciliationCandidatesEnvelope =
+  | StandaloneCliSuccessEnvelope<"reconcile candidates", ReconciliationCandidateReport>
+  | CliErrorEnvelope<"reconcile candidates">;

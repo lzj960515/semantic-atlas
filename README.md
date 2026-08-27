@@ -42,6 +42,7 @@ review evidence without changing the Git business map:
 semantic-atlas observe task --stdin --repo /path/to/repository
 semantic-atlas observe review --stdin --repo /path/to/repository
 semantic-atlas insights summary --repo /path/to/repository --period 4w
+semantic-atlas reconcile candidates --repo /path/to/repository
 ```
 
 The strict task schema records map outcomes, current-evidence dispositions,
@@ -53,25 +54,31 @@ derived read-only from retained task and review evidence. See the
 [observation contract](docs/observations.md) for schemas, privacy, persistence,
 and failure semantics.
 
+`reconcile candidates` groups durable leads by explicit business-domain
+ownership while retaining candidate dispositions, duplicate task provenance,
+and linked independent reviews. The report is deterministic and read-only. It
+does not edit observations, source, maps, rendered artifacts, or Git state.
+
 ## Install And Upgrade
 
 After the separately verified v1 publication, one global package owns the
-Semantic Atlas CLI and its user Skill:
+Semantic Atlas CLI and its user Skills:
 
 ```bash
 npm install --global semantic-atlas
 semantic-atlas setup
 ```
 
-`setup` copies the exact bundled Skill to
-`~/.agents/skills/semantic-atlas`. Its management marker records the package
-name, package version, Skill name, and deterministic content fingerprint.
-Repeated setup verifies those files, repairs a changed managed copy, recovers
-an interrupted directory swap, and upgrades the supported v0.4 managed copy.
-A same-named directory without recognized ownership remains untouched and is
-reported as a conflict.
+`setup` copies the exact bundled engineering and maintenance Skills to
+`~/.agents/skills/semantic-atlas` and
+`~/.agents/skills/semantic-atlas-maintenance`. Each management marker records
+the package name, package version, Skill name, and deterministic content
+fingerprint. Repeated setup verifies both payloads, repairs a changed managed
+copy, recovers an interrupted directory swap, and upgrades the supported v0.4
+primary Skill. A same-named directory without recognized ownership remains
+untouched and is reported as a conflict.
 
-Use the package-owned upgrade path to keep the executable and managed Skill on
+Use the package-owned upgrade path to keep the executable and managed Skills on
 one identity:
 
 ```bash
@@ -80,7 +87,7 @@ semantic-atlas upgrade
 
 `upgrade` resolves npm's current stable version before mutation, installs the
 exact `semantic-atlas@<version>` when needed, starts that installed package by
-its npm global path, verifies `--version`, and delegates Skill synchronization
+its npm global path, verifies `--version`, and delegates Skills synchronization
 to that exact CLI. Target repositories continue to share only
 `docs/business-map/*.yaml`; setup and upgrade do not add Skill files to them.
 
@@ -98,6 +105,16 @@ The Skill's query adapter invokes its package sibling when present. From the
 managed user directory, it first checks that the PATH CLI version matches the
 setup marker, then verifies the versioned `context` envelope before exposing it
 to the Agent.
+
+## Maintenance Skill
+
+The bundled `semantic-atlas-maintenance` Skill starts from the read-only
+candidate report, selects one business domain, confirms every proposed
+correction in current source and tracked product documents, and classifies
+unsupported or implementation-local leads without promoting them. Accepted
+work edits one owning `docs/business-map` YAML file, validates the complete
+graph, renders the result, and uses the ordinary Git diff and independent
+review path.
 
 ## Local Acceptance
 
@@ -131,11 +148,11 @@ renderer, privacy, and private real-task accuracy acceptance.
 The approved next stage is a breaking `semantic-atlas@1.0.0` rollout. Its
 contract covers managed user Skills, independently owned task and review
 observations, read-only reconciliation candidates, and preservation of the
-previous repository and npm versions. The managed-Skill setup path is
-implemented locally, and the accuracy-observation path is the current local
-candidate. Review and integration of that candidate, public repository cutover,
-publication, target-repository rollout, and longitudinal acceptance remain
-separate delivery gates.
+previous repository and npm versions. The managed-Skills setup path is
+implemented locally, and the accuracy-observation plus read-only reconciliation
+path is the current local candidate. Review and integration of that candidate,
+public repository cutover, publication, target-repository rollout, and
+longitudinal acceptance remain separate delivery gates.
 See the [product contract](docs/product-contract.md#v1-real-repository-rollout)
 and [delivery plan](docs/delivery-plan.md#v1-real-repository-rollout) for the
 authoritative scope and sequence.

@@ -4,7 +4,8 @@ This index routes product, implementation, and evaluation questions to their
 authoritative pages. The initial queryable map, renderer, repository Agent
 Skill, private real-task evaluation, and local-product acceptance are integrated
 at `decac0c`. The approved v1 rollout remains divided into separately verified
-setup, observation, release, target-repository, and real-use gates.
+setup, observation and reconciliation, release, target-repository, and real-use
+gates.
 
 ## Product
 
@@ -15,8 +16,8 @@ setup, observation, release, target-repository, and real-use gates.
 - [Map format](map-format.md): tracked graph documents, concepts, relations,
   anchors, validation, and query projections.
 - [Accuracy observations](observations.md): task and independent-review
-  evidence schemas, immutable local persistence, replay, privacy, and derived
-  summaries.
+  evidence schemas, immutable local persistence, replay, privacy, derived
+  summaries, and read-only reconciliation candidate reports.
 - [Evaluation](evaluation.md): real-task accuracy, stale-map recovery, code
   quality, and human-intervention evidence.
 - [Delivery plan](delivery-plan.md): integrated initial slices and the ordered,

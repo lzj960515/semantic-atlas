@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "stale-anchor-primary",
+      "businessDomainId": "commerce",
+      "kind": "anchor",
+      "disposition": "confirmed",
+      "summary": "Replace the stale inventory reservation anchor with the current fulfillment source.",
+      "evidence": [
+        { "kind": "source", "reference": "src/fulfillment/reserve-inventory.ts" },
+        { "kind": "test", "reference": "src/fulfillment/reserve-inventory.test.ts" }
+      ],
+      "expectedOutcome": "candidate"
+    },
+    {
+      "id": "stale-anchor-duplicate",
+      "businessDomainId": "commerce",
+      "kind": "anchor",
+      "disposition": "confirmed",
+      "summary": "Replace the stale inventory reservation anchor with the current fulfillment source.",
+      "evidence": [
+        { "kind": "source", "reference": "src/fulfillment/reserve-inventory.ts" }
+      ],
+      "expectedOutcome": "candidate"
+    },
+    {
+      "id": "contradicted-relation",
+      "businessDomainId": "commerce",
+      "kind": "relation",
+      "disposition": "contradicted",
+      "summary": "Replace the legacy risk-policy constraint with the current authorization policy relation.",
+      "evidence": [
+        { "kind": "source", "reference": "src/checkout/authorize-order.ts" },
+        { "kind": "source", "reference": "src/risk/current-risk-policy.ts" }
+      ],
+      "expectedOutcome": "candidate"
+    },
+    {
+      "id": "missing-durable-concept",
+      "businessDomainId": "commerce",
+      "kind": "node",
+      "disposition": "confirmed",
+      "summary": "Add refund eligibility as a durable Commerce operation constrained by the tracked refund policy.",
+      "evidence": [
+        { "kind": "source", "reference": "src/refunds/is-refund-eligible.ts" },
+        { "kind": "document", "reference": "docs/product/refunds.md" }
+      ],
+      "expectedOutcome": "candidate"
+    },
+    {
+      "id": "unresolved-business-meaning",
+      "businessDomainId": "engagement",
+      "kind": "relation",
+      "disposition": "unresolved",
+      "summary": "Determine whether order confirmation belongs to the order flow or a reusable engagement scenario.",
+      "evidence": [
+        { "kind": "source", "reference": "src/notifications/send-order-confirmation.ts" }
+      ],
+      "expectedOutcome": "candidate"
+    },
+    {
+      "id": "discarded-transient-observation",
+      "businessDomainId": "commerce",
+      "kind": "anchor",
+      "disposition": "confirmed",
+      "summary": "Record a local helper rename that does not express durable business meaning.",
+      "evidence": [
+        { "kind": "source", "reference": "src/pricing/calculate-total.ts" }
+      ],
+      "expectedOutcome": "discarded"
+    }
+  ]
+}

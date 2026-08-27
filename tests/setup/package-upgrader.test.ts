@@ -27,12 +27,15 @@ describe("SemanticAtlasPackageUpgrader", () => {
       outcome: "upgraded",
       previousVersion: "0.4.0",
       targetVersion: "1.0.0",
-      skillDirectory: path.join(
-        "/isolated/home",
-        ".agents",
-        "skills",
-        "semantic-atlas",
-      ),
+      skillDirectories: [
+        path.join("/isolated/home", ".agents", "skills", "semantic-atlas"),
+        path.join(
+          "/isolated/home",
+          ".agents",
+          "skills",
+          "semantic-atlas-maintenance",
+        ),
+      ],
     });
     expect(runner.invocations).toEqual([
       ["/runtime/npm", ["view", "semantic-atlas", "dist-tags.latest", "--json"]],

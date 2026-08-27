@@ -39,6 +39,12 @@ const managedSkillDirectory = path.join(
   "skills",
   "semantic-atlas",
 );
+const maintenanceSkillDirectory = path.join(
+  userHome,
+  ".agents",
+  "skills",
+  "semantic-atlas-maintenance",
+);
 const cliEnvironment = {
   ...process.env,
   HOME: userHome,
@@ -75,6 +81,9 @@ function assertPublicArchive(archivePath) {
     "package/.agents/skills/semantic-atlas/agents/openai.yaml",
     "package/.agents/skills/semantic-atlas/references/observations.md",
     "package/.agents/skills/semantic-atlas/scripts/query-context.mjs",
+    "package/.agents/skills/semantic-atlas-maintenance/SKILL.md",
+    "package/.agents/skills/semantic-atlas-maintenance/agents/openai.yaml",
+    "package/.agents/skills/semantic-atlas-maintenance/references/reconciliation.md",
     "package/dist/cli/bin.js",
     "package/examples/commerce.yaml",
     "package/package.json",
@@ -302,6 +311,26 @@ async function exerciseInstalledObservations() {
     recoveries: { stale: 1, missing: 0, contradicted: 0 },
   });
 
+  const candidates = JSON.parse(runInstalledCli([
+    "reconcile",
+    "candidates",
+    "--repo",
+    observationWorktree,
+  ]).stdout);
+  assert.equal(candidates.schemaVersion, 1);
+  assert.equal(candidates.command, "reconcile candidates");
+  assert.deepEqual(candidates.data.summary, {
+    businessDomains: 1,
+    candidateGroups: 1,
+    candidateOccurrences: 1,
+    duplicateGroups: 0,
+  });
+  assert.equal(candidates.data.domains[0].businessDomainId, "commerce");
+  assert.equal(
+    candidates.data.domains[0].candidates[0].origins[0].reviews[0].review.verdict,
+    "approved",
+  );
+
   const observationRoot = path.join(
     userHome,
     ".semantic-atlas",
@@ -343,7 +372,15 @@ function taskObservation(id, taskId) {
         evidence: [{ kind: "source", reference: "src/orders/place-order.ts" }],
       }],
     },
-    mapUpdateCandidates: [],
+    mapUpdateCandidates: id === "installed-task-0"
+      ? [{
+          businessDomainId: "commerce",
+          kind: "anchor",
+          disposition: "confirmed",
+          summary: "Replace the stale checkout source anchor.",
+          evidence: [{ kind: "source", reference: "src/orders/place-order.ts" }],
+        }]
+      : [],
   };
 }
 
@@ -376,15 +413,22 @@ async function exerciseManagedSkillLifecycle() {
   const firstSetup = JSON.parse(runInstalledCli(["setup"]).stdout);
   assert.equal(firstSetup.ok, true);
   assert.equal(firstSetup.command, "setup");
-  assert.equal(firstSetup.data.outcome, "installed");
-  assert.equal(firstSetup.data.targetDirectory, managedSkillDirectory);
-  assert.deepEqual(firstSetup.data.identity, {
+  assert.equal(firstSetup.data.skills.length, 2);
+  const primarySetup = setupSkill(firstSetup, "semantic-atlas");
+  const maintenanceSetup = setupSkill(firstSetup, "semantic-atlas-maintenance");
+  assert.equal(primarySetup.outcome, "installed");
+  assert.equal(primarySetup.targetDirectory, managedSkillDirectory);
+  assert.deepEqual(primarySetup.identity, {
     packageName: packageIdentity.name,
     packageVersion: packageIdentity.version,
     skillName: "semantic-atlas",
-    fingerprint: firstSetup.data.identity.fingerprint,
+    fingerprint: primarySetup.identity.fingerprint,
   });
-  assert.match(firstSetup.data.identity.fingerprint, /^[a-f0-9]{64}$/u);
+  assert.equal(maintenanceSetup.outcome, "installed");
+  assert.equal(maintenanceSetup.targetDirectory, maintenanceSkillDirectory);
+  assert.equal(maintenanceSetup.identity.packageVersion, packageIdentity.version);
+  assert.match(primarySetup.identity.fingerprint, /^[a-f0-9]{64}$/u);
+  assert.match(maintenanceSetup.identity.fingerprint, /^[a-f0-9]{64}$/u);
 
   const marker = JSON.parse(
     await readFile(
@@ -398,20 +442,42 @@ async function exerciseManagedSkillLifecycle() {
     packageName: packageIdentity.name,
     packageVersion: packageIdentity.version,
     skillName: "semantic-atlas",
-    fingerprint: firstSetup.data.identity.fingerprint,
+    fingerprint: primarySetup.identity.fingerprint,
   });
 
-  const repeatedSetup = JSON.parse(runInstalledCli(["setup"]).stdout);
-  assert.equal(repeatedSetup.data.outcome, "current");
+  const maintenanceMarker = JSON.parse(
+    await readFile(
+      path.join(maintenanceSkillDirectory, ".semantic-atlas-managed.json"),
+      "utf8",
+    ),
+  );
+  assert.equal(maintenanceMarker.skillName, "semantic-atlas-maintenance");
+  assert.equal(maintenanceMarker.packageVersion, packageIdentity.version);
 
-  const installedSkillDocument = path.join(managedSkillDirectory, "SKILL.md");
+  const repeatedSetup = JSON.parse(runInstalledCli(["setup"]).stdout);
+  assert.deepEqual(
+    repeatedSetup.data.skills.map(({ outcome }) => outcome),
+    ["current", "current"],
+  );
+
+  const installedSkillDocument = path.join(maintenanceSkillDirectory, "SKILL.md");
   await appendFile(installedSkillDocument, "\nmodified managed copy\n");
   const repairedSetup = JSON.parse(runInstalledCli(["setup"]).stdout);
-  assert.equal(repairedSetup.data.outcome, "repaired");
+  assert.equal(setupSkill(repairedSetup, "semantic-atlas").outcome, "current");
+  assert.equal(
+    setupSkill(repairedSetup, "semantic-atlas-maintenance").outcome,
+    "repaired",
+  );
   assert.equal(
     await readFile(installedSkillDocument, "utf8"),
     await readFile(
-      path.join(installedPackageRoot, ".agents", "skills", "semantic-atlas", "SKILL.md"),
+      path.join(
+        installedPackageRoot,
+        ".agents",
+        "skills",
+        "semantic-atlas-maintenance",
+        "SKILL.md",
+      ),
       "utf8",
     ),
   );
@@ -422,7 +488,7 @@ async function exerciseManagedSkillLifecycle() {
   );
   await writeFile(path.join(managedSkillDirectory, "legacy-only.txt"), "legacy\n");
   const upgradedLegacy = JSON.parse(runInstalledCli(["setup"]).stdout);
-  assert.equal(upgradedLegacy.data.outcome, "upgraded");
+  assert.equal(setupSkill(upgradedLegacy, "semantic-atlas").outcome, "upgraded");
   await assertMissing(path.join(managedSkillDirectory, "legacy-only.txt"));
 
   const backupDirectory = `${managedSkillDirectory}.backup`;
@@ -435,7 +501,7 @@ async function exerciseManagedSkillLifecycle() {
     path.join(orphanStage, ".semantic-atlas-managed.json"),
   );
   const recoveredSetup = JSON.parse(runInstalledCli(["setup"]).stdout);
-  assert.equal(recoveredSetup.data.outcome, "recovered");
+  assert.equal(setupSkill(recoveredSetup, "semantic-atlas").outcome, "recovered");
   await assertMissing(backupDirectory);
   await assertMissing(orphanStage);
 
@@ -500,6 +566,12 @@ async function exerciseManagedSkillLifecycle() {
   );
   assert.equal(await readFile(path.join(siblingSkill, "keep.txt"), "utf8"), "user-owned\n");
   assert.equal(await readFile(repositorySentinel, "utf8"), "repository-owned\n");
+}
+
+function setupSkill(envelope, skillName) {
+  const skill = envelope.data.skills.find(({ identity }) => identity.skillName === skillName);
+  assert.ok(skill, `setup result is missing ${skillName}`);
+  return skill;
 }
 
 function runInstalledCli(arguments_) {

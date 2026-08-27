@@ -56,7 +56,9 @@ export const evidenceDispositionSchema = z.object({
 }).strict();
 
 export const mapUpdateCandidateSchema = z.object({
+  businessDomainId: identitySchema,
   kind: z.enum(["node", "relation", "anchor"]),
+  disposition: z.enum(["confirmed", "contradicted", "unresolved"]),
   summary: nonEmptyStringSchema,
   evidence: z.array(evidenceReferenceSchema).min(1),
 }).strict();

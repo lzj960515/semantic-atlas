@@ -4,8 +4,9 @@ This page defines the stable responsibilities, data lifecycle, dependency
 direction, and failure semantics for the initial product. It applies to the
 public CLI, renderer, and repository Agent Skill.
 
-**Status: query, validation, visual projection, repository Agent, managed
-Skill lifecycle, and accuracy-observation paths are implemented locally.**
+**Status: query, validation, visual projection, repository Agents, managed
+Skill lifecycle, accuracy-observation, and read-only reconciliation paths are
+implemented locally.**
 
 ## System Model
 
@@ -28,13 +29,17 @@ Calling Agent
   -> treats the result as an investigation hypothesis
   -> confirms decisive behavior in current repository evidence
 
-published package Skill bundle
+published package Skills bundle
         |
         v
-ManagedSkillInstaller -> staged copy -> atomic directory replacement
-        ^                                      |
-        |                                      v
+ManagedSkillsInstaller -> one ManagedSkillInstaller per Skill
+                                  |
+                                  v
+                       atomic directory replacement
+
 verified installed CLI <- exact npm version <- PackageUpgrader
+        |
+        +------------ invokes setup ------------+
 
 Task Agent evidence -> ObservationApplication -> ObservationStore
                               |                      |
@@ -43,6 +48,18 @@ Independent review -----------+                      v
                                                       |
                                                       v
                                                InsightService
+                                                      |
+                                                      v
+                                             ReconciliationService
+                                                      |
+                                                      v
+                                      deterministic candidate report
+                                                      |
+                                                      v
+                                         Maintenance Agent Skill
+                                                      |
+                                                      v
+                                       current evidence + reviewed YAML
 ```
 
 The tracked documents and their Git history are the shared product state. Each
@@ -105,14 +122,26 @@ adapter prefers the CLI distributed with the Skill and accepts a PATH command
 only when it returns the current versioned envelope. This preserves one query
 contract when another installed product uses the same executable name.
 
-### ManagedSkillInstaller
+### Maintenance Agent Skill
 
-Owns the user-local lifecycle of the bundled `semantic-atlas` Skill. It derives
-a deterministic payload fingerprint, records package and Skill identity in a
-management marker, recognizes the v0.4 marker as a supported predecessor, and
-classifies repeated setup as current, repair, upgrade, or interrupted-swap
-recovery. It requires recognized ownership before replacing an existing
-same-named directory.
+Owns periodic candidate triage after `ReconciliationService` has produced one
+read-only report. It selects one business domain, confirms proposed corrections
+against current source and tracked product meaning, leaves unresolved and
+implementation-local observations outside the canonical map, and submits any
+accepted correction as one normal reviewed YAML change. Source confirmation,
+map editing, validation, rendering, Git diff, and independent review remain
+Agent and repository responsibilities rather than CLI side effects.
+
+### ManagedSkillsInstaller
+
+Coordinates the package's `semantic-atlas` and `semantic-atlas-maintenance`
+payloads. Each Skill receives one `ManagedSkillInstaller` with the same package
+identity and its own target directory. The per-Skill installer derives a
+deterministic payload fingerprint, records package and Skill identity in a
+management marker, recognizes the primary Skill's v0.4 marker as a supported
+predecessor, and classifies repeated setup as current, repair, upgrade, or
+interrupted-swap recovery. It requires recognized ownership before replacing
+an existing same-named directory.
 
 Replacement uses one complete staged directory. The current managed directory
 moves to a deterministic backup before the staged directory becomes active. A
@@ -122,11 +151,11 @@ confirmed the managed target.
 
 ### PackageUpgrader
 
-Owns the boundary between npm package state and managed Skill state. It reads
+Owns the boundary between npm package state and managed Skills state. It reads
 npm's stable version first, installs an exact `semantic-atlas@<version>` when
 the current package differs, locates that package through npm's global root,
 verifies its CLI version through the current Node executable, and invokes that
-CLI's `setup`. The old process never copies its own Skill after a package
+CLI's `setup`. The old process never copies its own Skills after a package
 replacement.
 
 ### RepositoryIdentityResolver
@@ -164,6 +193,15 @@ duration, aggregates independent review dimensions, and joins approved reviews
 to task evidence when counting safe recovery from missing, stale, or
 contradicted map knowledge.
 
+### ReconciliationService
+
+Owns deterministic read-only grouping of retained map-update candidates. It
+uses explicit business-domain ownership plus exact candidate kind and summary,
+preserves each candidate occurrence, evidence disposition, task query record,
+human correction, and linked independent review, and marks groups with multiple
+origins as duplicates. It reads repository identity and observations without
+loading or editing the business map.
+
 ## Data Lifecycles
 
 | Data | Owner | Lifetime | Mutation path |
@@ -172,13 +210,14 @@ contradicted map knowledge.
 | Parsed documents | One CLI invocation | Parse phase | Recreated from tracked files |
 | Normalized graph | One CLI invocation | Query/render phase | Recreated after validation |
 | Rendered output | Calling workflow | Reproducible artifact | Regenerated from the graph |
-| Bundled Skill payload | Installed npm package | Package version | Replaced only by exact package installation |
-| Managed user Skill | User home | Across repositories and CLI invocations | `semantic-atlas setup` atomic replacement |
-| Managed Skill marker | Managed Skill directory | Same as installed payload | Written into the staged copy before activation |
+| Bundled Skill payloads | Installed npm package | Package version | Replaced only by exact package installation |
+| Managed user Skills | User home | Across repositories and CLI invocations | Per-Skill `semantic-atlas setup` atomic replacement |
+| Managed Skill markers | Managed Skill directories | Same as each installed payload | Written into each staged copy before activation |
 | Repository identity | One local repository across worktrees | Observation lookup | Re-derived from the Git common directory or selected directory |
 | Task observation | User-local repository partition | Immutable retained evidence | Strict validation and one atomic file publication |
 | Review observation | User-local repository partition | Immutable retained evidence | Existing task reference plus strict validation and atomic publication |
 | Accuracy summary | One CLI invocation | Read phase | Re-derived from retained task and review files |
+| Reconciliation candidate report | One CLI invocation | Read phase | Re-derived from retained candidate and review provenance |
 | Task-specific source understanding | Calling agent | Engineering task | Current evidence investigation |
 | Candidate map observation | Task or maintenance record | Until reconciled | Reviewed by periodic maintenance |
 
@@ -220,6 +259,7 @@ semantic-atlas upgrade
 semantic-atlas observe task --stdin [--repo <path>]
 semantic-atlas observe review --stdin [--repo <path>]
 semantic-atlas insights summary [--repo <path>] [--period <duration>]
+semantic-atlas reconcile candidates [--repo <path>]
 semantic-atlas --version
 ```
 
@@ -233,7 +273,7 @@ then use a stable ID. A missing concept is a bounded map result and routes the
 agent to ordinary source discovery; it is not a repository failure.
 
 `setup`, `upgrade`, and `--version` do not discover a repository or load a
-business map. Their results expose the package version and managed Skill path
+business map. Their results expose the package version and managed Skill paths
 needed to verify one installed identity. Business repositories retain only
 their Git-tracked map documents.
 
@@ -241,6 +281,8 @@ their Git-tracked map documents.
 input. They derive a private repository identity, validate before publication,
 and return recorded, idempotent, or explicit conflict results. `insights
 summary` reads those retained files without changing them or the business map.
+`reconcile candidates` groups retained candidates and linked reviews without
+changing observations, source, maps, rendered artifacts, or Git state.
 
 ## Validation Boundary
 
@@ -293,6 +335,8 @@ Errors fall into stable categories:
   positive `h`, `d`, or `w` form.
 - `INSIGHTS_READ_FAILED`: retained observations cannot produce a trustworthy
   summary.
+- `RECONCILIATION_READ_FAILED`: retained candidate and review evidence cannot
+  produce a trustworthy reconciliation report.
 
 Unexpected infrastructure errors propagate to the CLI boundary with a safe
 message and a nonzero exit status. The implementation adds contextual details
@@ -309,10 +353,12 @@ Ordinary feature branches read their branch's map revision. Durable changes use
 normal Git merge behavior. Review focuses on business meaning, stable IDs,
 relationship direction, and whether the update belongs in the shared map.
 
-Periodic reconciliation works from current source and accumulated task
-observations. It updates one bounded business neighborhood rather than rewriting
-the complete map. A stale observation can be discarded without affecting an
-engineering task that already completed against current evidence.
+Periodic reconciliation begins with the deterministic candidate report, then
+works from current source and accumulated task and review observations. It
+updates one owning YAML surface for one business domain rather than rewriting
+the complete map. A stale or implementation-local observation can be discarded
+without affecting an engineering task that already completed against current
+evidence.
 
 ## Current Technology Boundary
 

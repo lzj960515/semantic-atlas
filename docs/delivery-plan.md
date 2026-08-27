@@ -171,6 +171,11 @@ Delivery keeps these gates separate:
 7. integrate one target-repository map and verify installed-Skill discovery;
 8. evaluate natural longitudinal use and concurrent development.
 
+The Gate 3 local candidate now includes explicit candidate domain ownership and
+disposition, deterministic read-only grouping with duplicate and review
+provenance, one-domain maintenance guidance, and package-managed installation
+of both bundled Skills. Review and integration remain the next separate stage.
+
 Each gate starts from directly verified evidence from its predecessor. Local
 integration does not authorize or prove setup, remote changes, publication,
 target-repository changes, or real-use acceptance.
