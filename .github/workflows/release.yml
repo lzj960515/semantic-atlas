@@ -29,11 +29,16 @@ jobs:
           node-version: 24
           cache: pnpm
           registry-url: https://registry.npmjs.org
-      - run: pnpm install --frozen-lockfile
       - name: Verify release identity
         run: node scripts/verify-release-tag.mjs
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
+      - name: Verify immutable GitHub Release
+        run: gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" | node scripts/verify-github-release.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+      - run: pnpm install --frozen-lockfile
       - run: pnpm release:verify
       - name: Publish npm package
         run: pnpm publish --no-git-checks --access public --provenance

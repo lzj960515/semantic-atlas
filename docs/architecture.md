@@ -226,12 +226,16 @@ release tag so the public package is not validated through a weaker path.
 ### Release Automation
 
 The release workflow starts only from a published, non-prerelease GitHub
-Release. It checks out the event's annotated tag, proves that the tag, commit,
-and stable package version agree, repeats release-candidate verification, and
-publishes through the protected `npm` environment with provenance. It then
-reads the exact version, latest tag, shasum, and integrity back from the public
-registry. Remote rename, tag creation, GitHub Release publication, and npm
-publication remain explicit later operations rather than local build effects.
+Release after immutable releases have been enabled for the repository. It
+checks out the event's annotated tag, proves that the tag, commit, and stable
+package version agree, and reads the specific Release through GitHub's API. The
+workflow stops unless the Release tag matches and immutable protection is
+active. It then repeats release-candidate verification and publishes through
+the protected `npm` environment with provenance. Finally, it reads the exact
+version, latest tag, shasum, and integrity back from the public registry. Remote
+rename, repository setting changes, tag creation, GitHub Release publication,
+and npm publication remain explicit later operations rather than local build
+effects.
 
 ## Data Lifecycles
 
@@ -250,7 +254,7 @@ publication remain explicit later operations rather than local build effects.
 | Accuracy summary | One CLI invocation | Read phase | Re-derived from retained task and review files |
 | Reconciliation candidate report | One CLI invocation | Read phase | Re-derived from retained candidate and review provenance |
 | Packed npm candidate | One verified source revision | Release review | Rebuilt from the package allowlist |
-| Public release identity | Annotated tag and GitHub Release | Permanent remote history | Explicit release command after repository cutover |
+| Public release identity | Annotated tag and immutable GitHub Release | Permanent remote history | Explicit release command after repository cutover and immutable-release enablement |
 | Published npm package | Protected npm environment | Immutable registry version | GitHub Release workflow with provenance |
 | Task-specific source understanding | Calling agent | Engineering task | Current evidence investigation |
 | Candidate map observation | Task or maintenance record | Until reconciled | Reviewed by periodic maintenance |

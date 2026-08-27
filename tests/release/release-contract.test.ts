@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -70,12 +71,28 @@ describe("public release candidate", () => {
     if (!publish) throw new Error("Release publish job is missing");
     expect(publish.if).toContain("!github.event.release.prerelease");
     expect(publish.environment).toBe("npm");
+    const immutableReleaseStepIndex = publish.steps.findIndex(
+      (step) => step.name === "Verify immutable GitHub Release",
+    );
+    const publishStepIndex = publish.steps.findIndex(
+      (step) => step.name === "Publish npm package",
+    );
+    expect(immutableReleaseStepIndex).toBeGreaterThan(-1);
+    expect(immutableReleaseStepIndex).toBeLessThan(publishStepIndex);
     expect(publish.steps).toEqual(expect.arrayContaining([
       expect.objectContaining({
         uses: "actions/checkout@v4",
         with: expect.objectContaining({
           ref: "refs/tags/${{ github.event.release.tag_name }}",
         }),
+      }),
+      expect.objectContaining({
+        name: "Verify immutable GitHub Release",
+        run: "gh api \"repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}\" | node scripts/verify-github-release.mjs",
+        env: {
+          GH_TOKEN: "${{ github.token }}",
+          RELEASE_TAG: "${{ github.event.release.tag_name }}",
+        },
       }),
       expect.objectContaining({
         name: "Verify release identity",
@@ -92,6 +109,26 @@ describe("public release candidate", () => {
         run: "node scripts/verify-published-package.mjs",
       }),
     ]));
+  });
+
+  it("rejects a mutable or mismatched GitHub Release", () => {
+    const release = {
+      tag_name: "v1.0.0",
+      immutable: true,
+      draft: false,
+      prerelease: false,
+    };
+
+    expect(verifyGitHubRelease(release, "v1.0.0").status).toBe(0);
+
+    for (const invalidRelease of [
+      { ...release, immutable: false },
+      { ...release, tag_name: "v1.0.1" },
+      { ...release, draft: true },
+      { ...release, prerelease: true },
+    ]) {
+      expect(verifyGitHubRelease(invalidRelease, "v1.0.0").status).not.toBe(0);
+    }
   });
 
   it("documents the complete public user and release-owner journeys", async () => {
@@ -128,6 +165,9 @@ describe("public release candidate", () => {
       expect(release).toContain(evidence);
     }
     expect(release).toContain("gh release create");
+    expect(release).toContain("gh api --method PUT");
+    expect(release).toContain("immutable-releases");
+    expect(release).toContain("isImmutable");
     expect(release).toContain("gh run watch");
   });
 });
@@ -148,4 +188,12 @@ interface Workflow {
 
 async function read(relativePath: string): Promise<string> {
   return readFile(path.join(projectRoot, relativePath), "utf8");
+}
+
+function verifyGitHubRelease(release: Record<string, unknown>, releaseTag: string) {
+  return spawnSync(process.execPath, [path.join(projectRoot, "scripts/verify-github-release.mjs")], {
+    encoding: "utf8",
+    env: { ...process.env, RELEASE_TAG: releaseTag },
+    input: JSON.stringify(release),
+  });
 }

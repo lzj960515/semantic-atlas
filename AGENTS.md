@@ -97,8 +97,9 @@ that helped locate it.
   contracts, tests, typecheck, build, render, installed package behavior,
   tarball privacy, the public v0.4 transition, pack output, and Git diff checks.
 - Keep the package version and annotated `v<version>` tag on one exact commit.
-  Publish that tag as a non-prerelease GitHub Release before npm automation can
-  start.
+  Enable immutable releases before publishing that tag as a non-prerelease
+  GitHub Release. The npm workflow reads the specific Release and stops unless
+  its tag matches and immutable protection is active.
 - Let the protected `npm` GitHub environment own credentials. The release
   workflow repeats source verification and uses npm provenance; local release
   instructions never publish directly.

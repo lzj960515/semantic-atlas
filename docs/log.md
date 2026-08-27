@@ -10,9 +10,11 @@ ownership.
 - Added one repository-owned verification gate across source contracts, Node
   support, CI syntax, build and render behavior, tarball privacy, anonymous
   installed commands, the public v0.4 transition, package output, and Git diff.
-- Restricted npm publication to a matching annotated tag published as a
-  non-prerelease GitHub Release, using the protected `npm` environment,
-  provenance, and public registry read-back.
+- Restricted npm publication to a matching annotated tag published as an
+  immutable, non-prerelease GitHub Release. The release command enables and
+  reads back the repository setting, while the protected `npm` workflow rejects
+  any specific Release without active immutable protection before provenance
+  publication and public registry read-back.
 - Reframed the public README around install, setup, upgrade, target-repository
   maps, advisory evidence order, local observations, and read-only
   reconciliation without exposing private evaluation artifacts.

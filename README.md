@@ -171,9 +171,11 @@ rendering checks, packed-tarball privacy checks, an anonymous installed-product
 flow, a real public v0.4-to-v1 transition rehearsal, package dry-run, and Git
 diff validation.
 
-Publication is a separate operation. A non-prerelease GitHub Release for an
-annotated version tag triggers the protected npm workflow, which repeats the
-candidate gate and publishes with npm provenance.
+Publication is a separate operation. After the repository's immutable-release
+setting is enabled, a non-prerelease GitHub Release for an annotated version tag
+triggers the protected npm workflow. The workflow verifies the specific Release
+is immutable before it repeats the candidate gate and publishes with npm
+provenance.
 
 ## Documentation
 
