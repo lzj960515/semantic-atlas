@@ -4,8 +4,8 @@ This page defines the stable responsibilities, data lifecycle, dependency
 direction, and failure semantics for the initial product. It applies to the
 public CLI, renderer, and repository Agent Skill.
 
-**Status: query, validation, visual projection, and repository Agent paths are
-implemented.**
+**Status: query, validation, visual projection, repository Agent, and managed
+Skill lifecycle paths are implemented locally.**
 
 ## System Model
 
@@ -27,6 +27,14 @@ Calling Agent
   -> queries the graph
   -> treats the result as an investigation hypothesis
   -> confirms decisive behavior in current repository evidence
+
+published package Skill bundle
+        |
+        v
+ManagedSkillInstaller -> staged copy -> atomic directory replacement
+        ^                                      |
+        |                                      v
+verified installed CLI <- exact npm version <- PackageUpgrader
 ```
 
 The tracked documents and their Git history are the shared product state. Each
@@ -89,6 +97,30 @@ adapter prefers the CLI distributed with the Skill and accepts a PATH command
 only when it returns the current versioned envelope. This preserves one query
 contract when another installed product uses the same executable name.
 
+### ManagedSkillInstaller
+
+Owns the user-local lifecycle of the bundled `semantic-atlas` Skill. It derives
+a deterministic payload fingerprint, records package and Skill identity in a
+management marker, recognizes the v0.4 marker as a supported predecessor, and
+classifies repeated setup as current, repair, upgrade, or interrupted-swap
+recovery. It requires recognized ownership before replacing an existing
+same-named directory.
+
+Replacement uses one complete staged directory. The current managed directory
+moves to a deterministic backup before the staged directory becomes active. A
+failed swap restores the backup, while a later setup recovers a backup left by
+process interruption and removes owned staging artifacts only after it has
+confirmed the managed target.
+
+### PackageUpgrader
+
+Owns the boundary between npm package state and managed Skill state. It reads
+npm's stable version first, installs an exact `semantic-atlas@<version>` when
+the current package differs, locates that package through npm's global root,
+verifies its CLI version through the current Node executable, and invokes that
+CLI's `setup`. The old process never copies its own Skill after a package
+replacement.
+
 ## Data Lifecycles
 
 | Data | Owner | Lifetime | Mutation path |
@@ -97,6 +129,9 @@ contract when another installed product uses the same executable name.
 | Parsed documents | One CLI invocation | Parse phase | Recreated from tracked files |
 | Normalized graph | One CLI invocation | Query/render phase | Recreated after validation |
 | Rendered output | Calling workflow | Reproducible artifact | Regenerated from the graph |
+| Bundled Skill payload | Installed npm package | Package version | Replaced only by exact package installation |
+| Managed user Skill | User home | Across repositories and CLI invocations | `semantic-atlas setup` atomic replacement |
+| Managed Skill marker | Managed Skill directory | Same as installed payload | Written into the staged copy before activation |
 | Task-specific source understanding | Calling agent | Engineering task | Current evidence investigation |
 | Candidate map observation | Task or maintenance record | Until reconciled | Reviewed by periodic maintenance |
 
@@ -125,12 +160,16 @@ boundary.
 
 ## Command Model
 
-The first public flow contains three commands:
+The public flow contains repository commands and repository-independent package
+lifecycle commands:
 
 ```text
 semantic-atlas validate [--repo <path>]
 semantic-atlas context <id-or-term> [--repo <path>]
 semantic-atlas render [--repo <path>] [--output <path>]
+semantic-atlas setup
+semantic-atlas upgrade
+semantic-atlas --version
 ```
 
 Every command resolves and reports the repository root and map-document set it
@@ -141,6 +180,11 @@ separate behavior path.
 `context` returns ambiguity when multiple concepts match the term. Callers can
 then use a stable ID. A missing concept is a bounded map result and routes the
 agent to ordinary source discovery; it is not a repository failure.
+
+`setup`, `upgrade`, and `--version` do not discover a repository or load a
+business map. Their results expose the package version and managed Skill path
+needed to verify one installed identity. Business repositories retain only
+their Git-tracked map documents.
 
 ## Validation Boundary
 
@@ -175,6 +219,13 @@ Errors fall into stable categories:
   for explicit selection.
 - `OUTPUT_FAILED`: a requested render artifact cannot be written; the graph
   query result remains unaffected.
+- `MANAGED_SKILL_CONFLICT`: an existing same-named user directory has no
+  recognized Semantic Atlas management identity and remains unchanged.
+- `SETUP_FAILED`: staging, fingerprinting, replacement, or recovery failed;
+  the previous managed directory is restored or retained as the backup.
+- `UPGRADE_FAILED`: the result identifies whether registry lookup, exact
+  installation, package location, version verification, or delegated setup
+  failed.
 
 Unexpected infrastructure errors propagate to the CLI boundary with a safe
 message and a nonzero exit status. The implementation adds contextual details

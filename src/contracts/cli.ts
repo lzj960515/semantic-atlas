@@ -19,6 +19,13 @@ export interface CliSuccessEnvelope<TCommand extends string, TData> {
   readonly data: TData;
 }
 
+export interface StandaloneCliSuccessEnvelope<TCommand extends string, TData> {
+  readonly schemaVersion: 1;
+  readonly ok: true;
+  readonly command: TCommand;
+  readonly data: TData;
+}
+
 export interface CliErrorEnvelope<TCommand extends string> {
   readonly schemaVersion: 1;
   readonly ok: false;
@@ -64,6 +71,20 @@ export type CliError =
   | {
       readonly code: "INTERNAL_ERROR";
       readonly message: string;
+    }
+  | {
+      readonly code: "MANAGED_SKILL_CONFLICT";
+      readonly message: string;
+      readonly directory: string;
+    }
+  | {
+      readonly code: "SETUP_FAILED";
+      readonly message: string;
+    }
+  | {
+      readonly code: "UPGRADE_FAILED";
+      readonly message: string;
+      readonly step: "check" | "install" | "locate" | "verify" | "setup";
     };
 
 export interface ValidateData {
@@ -107,6 +128,24 @@ export interface RenderData {
   readonly relationCount: number;
 }
 
+export interface SetupData {
+  readonly outcome: "installed" | "current" | "repaired" | "upgraded" | "recovered";
+  readonly targetDirectory: string;
+  readonly identity: {
+    readonly packageName: string;
+    readonly packageVersion: string;
+    readonly skillName: "semantic-atlas";
+    readonly fingerprint: string;
+  };
+}
+
+export interface UpgradeData {
+  readonly outcome: "current" | "upgraded";
+  readonly previousVersion: string;
+  readonly targetVersion: string;
+  readonly skillDirectory: string;
+}
+
 export type ValidateEnvelope =
   | CliSuccessEnvelope<"validate", ValidateData>
   | CliErrorEnvelope<"validate">;
@@ -118,3 +157,11 @@ export type ContextEnvelope =
 export type RenderEnvelope =
   | CliSuccessEnvelope<"render", RenderData>
   | CliErrorEnvelope<"render">;
+
+export type SetupEnvelope =
+  | StandaloneCliSuccessEnvelope<"setup", SetupData>
+  | CliErrorEnvelope<"setup">;
+
+export type UpgradeEnvelope =
+  | StandaloneCliSuccessEnvelope<"upgrade", UpgradeData>
+  | CliErrorEnvelope<"upgrade">;

@@ -5,6 +5,10 @@ export type {
   ContextEnvelope,
   RenderData,
   RenderEnvelope,
+  SetupData,
+  SetupEnvelope,
+  UpgradeData,
+  UpgradeEnvelope,
   ValidateData,
   ValidateEnvelope,
 } from "./contracts/cli.js";

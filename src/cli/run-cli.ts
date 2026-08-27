@@ -6,20 +6,52 @@ import type {
   CliRunResult,
   ContextEnvelope,
   RenderEnvelope,
+  SetupEnvelope,
+  UpgradeEnvelope,
   ValidateEnvelope,
 } from "../contracts/cli.js";
+import {
+  ManagedSkillConflictError,
+  ManagedSkillInstaller,
+  type ManagedSkillInstallation,
+} from "../setup/managed-skill-installer.js";
+import {
+  PackageUpgradeError,
+  SemanticAtlasPackageUpgrader,
+  type PackageUpgradeResult,
+} from "../setup/package-upgrader.js";
+import {
+  readPackageIdentity,
+  type PackageIdentity,
+} from "../setup/package-identity.js";
 import { writeProjection } from "./projection-writer.js";
+
+export interface CliRuntime {
+  readonly packageIdentity: PackageIdentity;
+  readonly mapApplication: MapApplication;
+  installSkill(): Promise<ManagedSkillInstallation>;
+  upgradePackage(): Promise<PackageUpgradeResult>;
+}
 
 export async function runCli(
   arguments_: readonly string[],
-  application = new MapApplication(),
+  runtime?: CliRuntime,
 ): Promise<CliRunResult> {
-  let commandEnvelope: ValidateEnvelope | ContextEnvelope | RenderEnvelope | undefined;
+  const resolvedRuntime = runtime ?? await createCliRuntime();
+  const application = resolvedRuntime.mapApplication;
+  let commandEnvelope:
+    | ValidateEnvelope
+    | ContextEnvelope
+    | RenderEnvelope
+    | SetupEnvelope
+    | UpgradeEnvelope
+    | undefined;
   let commandOutput = "";
   let commandError = "";
   const program = new Command()
     .name("semantic-atlas")
     .description("Query a Git-native advisory business map")
+    .version(resolvedRuntime.packageIdentity.version)
     .showHelpAfterError()
     .exitOverride()
     .configureOutput({
@@ -29,6 +61,20 @@ export async function runCli(
       writeErr: (message) => {
         commandError += message;
       },
+    });
+
+  program
+    .command("setup")
+    .description("Install or repair the bundled user Skill")
+    .action(async () => {
+      commandEnvelope = await runSetupCommand(resolvedRuntime);
+    });
+
+  program
+    .command("upgrade")
+    .description("Install the latest stable package and sync its Skill")
+    .action(async () => {
+      commandEnvelope = await runUpgradeCommand(resolvedRuntime);
     });
 
   program
@@ -60,7 +106,7 @@ export async function runCli(
   try {
     await program.parseAsync([...arguments_], { from: "user" });
   } catch (error) {
-    if (error instanceof CommanderError && error.code === "commander.helpDisplayed") {
+    if (error instanceof CommanderError && error.exitCode === 0) {
       return {
         exitCode: 0,
         stdout: commandOutput,
@@ -105,6 +151,78 @@ export async function runCli(
   }
 
   return serialize(commandEnvelope.ok ? 0 : 1, commandEnvelope);
+}
+
+async function createCliRuntime(): Promise<CliRuntime> {
+  const packageIdentity = await readPackageIdentity();
+  return {
+    packageIdentity,
+    mapApplication: new MapApplication(),
+    installSkill: () => new ManagedSkillInstaller({ packageIdentity }).install(),
+    upgradePackage: () => new SemanticAtlasPackageUpgrader({
+      currentVersion: packageIdentity.version,
+    }).upgrade(),
+  };
+}
+
+async function runSetupCommand(runtime: CliRuntime): Promise<SetupEnvelope> {
+  try {
+    const result = await runtime.installSkill();
+    return {
+      schemaVersion: 1,
+      ok: true,
+      command: "setup",
+      data: result,
+    };
+  } catch (error) {
+    if (error instanceof ManagedSkillConflictError) {
+      return {
+        schemaVersion: 1,
+        ok: false,
+        command: "setup",
+        error: {
+          code: "MANAGED_SKILL_CONFLICT",
+          message: error.message,
+          directory: error.directory,
+        },
+      };
+    }
+    return {
+      schemaVersion: 1,
+      ok: false,
+      command: "setup",
+      error: {
+        code: "SETUP_FAILED",
+        message: errorMessage(error),
+      },
+    };
+  }
+}
+
+async function runUpgradeCommand(runtime: CliRuntime): Promise<UpgradeEnvelope> {
+  try {
+    const result = await runtime.upgradePackage();
+    return {
+      schemaVersion: 1,
+      ok: true,
+      command: "upgrade",
+      data: result,
+    };
+  } catch (error) {
+    const upgradeError = error instanceof PackageUpgradeError
+      ? error
+      : new PackageUpgradeError("check", errorMessage(error));
+    return {
+      schemaVersion: 1,
+      ok: false,
+      command: "upgrade",
+      error: {
+        code: "UPGRADE_FAILED",
+        message: upgradeError.message,
+        step: upgradeError.step,
+      },
+    };
+  }
 }
 
 function serialize(exitCode: number, envelope: object): CliRunResult {

@@ -33,6 +33,37 @@ horizontal scrolling and contains no editing or mutation path.
 A missing or stale map remains an advisory discovery result; current source,
 tests, and tracked product documents control engineering conclusions.
 
+## Install And Upgrade
+
+After the separately verified v1 publication, one global package owns the
+Semantic Atlas CLI and its user Skill:
+
+```bash
+npm install --global semantic-atlas
+semantic-atlas setup
+```
+
+`setup` copies the exact bundled Skill to
+`~/.agents/skills/semantic-atlas`. Its management marker records the package
+name, package version, Skill name, and deterministic content fingerprint.
+Repeated setup verifies those files, repairs a changed managed copy, recovers
+an interrupted directory swap, and upgrades the supported v0.4 managed copy.
+A same-named directory without recognized ownership remains untouched and is
+reported as a conflict.
+
+Use the package-owned upgrade path to keep the executable and managed Skill on
+one identity:
+
+```bash
+semantic-atlas upgrade
+```
+
+`upgrade` resolves npm's current stable version before mutation, installs the
+exact `semantic-atlas@<version>` when needed, starts that installed package by
+its npm global path, verifies `--version`, and delegates Skill synchronization
+to that exact CLI. Target repositories continue to share only
+`docs/business-map/*.yaml`; setup and upgrade do not add Skill files to them.
+
 ## Agent Skill
 
 Mapped repositories discover `.agents/skills/semantic-atlas/SKILL.md`. For a
@@ -43,8 +74,10 @@ ambiguous terms, absent or stale anchors, and contradicted relations all route
 to bounded ordinary discovery. Durable map discrepancies become separate
 reconciliation candidates rather than mandatory map edits.
 
-The Skill's query adapter prefers the CLI from the same package and verifies
-the versioned `context` envelope before exposing it to the Agent.
+The Skill's query adapter invokes its package sibling when present. From the
+managed user directory, it first checks that the PATH CLI version matches the
+setup marker, then verifies the versioned `context` envelope before exposing it
+to the Agent.
 
 ## Local Acceptance
 

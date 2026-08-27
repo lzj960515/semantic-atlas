@@ -25,16 +25,18 @@ established, such as formatting, a local rename, or generated-file refresh.
 2. Choose one distinctive business term from the user-visible behavior. Prefer
    an exact business name or stable task vocabulary over a framework, folder,
    class, or method name.
-3. Before broad source discovery, run the Skill's contract-checking adapter:
+3. Before broad source discovery, run the Skill's identity- and
+   contract-checking adapter:
 
    ```bash
    node "<skill-directory>/scripts/query-context.mjs" \
      "<business-term>" --repo "<absolute-repository-root>"
    ```
 
-   The adapter prefers the CLI distributed beside this Skill and verifies the
-   v1 `context` envelope. This keeps an older command with the same executable
-   name from being interpreted as the current product.
+   A package-bundled adapter invokes that package's CLI directly. A managed
+   user Skill first requires the PATH CLI version recorded by `setup`, then
+   verifies the v1 `context` envelope. This keeps an older command with the
+   same executable name from being interpreted as the current product.
 
 4. Read the selected concept, ancestors, direct children, incoming and outgoing
    relations, endpoint summaries, and anchors. Record them as hypotheses.

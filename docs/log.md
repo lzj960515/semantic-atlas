@@ -5,6 +5,16 @@ ownership.
 
 ## 2026-08-27
 
+- Implemented the local managed-Skill lifecycle candidate: package-identity
+  markers, deterministic payload fingerprints, idempotent repair, supported
+  v0.4 replacement, conflict refusal, and recoverable atomic directory swaps.
+- Added exact stable-version upgrade orchestration that verifies and invokes
+  the newly installed CLI by npm global package path before synchronizing its
+  Skill, keeping old and new package payloads out of one setup transaction.
+- Extended packed-product acceptance through an isolated user home and target
+  repository, including setup repetition, repair, legacy replacement,
+  interrupted-swap recovery, unrelated-directory preservation, and managed
+  adapter version mismatch reporting.
 - Recorded that the documentation baseline and all five initial product slices
   are accepted and integrated at `decac0c`; setup, publication, installation,
   target-repository rollout, and real-use acceptance remain separate gates.
