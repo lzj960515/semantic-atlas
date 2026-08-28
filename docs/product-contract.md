@@ -57,8 +57,12 @@ implementation vocabulary differ.
 ### Human inspection
 
 A person views deterministic projections of the same tracked map to discuss
-business boundaries and relationships. The visual surface does not become a
-second authoring format.
+business boundaries and relationships. A self-contained export and a local
+read-only Web command share the same interactive Viewer, including project and
+business-domain selection, pan, zoom, and fit-to-view. Graph cards prioritize
+business meaning by showing type, title, and description; selecting a card
+reveals its navigation anchors in a side panel or narrow-screen bottom panel.
+The visual surface does not become a second authoring format.
 
 ### Periodic reconciliation
 
@@ -138,7 +142,8 @@ The initial product delivers one coherent path:
 4. Find a business concept by stable ID, name, or alias.
 5. Return its containment, direct business relations, related concepts, and
    navigation anchors as structured JSON.
-6. Render deterministic human-readable projections from the same graph.
+6. Render deterministic interactive human-readable projections from the same
+   graph as a portable HTML artifact or loopback Web session.
 7. Package an Agent Skill that routes map context into current-source
    confirmation.
 8. Exercise the workflow against real engineering tasks, including stale and
@@ -197,7 +202,7 @@ human-intervention evidence as acceptance conditions.
 The initial product, managed setup, versioned observations, read-only
 reconciliation, public repository, and npm publication are complete. The first
 real target-domain map and reviewed observation pair are in local use. The
-current `semantic-atlas@2.0.0` release removes one-time predecessor migration
+current `semantic-atlas@2.1.0` release removes one-time predecessor migration
 paths and accepts only current managed Skill, observation, and claim contracts.
 Target-repository sharing and longitudinal acceptance remain separate verified
 stages.

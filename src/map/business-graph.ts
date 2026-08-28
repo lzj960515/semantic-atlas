@@ -86,6 +86,17 @@ export class BusinessGraph {
     );
   }
 
+  public descendants(nodeId: string): readonly BusinessNode[] {
+    const descendants: BusinessNode[] = [];
+    const pending = [...(this.childrenByParent.get(nodeId) ?? [])];
+    while (pending.length > 0) {
+      const descendantId = pending.shift()!;
+      descendants.push(this.requireNode(descendantId));
+      pending.push(...(this.childrenByParent.get(descendantId) ?? []));
+    }
+    return Object.freeze(descendants);
+  }
+
   public incoming(nodeId: string): readonly BusinessRelation[] {
     return this.incomingByNode.get(nodeId) ?? [];
   }

@@ -78,12 +78,32 @@ anchors, validation rules, and lookup behavior.
 semantic-atlas validate --repo /path/to/repository
 semantic-atlas context "Checkout" --repo /path/to/repository
 semantic-atlas render --repo /path/to/repository --output ./business-map.html
+semantic-atlas web --repo /path/to/repository
 ```
 
 `validate` checks every map document as one graph. `context` returns the
 selected concept, containment, direct incoming and outgoing relationships,
 related concepts, and source-navigation anchors in a versioned JSON envelope.
-`render` produces deterministic static HTML from that same normalized graph.
+`render` produces a deterministic, self-contained interactive HTML Viewer from
+that same normalized graph. Its compact toolbar can switch between the complete
+repository graph and each top-level business domain. Drag to pan, use the mouse
+wheel or controls to zoom, and use `Fit` to restore the complete selected view.
+Cards keep business type, title, and description visible without exposing code
+paths in the graph. Click a card, or focus it and press `Enter`, to inspect its
+navigation anchors in a desktop side panel or narrow-screen bottom panel.
+
+`web` starts the same Viewer on a read-only `127.0.0.1` server and opens the
+default browser. Pass several explicitly allowed repositories after one
+`--repo` option to enable project switching:
+
+```bash
+semantic-atlas web --repo /path/to/api /path/to/frontend --port 4310 --no-open
+```
+
+The browser cannot provide arbitrary repository paths. Refreshing the page
+reloads the tracked YAML from the repositories supplied when the command
+started. Repositories with the same directory name receive deterministic
+numbered labels without exposing their parent paths. `Ctrl+C` stops the server.
 
 ## Evidence Order
 
@@ -157,7 +177,8 @@ Observation files contain neither repository paths nor remote URLs. Semantic
 Atlas has no remote observation service, account, telemetry upload, persistent
 graph database, or automatic source/map mutation. `setup` and observation
 commands do not add files to a target repository; `render` writes only the
-explicitly requested local output.
+explicitly requested local output. `web` binds only to loopback, exposes GET
+and HEAD, and reads only the repositories explicitly selected at startup.
 
 ## Development
 

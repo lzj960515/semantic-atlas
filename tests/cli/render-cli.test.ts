@@ -72,12 +72,19 @@ describe("semantic-atlas render", () => {
     expect(firstProjection).toContain('data-channel="containment"');
     expect(firstProjection).toContain('data-channel="directed-relation"');
     expect(firstProjection).toContain('data-relation-id="commerce.orders--part_of--commerce"');
-    expect(firstProjection).toContain('marker-end="url(#relation-arrow)"');
+    expect(firstProjection).toMatch(/marker-end="url\(#relation-arrow-[^)]+\)"/u);
     expect(firstProjection).toContain("Likely source area for order behavior.");
     expect(firstProjection).toContain("src/orders");
+    expect(firstProjection).toContain('data-viewer-mode="export"');
+    expect(firstProjection).toContain('id="project-select"');
+    expect(firstProjection).toContain('id="domain-select"');
+    expect(firstProjection).toContain('data-action="zoom-in"');
+    expect(firstProjection).toContain('data-action="fit"');
     expect(firstProjection).toContain("Containment relationships");
     expect(firstProjection).toContain("Directed business relationships");
-    expect(firstProjection).not.toContain("<script");
+    expect(firstProjection).toContain("<script");
+    expect(firstProjection).not.toContain("__vite_ssr_import");
+    expect(firstProjection).not.toContain("Business relationships, made visible.");
   });
 
   it("wraps wide-character labels within the card and includes every line in its height", async () => {
@@ -202,7 +209,7 @@ function mapDocument(
 function extractNodeMarkup(projection: string, nodeId: string): string {
   const escapedNodeId = nodeId.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
   const match = projection.match(new RegExp(
-    `<g class="node-card[^>]*id="node-${escapedNodeId}"[\\s\\S]*?</g>`,
+    `<g class="node-card[^>]*data-node-id="${escapedNodeId}"[\\s\\S]*?</g>`,
     "u",
   ));
   expect(match, `Expected rendered node ${nodeId}`).not.toBeNull();

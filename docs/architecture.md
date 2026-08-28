@@ -106,10 +106,32 @@ ambiguity explicitly rather than selecting a hidden match.
 
 ### MapProjector
 
-Builds deterministic graph projections for people and agents. The first visual
-projection distinguishes semantic containment from directed horizontal
-relations and preserves stable element identities for repeatable layout and
-inspection.
+Builds deterministic repository-wide and top-level-domain graph projections
+for people and agents. A domain projection keeps directly connected external
+concepts as visible boundary nodes. Every projection distinguishes semantic
+containment from directed horizontal relations and preserves stable element
+identities for repeatable layout and inspection.
+
+### ViewerPage
+
+Owns the compact human inspection surface shared by static export and Web. It
+combines project and business-domain selection, map statistics, a restrained
+legend, pan, zoom, and fit-to-view around deterministic SVG projections. Cards
+render stable business meaning only. Pointer or keyboard selection opens the
+node's navigation anchors in an overlaid desktop side panel or narrow-screen
+bottom panel without relaying out the graph. Camera coordinates use the SVG
+`xMidYMid meet` scale and letterbox offsets for both pointer zoom and pan. Its
+browser interaction state is disposable and never enters tracked map data.
+
+### LocalWebApplication And LocalWebServer
+
+`LocalWebApplication` reloads only the repository paths supplied by the CLI and
+renders the shared Viewer. `LocalWebServer` binds to `127.0.0.1`, serves GET and
+HEAD, rejects mutation methods, and accepts no repository path from HTTP. The
+server owns transport lifetime only; map loading, validation, layout, and HTML
+remain in their existing application and rendering owners. When allowed
+repositories share a basename, `ViewerPage` adds deterministic numeric labels
+without revealing parent or absolute paths.
 
 ### CLI
 
@@ -292,6 +314,7 @@ lifecycle commands:
 semantic-atlas validate [--repo <path>]
 semantic-atlas context <id-or-term> [--repo <path>]
 semantic-atlas render [--repo <path>] [--output <path>]
+semantic-atlas web [--repo <path...>] [--port <port>] [--no-open]
 semantic-atlas setup
 semantic-atlas upgrade
 semantic-atlas observe task --stdin [--repo <path>]
@@ -302,9 +325,11 @@ semantic-atlas --version
 ```
 
 Map commands resolve and report the repository root and map-document set they
-used. Observation commands report the derived repository identity, while
-package lifecycle commands remain repository-independent. Machine output uses
-a versioned envelope with a stable success or error discriminant.
+used. `web` reports its loopback URL and repository count without exposing
+those roots to the browser. Observation commands report the derived repository
+identity, while package lifecycle commands remain repository-independent.
+Machine output uses a versioned envelope with a stable success or error
+discriminant.
 
 `context` returns ambiguity when multiple concepts match the term. Callers can
 then use a stable ID. A missing concept is a bounded map result and routes the
@@ -375,6 +400,8 @@ Errors fall into stable categories:
   summary.
 - `RECONCILIATION_READ_FAILED`: retained candidate and review evidence cannot
   produce a trustworthy reconciliation report.
+- `WEB_START_FAILED`: one of the explicitly selected repositories cannot load,
+  the loopback port cannot bind, or the local Viewer cannot start.
 
 Unexpected infrastructure errors propagate to the CLI boundary with a safe
 message and a nonzero exit status. The implementation adds contextual details

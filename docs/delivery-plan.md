@@ -153,7 +153,7 @@ Acceptance:
 ## Current Public Rollout
 
 The initial product is public and installed. The current
-`semantic-atlas@2.0.0` release removes predecessor migration behavior while
+`semantic-atlas@2.1.0` release removes predecessor migration behavior while
 preserving the business-map model, current observations, managed Skills,
 reconciliation, and real-use acceptance thresholds defined by the
 [product contract](product-contract.md).
@@ -177,3 +177,32 @@ remain separately verified actions.
 Each gate starts from directly verified evidence from its predecessor. Local
 integration does not authorize or prove setup, remote changes, publication,
 target-repository changes, or real-use acceptance.
+
+## Interactive Viewer Extension
+
+**Status: released in `semantic-atlas@2.1.0`.**
+
+Human inspection feedback established that a fixed-width static page without
+zoom is insufficient once a real domain map contains many relations. The
+extension keeps the original deterministic rendering boundary while making it
+usable in daily inspection:
+
+- `render` exports a self-contained interactive Viewer with a compact one-row
+  desktop toolbar, top-level-domain selection, pan, zoom, and fit-to-view;
+- `web` serves the same Viewer on `127.0.0.1` for one or more repositories
+  explicitly supplied at startup;
+- project and domain selection remain read-only projections over the current
+  tracked YAML and create no repository catalog or persistent graph;
+- graph cards show business type, title, and description while pointer or
+  keyboard selection reveals navigation anchors in an overlaid details panel;
+- map drag suppresses text selection, and pointer zoom plus pan use the SVG's
+  aspect-ratio-preserving viewport coordinates;
+- duplicate repository basenames receive stable numbered labels without
+  disclosing their parent paths;
+- domain views preserve directly connected external concepts so filtering does
+  not hide cross-domain collaboration;
+- packaged-product tests start the real installed server, read the Viewer, and
+  confirm mutation methods are rejected;
+- browser inspection verifies desktop side-panel and narrow bottom-panel
+  details plus project/domain, pointer and keyboard selection, drag without text
+  selection, zoom, fit, and refresh behavior before integration.

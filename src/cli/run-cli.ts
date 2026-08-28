@@ -1,6 +1,6 @@
 import path from "node:path";
 import os from "node:os";
-import { Command, CommanderError } from "commander";
+import { Command, CommanderError, InvalidArgumentError } from "commander";
 import { MapApplication, type MapProjectionResult } from "../application/map-application.js";
 import type {
   CliErrorEnvelope,
@@ -14,6 +14,7 @@ import type {
   SetupEnvelope,
   UpgradeEnvelope,
   ValidateEnvelope,
+  WebEnvelope,
 } from "../contracts/cli.js";
 import { InsightService } from "../insights/insight-service.js";
 import { ObservationApplication } from "../observations/observation-application.js";
@@ -45,12 +46,18 @@ import {
   type ReconciliationCliRuntime,
   runReconciliationCandidatesCommand,
 } from "./reconciliation-command.js";
+import {
+  WebCommandService,
+  type StartWebOptions,
+  type WebSessionData,
+} from "../web/web-command-service.js";
 
 export interface CliRuntime extends ObservationCliRuntime, ReconciliationCliRuntime {
   readonly packageIdentity: PackageIdentity;
   readonly mapApplication: MapApplication;
   installSkills(): Promise<ManagedSkillsInstallation>;
   upgradePackage(): Promise<PackageUpgradeResult>;
+  startWeb(options: StartWebOptions): Promise<WebSessionData>;
 }
 
 export interface CliRuntimeOptions {
@@ -75,6 +82,7 @@ export async function runCli(
     | ObserveReviewEnvelope
     | InsightsSummaryEnvelope
     | ReconciliationCandidatesEnvelope
+    | WebEnvelope
     | undefined;
   let commandOutput = "";
   let commandError = "";
@@ -122,6 +130,26 @@ export async function runCli(
     .option("--output <path>", "static HTML output path")
     .action(async (options: { readonly repo: string; readonly output?: string }) => {
       commandEnvelope = await runRenderCommand(application, options);
+    });
+
+  program
+    .command("web")
+    .description("Start the local interactive business-map viewer")
+    .option("--repo <paths...>", "repository roots")
+    .option("--port <port>", "loopback HTTP port", parsePort, 4310)
+    .option("--no-open", "start without opening the default browser")
+    .action(async (options: {
+      readonly repo?: readonly string[];
+      readonly port: number;
+      readonly open: boolean;
+    }) => {
+      const repositoryPaths = (options.repo ?? [process.cwd()]).map((repositoryPath) =>
+        path.resolve(repositoryPath));
+      commandEnvelope = await runWebCommand(resolvedRuntime, {
+        repositoryPaths,
+        port: options.port,
+        openBrowser: options.open,
+      });
     });
 
   program
@@ -233,13 +261,14 @@ export async function createCliRuntime(
   options: CliRuntimeOptions = {},
 ): Promise<CliRuntime> {
   const packageIdentity = await readPackageIdentity();
+  const mapApplication = new MapApplication();
   const repositoryResolver = new RepositoryIdentityResolver();
   const observationStore = new ObservationStore({
     userHome: options.userHome ?? os.homedir(),
   });
   return {
     packageIdentity,
-    mapApplication: new MapApplication(),
+    mapApplication,
     observationApplication: new ObservationApplication(
       repositoryResolver,
       observationStore,
@@ -253,9 +282,42 @@ export async function createCliRuntime(
     upgradePackage: () => new SemanticAtlasPackageUpgrader({
       currentVersion: packageIdentity.version,
     }).upgrade(),
+    startWeb: (webOptions) => new WebCommandService(mapApplication).start(webOptions),
     readStandardInput: options.readStandardInput ?? readStandardInput,
     now: options.now ?? (() => new Date()),
   };
+}
+
+function parsePort(value: string): number {
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new InvalidArgumentError("port must be an integer from 1 through 65535");
+  }
+  return port;
+}
+
+async function runWebCommand(
+  runtime: CliRuntime,
+  options: StartWebOptions,
+): Promise<WebEnvelope> {
+  try {
+    return {
+      schemaVersion: 1,
+      ok: true,
+      command: "web",
+      data: await runtime.startWeb(options),
+    };
+  } catch (error) {
+    return {
+      schemaVersion: 1,
+      ok: false,
+      command: "web",
+      error: {
+        code: "WEB_START_FAILED",
+        message: errorMessage(error),
+      },
+    };
+  }
 }
 
 async function readStandardInput(): Promise<string> {

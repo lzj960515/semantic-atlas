@@ -123,6 +123,10 @@ export type CliError =
   | {
       readonly code: "RECONCILIATION_READ_FAILED";
       readonly message: string;
+    }
+  | {
+      readonly code: "WEB_START_FAILED";
+      readonly message: string;
     };
 
 export interface ValidateData {
@@ -166,6 +170,11 @@ export interface RenderData {
   readonly relationCount: number;
 }
 
+export interface WebData {
+  readonly url: string;
+  readonly repositoryCount: number;
+}
+
 export interface SetupData {
   readonly skills: readonly {
     readonly outcome: "installed" | "current" | "repaired" | "upgraded" | "recovered";
@@ -204,6 +213,10 @@ export type ContextEnvelope =
 export type RenderEnvelope =
   | CliSuccessEnvelope<"render", RenderData>
   | CliErrorEnvelope<"render">;
+
+export type WebEnvelope =
+  | StandaloneCliSuccessEnvelope<"web", WebData>
+  | CliErrorEnvelope<"web">;
 
 export type SetupEnvelope =
   | StandaloneCliSuccessEnvelope<"setup", SetupData>

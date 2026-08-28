@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import path from "node:path";
 import type {
   CliError,
   ContextEnvelope,
@@ -13,6 +15,7 @@ import { BusinessGraph } from "../map/business-graph.js";
 import { MapValidator } from "../map/map-validator.js";
 import { ContextQueryService } from "../query/context-query-service.js";
 import { MapProjector } from "../rendering/map-projector.js";
+import type { ViewerProject } from "../rendering/viewer-page.js";
 
 type ValidatedMapResult =
   | {
@@ -30,6 +33,18 @@ export type MapProjectionResult =
       readonly ok: true;
       readonly repository: RepositoryMapSource;
       readonly projection: MapProjection;
+    }
+  | {
+      readonly ok: false;
+      readonly repository?: RepositoryMapSource;
+      readonly error: CliError;
+    };
+
+export type ViewerProjectResult =
+  | {
+      readonly ok: true;
+      readonly repository: RepositoryMapSource;
+      readonly viewerProject: ViewerProject;
     }
   | {
       readonly ok: false;
@@ -106,7 +121,20 @@ export class MapApplication {
     return {
       ok: true,
       repository: result.map.source,
-      projection: new MapProjector(graph).project(),
+      projection: new MapProjector(graph).project(viewerProjectMetadata(result.map.source.root)),
+    };
+  }
+
+  public async viewerProject(repositoryPath: string): Promise<ViewerProjectResult> {
+    const result = await this.loadValidatedMap(repositoryPath);
+    if (!result.ok) return result;
+
+    const graph = new BusinessGraph(result.map);
+    return {
+      ok: true,
+      repository: result.map.source,
+      viewerProject: new MapProjector(graph)
+        .viewerProject(viewerProjectMetadata(result.map.source.root)),
     };
   }
 
@@ -149,6 +177,15 @@ export class MapApplication {
       };
     }
   }
+}
+
+function viewerProjectMetadata(
+  repositoryRoot: string,
+): { readonly id: string; readonly name: string } {
+  return {
+    id: createHash("sha256").update(repositoryRoot).digest("hex").slice(0, 16),
+    name: path.basename(repositoryRoot),
+  };
 }
 
 function validateError(result: Extract<ValidatedMapResult, { readonly ok: false }>): ValidateEnvelope {

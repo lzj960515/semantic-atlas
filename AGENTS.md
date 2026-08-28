@@ -34,6 +34,8 @@ documentation changes in `docs/log.md`.
   accumulated drift by business domain.
 - Rendered diagrams and derived local artifacts are reproducible outputs of the
   tracked map.
+- Static export and the loopback Web command use one shared interactive Viewer;
+  the service adds project selection without becoming a second graph model.
 - Source discovery uses the calling agent's normal repository tools. The map
   remains focused on business meaning rather than structural code indexing.
 

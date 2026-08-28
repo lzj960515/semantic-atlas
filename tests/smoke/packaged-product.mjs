@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
+import { createServer as createNetServer } from "node:net";
 import {
   access,
   appendFile,
@@ -203,6 +204,14 @@ async function exerciseInstalledProduct() {
   const projection = await readFile(renderedOutputPath, "utf8");
   assert.match(projection, /data-node-id="commerce\.orders\.place-order"/u);
   assert.match(projection, /data-channel="directed-relation"/u);
+  assert.match(projection, /data-viewer-mode="export"/u);
+  assert.match(projection, /data-action="zoom-in"/u);
+  assert.match(projection, /id="node-details"/u);
+  assert.match(projection, /preserveAspectRatio="xMidYMid meet"/u);
+  assert.match(projection, /"value":"src\/catalog"/u);
+  assert.doesNotMatch(projection, /class="node-card__anchor/u);
+
+  await exerciseInstalledWeb();
 
   const packagedSkillAdapter = path.join(
     installedPackageRoot,
@@ -223,6 +232,104 @@ async function exerciseInstalledProduct() {
     JSON.parse(packagedSkillContext.stdout).data.selected.id,
     "commerce.orders.place-order",
   );
+}
+
+async function exerciseInstalledWeb() {
+  const port = await reserveLoopbackPort();
+  const child = spawn(process.execPath, [
+    installedCli,
+    "web",
+    "--repo",
+    repositoryRoot,
+    "--port",
+    String(port),
+    "--no-open",
+  ], {
+    cwd: consumerDirectory,
+    env: cliEnvironment,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk;
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+
+  try {
+    const envelope = await waitForWebEnvelope(() => stdout, () => stderr, child);
+    assert.deepEqual(envelope, {
+      schemaVersion: 1,
+      ok: true,
+      command: "web",
+      data: {
+        url: `http://127.0.0.1:${port}`,
+        repositoryCount: 1,
+      },
+    });
+    const page = await fetch(envelope.data.url);
+    const html = await page.text();
+    assert.equal(page.status, 200);
+    assert.match(html, /data-viewer-mode="web"/u);
+    assert.match(html, /data-map-view="commerce"/u);
+    assert.match(html, /id="node-details"/u);
+    assert.match(html, /preserveAspectRatio="xMidYMid meet"/u);
+    assert.match(html, /"value":"src\/catalog"/u);
+    assert.doesNotMatch(html, /class="node-card__anchor/u);
+    assert.doesNotMatch(html, new RegExp(escapeRegularExpression(repositoryRoot), "u"));
+
+    const mutation = await fetch(envelope.data.url, { method: "POST" });
+    assert.equal(mutation.status, 405);
+    assert.equal(mutation.headers.get("allow"), "GET, HEAD");
+  } finally {
+    child.kill("SIGTERM");
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("installed Web server did not stop")), 5_000);
+      child.once("close", () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+      child.once("error", reject);
+    });
+  }
+}
+
+async function waitForWebEnvelope(readStdout, readStderr, child) {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    try {
+      return JSON.parse(readStdout());
+    } catch {
+      if (child.exitCode !== null) {
+        throw new Error(`installed Web server exited early: ${readStderr() || readStdout()}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+  throw new Error(`installed Web server did not start: ${readStderr() || readStdout()}`);
+}
+
+async function reserveLoopbackPort() {
+  const server = createNetServer();
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const port = address.port;
+  await new Promise((resolve, reject) => {
+    server.close((error) => error ? reject(error) : resolve());
+  });
+  return port;
+}
+
+function escapeRegularExpression(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 async function exerciseInstalledObservations() {

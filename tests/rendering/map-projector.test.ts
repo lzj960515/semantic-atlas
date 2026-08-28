@@ -27,6 +27,38 @@ describe("MapProjector", () => {
     expect(first.content).toContain("Orders &amp; returns");
     expect(first.content).toContain("&lt;reliable&gt;");
     expect(first.content).not.toContain("<script>alert");
+    expect(first.content).toContain('data-map-view="all"');
+    expect(first.content).toContain('data-map-view="commerce"');
+    expect(first.content).toContain('aria-label="Zoom in"');
+  });
+
+  it("keeps navigation anchors in on-demand details rather than graph cards", () => {
+    const graph = new BusinessGraph(validatedMap());
+
+    const projection = new MapProjector(graph).project();
+    const ordersCard = extractNodeMarkup(projection.content, "commerce.orders");
+
+    expect(ordersCard).toContain('role="button"');
+    expect(ordersCard).toContain('tabindex="0"');
+    expect(ordersCard).not.toContain("NAVIGATION ANCHORS");
+    expect(ordersCard).not.toContain("src/orders");
+    expect(projection.content).toContain('id="node-details"');
+    expect(projection.content).toContain("src/orders");
+  });
+
+  it("keeps directly connected external concepts visible in a domain view", () => {
+    const graph = new BusinessGraph(crossDomainMap());
+
+    const project = new MapProjector(graph).viewerProject({
+      id: "repository",
+      name: "Repository",
+    });
+    const commerce = project.views.find(({ id }) => id === "commerce");
+
+    expect(commerce).toMatchObject({ nodeCount: 3, relationCount: 2 });
+    expect(commerce?.svg).toContain('data-node-id="fulfillment.inventory"');
+    expect(commerce?.svg).toContain('data-boundary="true"');
+    expect(commerce?.svg).not.toContain('data-node-id="support.returns"');
   });
 });
 
@@ -45,6 +77,11 @@ function validatedMap(): ValidatedBusinessMap {
         "capability",
         "Orders & returns",
         "Keeps orders <reliable>.",
+        [{
+          kind: "directory",
+          value: "src/orders",
+          description: "Current order implementation.",
+        }],
       ),
       businessNode(
         "commerce.orders.checkout",
@@ -65,6 +102,7 @@ function businessNode(
   kind: BusinessNode["kind"],
   name: string,
   summary: string,
+  anchors: BusinessNode["anchors"] = [],
 ): BusinessNode {
   return {
     id,
@@ -72,10 +110,20 @@ function businessNode(
     name,
     summary,
     aliases: [],
-    anchors: [],
+    anchors,
     documentId: "commerce",
     documentPath: "docs/business-map/commerce.yaml",
   };
+}
+
+function extractNodeMarkup(projection: string, nodeId: string): string {
+  const escapedNodeId = nodeId.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const match = projection.match(new RegExp(
+    `<g class="node-card[^>]*data-node-id="${escapedNodeId}"[\\s\\S]*?</g>`,
+    "u",
+  ));
+  expect(match, `Expected rendered node ${nodeId}`).not.toBeNull();
+  return match?.[0] ?? "";
 }
 
 function businessRelation(
@@ -90,5 +138,30 @@ function businessRelation(
     summary: `${from} ${type} ${to}.`,
     documentId: "commerce",
     documentPath: "docs/business-map/commerce.yaml",
+  };
+}
+
+function crossDomainMap(): ValidatedBusinessMap {
+  return {
+    source: {
+      root: "/repository",
+      mapDirectory: "docs/business-map",
+      documents: ["commerce.yaml", "fulfillment.yaml", "support.yaml"],
+    },
+    documents: [],
+    nodes: [
+      businessNode("commerce", "domain", "Commerce", "Customer commerce."),
+      businessNode("commerce.checkout", "scenario", "Checkout", "Places an order."),
+      businessNode("fulfillment", "domain", "Fulfillment", "Fulfills orders."),
+      businessNode("fulfillment.inventory", "capability", "Inventory", "Reserves stock."),
+      businessNode("support", "domain", "Support", "Supports customers."),
+      businessNode("support.returns", "capability", "Returns", "Handles returns."),
+    ],
+    relations: [
+      businessRelation("commerce.checkout", "part_of", "commerce"),
+      businessRelation("fulfillment.inventory", "part_of", "fulfillment"),
+      businessRelation("support.returns", "part_of", "support"),
+      businessRelation("commerce.checkout", "invokes", "fulfillment.inventory"),
+    ],
   };
 }

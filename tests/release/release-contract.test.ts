@@ -14,7 +14,7 @@ describe("public release candidate", () => {
 
     expect(packageDocument).toMatchObject({
       name: "semantic-atlas",
-      version: "2.0.0",
+      version: "2.1.0",
       license: "MIT",
       homepage: `${publicRepository}#readme`,
       bugs: { url: `${publicRepository}/issues` },
@@ -188,6 +188,9 @@ describe("public release candidate", () => {
     expect(readme).toContain("npm install --global semantic-atlas");
     expect(readme).toContain("semantic-atlas setup");
     expect(readme).toContain("docs/business-map/*.yaml");
+    expect(readme).toContain("semantic-atlas web --repo");
+    expect(readme).toContain("127.0.0.1");
+    expect(readme).toContain("Drag to pan");
     expect(readme).toContain("semantic-atlas observe task --stdin");
     expect(readme).toContain("semantic-atlas reconcile candidates");
 
@@ -211,10 +214,13 @@ describe("public release candidate", () => {
     expect(release).not.toContain("Direct V1 Main Cutover");
 
     for (const productDocument of [productContract, deliveryPlan]) {
-      expect(productDocument).toContain("semantic-atlas@2.0.0");
+      expect(productDocument).toContain("semantic-atlas@2.1.0");
       expect(productDocument).not.toContain("old-CLI upgrade compatibility");
       expect(productDocument).not.toContain("v0.4 transition rehearsal");
     }
+    expect(productContract).toMatch(/local\s+read-only Web command/u);
+    expect(deliveryPlan).toContain("## Interactive Viewer Extension");
+    expect(deliveryPlan).toContain("Status: released in `semantic-atlas@2.1.0`");
   });
 });
 
