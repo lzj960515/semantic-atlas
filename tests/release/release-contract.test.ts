@@ -14,7 +14,7 @@ describe("public release candidate", () => {
 
     expect(packageDocument).toMatchObject({
       name: "semantic-atlas",
-      version: "2.1.0",
+      version: "2.1.1",
       license: "MIT",
       homepage: `${publicRepository}#readme`,
       bugs: { url: `${publicRepository}/issues` },
@@ -237,7 +237,7 @@ describe("public release candidate", () => {
     expect(release).not.toContain("Direct V1 Main Cutover");
 
     for (const productDocument of [productContract, deliveryPlan]) {
-      expect(productDocument).toContain("semantic-atlas@2.1.0");
+      expect(productDocument).toContain("semantic-atlas@2.1.1");
       expect(productDocument).not.toContain("old-CLI upgrade compatibility");
       expect(productDocument).not.toContain("v0.4 transition rehearsal");
     }

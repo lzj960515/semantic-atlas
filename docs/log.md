@@ -2,6 +2,9 @@
 
 ## 2026-08-28
 
+- Defined `semantic-atlas@2.1.1` as the task-semantic business-understanding
+  release for mapped and mapless repositories, with explicit post-task
+  maintenance decisions and evidence-bounded initial-domain maintenance.
 - Refactored the managed `semantic-atlas` Skill to activate from
   business-changing task meaning rather than map-file presence, including a
   bounded `MAP_NOT_FOUND` understanding path.

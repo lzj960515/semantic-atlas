@@ -157,7 +157,7 @@ Acceptance:
 ## Current Public Rollout
 
 The initial product is public and installed. The current
-`semantic-atlas@2.1.0` release removes predecessor migration behavior while
+`semantic-atlas@2.1.1` release removes predecessor migration behavior while
 preserving the business-map model, current observations, managed Skills,
 reconciliation, and real-use acceptance thresholds defined by the
 [product contract](product-contract.md).
