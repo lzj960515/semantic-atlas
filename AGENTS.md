@@ -25,13 +25,19 @@ documentation changes in `docs/log.md`.
 - Every CLI invocation loads those files into an in-memory graph.
 - The map supplies business boundaries, relationships, and navigation anchors
   as investigation hypotheses.
+- Business-changing work activates the understanding Skill from task meaning,
+  including when the selected repository has no map yet.
+- A missing map routes the Agent into a bounded current-evidence business model;
+  it does not turn business understanding into an orchestrator decision.
 - Current source, tests, tracked product documents, and runtime evidence confirm
   every claim that controls an engineering change.
 - Ordinary engineering work reads the map without synchronizing it to every
   code change.
+- Every business-changing result records an observation and an explicit
+  maintenance disposition; a correct disposition can produce no candidate.
 - Durable map changes use normal file edits, Git diffs, review, and merge.
-- Periodic reconciliation integrates stable business changes and removes
-  accumulated drift by business domain.
+- Post-integration maintenance integrates stable business changes by domain;
+  periodic reconciliation recovers accumulated drift and missed work.
 - Rendered diagrams and derived local artifacts are reproducible outputs of the
   tracked map.
 - Static export and the loopback Web command use one shared interactive Viewer;
@@ -51,9 +57,10 @@ tracked map files
   -> deterministic JSON and visual projections
 ```
 
-The first release includes a repository-discovered Agent Skill that routes map
-results into source confirmation. Later capabilities enter the product only
-after real engineering evidence establishes their need.
+The first release includes a package-managed Agent Skill that routes business
+tasks through existing map knowledge or a mapless current-evidence path. Later
+capabilities enter the product only after real engineering evidence establishes
+their need.
 
 ## Engineering Quality
 
@@ -78,20 +85,24 @@ after real engineering evidence establishes their need.
 
 ## Accuracy Workflow
 
-For business-changing engineering tasks in a mapped repository:
+For every business-changing engineering task:
 
-1. Query the smallest useful business neighborhood.
-2. Treat returned nodes, relations, summaries, and anchors as current leads.
+1. Probe the smallest useful business neighborhood even when no map files are
+   present.
+2. Treat returned map knowledge as investigation leads, or build the smallest
+   source-supported business model after `MAP_NOT_FOUND`.
 3. Open the decisive current source, tests, or tracked product documents.
-4. Expand to upstream or downstream code when the business relations indicate
-   another owner or collaborator.
+4. Expand to upstream or downstream code when confirmed business relations
+   indicate another owner or collaborator.
 5. Form the task-specific system model from current evidence.
 6. Implement, verify, and independently review the engineering change.
-7. Record a map-update candidate only when the task reveals a durable business
-   concept or relationship change.
+7. Record the task observation and choose `candidate`, `already_represented`,
+   `implementation_local`, or `unresolved` maintenance.
+8. Send durable candidates to a separate post-integration maintenance change.
 
-The final engineering conclusion is expected to be more accurate than the map
-that helped locate it.
+The final engineering conclusion is expected to be more accurate than any map
+that helped locate it. Business-changing tasks with no map follow the same
+accuracy standard.
 
 ## Public Release Contract
 

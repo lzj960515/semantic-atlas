@@ -2,6 +2,18 @@
 
 ## 2026-08-28
 
+- Refactored the managed `semantic-atlas` Skill to activate from
+  business-changing task meaning rather than map-file presence, including a
+  bounded `MAP_NOT_FOUND` understanding path.
+- Made every business-changing result record an observation and choose an
+  evidence-based maintenance disposition; canonical YAML remains a separate
+  reviewed post-integration change, with periodic reconciliation as fallback.
+- Extended the maintenance Skill to turn a supported mapless candidate into one
+  bounded initial business-domain YAML while preserving the one-domain review
+  surface and complete-graph validation.
+- Kept the understanding and maintenance workflows independent of task
+  orchestrators, and retained mechanical work as a complete
+  no-business-maintenance outcome.
 - Defined `semantic-atlas@2.1.0` as the interactive Viewer release with compact
   business cards, on-demand navigation details, correct aspect-ratio-aware
   camera interaction, and safe multi-project selection.

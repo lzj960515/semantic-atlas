@@ -10,16 +10,19 @@ contract.**
 
 ## Authority Boundary
 
-A `TaskObservation` records what the task Agent queried, which concepts it
-selected, how current evidence classified map statements, which reconciliation
-candidates it found, and any explicit human correction it received. Its strict
-schema has no review verdict or accuracy fields.
+Every business-changing engineering or analysis run produces one
+`TaskObservation`, including runs in repositories with no map. It records what
+the task Agent queried, which concepts it selected, how current evidence
+classified map statements, which reconciliation candidates it found, and any
+explicit human correction it received. Its strict schema has no review verdict
+or accuracy fields.
 
-A `ReviewObservation` references an existing task observation in the same
-repository partition. Independent review records business-boundary correctness,
-upstream-cause correctness, impact completeness, required rework, and whether
-the map caused a wrong conclusion. Explicit human corrections can be retained
-by either observation while remaining visibly attributed as corrections.
+An independent-review run produces one `ReviewObservation` that references an
+existing task observation in the same repository partition. It records
+business-boundary correctness, upstream-cause correctness, impact completeness,
+required rework, and whether the map caused a wrong conclusion. Explicit human
+corrections can be retained by either observation while remaining visibly
+attributed as corrections.
 
 An approved review expresses an accepted result: assessed dimensions are
 correct or complete, `requiredRework` is `false`, and `mapCausedRegression` is
@@ -50,6 +53,11 @@ candidate names its stable `businessDomainId` and carries a candidate-specific
 `confirmed`, `contradicted`, or `unresolved` disposition. Domain ownership and
 disposition are recorded explicitly because they cannot be inferred safely from
 source paths or free-form summaries.
+
+`mapUpdateCandidates` may be empty. The engineering result reports whether the
+stable meaning was already represented, remained implementation-local, or could
+not yet be resolved. A non-empty candidate list is reserved for a
+source-supported durable correction owned by a stable business domain.
 
 Source, test, and document evidence uses normalized repository-relative paths.
 Runtime references use concise environment-independent evidence labels.
@@ -156,12 +164,14 @@ does not edit observations, source, `docs/business-map`, rendered artifacts, or
 Git state. The bundled `semantic-atlas-maintenance` Skill selects one business
 domain, rechecks current source and tracked product meaning, and submits any
 accepted correction as a normal reviewed YAML change. Unresolved and
-implementation-local observations remain outside the canonical map.
+implementation-local observations remain outside the canonical map. When the
+repository has no map, the maintenance Skill can turn a supported candidate
+into one bounded initial business-domain YAML.
 
 ## Engineering Result Semantics
 
 Observation recording is a secondary evidence action after the engineering
-result is known. The Skill reports a recording failure separately and keeps the
-engineering result unchanged. Independent review can then distinguish a valid
-engineering delivery with missing observation evidence from a successful
-accuracy record.
+result is known. The Skill also reports the post-task maintenance disposition;
+observation failure is reported separately and keeps the engineering result
+unchanged. Independent review can then distinguish a valid engineering delivery
+with missing observation evidence from a successful accuracy record.

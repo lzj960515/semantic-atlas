@@ -1,8 +1,9 @@
 # Semantic Atlas Documentation
 
 This index routes product, implementation, and evaluation questions to their
-authoritative pages. The queryable map, renderer, repository Agent Skills,
-managed setup, observations, reconciliation, and public release are implemented.
+authoritative pages. The queryable map, renderer, package-managed understanding
+and maintenance Agent Skills, managed setup, observations, reconciliation, and
+public release are implemented.
 Target-repository sharing and longitudinal real-use acceptance remain separate
 verified gates.
 

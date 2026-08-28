@@ -1,24 +1,33 @@
 ---
 name: semantic-atlas
-description: Query a repository's advisory business map before broad source discovery for business-changing feature, bug, refactor, and impact-analysis tasks. Use in repositories with docs/business-map files to find likely owners, collaborators, data, invariants, interfaces, and source anchors, then confirm every change-controlling claim in current evidence.
+description: Build source-supported business understanding and make maintenance decisions for business-changing engineering tasks, with or without an existing business map. Use for features, bugs, refactors, reviews, and impact analysis to find or establish business boundaries, collaborators, data, invariants, interfaces, and source entry points before broad discovery, then decide whether stable shared knowledge needs maintenance.
 compatibility: Requires Node.js 24+, a bundled or PATH-compatible semantic-atlas CLI, and repository source access.
 ---
 
 # Semantic Atlas
 
-Use the tracked business map as a compact navigation prior. Treat all returned
-nodes, relations, summaries, and anchors as investigation leads; current
-source, tests, tracked product documents, and required runtime evidence decide
-what an engineering change may claim and do.
+Build the smallest current-evidence business model needed to make an accurate
+engineering decision. An existing map is a compact navigation prior. Missing,
+incomplete, stale, or contradicted map knowledge changes the discovery route;
+it does not remove the need to understand the business boundary.
 
-## Choose The Workflow
+Current source, tests, tracked product documents, and required runtime evidence
+decide what an engineering change may claim and do. Treat map results as
+investigation leads.
 
-Use this workflow when a task can change business behavior, ownership, shared
-data, an invariant, or an interface. Begin ordinary repository work directly
-when the task is purely mechanical and its exact source boundary is already
-established, such as formatting, a local rename, or generated-file refresh.
+## Choose The Workflow From The Task
 
-## Query The Smallest Useful Neighborhood
+Use this workflow when work can change or depend on business behavior,
+ownership, shared data, an invariant, or an interface. This includes feature,
+bug, refactor, impact-analysis, and independent-review work whose correct scope
+requires business judgment.
+
+Begin ordinary repository work directly when the task is purely mechanical and
+its exact source boundary is already established, such as formatting, a local
+rename, or generated-file refresh. This is a complete stopping decision and
+produces no shared business-knowledge maintenance work.
+
+## Probe Existing Business Knowledge
 
 1. Read the task contract and repository instructions. Resolve the repository
    root and keep all commands in the task's assigned worktree.
@@ -26,7 +35,7 @@ established, such as formatting, a local rename, or generated-file refresh.
    an exact business name or stable task vocabulary over a framework, folder,
    class, or method name.
 3. Before broad source discovery, run the Skill's identity- and
-   contract-checking adapter:
+   contract-checking adapter whether or not map documents are present:
 
    ```bash
    node "<skill-directory>/scripts/query-context.mjs" \
@@ -35,41 +44,56 @@ established, such as formatting, a local rename, or generated-file refresh.
 
    A package-bundled adapter invokes that package's CLI directly. A managed
    user Skill first requires the PATH CLI version recorded by `setup`, then
-   verifies the v1 `context` envelope. This keeps an older command with the
+   verifies the v1 `context` envelope. This prevents an older command with the
    same executable name from being interpreted as the current product.
 
-4. Read the selected concept, ancestors, direct children, incoming and outgoing
-   relations, endpoint summaries, and anchors. Record them as hypotheses.
-5. Query a returned stable ID only when a direct owner, upstream action,
-   downstream consumer, shared data concept, invariant, or interface could
-   change the implementation scope. Stop expanding when the current task has a
-   source-confirmable boundary; a complete graph traversal is not required.
+4. Preserve the selector and bounded outcome for the task observation. When a
+   context is returned, record the selected stable IDs as hypotheses.
 
-## Route Map Outcomes
+## Build The Business Model With Or Without A Map
+
+Route the probe result into one current-evidence investigation:
 
 - A successful context result supplies likely business scope and source entry
-  points. Open the most decisive anchors first, then follow current imports,
-  callers, consumers, tests, and product documents as the behavior requires.
+  points. Open the most decisive anchors first. Query another returned stable
+  ID only when an owner, upstream action, downstream consumer, shared data
+  concept, invariant, or interface could change the implementation scope.
 - `CONCEPT_AMBIGUOUS` supplies explicit candidates. Compare their stable IDs,
-  names, kinds, and task meaning, then query the matching ID. When current
-  behavior is needed to choose, search only the task term and candidate
-  vocabulary before selecting.
-- `CONCEPT_NOT_FOUND` and `MAP_NOT_FOUND` are bounded map outcomes. Continue
-  with ordinary source discovery using user vocabulary, likely product docs,
-  and progressively narrower source searches.
+  names, kinds, and task meaning, then query the matching ID. Use bounded source
+  evidence when current behavior is needed to choose.
+- `CONCEPT_NOT_FOUND` means the repository has a map without this vocabulary.
+  Search current product documents and source using the task term, likely
+  business synonyms, and directly observed collaborators.
+- `MAP_NOT_FOUND` means the repository has no configured shared business map.
+  When the map is absent, build the smallest source-supported business model needed for the task.
+  Start from the user-visible outcome, identify only the owning business scope,
+  actions, data, rules, and interfaces that current evidence requires, and stop
+  when the engineering boundary is source-confirmable. Limit this model to
+  business meaning supported by the current task rather than repository-folder
+  structure or a complete taxonomy.
 - `MAP_DOCUMENT_INVALID`, an unavailable CLI, or an infrastructure failure
-  makes the map unavailable for this task. Preserve the error as context and
-  continue through the repository's normal discovery workflow.
-- A node with no anchors still provides business vocabulary and relations.
-  Search its stable name, aliases, neighboring concepts, and interface terms,
-  then follow current code structure.
-- A missing or stale file, directory, document, symbol, or search anchor weakens
-  that navigation hint. Use the node meaning and direct relations for a bounded
-  search, and confirm the replacement location in current evidence.
+  makes map knowledge unavailable for this task. Preserve the failure, build
+  the same bounded current-evidence model, and report observation recording as
+  unavailable when the CLI boundary cannot accept it.
+- A node without anchors still supplies business vocabulary and relations.
+  Search its name, aliases, neighboring concepts, and interface terms, then
+  follow current code structure.
+- A missing or stale anchor weakens only that navigation hint. Use current
+  evidence to find the replacement location without discarding unrelated
+  stable business meaning.
 
-## Build A Current-Evidence Model
+For a mapless task, the observation query records the bounded outcome:
 
-For every map statement that could control the change:
+```json
+{
+  "selector": "<business term>",
+  "outcome": "map_not_found"
+}
+```
+
+## Confirm The Current-Evidence Model
+
+For every statement that could control the change:
 
 1. Open current source or tests that implement or exercise the behavior.
 2. Open the tracked product document when it owns the durable rule or outcome.
@@ -77,10 +101,9 @@ For every map statement that could control the change:
    consume relation when that relation expands the required scope.
 4. Use runtime evidence when the conclusion depends on deployed state rather
    than repository behavior.
-5. Classify each relevant hypothesis as confirmed, contradicted, or unresolved.
-   Let confirmed current evidence control the implementation. Replace a
-   contradicted relation with the source-supported collaborator in the
-   task-specific model. Keep unresolved statements out of decisive conclusions.
+5. Classify relevant map hypotheses as confirmed, missing, stale,
+   contradicted, or unresolved. Let confirmed current evidence control the
+   task. Keep unresolved statements out of decisive conclusions.
 
 Trace a downstream symptom toward its confirmed upstream cause before editing.
 For shared data or interfaces, inspect every confirmed producer and consumer
@@ -94,26 +117,60 @@ collaborators, add regression coverage at the public behavior boundary, run
 the repository's required checks, and review the final diff against the task
 scope.
 
-Final conclusions identify the business boundary, the decisive current
-evidence, the implemented or proposed scope, and relevant verification. Phrase
-map-only statements as leads or uncertainty rather than current behavior.
+Final engineering conclusions identify the business boundary, decisive current
+evidence, implementation or review scope, and verification. Phrase map-only
+statements as leads or uncertainty rather than current behavior.
 
-## Record The Task Observation
+## Decide Post-Task Business-Knowledge Maintenance
 
-For business-changing work, read [references/observations.md](references/observations.md)
-and record one task observation after the engineering result and verification
-are known. Use a stable observation ID for the run and reuse the same complete
-document when retrying an interrupted submission.
+After the engineering or review result is known, choose one maintenance disposition:
 
-The task observation records the map-query outcome, selected concepts,
-current-evidence dispositions, map-update candidates, and any explicit human
-correction. Independent review owns accuracy judgments, so the task document
-contains investigation evidence rather than a correctness verdict.
+- `candidate`: current evidence establishes stable business meaning that the
+  shared map omits or represents incorrectly. Record one or more domain-owned
+  map-update candidates with decisive evidence.
+- `already_represented`: the shared map still expresses the stable business
+  meaning needed by the task. Record no candidate.
+- `implementation_local`: the result changes only helpers, framework wiring,
+  source organization, tests, or another non-durable implementation detail.
+  Record no candidate.
+- `unresolved`: available evidence cannot establish durable business identity,
+  ownership, or relation direction. Preserve the uncertainty without proposing
+  a canonical edit.
 
-Submit the complete JSON document through the installed CLI:
+A no-change disposition is a complete result when current shared knowledge
+already represents the durable meaning or the change is implementation-local.
+Add concepts and relations only when current evidence supports their accuracy.
+
+For a repository without a map, use `candidate` only when current evidence
+establishes a stable business domain and a bounded reusable concept or relation.
+Use `unresolved` when one task cannot support that identity. Limit bootstrap
+knowledge to the stable meaning established by the current task.
+
+## Record Accuracy Evidence
+
+For business-changing work, read
+[references/observations.md](references/observations.md) after the engineering
+or review result and verification are known.
+
+- For engineering and analysis work, record one task observation. It contains
+  the map-query outcome, selected concepts, current-evidence dispositions,
+  map-update candidates from a `candidate` maintenance disposition, and any
+  explicit human correction.
+- For independent review, record one review observation that references the
+  existing task observation and contains the accuracy verdict. Keep the task
+  observation immutable. When no task observation is available, report the
+  missing accuracy-evidence link separately from the review verdict.
+
+Independent review owns accuracy judgments, so task observations contain
+investigation evidence rather than correctness verdicts. Generate one stable
+observation ID for the run and reuse the same complete document when retrying an
+interrupted submission.
+
+Submit the matching complete JSON document through the installed CLI:
 
 ```text
 semantic-atlas observe task --stdin [--repo <repository-root>]
+semantic-atlas observe review --stdin [--repo <repository-root>]
 ```
 
 Report the recorded or idempotent outcome with the engineering result. When
@@ -121,20 +178,23 @@ the observation command fails, the engineering result remains unchanged;
 report the observation failure separately so review can distinguish delivery
 evidence from missing accuracy evidence.
 
-## Report Durable Map Observations Separately
+## Hand Off Canonical Maintenance
 
-Ordinary task completion does not require editing `docs/business-map`. When
-current evidence reveals a stable missing concept, stale anchor, or
-contradicted relation, add a separate map-update candidate to the task report:
+Keep canonical map editing in a separate maintenance change after stable reviewed source is available.
+The `semantic-atlas-maintenance` Skill rechecks retained candidates by business
+domain, edits one owning YAML surface, validates the complete graph, renders the
+changed neighborhood, and submits the Git diff for independent review.
 
-```text
-Map-update candidate: <node, relation, or anchor>
-Business domain: <stable domain ID>
-Disposition: <confirmed, contradicted, or unresolved>
-Current evidence: <repository-relative source, test, or product document>
-Durable correction: <concise proposed business meaning>
-```
+A post-integration maintenance run can examine retained candidates from
+business-changing results; an empty or no-change run is successful. Periodic
+reconciliation remains a fallback for accumulated drift, missed observations,
+and changes outside the normal engineering workflow. The understanding and
+maintenance contracts run independently of task orchestrators.
 
-Keep the candidate separate from the engineering conclusion so later periodic
-reconciliation can accept, refine, or discard it through the repository's
-normal Git review workflow.
+## Report The Result
+
+Report the business boundary, decisive current evidence, engineering scope,
+verification, accuracy-observation outcome, and maintenance disposition. For
+`candidate`, include the business domain, proposed durable correction, and
+evidence. For `already_represented`, `implementation_local`, or `unresolved`,
+state the evidence-based reason and record no map-update candidate.

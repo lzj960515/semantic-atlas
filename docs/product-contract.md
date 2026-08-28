@@ -10,9 +10,10 @@ pilot is in local use and longitudinal acceptance is in progress.**
 ## Purpose
 
 Semantic Atlas helps coding agents make more accurate engineering changes.
-It supplies a shared map of stable business boundaries, meaningful concepts,
-relationships, data, rules, interfaces, and likely source entry points before
-an agent confirms current behavior in authoritative evidence.
+Its Agent Skill builds a task-specific understanding of stable business
+boundaries, meaningful concepts, relationships, data, rules, interfaces, and
+likely source entry points before an agent changes code. An existing shared map
+accelerates that work; a missing map starts a bounded current-evidence path.
 
 The map is a durable navigation prior rather than a synchronized copy of the
 codebase. Product structure normally changes more slowly than implementation,
@@ -23,7 +24,8 @@ evidence before changing behavior.
 
 ## Product Outcome
 
-The product succeeds when map-assisted agents more reliably:
+The product succeeds when agents using the business-understanding workflow more
+reliably:
 
 - enter a task through the correct business boundary;
 - distinguish a downstream symptom from its upstream cause;
@@ -43,9 +45,9 @@ uses current evidence and is held to a higher accuracy standard than the map.
 ### Coding agent orientation
 
 An agent receives a feature, bug, refactor, or impact question. It queries a
-compact business neighborhood, follows likely owners and collaborators, opens
-the decisive current source, and builds the task-specific system model before
-editing.
+compact business neighborhood even when no map documents exist. It follows map
+leads when available, otherwise establishes the smallest source-supported
+business boundary, then opens decisive current evidence before editing.
 
 ### Root-cause and impact discovery
 
@@ -64,12 +66,16 @@ business meaning by showing type, title, and description; selecting a card
 reveals its navigation anchors in a side panel or narrow-screen bottom panel.
 The visual surface does not become a second authoring format.
 
-### Periodic reconciliation
+### Post-task maintenance decision and reconciliation
 
-Agents accumulate candidate observations from real work. A later maintenance
-task reviews current code and stable product meaning by business domain, then
-updates tracked map files through ordinary Git changes. The map evolves at the
-pace of durable business understanding rather than every source edit.
+Every business-changing task records its map outcome and decides whether stable
+shared knowledge needs maintenance. The decision may be a durable candidate,
+already represented knowledge, an implementation-local result, or unresolved
+meaning. A separate post-integration maintenance task reviews candidates against
+current code and stable product meaning by business domain, then updates tracked
+map files through ordinary Git changes. When no map exists, it can establish one
+evidence-supported initial business domain. Periodic reconciliation recovers
+missed work and accumulated drift.
 
 ## Shared Business Model
 
@@ -105,15 +111,19 @@ source details until they express durable business meaning.
 Tracked map documents are authoritative for the shared map. They are not
 authoritative for current application behavior.
 
-Every map-assisted engineering task follows this evidence order:
+Every business-changing engineering task follows this evidence order:
 
-1. The map proposes likely business scope and relations.
-2. Current source and tests confirm implementation behavior.
-3. Tracked product documents confirm durable intent when they own that intent.
-4. Runtime, database, queue, or environment evidence confirms state-dependent
+1. The Skill probes existing map knowledge from a distinctive business term.
+2. A map proposes likely business scope and relations; `MAP_NOT_FOUND` routes to
+   the smallest source-supported business model needed for the task.
+3. Current source and tests confirm implementation behavior.
+4. Tracked product documents confirm durable intent when they own that intent.
+5. Runtime, database, queue, or environment evidence confirms state-dependent
    behavior when the task requires it.
-5. The agent reports uncertainty when available evidence cannot support a
+6. The agent reports uncertainty when available evidence cannot support a
    decisive conclusion.
+7. The result records one maintenance disposition and creates a candidate only
+   for stable business meaning supported by decisive evidence.
 
 An outdated path or symbol anchor weakens that navigation hint without
 invalidating unrelated business meaning. A contradiction changes the current
@@ -126,11 +136,11 @@ Business-map files live in the repository and travel with its branches. Files
 are divided by stable business domain so agents can read concurrently and most
 durable updates touch only one owning map.
 
-Ordinary development tasks read the map and proceed independently. A task may
-record a candidate map observation, but successful engineering delivery does
-not depend on synchronizing the shared map. Reconciliation uses normal Git
-diff, review, and merge semantics instead of a second transaction or locking
-protocol.
+Business-changing development tasks record independent observations whether or
+not a map exists. A task records a candidate only when stable business meaning
+requires later maintenance; successful engineering delivery does not depend on
+synchronizing the shared map. Reconciliation uses normal Git diff, review, and
+merge semantics instead of a second transaction or locking protocol.
 
 ## Initial Product Scope
 
@@ -144,8 +154,9 @@ The initial product delivers one coherent path:
    navigation anchors as structured JSON.
 6. Render deterministic interactive human-readable projections from the same
    graph as a portable HTML artifact or loopback Web session.
-7. Package an Agent Skill that routes map context into current-source
-   confirmation.
+7. Package an Agent Skill that activates from business task meaning, routes map
+   context or `MAP_NOT_FOUND` into current-source confirmation, and makes an
+   explicit post-task maintenance decision.
 8. Exercise the workflow against real engineering tasks, including stale and
    incomplete map cases.
 
@@ -182,12 +193,13 @@ the following:
 - context queries return the expected business owner, containment, incoming and
   outgoing relationships, and navigation anchors;
 - the renderer produces readable projections from the same normalized graph;
-- a repository-discovered Agent Skill uses map context before broad source
-  discovery and confirms every change-controlling claim in current evidence;
+- a package-managed Agent Skill activates for business-changing work with or
+  without a map, probes bounded context before broad discovery, and confirms
+  every change-controlling claim in current evidence;
 - real task cases cover upstream root cause, cross-capability impact, missing
   map knowledge, stale anchors, and a contradicted relationship;
-- map-assisted agents reach correct source-supported conclusions without
-  introducing unsupported business claims;
+- mapped and mapless Skill runs reach correct source-supported conclusions
+  without introducing unsupported business claims;
 - independent review finds the implementation responsibilities readable and
   the public workflow consistent with this contract;
 - delivery remains local: publication, external installation, and migration are
@@ -245,10 +257,10 @@ Skills must have one verifiable version identity.
 Real-use evidence is separate from the Git business map and from business-map
 authority. The product records two immutable, versioned local artifacts:
 
-- `TaskObservation`: map query and selected concepts, current-evidence
-  classification, explicitly domain-owned map-update candidates with a
-  candidate disposition, and any explicit human correction known to the task
-  Agent. Reads and writes use task artifact v2;
+- `TaskObservation`: map query outcomes including `map_not_found`, selected
+  concepts, current-evidence classification, explicitly domain-owned map-update
+  candidates when maintenance is warranted, and any explicit human correction
+  known to the task Agent. Reads and writes use task artifact v2;
 - `ReviewObservation`: the independent review verdict, correctness of the
   business boundary and upstream cause, impact completeness, required rework,
   and whether the map caused a wrong conclusion.
@@ -275,24 +287,28 @@ regression, independent-review rework, human correction, and safe recovery from
 missing, stale, or contradicted map knowledge. Tokens, files, time, compute, and
 map-maintenance effort remain explanatory measures.
 
-### Reconciliation
+### Post-integration maintenance and reconciliation
 
-Normal engineering work records durable map-update candidates without editing
-the shared map. `reconcile candidates` is read-only and preserves every task
-origin, candidate disposition, duplicate provenance, and linked independent
-review. A periodic maintenance task selects one business domain, checks current
+Normal engineering work records one task observation and creates durable
+map-update candidates only when the maintenance disposition is `candidate`.
+`reconcile candidates` is read-only and preserves every candidate origin,
+evidence disposition, duplicate provenance, and linked independent review. A
+post-integration maintenance task selects one business domain, checks current
 source and durable product meaning, updates one owning YAML map through normal
-Git review, and leaves unresolved or implementation-local observations out of
-the canonical map.
+Git review, and leaves unresolved or implementation-local meaning outside the
+canonical map. A mapless repository can create one initial domain-owned YAML
+when current evidence establishes stable identity and bounded meaning. Periodic
+runs provide a fallback for missed observations, accumulated drift, and changes
+outside the normal workflow.
 
 ### Real-use acceptance
 
 The first pilot starts with one stable business domain in a private target
 repository rather than mapping the whole repository. Its initial map is
-independently reviewed before merge. Normal Codrive development keeps its
-existing develop, independent review, rework, and fast-forward integration
-lifecycle; Semantic Atlas supplies advisory context and observation evidence
-only.
+independently reviewed before merge. Task orchestrators keep their own develop,
+independent review, rework, and integration lifecycle. Semantic Atlas activates
+from the Agent's business task, supplies advisory understanding and observation
+evidence, and remains independent of orchestration.
 
 Longitudinal acceptance requires at least 20 natural business-changing tasks
 with independent review, at least one period of real code drift, and two

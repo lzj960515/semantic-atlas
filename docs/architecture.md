@@ -2,9 +2,9 @@
 
 This page defines the stable responsibilities, data lifecycle, dependency
 direction, and failure semantics for the initial product. It applies to the
-public CLI, renderer, and repository Agent Skill.
+public CLI, renderer, and business-understanding Agent Skill.
 
-**Status: query, validation, visual projection, repository Agents, managed
+**Status: query, validation, visual projection, Agent Skills, managed
 Skill lifecycle, accuracy observations, read-only reconciliation, and public
 release verification are implemented and released.**
 
@@ -25,9 +25,11 @@ MapDocumentLoader -> MapValidator -> BusinessGraph
                   stable JSON result             SVG / static HTML
 
 Calling Agent
-  -> queries the graph
-  -> treats the result as an investigation hypothesis
+  -> activates from business task meaning
+  -> probes the graph, including the map-not-found outcome
+  -> treats available map results as investigation hypotheses
   -> confirms decisive behavior in current repository evidence
+  -> records one maintenance disposition
 
 published package Skills bundle
         |
@@ -139,13 +141,14 @@ Owns argument parsing, exit status, machine-readable envelopes, and concise
 human presentation. It composes application services and performs no graph
 interpretation of its own.
 
-### Repository Agent Skill
+### Business Understanding Agent Skill
 
-Owns the map-assisted engineering workflow. It converts a natural-language
-task into bounded map queries, interprets advisory results, opens current
-evidence, and continues through the repository's normal implementation and
-verification process. It does not move source editing or engineering judgment
-into the CLI.
+Owns the business-understanding workflow for every business-changing task. It
+activates from task meaning, converts a natural-language task into one bounded
+map probe, interprets advisory results or `MAP_NOT_FOUND`, builds the smallest
+current-evidence business model needed for the decision, and continues through
+the repository's normal implementation and verification process. Source editing
+and engineering judgment remain with the calling Agent.
 
 The Skill invokes `context` through a small contract-checking adapter. The
 adapter prefers the CLI distributed with the Skill and accepts a PATH command
@@ -154,13 +157,16 @@ contract when another installed product uses the same executable name.
 
 ### Maintenance Agent Skill
 
-Owns periodic candidate triage after `ReconciliationService` has produced one
-read-only report. It selects one business domain, confirms proposed corrections
-against current source and tracked product meaning, leaves unresolved and
-implementation-local observations outside the canonical map, and submits any
-accepted correction as one normal reviewed YAML change. Source confirmation,
-map editing, validation, rendering, Git diff, and independent review remain
-Agent and repository responsibilities rather than CLI side effects.
+Owns post-integration and periodic candidate triage after
+`ReconciliationService` has produced one read-only report. It selects one
+business domain, confirms proposed corrections against current source and
+tracked product meaning, resolves an existing or initial domain-owned YAML
+surface, leaves unresolved and implementation-local observations outside the
+canonical map, and submits any accepted correction as one normal reviewed YAML
+change. A `MAP_NOT_FOUND` repository can bootstrap one bounded domain when
+current evidence establishes its stable identity. Source confirmation, map
+editing, validation, rendering, Git diff, and independent review remain Agent
+and repository responsibilities rather than CLI side effects.
 
 ### ManagedSkillsInstaller
 
@@ -279,7 +285,7 @@ rather than local build effects.
 | Public release identity | Annotated tag and immutable GitHub Release | Permanent remote history | Explicit release command after repository cutover and immutable-release enablement |
 | Published npm package | Protected npm environment | Immutable registry version | GitHub Release workflow with provenance |
 | Task-specific source understanding | Calling agent | Engineering task | Current evidence investigation |
-| Candidate map observation | Task or maintenance record | Until reconciled | Reviewed by periodic maintenance |
+| Candidate map observation | Business-changing task record | Until reconciled | Reviewed by post-integration or periodic maintenance |
 
 Map commands remain stateless and branches naturally see the map revision
 tracked with their own source. Observation writers coordinate only one
@@ -333,7 +339,8 @@ discriminant.
 
 `context` returns ambiguity when multiple concepts match the term. Callers can
 then use a stable ID. A missing concept is a bounded map result and routes the
-agent to ordinary source discovery; it is not a repository failure.
+Agent to a bounded current-evidence business model; it is not a repository
+failure.
 
 `setup`, `upgrade`, and `--version` do not discover a repository or load a
 business map. Their results expose the package version and managed Skill paths
@@ -373,7 +380,8 @@ Errors fall into stable categories:
 - `MAP_DOCUMENT_INVALID`: one or more tracked documents cannot form a valid
   graph; the result includes document-local issues.
 - `MAP_NOT_FOUND`: the selected repository has no configured map documents;
-  agents continue with ordinary source discovery.
+  the understanding Skill builds the smallest source-supported business model
+  needed for the task and records the bounded outcome.
 - `CONCEPT_NOT_FOUND`: no concept matches the requested selector; agents use
   bounded source discovery.
 - `CONCEPT_AMBIGUOUS`: multiple concepts match; the result returns stable IDs
@@ -418,12 +426,17 @@ Ordinary feature branches read their branch's map revision. Durable changes use
 normal Git merge behavior. Review focuses on business meaning, stable IDs,
 relationship direction, and whether the update belongs in the shared map.
 
-Periodic reconciliation begins with the deterministic candidate report, then
-works from current source and accumulated task and review observations. It
+Every business-changing task writes its own immutable observation and maintenance
+disposition. Candidate-producing results can enter post-integration maintenance
+as soon as stable reviewed source is available. Periodic reconciliation uses the
+same deterministic report to recover accumulated drift and missed work. Each run
 updates one owning YAML surface for one business domain rather than rewriting
-the complete map. A stale or implementation-local observation can be discarded
-without affecting an engineering task that already completed against current
-evidence.
+the complete map. A no-candidate or no-change run is a valid outcome and does not
+affect an engineering task already completed against current evidence.
+
+The understanding and maintenance Skills operate independently of task
+orchestrators. Orchestrators may schedule work but do not decide when an Agent
+needs business understanding.
 
 ## Current Technology Boundary
 

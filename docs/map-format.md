@@ -192,7 +192,7 @@ A selector resolves in this order:
 
 One match returns a context projection. Multiple matches return ambiguity with
 stable IDs and names. Zero matches returns `CONCEPT_NOT_FOUND` and leaves
-ordinary source discovery available.
+bounded current-evidence business discovery available.
 
 The initial lookup is deterministic and vocabulary-based. Natural-language
 inference belongs to the calling agent, which can issue another bounded term or
@@ -219,7 +219,9 @@ ID when it needs to expand the investigation.
 Agents edit the owning YAML file directly and use `semantic-atlas validate`
 before submitting a map change. Git diff is the review surface.
 
-Ordinary engineering tasks can record candidate observations outside the
-canonical map. Periodic reconciliation confirms stable meaning in current
+Business-changing engineering tasks record observations outside the canonical
+map and create candidates only for stable meaning that needs maintenance.
+Post-integration or periodic reconciliation confirms candidates in current
 evidence, updates one bounded neighborhood, validates the complete graph, and
-submits the normal repository change for review.
+submits the normal repository change for review. A mapless repository can use
+the same reviewed path to establish one evidence-supported initial domain.

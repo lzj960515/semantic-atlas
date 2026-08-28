@@ -83,23 +83,27 @@ Acceptance:
 
 **Status: integrated.**
 
-Start after Slices 1 and 2 are integrated. Package the repository Agent Skill
-and prove its behavior on controlled engineering fixtures.
+Start after Slices 1 and 2 are integrated. Package the business-understanding
+Agent Skill and prove its behavior on controlled engineering fixtures.
 
 Acceptance:
 
-- a repository-discovered Skill queries the smallest useful map neighborhood
-  before broad source discovery for supported business-changing tasks;
+- a package-managed Skill activates from business-changing task meaning, probes
+  the smallest useful map neighborhood even when map files are absent, and
+  builds a bounded current-evidence business model;
 - map results are described as investigation leads and every
   change-controlling claim is confirmed in current source, tests, or tracked
   product documents;
 - missing concepts, ambiguous terms, missing anchors, stale anchors, and
   contradicted relations route to bounded ordinary source discovery;
-- ordinary task completion has no mandatory canonical-map mutation; durable
-  observations are reported separately for later reconciliation;
+- every business-changing result records a task observation and a maintenance
+  disposition, while canonical map mutation remains a separate reviewed change;
+- already represented, implementation-local, and unresolved results are valid
+  no-candidate outcomes;
 - controlled fixtures cover an upstream root cause, a downstream consumer,
   missing map knowledge, a stale anchor, and a contradicted relation;
-- fresh-context runs and independent review find no unsupported final business
+- fresh-context runs cover mapped, mapless, stale, implementation-local, and
+  mechanical behavior; independent review finds no unsupported final business
   claim and no regression in required behavior;
 - packaged Skill identity, CLI contract, typecheck, tests, build, and Git diff
   checks pass.

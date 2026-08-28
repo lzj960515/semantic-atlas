@@ -60,7 +60,7 @@ const fixtureRepository = path.join(
   "tests/fixtures/agent-skill/repository",
 );
 
-describe("repository Agent Skill", () => {
+describe("business-understanding Agent Skill", () => {
   it("has one discoverable identity in both the repository and package", async () => {
     const skillDocument = await readFile(
       path.join(skillDirectory, "SKILL.md"),
@@ -98,6 +98,52 @@ describe("repository Agent Skill", () => {
     expect(skillDocument).toContain("map-update candidate");
   });
 
+  it("activates from business-changing work with or without an existing map", async () => {
+    const skillDocument = await readFile(
+      path.join(skillDirectory, "SKILL.md"),
+      "utf8",
+    );
+    const metadataDocument = await readFile(
+      path.join(skillDirectory, "agents/openai.yaml"),
+      "utf8",
+    );
+    const frontmatter = parseFrontmatter(skillDocument);
+    const metadata = parse(metadataDocument) as {
+      readonly interface: { readonly default_prompt: string };
+    };
+
+    expect(frontmatter.description).toContain("business-changing engineering tasks");
+    expect(frontmatter.description).toContain("with or without an existing business map");
+    expect(frontmatter.description).not.toContain(
+      "Use in repositories with docs/business-map files",
+    );
+    expect(metadata.interface.default_prompt).toContain(
+      "with or without an existing business map",
+    );
+    expect(skillDocument).toContain(
+      "When the map is absent, build the smallest source-supported business model needed for the task.",
+    );
+    expect(skillDocument).toContain('"outcome": "map_not_found"');
+  });
+
+  it("makes a post-task maintenance decision without forcing a map edit", async () => {
+    const skillDocument = await readFile(
+      path.join(skillDirectory, "SKILL.md"),
+      "utf8",
+    );
+
+    expect(skillDocument).toContain("maintenance disposition");
+    expect(skillDocument).toContain("candidate");
+    expect(skillDocument).toContain("already_represented");
+    expect(skillDocument).toContain("implementation_local");
+    expect(skillDocument).toContain("unresolved");
+    expect(skillDocument).toContain("A no-change disposition is a complete result");
+    expect(skillDocument).toContain("semantic-atlas-maintenance");
+    expect(skillDocument).toContain(
+      "Keep canonical map editing in a separate maintenance change after stable reviewed source is available.",
+    );
+  });
+
   it("records task evidence without moving accuracy authority into the task Agent", async () => {
     const skillDocument = await readFile(
       path.join(skillDirectory, "SKILL.md"),
@@ -110,6 +156,10 @@ describe("repository Agent Skill", () => {
 
     expect(skillDocument).toContain("references/observations.md");
     expect(skillDocument).toContain("semantic-atlas observe task --stdin");
+    expect(skillDocument).toContain("semantic-atlas observe review --stdin");
+    expect(skillDocument).toContain(
+      "For independent review, record one review observation",
+    );
     expect(skillDocument).toContain("engineering result remains unchanged");
     expect(skillDocument).toContain("Independent review owns accuracy judgments");
     expect(observationReference).toContain('"schemaVersion": 1');

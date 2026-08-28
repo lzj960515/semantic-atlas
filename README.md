@@ -15,6 +15,9 @@ renders the same graph for people.
 The map is deliberately advisory. It helps an agent enter through the right
 business boundary; current source, tests, tracked product documents, and
 required runtime evidence still decide what the system does now.
+The installed Skill activates from business-changing task meaning, so a
+repository without a map still receives the same bounded business-understanding
+workflow and can retain a well-supported maintenance candidate.
 
 ## Install
 
@@ -113,13 +116,16 @@ numbered labels without exposing their parent paths. `Ctrl+C` stops the server.
 
 For a business-changing engineering task:
 
-1. Query the smallest useful map neighborhood.
-2. Treat concepts, relations, summaries, and anchors as investigation leads.
+1. Probe the smallest useful map neighborhood whether or not map files exist.
+2. Use returned map knowledge as investigation leads, or build the smallest
+   source-supported business model after `MAP_NOT_FOUND`.
 3. Confirm every change-controlling claim in current source and tests.
 4. Use tracked product documents for durable intent and runtime evidence for
    state-dependent behavior.
 5. Let current evidence override missing, stale, or contradicted map knowledge.
 6. Implement and verify through the repository's normal engineering workflow.
+7. Record the task outcome and decide whether shared business knowledge needs a
+   separate maintenance change; a no-change decision is a complete result.
 
 The final engineering conclusion is expected to be more accurate than the map
 that helped locate it.
@@ -128,18 +134,18 @@ that helped locate it.
 
 `semantic-atlas setup` installs two package-owned Skills:
 
-- `semantic-atlas` guides business-changing work from a bounded context query
-  into current-source confirmation.
+- `semantic-atlas` gives every business-changing task a bounded,
+  current-evidence understanding workflow, with or without an existing map.
 - `semantic-atlas-maintenance` reviews retained candidates for one business
-  domain and prepares a normal reviewed YAML change.
+  domain and prepares a normal reviewed YAML update or initial domain map.
 
 Target repositories do not copy these Skills. They share only their business
 maps through Git.
 
 ## Accuracy Observations
 
-Normal engineering work can retain task evidence and independent review
-evidence without changing the business map:
+Every business-changing task records task evidence without changing the
+business map. An independent review records its separate review evidence:
 
 ```bash
 semantic-atlas observe task --stdin --repo /path/to/repository
@@ -147,11 +153,13 @@ semantic-atlas observe review --stdin --repo /path/to/repository
 semantic-atlas insights summary --repo /path/to/repository --period 4w
 ```
 
-A task observation records queries, current-evidence classifications, candidate
-map corrections, and explicit human corrections. It never grades its own
-accuracy. An independent review observation owns correctness, impact,
-required-rework, and map-regression judgments. IDs are immutable: an exact
-replay is idempotent and changed content conflicts.
+A task observation records queries including `map_not_found`, current-evidence
+classifications, candidate map corrections, and explicit human corrections. An
+empty candidate list is valid when knowledge is already represented,
+implementation-local, or unresolved. The task never grades its own accuracy.
+An independent review observation owns correctness, impact, required-rework,
+and map-regression judgments. IDs are immutable: an exact replay is idempotent
+and changed content conflicts.
 
 See [accuracy observations](docs/observations.md) for the schemas and evidence
 semantics.
@@ -166,7 +174,11 @@ The command groups retained candidates by explicit business-domain ownership
 while preserving each origin, evidence disposition, and linked independent
 review. It is read-only. The maintenance Skill then confirms one domain against
 current evidence and submits any accepted map correction through an ordinary
-Git diff and independent review.
+Git diff and independent review. When no map exists, a supported candidate can
+seed one bounded business-domain YAML instead of a repository-wide taxonomy.
+Post-integration maintenance is the normal freshness path; periodic
+reconciliation recovers missed observations, accumulated drift, and changes
+outside the normal engineering workflow.
 
 ## Local Data And Privacy
 

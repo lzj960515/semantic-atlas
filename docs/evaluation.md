@@ -11,10 +11,14 @@ real-project evaluation pass.**
 
 The primary question is:
 
-> Does an agent that begins with the advisory business map reach a correct,
-> source-supported engineering conclusion more reliably than an agent that
-> begins with ordinary repository discovery, including when the map is stale or
+> Does the business-understanding Skill lead an agent to a correct,
+> source-supported engineering conclusion and maintenance decision without
+> routine human direction, including when the map is absent, stale, or
 > incomplete?
+
+A paired map comparison remains useful for measuring whether existing shared
+knowledge improves accuracy over ordinary discovery. It is one evaluation mode,
+not the Skill's activation boundary.
 
 The evaluation observes investigation cost, but cost does not substitute for
 correctness.
@@ -72,7 +76,8 @@ The first real-project suite contains at least:
 2. A cross-capability feature involving one shared data concept.
 3. An API, event, queue, or webhook boundary with a downstream consumer.
 4. A durable invariant that constrains more than one implementation point.
-5. A missing-map case where the agent must fall back to ordinary discovery.
+5. A missing-map case where the Skill still activates and builds a bounded,
+   source-supported business model.
 6. A stale-anchor case where the business meaning remains useful but the source
    location changed.
 7. A contradicted-relation case where current evidence must override the map.
@@ -93,11 +98,13 @@ current source contradicts.
 
 Automated checks prove that each initial selector produces the intended public
 CLI outcome and that every acceptance oracle points to present source, test, or
-tracked product evidence. Fresh Agent runs then judge the workflow behavior:
-the Agent must begin with the bounded map result, reach the current-evidence
-conclusion, and report durable map discrepancies separately. These fixtures
-protect the Skill contract; they do not replace the private real-project paired
-evaluation defined in this page.
+tracked product evidence. Fresh Agent runs then judge both mapped and mapless
+workflow behavior: the Agent must activate from business task meaning, use the
+bounded map outcome, reach the current-evidence conclusion, and report one
+maintenance disposition separately. Mechanical controls must end without
+manufactured business knowledge. These fixtures protect the Skill contract;
+they do not replace the private real-project paired evaluation defined in this
+page.
 
 ## Paired Execution
 
@@ -105,7 +112,7 @@ When practical, run each case in two fresh contexts with the same model,
 repository revision, task wording, tool availability, and acceptance oracle:
 
 - `ordinary`: normal repository discovery without the map or its Skill;
-- `map-assisted`: repository-discovered Skill and the tracked advisory map.
+- `map-assisted`: the package-managed Skill with the tracked advisory map.
 
 The task oracle remains unavailable to both task agents. An independent review
 compares their source-supported conclusions and implementation candidates.
@@ -122,7 +129,7 @@ The suite deliberately mutates map usefulness:
 - omit one required collaborator;
 - retain one relation that current source contradicts;
 - use a task term absent from node names but present in an alias or neighbor;
-- remove the complete map for one ordinary-discovery control.
+- remove the complete map for one Skill-enabled mapless case.
 
 A passing agent notices the limitation, opens current evidence, corrects its
 task-specific model, and avoids presenting the stale statement as current fact.
@@ -140,6 +147,7 @@ Each run records:
 - required and unrelated impact surfaces;
 - implementation or proposed change;
 - verification performed;
+- post-task maintenance disposition and any durable candidate;
 - independent review findings;
 - human decisions or corrections;
 - optional observations for tokens, opened files, elapsed time, compute cost,
@@ -152,6 +160,10 @@ The initial product passes when:
 - every map-assisted case reaches a correct source-supported conclusion;
 - stale, missing, and contradicted knowledge routes to current evidence without
   an unsupported final claim;
+- a mapless business task still activates the Skill, records `map_not_found`,
+  and limits bootstrap knowledge to stable meaning supported by the task;
+- mapped and mapless business tasks choose one maintenance disposition, while a
+  mechanical control produces no business-maintenance work;
 - required business boundaries and impact surfaces are identified in every
   case;
 - implementation cases pass their behavioral tests and independent code-quality
@@ -179,7 +191,7 @@ repository changes entered this repository.
 The measured suite used four paired cases and eight fresh task-agent contexts.
 Cases combined related concerns while covering all eight required types. Every
 pair used the same model, source revision, task wording, shell tools, and output
-contract; only the ordinary or repository-discovered map workflow differed.
+contract; only the ordinary or package-managed map workflow differed.
 
 The de-identified acceptance results are:
 

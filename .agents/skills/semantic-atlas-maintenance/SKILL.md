@@ -1,6 +1,6 @@
 ---
 name: semantic-atlas-maintenance
-description: Reconcile retained Semantic Atlas map-update candidates for one business domain into a source-supported, normally reviewed docs/business-map YAML change. Use for periodic map maintenance, drift cleanup, candidate triage, and domain-scoped reconciliation in repositories with a Semantic Atlas business map and local observations.
+description: Reconcile retained Semantic Atlas map-update candidates for one business domain into a source-supported, normally reviewed docs/business-map YAML change, with or without an existing business map. Use for post-integration maintenance, initial-domain bootstrap, drift cleanup, candidate triage, and domain-scoped reconciliation in repositories with local observations.
 compatibility: Requires Node.js 24+, Git, the current semantic-atlas CLI, retained local observations, and repository source access.
 ---
 
@@ -42,7 +42,9 @@ duplicate handling, and clean stopping conditions.
 
 ## Confirm Current Business Meaning
 
-1. Open the selected domain's current `docs/business-map/*.yaml` owner.
+1. Determine whether the selected domain already has an owning
+   `docs/business-map/*.yaml` file. Preserve a `MAP_NOT_FOUND` result as the
+   explicit bootstrap state.
 2. Open every decisive current source, test, or tracked product document named
    by the candidate origins. Follow current callers or collaborators when the
    proposed relation changes both business endpoints.
@@ -56,12 +58,30 @@ duplicate handling, and clean stopping conditions.
 4. Keep discarded and unresolved candidates outside the canonical map. Record
    their evidence-based reason in the maintenance result.
 
+## Resolve One Owning YAML
+
+Use the selected business domain as the ownership boundary:
+
+- When the domain already has an owning YAML file, edit that file.
+- When the graph exists but the selected domain has no owning file, create one
+  domain-owned YAML file that participates in complete-graph validation.
+- When no map documents exist, create one initial business-domain YAML under
+  `docs/business-map/`. Establish its stable domain ID, title, summary, root
+  node, and bounded accepted concepts from current evidence.
+
+Limit the initial map to stable meaning supported by the selected candidates and current evidence.
+Retain cross-domain relations as unresolved until both durable endpoints and
+their owning domains can participate in one valid graph. The first map is a
+reviewable business-domain seed rather than a taxonomy inferred from repository
+structure.
+
 ## Edit One Owning YAML
 
 Apply accepted and refined corrections to one owning YAML surface for the
-selected business domain. Preserve stable node IDs when business identity is
-unchanged, use the source concept's owning file for directed relations, and
-keep anchors as navigation hints rather than current-behavior claims.
+selected business domain. This surface can be an existing domain file or the
+new initial domain file. Preserve stable node IDs when business identity is
+unchanged, use the source concept's owning file for directed relations, and keep
+anchors as navigation hints rather than current-behavior claims.
 
 Repeated origins for one duplicate candidate produce one map edit. Preserve
 all originating task and review IDs in the maintenance result so independent
@@ -79,15 +99,18 @@ git diff --check
 git diff -- docs/business-map/<owning-file>.yaml
 ```
 
-Inspect the rendered projection for the changed neighborhood. Confirm the Git
-diff changes one owning YAML surface and leaves retained observations
-unchanged. Submit the ordinary map change for independent review; the reviewer
-checks durable business meaning, relation direction, evidence support, complete
-graph validity, and the one-domain boundary.
+Inspect the rendered projection for the changed neighborhood. For an initial
+map, confirm that the Viewer presents one bounded business domain rather than a
+repository structure. Confirm the Git diff changes one owning YAML surface and
+leaves retained observations unchanged. Submit the ordinary map change for
+independent review; the reviewer checks durable business meaning, relation
+direction, evidence support, complete graph validity, and the one-domain
+boundary.
 
 ## Report The Result
 
 Report the selected business domain, candidate origins, each maintenance
 classification and decisive evidence, the owning YAML file, validation and
-render results, the Git diff, and any discarded or unresolved leads. Separate
-the proposed map change from independent-review approval and later merge.
+render results, whether this is an initial map or an update, the Git diff, and
+any discarded or unresolved leads. Separate the proposed map change from
+independent-review approval and later merge.

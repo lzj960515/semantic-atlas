@@ -66,6 +66,22 @@ describe("bundled Semantic Atlas maintenance Skill", () => {
     expect(reference).toContain("Git diff");
   });
 
+  it("can bootstrap one evidence-supported domain when no map exists", async () => {
+    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
+    const frontmatter = parseFrontmatter(skillDocument);
+
+    expect(frontmatter.description).toContain(
+      "with or without an existing business map",
+    );
+    expect(skillDocument).toContain(
+      "When no map documents exist, create one initial business-domain YAML",
+    );
+    expect(skillDocument).toContain(
+      "Limit the initial map to stable meaning supported by the selected candidates and current evidence.",
+    );
+    expect(skillDocument).toContain("MAP_NOT_FOUND");
+  });
+
   it("covers drift, duplicate provenance, correction, and a clean discard", async () => {
     const suite = JSON.parse(await readFile(
       path.join(projectRoot, "tests/fixtures/reconciliation/cases.json"),

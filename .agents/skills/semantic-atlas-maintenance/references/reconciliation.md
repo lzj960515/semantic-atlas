@@ -43,14 +43,20 @@ and leave the candidate unresolved until the owning authority can decide it.
   relation direction are confirmed.
 - A missing concept can be added when current evidence establishes stable
   business identity, ownership, and meaning rather than only a source symbol.
+- A repository with `MAP_NOT_FOUND` can begin with one domain-owned map when
+  current evidence establishes that domain and the selected bounded concepts.
+  Cross-domain relations wait until both stable endpoints can join one valid
+  graph.
 - A duplicate candidate keeps all provenance but produces one YAML edit.
 - A transient or implementation-local observation is discarded with a concise
   evidence-backed reason and produces no map change.
 
 ## Keep One Review Surface
 
-Edit one owning `docs/business-map/*.yaml` file for the selected domain. Validate
-the complete graph because relation endpoints and containment remain
-repository-wide even when the Git diff is local. Render the changed graph and
-inspect the selected neighborhood. The final Git diff is the independent
-review surface; retained observation artifacts stay unchanged.
+Edit or create one owning `docs/business-map/*.yaml` file for the selected
+domain. An initial map contains only the stable domain and bounded accepted
+meaning supported by current evidence. Validate the complete graph because
+relation endpoints and containment remain repository-wide even when the Git
+diff is local. Render the changed graph and inspect the selected neighborhood.
+The final Git diff is the independent review surface; retained observation
+artifacts stay unchanged.
