@@ -13,6 +13,9 @@
   accessible on-demand details, prevented drag selection, corrected camera
   coordinates for SVG letterboxing, and disambiguated duplicate project names
   without exposing repository paths.
+- Added npm-version and MIT-license badges plus a packaged Simplified Chinese
+  README that preserves the complete public install, use, evidence, privacy,
+  and maintenance journey.
 - Removed predecessor Skill, observation, claim, release-rehearsal, and direct
   repository-cutover compatibility from the current product contract.
 - Defined `semantic-atlas@2.0.0` as the current-only public contract while

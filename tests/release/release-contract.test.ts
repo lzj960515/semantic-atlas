@@ -35,6 +35,7 @@ describe("public release candidate", () => {
       "examples",
       "LICENSE",
       "README.md",
+      "README.zh-CN.md",
     ]));
     await expect(read("LICENSE")).resolves.toContain("MIT License");
   });
@@ -166,8 +167,9 @@ describe("public release candidate", () => {
   });
 
   it("documents the complete public user and release-owner journeys", async () => {
-    const [readme, agents, release, productContract, deliveryPlan] = await Promise.all([
+    const [readme, readmeZh, agents, release, productContract, deliveryPlan] = await Promise.all([
       read("README.md"),
+      read("README.zh-CN.md"),
       read("AGENTS.md"),
       read(".claude/commands/release.md"),
       read("docs/product-contract.md"),
@@ -193,6 +195,27 @@ describe("public release candidate", () => {
     expect(readme).toContain("Drag to pan");
     expect(readme).toContain("semantic-atlas observe task --stdin");
     expect(readme).toContain("semantic-atlas reconcile candidates");
+    expect(readme).toContain("img.shields.io/npm/v/semantic-atlas.svg");
+    expect(readme).toContain("License-MIT");
+    expect(readme).toContain("[简体中文](README.zh-CN.md)");
+
+    for (const section of [
+      "## 安装",
+      "## 升级",
+      "## 添加业务地图",
+      "## 证据顺序",
+      "## 准确性观测",
+      "## 地图校准",
+      "## 本地数据与隐私",
+    ]) {
+      expect(readmeZh).toContain(section);
+    }
+    expect(readmeZh).toContain("semantic-atlas setup");
+    expect(readmeZh).toContain("semantic-atlas web --repo");
+    expect(readmeZh).toContain("127.0.0.1");
+    expect(readmeZh).toContain("桌面右侧面板或窄屏底部");
+    expect(readmeZh).toContain("semantic-atlas reconcile candidates");
+    expect(readmeZh).toContain("[English](README.md)");
 
     for (const evidence of [
       "pnpm release:verify",

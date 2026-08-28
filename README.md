@@ -1,6 +1,10 @@
 # Semantic Atlas
 
 [![CI](https://github.com/lzj960515/semantic-atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/lzj960515/semantic-atlas/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/semantic-atlas.svg)](https://www.npmjs.com/package/semantic-atlas)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+English | [简体中文](README.zh-CN.md)
 
 Semantic Atlas gives coding agents a compact map of the business before they
 change the code. A repository describes stable domains, capabilities,

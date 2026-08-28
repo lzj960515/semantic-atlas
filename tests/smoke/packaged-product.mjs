@@ -93,6 +93,7 @@ async function assertPublicArchive(archivePath) {
     "package/LICENSE",
     "package/package.json",
     "package/README.md",
+    "package/README.zh-CN.md",
   ];
   const publicRoots = [
     "package/.agents/",
@@ -102,6 +103,7 @@ async function assertPublicArchive(archivePath) {
     "package/LICENSE",
     "package/package.json",
     "package/README.md",
+    "package/README.zh-CN.md",
   ];
 
   for (const requiredEntry of requiredEntries) {

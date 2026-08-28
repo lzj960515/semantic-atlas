@@ -45,7 +45,8 @@
     "docs/product-contract.md",
     "examples",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "README.zh-CN.md"
   ],
   "engines": {
     "node": ">=24 <25"
