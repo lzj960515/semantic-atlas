@@ -24,8 +24,8 @@ semantic-atlas --version
 
 `setup` installs the package's exact engineering and maintenance Skills under
 `~/.agents/skills/`. Repeating it verifies the installed payloads, repairs a
-modified managed copy, and upgrades a recognized Semantic Atlas v0.4 Skill. It
-refuses to replace an unrelated same-named directory.
+modified managed copy, and upgrades Skills installed by another current package
+version. It refuses to replace an unrelated or obsolete same-named directory.
 
 ## Upgrade
 
@@ -168,8 +168,7 @@ pnpm release:verify
 
 The release-candidate gate runs contract and source tests, typecheck, build,
 rendering checks, packed-tarball privacy checks, an anonymous installed-product
-flow, a real public v0.4-to-v1 transition rehearsal, package dry-run, and Git
-diff validation.
+flow, package dry-run, and Git diff validation.
 
 Publication is a separate operation. After the repository's immutable-release
 setting is enabled, a non-prerelease GitHub Release for an annotated version tag

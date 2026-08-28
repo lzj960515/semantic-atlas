@@ -1,6 +1,6 @@
 {
   "name": "semantic-atlas",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "A Git-native advisory business map for coding agents.",
   "keywords": [
     "ai-agents",
@@ -58,12 +58,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "contracts:check": "vitest run tests/release/release-contract.test.ts",
-    "release:verify": "pnpm contracts:check && pnpm test && pnpm typecheck && pnpm build && node tests/smoke/built-render.mjs && node tests/smoke/built-skill.mjs && node tests/smoke/packaged-product.mjs && node tests/smoke/v1-transition.mjs && pnpm pack --dry-run && git diff --check",
+    "release:verify": "pnpm contracts:check && pnpm test && pnpm typecheck && pnpm build && node tests/smoke/built-render.mjs && node tests/smoke/built-skill.mjs && node tests/smoke/packaged-product.mjs && pnpm pack --dry-run && git diff --check",
     "test": "vitest run",
     "test:acceptance": "pnpm release:verify",
     "test:built": "pnpm build && node tests/smoke/built-render.mjs && node tests/smoke/built-skill.mjs",
     "test:package": "node tests/smoke/packaged-product.mjs",
-    "test:transition": "node tests/smoke/v1-transition.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "prepack": "pnpm typecheck && pnpm build"
   },

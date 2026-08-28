@@ -4,8 +4,8 @@ This page defines the accepted initial product. It answers what Semantic Atlas
 must improve, how agents and people use it, and which results establish
 that the product works.
 
-**Status: the initial local product is accepted and integrated; the v1
-real-repository rollout is approved.**
+**Status: the public product is released and installed; the first target-domain
+pilot is in local use and longitudinal acceptance is in progress.**
 
 ## Purpose
 
@@ -194,37 +194,25 @@ human-intervention evidence as acceptance conditions.
 
 ## Current Delivery State
 
-The documentation baseline and initial product are integrated. Managed setup,
-versioned observations, and read-only reconciliation are included in the v1
-candidate. The clean repository now carries the `semantic-atlas@1.0.0` package
-identity, public documentation, CI, privacy and transition checks, and a
-GitHub-Release-driven npm provenance workflow for independent release review.
-The existing `lzj960515/semantic-atlas` repository remains the public product
-identity and carries the protected npm environment used by the approved direct
-v1 cutover. Review, branch cutover, publication, target-repository changes, and
-longitudinal use remain separate verified stages.
+The initial product, managed setup, versioned observations, read-only
+reconciliation, public repository, and npm publication are complete. The first
+real target-domain map and reviewed observation pair are in local use. The
+current `semantic-atlas@2.0.0` release removes one-time predecessor migration
+paths and accepts only current managed Skill, observation, and claim contracts.
+Target-repository sharing and longitudinal acceptance remain separate verified
+stages.
 
-## V1 Real-Repository Rollout
+## Current Public Release
 
-The next product stage turns the accepted local candidate into the one installed
-Semantic Atlas product used by real engineering repositories.
-
-### Product identity and direct cutover
-
-- The new implementation takes over the npm package name `semantic-atlas` as a
-  breaking `v1.0.0` release.
-- The existing `lzj960515/semantic-atlas` GitHub repository remains the active
-  repository and keeps its configured release environment and public identity.
-- Its `main` branch changes directly from the published v0 line to the clean v1
-  history through one explicitly authorized, lease-checked history replacement.
-  This discontinuity is the intended breaking repository upgrade.
-- Existing v0 Git tags, GitHub Releases, and npm versions remain available while
-  the new clean `main`, annotated `v1.0.0` tag, and immutable Release become the
-  current source identity.
-- Local legacy history and recovery bundles are optional operator artifacts,
-  not cutover prerequisites or release authority.
-- The old CLI's supported upgrade path must install v1 and invoke the v1
-  `setup` successfully.
+- `lzj960515/semantic-atlas` is the active public source repository and
+  `semantic-atlas` is the npm package identity.
+- Releases are normal fast-forward continuations of public `main`.
+- `setup` recognizes package-owned current markers and refuses obsolete or
+  unrelated same-named Skill directories.
+- Observation reads and writes use the current task and review schemas; old
+  local formats are disposable rather than migration inputs.
+- Existing Git tags, GitHub Releases, and npm versions remain immutable release
+  records, not runtime compatibility requirements.
 
 ### Installed CLI and managed Skills
 
@@ -255,8 +243,7 @@ authority. The product records two immutable, versioned local artifacts:
 - `TaskObservation`: map query and selected concepts, current-evidence
   classification, explicitly domain-owned map-update candidates with a
   candidate disposition, and any explicit human correction known to the task
-  Agent. Current writes use task artifact v2; immutable task v1 evidence remains
-  readable after upgrade without promoting its unowned candidates;
+  Agent. Reads and writes use task artifact v2;
 - `ReviewObservation`: the independent review verdict, correctness of the
   business boundary and upstream cause, impact completeness, required rework,
   and whether the map caused a wrong conclusion.
@@ -314,8 +301,8 @@ tests multiple Agents in independent worktrees reading one map revision and
 writing independent observations, with canonical map changes deferred to a
 separate reconciliation task.
 
-## V1 Delivery Boundary
+## Delivery Boundary
 
-The [delivery plan](delivery-plan.md) owns the ordered v1 gates. An earlier gate
-never implies that a later remote, publication, target-repository, or real-use
-gate has completed.
+The [delivery plan](delivery-plan.md) owns the ordered release and real-use
+gates. An earlier gate never implies that a later publication,
+target-repository, or longitudinal-use gate has completed.

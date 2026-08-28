@@ -1,7 +1,7 @@
 ---
 name: semantic-atlas-maintenance
 description: Reconcile retained Semantic Atlas map-update candidates for one business domain into a source-supported, normally reviewed docs/business-map YAML change. Use for periodic map maintenance, drift cleanup, candidate triage, and domain-scoped reconciliation in repositories with a Semantic Atlas business map and local observations.
-compatibility: Requires Node.js 24+, Git, a v1 semantic-atlas CLI, retained local observations, and repository source access.
+compatibility: Requires Node.js 24+, Git, the current semantic-atlas CLI, retained local observations, and repository source access.
 ---
 
 # Semantic Atlas Maintenance

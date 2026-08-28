@@ -2,9 +2,9 @@
 
 This index routes product, implementation, and evaluation questions to their
 authoritative pages. The queryable map, renderer, repository Agent Skills,
-managed setup, observations, reconciliation, and local release candidate are
-implemented. The approved v1 rollout remains divided into separately verified
-repository cutover, publication, target-repository, and real-use gates.
+managed setup, observations, reconciliation, and public release are implemented.
+Target-repository sharing and longitudinal real-use acceptance remain separate
+verified gates.
 
 ## Product
 
@@ -20,7 +20,7 @@ repository cutover, publication, target-repository, and real-use gates.
 - [Evaluation](evaluation.md): real-task accuracy, stale-map recovery, code
   quality, and human-intervention evidence.
 - [Delivery plan](delivery-plan.md): integrated initial slices and the ordered,
-  separately verified v1 delivery gates.
+  separately verified release and real-use gates.
 
 ## Maintenance
 

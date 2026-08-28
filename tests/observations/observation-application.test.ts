@@ -253,7 +253,7 @@ describe("accuracy observation boundary", () => {
     expect(await readdir(taskDirectory)).toEqual([]);
   });
 
-  it("recovers an abandoned legacy observation claim before publishing", async () => {
+  it("does not reinterpret an obsolete claim directory", async () => {
     const fixture = await createFixture();
     const claimDirectory = await observationClaimPath(fixture);
     await mkdir(claimDirectory, { recursive: true });
@@ -264,33 +264,8 @@ describe("accuracy observation boundary", () => {
 
     await expect(
       fixture.application.recordTask(fixture.repositoryRoot, taskObservation()),
-    ).resolves.toMatchObject({ outcome: "recorded" });
-    await expect(access(claimDirectory)).rejects.toThrow();
-  });
-
-  it("recovers a legacy claim interrupted before owner publication", async () => {
-    const fixture = await createFixture();
-    const claimDirectory = await observationClaimPath(fixture);
-    await mkdir(claimDirectory, { recursive: true });
-
-    const results = await Promise.all(Array.from({ length: 12 }, () =>
-      fixture.application.recordTask(fixture.repositoryRoot, taskObservation())
-    ));
-    expect(results.filter(({ outcome }) => outcome === "recorded")).toHaveLength(1);
-    expect(results.filter(({ outcome }) => outcome === "idempotent")).toHaveLength(11);
-    await expect(access(claimDirectory)).rejects.toThrow();
-  });
-
-  it("recovers a legacy claim with damaged owner metadata", async () => {
-    const fixture = await createFixture();
-    const claimDirectory = await observationClaimPath(fixture);
-    await mkdir(claimDirectory, { recursive: true });
-    await writeFile(path.join(claimDirectory, "owner.json"), "{\"pid\":");
-
-    await expect(
-      fixture.application.recordTask(fixture.repositoryRoot, taskObservation()),
-    ).resolves.toMatchObject({ outcome: "recorded" });
-    await expect(access(claimDirectory)).rejects.toThrow();
+    ).rejects.toThrow("uses an unsupported claim format");
+    await expect(access(claimDirectory)).resolves.toBeUndefined();
   });
 
   it("does not mistake a reused process ID for a live atomic claim", async () => {
@@ -308,21 +283,6 @@ describe("accuracy observation boundary", () => {
       fixture.application.recordTask(fixture.repositoryRoot, taskObservation()),
     ).resolves.toMatchObject({ outcome: "recorded" });
     await expect(access(claimPath)).rejects.toThrow();
-  });
-
-  it("preserves a legacy claim owned by a running writer", async () => {
-    const fixture = await createFixture();
-    const claimDirectory = await observationClaimPath(fixture);
-    await mkdir(claimDirectory, { recursive: true });
-    await writeFile(
-      path.join(claimDirectory, "owner.json"),
-      `${JSON.stringify({ pid: process.pid })}\n`,
-    );
-
-    await expect(
-      fixture.application.recordTask(fixture.repositoryRoot, taskObservation()),
-    ).rejects.toBeInstanceOf(ObservationStorageError);
-    await expect(access(claimDirectory)).resolves.toBeUndefined();
   });
 
   it("uses one private repository identity across Git worktrees", async () => {

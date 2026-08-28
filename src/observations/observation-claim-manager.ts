@@ -6,7 +6,6 @@ import {
   readFile,
   rename,
   rm,
-  rmdir,
 } from "node:fs/promises";
 import path from "node:path";
 
@@ -20,8 +19,11 @@ export interface ObservationClaim {
   readonly claimId: string;
 }
 
-interface LegacyClaimOwner {
-  readonly pid: number;
+export class UnsupportedObservationClaimError extends Error {
+  public constructor(public readonly claimPath: string) {
+    super(`Observation claim '${claimPath}' uses an unsupported claim format`);
+    this.name = "UnsupportedObservationClaimError";
+  }
 }
 
 export class ObservationClaimManager {
@@ -38,10 +40,9 @@ export class ObservationClaimManager {
       if (hasErrorCode(error, "ENOENT")) return true;
       throw error;
     }
-    if (claimStatus.isDirectory()) {
-      return recoverLegacyClaim(claimPath, claimStatus.mtimeMs);
+    if (!claimStatus.isFile()) {
+      throw new UnsupportedObservationClaimError(claimPath);
     }
-    if (!claimStatus.isFile()) return false;
 
     const owner = await readClaim(claimPath);
     if (owner === undefined) {
@@ -106,55 +107,6 @@ async function publishClaim(
     }
   } finally {
     await rm(stagedClaimPath, { force: true });
-  }
-}
-
-async function recoverLegacyClaim(
-  claimDirectory: string,
-  directoryModifiedAt: number,
-): Promise<boolean> {
-  const ownerPath = path.join(claimDirectory, "owner.json");
-  let ownerDocument: string;
-  try {
-    ownerDocument = await readFile(ownerPath, "utf8");
-  } catch (error) {
-    if (hasErrorCode(error, "ENOENT")) {
-      if (claimIsWithinRecoveryGrace(directoryModifiedAt)) return false;
-      return removeLegacyClaimDirectory(claimDirectory);
-    }
-    throw error;
-  }
-
-  const owner = parseLegacyClaimOwner(ownerDocument);
-  if (owner === undefined) {
-    let ownerStatus;
-    try {
-      ownerStatus = await lstat(ownerPath);
-    } catch (error) {
-      if (hasErrorCode(error, "ENOENT")) return true;
-      throw error;
-    }
-    if (claimIsWithinRecoveryGrace(ownerStatus.mtimeMs)) return false;
-    return removeLegacyClaimDirectory(claimDirectory, ownerPath);
-  }
-  if (isProcessRunning(owner.pid)) return false;
-  return removeLegacyClaimDirectory(claimDirectory, ownerPath);
-}
-
-async function removeLegacyClaimDirectory(
-  claimDirectory: string,
-  ownerPath?: string,
-): Promise<boolean> {
-  if (ownerPath) await rm(ownerPath, { force: true });
-  try {
-    await rmdir(claimDirectory);
-    return true;
-  } catch (error) {
-    if (hasErrorCode(error, "ENOENT")) return true;
-    if (hasErrorCode(error, "ENOTDIR") || hasErrorCode(error, "ENOTEMPTY")) {
-      return false;
-    }
-    throw error;
   }
 }
 
@@ -233,12 +185,6 @@ function parseObservationClaim(document: string): ObservationClaim | undefined {
     processInstanceId: owner.processInstanceId,
     claimId: owner.claimId,
   };
-}
-
-function parseLegacyClaimOwner(document: string): LegacyClaimOwner | undefined {
-  const owner = parseClaimDocument(document);
-  if (!isRecord(owner) || !isProcessId(owner.pid)) return undefined;
-  return { pid: owner.pid };
 }
 
 function parseClaimDocument(document: string): unknown {

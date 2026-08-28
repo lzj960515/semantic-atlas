@@ -3,10 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type {
-  ReviewObservationInput,
-  TaskObservationInput,
-} from "../../src/contracts/observation.js";
+import type { TaskObservationInput } from "../../src/contracts/observation.js";
 import { createCliRuntime, runCli } from "../../src/cli/run-cli.js";
 import { RepositoryIdentityResolver } from "../../src/observations/repository-identity.js";
 
@@ -88,7 +85,7 @@ describe("semantic-atlas reconcile candidates", () => {
     });
   });
 
-  it("reads immutable v1 evidence without promoting its unowned candidate", async () => {
+  it("rejects obsolete task evidence instead of silently summarizing it", async () => {
     const fixture = await createFixture();
     const repository = (await new RepositoryIdentityResolver().resolve(
       fixture.repositoryRoot,
@@ -111,11 +108,6 @@ describe("semantic-atlas reconcile candidates", () => {
     const storedDocument = `${JSON.stringify(legacyObservation, null, 2)}\n`;
     await mkdir(taskDirectory, { recursive: true });
     await writeFile(observationPath, storedDocument, "utf8");
-    await fixture.runtime.observationApplication.recordReview(
-      fixture.repositoryRoot,
-      legacyReviewObservation(),
-    );
-
     const reconciliation = await runCli([
       "reconcile",
       "candidates",
@@ -129,29 +121,15 @@ describe("semantic-atlas reconcile candidates", () => {
       fixture.repositoryRoot,
     ], fixture.runtime);
 
-    expect(reconciliation.exitCode).toBe(0);
+    expect(reconciliation.exitCode).toBe(1);
     expect(JSON.parse(reconciliation.stdout)).toMatchObject({
-      ok: true,
-      data: {
-        summary: {
-          businessDomains: 0,
-          candidateGroups: 0,
-          candidateOccurrences: 0,
-          duplicateGroups: 0,
-        },
-        domains: [],
-      },
+      ok: false,
+      error: { code: "RECONCILIATION_READ_FAILED" },
     });
-    expect(insights.exitCode).toBe(0);
+    expect(insights.exitCode).toBe(1);
     expect(JSON.parse(insights.stdout)).toMatchObject({
-      ok: true,
-      data: {
-        summary: {
-          taskObservations: 1,
-          approvedReviews: 1,
-          recoveries: { missing: 1 },
-        },
-      },
+      ok: false,
+      error: { code: "INSIGHTS_READ_FAILED" },
     });
     expect(await readFile(observationPath, "utf8")).toBe(storedDocument);
   });
@@ -195,24 +173,5 @@ function taskObservation(): TaskObservationInput {
       summary: "Add refund eligibility as a durable Commerce operation.",
       evidence: [{ kind: "source", reference: "src/refunds.ts" }],
     }],
-  };
-}
-
-function legacyReviewObservation(): ReviewObservationInput {
-  return {
-    schemaVersion: 1,
-    id: "legacy-v1-review",
-    recordedAt: "2026-08-26T11:00:00.000Z",
-    taskObservationId: "legacy-v1",
-    review: {
-      taskId: "legacy-review-task",
-      runId: "legacy-review-run",
-      verdict: "approved",
-      businessBoundary: "correct",
-      upstreamCause: "not_applicable",
-      impactCompleteness: "complete",
-      requiredRework: false,
-      mapCausedRegression: false,
-    },
   };
 }

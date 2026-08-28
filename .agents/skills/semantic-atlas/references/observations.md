@@ -69,9 +69,8 @@ is `confirmed` when current evidence supports the proposed correction,
 evidence, or `unresolved` when it remains a maintenance lead. Periodic
 maintenance preserves these task-time judgments and linked independent reviews,
 then confirms durable business meaning again before editing canonical YAML.
-Immutable task v1 observations remain readable after package upgrades, but
-their candidates predate these ownership fields and therefore stay outside
-domain reconciliation.
+Stored task observations must match this current schema; unsupported local
+artifacts fail visibly and are never migrated or promoted into reconciliation.
 
 When a person explicitly corrects the task, add:
 

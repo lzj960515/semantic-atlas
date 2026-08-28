@@ -12,12 +12,11 @@ import type {
   ObservationKind,
   RepositoryIdentity,
   ReviewObservation,
-  StoredTaskObservation,
   TaskObservation,
 } from "../contracts/observation.js";
 import {
   reviewObservationSchema,
-  storedTaskObservationSchema,
+  taskObservationSchema,
 } from "../contracts/observation.js";
 import type { ObservationClaim } from "./observation-claim-manager.js";
 import { ObservationClaimManager } from "./observation-claim-manager.js";
@@ -43,7 +42,7 @@ export interface ObservationWriteResult {
 }
 
 export interface RepositoryObservations {
-  readonly tasks: readonly StoredTaskObservation[];
+  readonly tasks: readonly TaskObservation[];
   readonly reviews: readonly ReviewObservation[];
 }
 
@@ -94,11 +93,11 @@ export class ObservationStore {
   public async readTask(
     repository: RepositoryIdentity,
     id: string,
-  ): Promise<StoredTaskObservation | undefined> {
+  ): Promise<TaskObservation | undefined> {
     const observationPath = this.observationPath(repository, "task", id);
     const document = await readExistingDocument(observationPath);
     if (document === undefined) return undefined;
-    const parsed = storedTaskObservationSchema.safeParse(
+    const parsed = taskObservationSchema.safeParse(
       parseStoredDocument(document, observationPath),
     );
     if (!parsed.success || !sameRepository(parsed.data.repository, repository)) {
@@ -117,7 +116,7 @@ export class ObservationStore {
       this.readDirectory(repository, "review"),
     ]);
     return {
-      tasks: tasks as readonly StoredTaskObservation[],
+      tasks: tasks as readonly TaskObservation[],
       reviews: reviews as readonly ReviewObservation[],
     };
   }
@@ -213,7 +212,14 @@ export class ObservationStore {
       if (existing) {
         return replayResult(kind, id, existing, serialized);
       }
-      if (await this.claims.recoverAbandoned(claimPath)) continue;
+      try {
+        if (await this.claims.recoverAbandoned(claimPath)) continue;
+      } catch (error) {
+        throw new ObservationStorageError(
+          `Could not acquire ${kind} observation '${id}': ${errorMessage(error)}`,
+          { cause: error },
+        );
+      }
       await waitForClaim();
     }
     throw new ObservationStorageError(
@@ -238,7 +244,7 @@ export class ObservationStore {
   private async readDirectory(
     repository: RepositoryIdentity,
     kind: ObservationKind,
-  ): Promise<readonly (StoredTaskObservation | ReviewObservation)[]> {
+  ): Promise<readonly (TaskObservation | ReviewObservation)[]> {
     const directory = this.observationDirectory(repository, kind);
     let fileNames: readonly string[];
     try {
@@ -260,7 +266,7 @@ export class ObservationStore {
         observationPath,
       );
       const parsed = kind === "task"
-        ? storedTaskObservationSchema.safeParse(value)
+        ? taskObservationSchema.safeParse(value)
         : reviewObservationSchema.safeParse(value);
       if (!parsed.success || !sameRepository(parsed.data.repository, repository)) {
         throw new ObservationStorageError(

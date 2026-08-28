@@ -6,7 +6,7 @@ public CLI, renderer, and repository Agent Skill.
 
 **Status: query, validation, visual projection, repository Agents, managed
 Skill lifecycle, accuracy observations, read-only reconciliation, and public
-release-candidate verification are implemented locally.**
+release verification are implemented and released.**
 
 ## System Model
 
@@ -146,10 +146,10 @@ Coordinates the package's `semantic-atlas` and `semantic-atlas-maintenance`
 payloads. Each Skill receives one `ManagedSkillInstaller` with the same package
 identity and its own target directory. The per-Skill installer derives a
 deterministic payload fingerprint, records package and Skill identity in a
-management marker, recognizes the primary Skill's v0.4 marker as a supported
-predecessor, and classifies repeated setup as current, repair, upgrade, or
-interrupted-swap recovery. It requires recognized ownership before replacing
-an existing same-named directory.
+management marker, and classifies repeated setup as current, repair, upgrade,
+or interrupted-swap recovery. It requires the current marker contract before
+replacing an existing same-named directory; obsolete and unrelated directories
+remain untouched.
 
 Replacement uses one complete staged directory. The current managed directory
 moves to a deterministic backup before the staged directory becomes active. A
@@ -163,7 +163,7 @@ Owns the boundary between npm package state and managed Skills state. It reads
 npm's stable version first, installs an exact `semantic-atlas@<version>` when
 the current package differs, locates that package through npm's global root,
 verifies its CLI version through the current Node executable, and invokes that
-CLI's `setup`. The old process never copies its own Skills after a package
+CLI's `setup`. The invoking process never copies its own Skills after a package
 replacement.
 
 ### RepositoryIdentityResolver
@@ -184,8 +184,8 @@ observation from the same repository partition before persistence.
 
 Owns the observation-ID claim lifecycle. It publishes complete synced owner
 metadata without overwrite, distinguishes process instances, recovers the
-earlier directory claim format, and verifies ownership again before final
-observation publication.
+current atomic-file claim format, and verifies ownership again before final
+observation publication. Unknown claim shapes remain in place and fail closed.
 
 ### ObservationStore
 
@@ -194,9 +194,8 @@ manager around each write. The store writes and syncs a complete observation
 staging file, atomically renames it into place, returns idempotency for an exact
 replay, and reports a conflict for changed content under an existing ID. Its
 write boundary accepts current task v2 and review v1 artifacts. Its read
-boundary also accepts immutable task v1 artifacts so package upgrades preserve
-historical investigation evidence and review references without assigning a
-business domain to legacy candidates.
+boundary accepts the same current task and review contracts; unsupported stored
+artifacts fail the read instead of being reinterpreted.
 
 ### InsightService
 
@@ -212,15 +211,14 @@ uses explicit business-domain ownership plus exact candidate kind and summary,
 preserves each candidate occurrence, evidence disposition, task query record,
 human correction, and linked independent review, and marks groups with multiple
 origins as duplicates. It reads repository identity and observations without
-loading or editing the business map. Legacy task v1 candidates remain retained
-evidence but do not enter a domain group because their ownership is unknown.
+loading or editing the business map.
 
 ### Release Candidate Verification
 
 The repository-owned release gate composes contract and source tests,
 typecheck, build, deterministic render checks, packed-tarball privacy, an
-anonymous installed-product flow, a public v0.4-to-v1 transition rehearsal,
-package dry-run, and Git diff validation. CI invokes the same gate used by a
+anonymous installed-product flow, package dry-run, and Git diff validation. CI
+invokes the same gate used by a
 release tag so the public package is not validated through a weaker path.
 
 ### Release Automation
@@ -235,9 +233,9 @@ environment, checks out the annotated tag, proves that the tag, commit, and
 stable package version agree, repeats the Release check as defense in depth,
 runs release-candidate verification, and publishes with provenance. Finally, it
 reads the exact version, latest tag, shasum, and integrity back from the public
-registry. The lease-checked v1 `main` discontinuity, repository setting changes,
-tag creation, GitHub Release publication, and npm publication remain explicit
-later operations rather than local build effects.
+registry. The fast-forward `main` push, repository setting changes, tag creation,
+GitHub Release publication, and npm publication remain explicit operations
+rather than local build effects.
 
 ## Data Lifecycles
 

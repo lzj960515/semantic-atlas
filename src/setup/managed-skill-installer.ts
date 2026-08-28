@@ -70,15 +70,6 @@ interface ManagedSkillMarker extends ManagedSkillIdentity {
   readonly managedBy: typeof managerName;
 }
 
-interface LegacyManagedSkillMarker {
-  readonly version: "0.4.0";
-  readonly fingerprint: string;
-}
-
-type ExistingManagedSkill =
-  | { readonly kind: "v1"; readonly marker: ManagedSkillMarker }
-  | { readonly kind: "legacy-v0.4"; readonly marker: LegacyManagedSkillMarker };
-
 export class ManagedSkillConflictError extends Error {
   public override readonly name = "ManagedSkillConflictError";
 
@@ -129,17 +120,15 @@ export class ManagedSkillInstaller {
       return this.result("installed", fingerprint);
     }
 
-    const current = existing.kind === "v1"
-      && markerMatches(existing.marker, marker)
+    const current = markerMatches(existing, marker)
       && await fingerprintSkill(this.targetDirectory) === fingerprint;
     if (current) {
       await this.removeRecoveryArtifacts();
       return this.result(recovered ? "recovered" : "current", fingerprint);
     }
 
-    const outcome = existing.kind === "legacy-v0.4"
-      || existing.marker.packageName !== marker.packageName
-      || existing.marker.packageVersion !== marker.packageVersion
+    const outcome = existing.packageName !== marker.packageName
+      || existing.packageVersion !== marker.packageVersion
       ? "upgraded"
       : "repaired";
     await this.removeRecoveryArtifacts();
@@ -171,7 +160,7 @@ export class ManagedSkillInstaller {
     return true;
   }
 
-  private async readExistingManagedSkill(): Promise<ExistingManagedSkill | undefined> {
+  private async readExistingManagedSkill(): Promise<ManagedSkillMarker | undefined> {
     if (!await exists(this.targetDirectory)) return undefined;
     const marker = await readManagedMarker(this.targetDirectory, this.skillName);
     if (!marker) throw new ManagedSkillConflictError(this.targetDirectory);
@@ -319,22 +308,11 @@ async function requireSkillIdentity(
 async function readManagedMarker(
   directory: string,
   skillName: ManagedSkillName,
-): Promise<ExistingManagedSkill | undefined> {
+): Promise<ManagedSkillMarker | undefined> {
   try {
     const parsed = JSON.parse(
       await readFile(path.join(directory, installationMarkerName), "utf8"),
     ) as Record<string, unknown>;
-    if (
-      skillName === primarySkillName
-      && parsed.version === "0.4.0"
-      && typeof parsed.fingerprint === "string"
-      && fingerprintPattern.test(parsed.fingerprint)
-    ) {
-      return {
-        kind: "legacy-v0.4",
-        marker: { version: "0.4.0", fingerprint: parsed.fingerprint },
-      };
-    }
     if (
       parsed.schemaVersion === 1
       && parsed.managedBy === managerName
@@ -347,15 +325,12 @@ async function readManagedMarker(
       && fingerprintPattern.test(parsed.fingerprint)
     ) {
       return {
-        kind: "v1",
-        marker: {
-          schemaVersion: 1,
-          managedBy: managerName,
-          packageName: parsed.packageName,
-          packageVersion: parsed.packageVersion,
-          skillName,
-          fingerprint: parsed.fingerprint,
-        },
+        schemaVersion: 1,
+        managedBy: managerName,
+        packageName: parsed.packageName,
+        packageVersion: parsed.packageVersion,
+        skillName,
+        fingerprint: parsed.fingerprint,
       };
     }
     return undefined;

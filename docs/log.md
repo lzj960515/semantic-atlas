@@ -1,5 +1,13 @@
 # Documentation Log
 
+## 2026-08-28
+
+- Removed predecessor Skill, observation, claim, release-rehearsal, and direct
+  repository-cutover compatibility from the current product contract.
+- Defined `semantic-atlas@2.0.0` as the current-only public contract while
+  preserving future package upgrades, atomic managed-Skill recovery, immutable
+  observations, and normal fast-forward releases.
+
 This page records durable changes to the product model and documentation
 ownership.
 

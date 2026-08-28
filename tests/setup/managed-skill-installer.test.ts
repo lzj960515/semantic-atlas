@@ -145,7 +145,7 @@ describe("ManagedSkillInstaller", () => {
     await expect(access(fixture.targetDirectory)).rejects.toThrow();
   });
 
-  it("upgrades the supported v0.4 marker and recovers an interrupted swap", async () => {
+  it("refuses to replace a Skill carrying the obsolete v0.4 marker", async () => {
     const fixture = await createFixture();
     await mkdir(fixture.targetDirectory, { recursive: true });
     await writeFile(
@@ -165,7 +165,21 @@ describe("ManagedSkillInstaller", () => {
       sourceDirectory: fixture.sourceDirectory,
       userHome: fixture.userHome,
     });
-    await expect(installer.install()).resolves.toMatchObject({ outcome: "upgraded" });
+    await expect(installer.install()).rejects.toBeInstanceOf(ManagedSkillConflictError);
+    await expect(readFile(
+      path.join(fixture.targetDirectory, ".semantic-atlas-managed.json"),
+      "utf8",
+    )).resolves.toContain('"version": "0.4.0"');
+  });
+
+  it("recovers an interrupted replacement of a current managed Skill", async () => {
+    const fixture = await createFixture();
+    const installer = new ManagedSkillInstaller({
+      packageIdentity,
+      sourceDirectory: fixture.sourceDirectory,
+      userHome: fixture.userHome,
+    });
+    await installer.install();
 
     const backupDirectory = `${fixture.targetDirectory}.backup`;
     const orphanStage = `${fixture.targetDirectory}.installing-interrupted`;

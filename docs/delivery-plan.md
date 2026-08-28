@@ -1,11 +1,11 @@
 # Semantic Atlas Delivery Plan
 
-This page defines the integrated initial vertical slices and the ordered v1
+This page defines the integrated initial vertical slices and the ordered public
 rollout gates. Tasks preserve one coherent user workflow and become eligible
 only when their stated predecessor is integrated or directly verified.
 
-**Status: the baseline and Slices 1-5 are accepted and integrated at `decac0c`;
-the v1 real-repository rollout contract is approved.**
+**Status: the baseline and Slices 1-5 are integrated, the public package is
+released, and the first target-domain pilot is in local use.**
 
 ## Baseline: Establish The Product Contract
 
@@ -148,36 +148,31 @@ Acceptance:
 - Git inspection contains only intended public files and no private Pietra
   paths, facts, prompts, answers, credentials, or local artifacts;
 - the report separates local implementation, integration, private evaluation,
-  and the still-unperformed public release.
+  and later public release evidence.
 
-## V1 Real-Repository Rollout
+## Current Public Rollout
 
-The approved next stage turns the accepted local product into the installed
-`semantic-atlas@1.0.0` product. The [product contract](product-contract.md) owns
-the v1 identity, managed-Skill behavior, observation model, reconciliation
-rules, and real-use acceptance thresholds.
+The initial product is public and installed. The current
+`semantic-atlas@2.0.0` release removes predecessor migration behavior while
+preserving the business-map model, current observations, managed Skills,
+reconciliation, and real-use acceptance thresholds defined by the
+[product contract](product-contract.md).
 
 Delivery keeps these gates separate:
 
-1. close the initial-product documentation against the integrated baseline;
-2. implement managed `setup` and old-CLI upgrade compatibility;
-3. implement immutable task and review observations plus read-only candidate
-   reconciliation;
-4. verify the public repository, CI, privacy, and release candidate;
-5. replace the existing `lzj960515/semantic-atlas` repository's `main` with the
-   clean v1 history through one lease-checked direct cutover;
-6. create the Git tag and GitHub Release, publish with npm provenance, and test
-   an anonymous install;
-7. integrate one target-repository map and verify installed-Skill discovery;
-8. evaluate natural longitudinal use and concurrent development.
+1. keep managed `setup`, immutable task and review observations, and read-only
+   reconciliation on one current contract;
+2. verify source, packed product, privacy, and anonymous installation;
+3. publish through an immutable GitHub Release and npm provenance;
+4. install the public package and synchronize both managed Skills;
+5. share the first target-repository map through its normal Git lifecycle;
+6. evaluate natural longitudinal use and concurrent development.
 
-Gate 4 now prepares the clean `semantic-atlas@1.0.0` source candidate. Package
-metadata, public documentation, repository guidance, CI, a
-GitHub-Release-driven provenance workflow, tarball privacy checks, anonymous
-installed-product coverage, and a public v0.4 transition rehearsal form one
-local verification gate. Independent review remains required before the direct
-`main` replacement, tag, GitHub Release, npm publication, or target-repository
-change.
+Package metadata, public documentation, repository guidance, CI, a
+GitHub-Release-driven provenance workflow, tarball privacy checks, and anonymous
+installed-product coverage form one local verification gate. Tag creation,
+GitHub Release publication, npm publication, and target-repository changes
+remain separately verified actions.
 
 Each gate starts from directly verified evidence from its predecessor. Local
 integration does not authorize or prove setup, remote changes, publication,

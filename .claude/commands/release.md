@@ -17,21 +17,15 @@ boundary. A dependent protected job repeats `pnpm release:verify`, checks the
 tag against `package.json`, publishes with npm provenance, and performs public
 read-back.
 
-The v1 release is one intentional repository-history discontinuity. The
-existing `lzj960515/semantic-atlas` repository keeps its public identity,
-release environment, v0 tags, and Releases while its `main` branch changes to
-the clean v1 history through an exact lease-checked push.
-
 ## 1. Confirm Repository Identity
 
 ```bash
 git remote get-url origin
-expected_remote_main="$(git ls-remote --heads origin refs/heads/main | awk '{print $1}')"
-test -n "$expected_remote_main"
 git fetch origin --tags
 git status --short --branch
 git branch --show-current
-test "$(git rev-parse origin/main)" = "$expected_remote_main"
+test "$(git branch --show-current)" = "main"
+git merge-base --is-ancestor origin/main HEAD
 git diff --check
 ```
 
@@ -41,9 +35,8 @@ Run only from a clean `main` worktree for the intended public source repository:
 https://github.com/lzj960515/semantic-atlas.git
 ```
 
-For `v1.0.0`, `origin/main` and the candidate intentionally have unrelated
-histories. Keep `expected_remote_main` in the same shell through publication;
-it is the lease that prevents replacing a branch changed after this preflight.
+The versioned candidate may be ahead of `origin/main`, but it must be a normal
+fast-forward continuation of the public branch.
 
 ## 2. Require Immutable GitHub Releases
 
@@ -79,8 +72,7 @@ pnpm release:verify
 
 Read every gate result. The command covers source and contract tests, Node 24
 typecheck and build, render behavior, packed package contents and privacy, an
-anonymous clean installation, the public v0.4-to-v1 transition, package dry-run,
-and Git diff checks.
+anonymous clean installation, package dry-run, and Git diff checks.
 
 ## 5. Create Annotated Tag Identity
 
@@ -95,10 +87,10 @@ The tag must be annotated and resolve to the exact verified candidate commit.
 If any check fails before push, retain the candidate and remove only the new
 local tag after confirming it was never published remotely.
 
-## 6. Direct V1 Main Cutover And Publish Release Identity
+## 6. Push Candidate And Publish Release Identity
 
 ```bash
-git push --force-with-lease=refs/heads/main:${expected_remote_main} origin HEAD:refs/heads/main
+git push origin HEAD:refs/heads/main
 test "$(git ls-remote --heads origin refs/heads/main | awk '{print $1}')" = "$(git rev-parse HEAD)"
 git push origin "refs/tags/${tag}"
 gh release create "$tag" \
@@ -108,9 +100,9 @@ gh release create "$tag" \
 test "$(gh release view "$tag" --json isImmutable --jq '.isImmutable')" = "true"
 ```
 
-The lease-checked `main` push is the only intended v1 history replacement; v0
-tags and Releases stay present. Publishing the non-prerelease GitHub Release is
-the only event that starts npm publication. The published Release must report
+The fast-forward `main` push publishes the verified source identity. Publishing
+the non-prerelease GitHub Release is the only event that starts npm publication.
+The published Release must report
 `isImmutable: true`; the workflow independently reads the REST Release in a
 read-only gate and stops before tag checkout, protected-environment access, or
 OIDC permission unless its tag matches and `immutable` is exactly `true`.
@@ -151,9 +143,9 @@ clean.
 
 - A candidate-gate failure stays local for repair and a complete verification
   rerun.
-- A main push rejected by the lease triggers a fresh remote inspection and a
-  complete candidate verification before choosing a new expected SHA. The
-  release never falls back to an unqualified force push.
+- A non-fast-forward main push triggers a fresh remote inspection and a complete
+  candidate verification after integrating the current public branch. The
+  release never force-pushes `main`.
 - A tag push failure reuses the same verified commit and annotated tag.
 - A GitHub workflow failure is inspected with
   `gh run view "$run_id" --log-failed`; check npm before choosing recovery.
@@ -161,8 +153,7 @@ clean.
   while npm confirms that version is absent.
 - A source correction after tag or npm publication uses a new patch version.
 - Existing Git tags, GitHub Releases, and npm versions are preserved and
-  reconciled. The one authorized v1 `main` discontinuity remains bounded by its
-  recorded lease.
+  reconciled.
 
 ---
 

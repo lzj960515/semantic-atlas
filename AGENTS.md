@@ -95,7 +95,7 @@ that helped locate it.
 
 - Treat `pnpm release:verify` as the complete source candidate gate. It covers
   contracts, tests, typecheck, build, render, installed package behavior,
-  tarball privacy, the public v0.4 transition, pack output, and Git diff checks.
+  tarball privacy, pack output, and Git diff checks.
 - Keep the package version and annotated `v<version>` tag on one exact commit.
   Enable immutable releases before publishing that tag as a non-prerelease
   GitHub Release. A read-only gate job verifies the specific Release before any
@@ -106,10 +106,8 @@ that helped locate it.
   instructions never publish directly.
 - Verify the exact workflow run, GitHub Release, remote tag, and anonymous
   `npm view` result before reporting a public release complete.
-- Treat the v1 repository discontinuity as one explicit release stage: record
-  the observed remote `main`, then replace it only through the exact
-  `--force-with-lease` form in `.claude/commands/release.md`. Preserve existing
-  tags and Releases.
+- Release only a normal fast-forward continuation of public `main`. Preserve
+  existing tags, Releases, and npm versions.
 - Preserve release stages: a repository candidate does not authorize a direct
   `main` replacement, tag, GitHub Release, npm publication, target-repository
   change, or runtime rollout.

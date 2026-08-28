@@ -14,7 +14,7 @@ describe("public release candidate", () => {
 
     expect(packageDocument).toMatchObject({
       name: "semantic-atlas",
-      version: "1.0.0",
+      version: "2.0.0",
       license: "MIT",
       homepage: `${publicRepository}#readme`,
       bugs: { url: `${publicRepository}/issues` },
@@ -205,19 +205,16 @@ describe("public release candidate", () => {
     expect(release).toContain("immutable-releases");
     expect(release).toContain("isImmutable");
     expect(release).toContain("gh run watch");
-    expect(release).toContain("expected_remote_main=");
-    expect(release).toContain(
-      "git push --force-with-lease=refs/heads/main:${expected_remote_main} origin HEAD:refs/heads/main",
-    );
-    expect(release).toContain("Direct V1 Main Cutover");
-    expect(release).not.toContain("git merge-base --is-ancestor origin/main HEAD");
+    expect(release).toContain("git merge-base --is-ancestor origin/main HEAD");
+    expect(release).toContain("git push origin HEAD:refs/heads/main");
+    expect(release).not.toContain("force-with-lease");
+    expect(release).not.toContain("Direct V1 Main Cutover");
 
     for (const productDocument of [productContract, deliveryPlan]) {
-      expect(productDocument).toContain("existing `lzj960515/semantic-atlas`");
-      expect(productDocument).toContain("lease-checked");
-      expect(productDocument).not.toContain("rename/archive");
+      expect(productDocument).toContain("semantic-atlas@2.0.0");
+      expect(productDocument).not.toContain("old-CLI upgrade compatibility");
+      expect(productDocument).not.toContain("v0.4 transition rehearsal");
     }
-    expect(productContract).not.toContain("previous public GitHub repository is preserved");
   });
 });
 

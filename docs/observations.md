@@ -5,8 +5,8 @@ from real engineering work. The [product contract](product-contract.md#accuracy-
 owns why observations exist; this page owns their data, persistence, replay,
 and summary contract.
 
-**Status: implemented as a local v1 rollout candidate with versioned task
-artifact compatibility.**
+**Status: implemented with one current task contract and one current review
+contract.**
 
 ## Authority Boundary
 
@@ -51,12 +51,6 @@ candidate names its stable `businessDomainId` and carries a candidate-specific
 disposition are recorded explicitly because they cannot be inferred safely from
 source paths or free-form summaries.
 
-Task artifact v1 predates candidate domain ownership and candidate-specific
-disposition. The store continues to read those immutable files for insights and
-review references. Their investigation evidence remains available, while their
-unowned candidates stay outside reconciliation reports because the missing
-business domain cannot be inferred safely. New task writes accept only v2.
-
 Source, test, and document evidence uses normalized repository-relative paths.
 Runtime references use concise environment-independent evidence labels.
 
@@ -84,8 +78,8 @@ Observations live under the user's local data boundary:
 ```
 
 The directory `v1` identifies the private storage layout. Each artifact's own
-`schemaVersion` controls its data contract, so task v1 and v2 files coexist in
-the same repository partition without migration writes.
+`schemaVersion` controls its current data contract; unsupported versions make a
+read fail visibly and are never migrated implicitly.
 
 This partition is separate from `docs/business-map`, package contents, and Git.
 Each observation is one JSON file. The implementation uses neither SQLite nor
@@ -103,14 +97,13 @@ semantic-atlas observe review --stdin [--repo <path>]
 The CLI parses and strictly validates the current complete input before
 resolving a write destination. Review recording then confirms that its task
 observation already exists in the same repository partition. The store reads
-both retained task versions but serializes only the current task version.
-Before publication it writes and syncs claim metadata, exposes the claim
+the same current task version that it writes. Before publication it writes and
+syncs claim metadata, exposes the claim
 through an atomic, non-overwriting link, then writes and syncs a private
 observation staging file and atomically renames it into place. A
 process-instance identity prevents a retrying process from treating its reused
-PID as proof that it still owns an earlier claim. Interrupted directory claims
-from the earlier local candidate remain recoverable without removing a claim
-whose owner is running.
+PID as proof that it still owns an earlier claim. Unsupported claim shapes remain
+untouched and block publication instead of being reinterpreted.
 Different IDs never share a file or append boundary.
 
 The first successful write returns `recorded`. Replaying the same ID and exact
@@ -156,8 +149,7 @@ Exact domain, candidate kind, and candidate summary form a group; every task
 occurrence remains visible with its candidate position, evidence disposition,
 task query and evidence record, human correction, and linked independent
 reviews. Duplicate groups produce one maintenance lead while preserving all
-origins. Legacy v1 candidates without explicit business-domain ownership and
-observations without a durable candidate remain outside the report.
+origins. Observations without a durable candidate remain outside the report.
 
 The command reads repository identity and immutable observation files only. It
 does not edit observations, source, `docs/business-map`, rendered artifacts, or

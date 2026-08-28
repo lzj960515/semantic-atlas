@@ -63,12 +63,6 @@ export const mapUpdateCandidateSchema = z.object({
   evidence: z.array(evidenceReferenceSchema).min(1),
 }).strict();
 
-const legacyMapUpdateCandidateSchema = z.object({
-  kind: z.enum(["node", "relation", "anchor"]),
-  summary: nonEmptyStringSchema,
-  evidence: z.array(evidenceReferenceSchema).min(1),
-}).strict();
-
 export const humanCorrectionSchema = z.object({
   summary: nonEmptyStringSchema,
   dimensions: z.array(z.enum([
@@ -139,18 +133,6 @@ export const taskObservationSchema = taskObservationInputSchema.extend({
   repository: repositoryIdentitySchema,
 }).strict();
 
-export const legacyTaskObservationSchema = z.object({
-  schemaVersion: z.literal(1),
-  ...taskObservationFields,
-  mapUpdateCandidates: z.array(legacyMapUpdateCandidateSchema),
-  repository: repositoryIdentitySchema,
-}).strict();
-
-export const storedTaskObservationSchema = z.discriminatedUnion("schemaVersion", [
-  legacyTaskObservationSchema,
-  taskObservationSchema,
-]);
-
 export const reviewObservationSchema = reviewObservationInputSchema.extend({
   repository: repositoryIdentitySchema,
 }).strict();
@@ -165,8 +147,6 @@ export type ReviewAssessment = z.infer<typeof reviewAssessmentSchema>;
 export type TaskObservationInput = z.infer<typeof taskObservationInputSchema>;
 export type ReviewObservationInput = z.infer<typeof reviewObservationInputSchema>;
 export type TaskObservation = z.infer<typeof taskObservationSchema>;
-export type LegacyTaskObservation = z.infer<typeof legacyTaskObservationSchema>;
-export type StoredTaskObservation = z.infer<typeof storedTaskObservationSchema>;
 export type ReviewObservation = z.infer<typeof reviewObservationSchema>;
 export type ObservationKind = "task" | "review";
 
