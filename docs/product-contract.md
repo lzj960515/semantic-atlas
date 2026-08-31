@@ -238,9 +238,10 @@ human-intervention evidence as acceptance conditions.
 The initial product, managed setup, versioned observations, read-only
 reconciliation, public repository, and npm publication are complete. The first
 real target-domain map and reviewed observation pair are in local use. The
-current `semantic-atlas@2.1.3` release adds reviewed maintenance outcomes and
-the narrow orchestration-status contract while accepting only current managed
-Skill, observation, and claim contracts.
+current `semantic-atlas@2.2.0` release adds scenario-owned business flows and a
+linked relationship/flow Viewer while preserving reviewed maintenance outcomes,
+the narrow orchestration-status contract, and current managed Skill,
+observation, and claim contracts.
 Target-repository sharing and longitudinal acceptance remain separate verified
 stages.
 

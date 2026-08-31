@@ -2,6 +2,8 @@
 
 ## 2026-08-31
 
+- Defined `semantic-atlas@2.2.0` as the scenario-owned business-flow and linked
+  relationship/flow Viewer release.
 - Defined `semantic-atlas@2.1.3` as the public-package recovery after the
   immutable `v2.1.2` Release stopped before npm publication.
 - Made packed-product acceptance perform a credential-free public-registry

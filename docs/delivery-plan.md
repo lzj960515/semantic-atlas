@@ -157,10 +157,11 @@ Acceptance:
 ## Current Public Rollout
 
 The initial product is public and installed. The current
-`semantic-atlas@2.1.3` release adds reviewed maintenance outcomes and the
-narrow orchestration-status contract while preserving the business-map model,
-current observations, managed Skills, reconciliation, and real-use acceptance
-thresholds defined by the [product contract](product-contract.md).
+`semantic-atlas@2.2.0` release adds scenario-owned business flows and a linked
+relationship/flow Viewer while preserving reviewed maintenance outcomes, the
+narrow orchestration-status contract, current observations, managed Skills,
+reconciliation, and real-use acceptance thresholds defined by the
+[product contract](product-contract.md).
 
 Delivery keeps these gates separate:
 
