@@ -24,6 +24,19 @@ interface ViewerNodeModel {
   readonly summary: string;
   readonly boundary: boolean;
   readonly anchors: readonly ViewerNavigationAnchorModel[];
+  readonly relatedFlowIds: readonly string[];
+}
+
+interface ViewerFlowModel {
+  readonly id: string;
+  readonly name: string;
+  readonly summary: string;
+  readonly scenario: {
+    readonly id: string;
+    readonly name: string;
+  };
+  readonly stepCount: number;
+  readonly transitionCount: number;
 }
 
 interface ViewerMapModel {
@@ -38,6 +51,7 @@ interface ViewerProjectModel {
   readonly id: string;
   readonly name: string;
   readonly views: readonly ViewerMapModel[];
+  readonly flows: readonly ViewerFlowModel[];
 }
 
 interface ViewerModel {
@@ -84,6 +98,8 @@ interface MapDragState {
   readonly nodeElement?: SVGGElement;
 }
 
+type ViewerViewType = "relationships" | "flows";
+
 function viewerBrowserEntry(): void {
   const cameraApi = (globalThis as typeof globalThis & {
     readonly __semanticAtlasCamera: BrowserCameraApi;
@@ -91,12 +107,20 @@ function viewerBrowserEntry(): void {
   const modelElement = document.querySelector<HTMLScriptElement>("#viewer-model");
   const projectSelect = document.querySelector<HTMLSelectElement>("#project-select");
   const domainSelect = document.querySelector<HTMLSelectElement>("#domain-select");
+  const flowSelect = document.querySelector<HTMLSelectElement>("#flow-select");
+  const relationshipSelector = document.querySelector<HTMLElement>("#relationship-selector");
+  const flowSelector = document.querySelector<HTMLElement>("#flow-selector");
+  const viewTypeButtons = Array.from(
+    document.querySelectorAll<HTMLButtonElement>("button[data-view-type]"),
+  );
   const statistics = document.querySelector<HTMLElement>("#map-statistics");
   const viewport = document.querySelector<HTMLElement>("#map-viewport");
   const nodeDetails = document.querySelector<HTMLElement>("#node-details");
   const detailsKind = document.querySelector<HTMLElement>("#node-details-kind");
   const detailsTitle = document.querySelector<HTMLElement>("#node-details-title");
   const detailsSummary = document.querySelector<HTMLElement>("#node-details-summary");
+  const detailsFlows = document.querySelector<HTMLElement>("#node-details-flows");
+  const detailsFlowList = document.querySelector<HTMLElement>("#node-details-flow-list");
   const detailsAnchors = document.querySelector<HTMLElement>("#node-details-anchors");
   const detailsAnchorList = document.querySelector<HTMLElement>("#node-details-anchor-list");
   const detailsClose = document.querySelector<HTMLButtonElement>('[data-action="close-details"]');
@@ -107,12 +131,18 @@ function viewerBrowserEntry(): void {
     !modelElement
     || !projectSelect
     || !domainSelect
+    || !flowSelect
+    || !relationshipSelector
+    || !flowSelector
+    || viewTypeButtons.length !== 2
     || !statistics
     || !viewport
     || !nodeDetails
     || !detailsKind
     || !detailsTitle
     || !detailsSummary
+    || !detailsFlows
+    || !detailsFlowList
     || !detailsAnchors
     || !detailsAnchorList
     || !detailsClose
@@ -122,6 +152,8 @@ function viewerBrowserEntry(): void {
   const cameras = new Map<string, MapViewBox>();
   let activeProjectId = model.projects[0]?.id;
   let activeViewId = model.projects[0]?.views[0]?.id;
+  let activeFlowId = model.projects[0]?.flows[0]?.id;
+  let activeViewType: ViewerViewType = "relationships";
   let activeNodeElement: SVGGElement | undefined;
   let dragState: MapDragState | undefined;
 
@@ -129,10 +161,19 @@ function viewerBrowserEntry(): void {
     model.projects.find(({ id }) => id === activeProjectId);
   const currentView = (): ViewerMapModel | undefined =>
     currentProject()?.views.find(({ id }) => id === activeViewId);
-  const cameraKey = (): string => `${activeProjectId ?? ""}:${activeViewId ?? ""}`;
+  const currentFlow = (): ViewerFlowModel | undefined =>
+    currentProject()?.flows.find(({ id }) => id === activeFlowId);
+  const activeDiagramId = (): string | undefined =>
+    activeViewType === "relationships" ? activeViewId : activeFlowId;
+  const cameraKey = (): string =>
+    `${activeProjectId ?? ""}:${activeViewType}:${activeDiagramId() ?? ""}`;
   const activeSvg = (): SVGSVGElement | undefined =>
     mapViews.find((element) =>
-      element.dataset.projectId === activeProjectId && element.dataset.mapView === activeViewId)
+      element.dataset.projectId === activeProjectId
+      && element.dataset.viewType === activeViewType
+      && (activeViewType === "relationships"
+        ? element.dataset.mapView === activeViewId
+        : element.dataset.flowView === activeFlowId))
       ?.querySelector<SVGSVGElement>("svg") ?? undefined;
   const mapBounds = (svg: SVGSVGElement): MapViewBox => ({
     x: 0,
@@ -174,6 +215,26 @@ function viewerBrowserEntry(): void {
     return element;
   };
 
+  const activateFlow = (flowId: string): void => {
+    const project = currentProject();
+    if (!project?.flows.some(({ id }) => id === flowId)) return;
+    closeNodeDetails();
+    activeViewType = "flows";
+    activeFlowId = flowId;
+    populateFlowSelector();
+    activateView();
+  };
+
+  const createFlowLink = (flowId: string): HTMLButtonElement => {
+    const flow = currentProject()?.flows.find(({ id }) => id === flowId);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "node-details__flow-link";
+    button.textContent = flow?.name ?? flowId;
+    button.addEventListener("click", () => activateFlow(flowId));
+    return button;
+  };
+
   const openNodeDetails = (nodeElement: SVGGElement): void => {
     const nodeId = nodeElement.dataset.nodeId;
     const node = currentView()?.nodes.find(({ id }) => id === nodeId);
@@ -187,6 +248,8 @@ function viewerBrowserEntry(): void {
       : node.kind;
     detailsTitle.textContent = node.name;
     detailsSummary.textContent = node.summary;
+    detailsFlowList.replaceChildren(...node.relatedFlowIds.map(createFlowLink));
+    detailsFlows.hidden = node.relatedFlowIds.length === 0;
     detailsAnchorList.replaceChildren(...node.anchors.map(createAnchorElement));
     detailsAnchors.hidden = node.anchors.length === 0;
     nodeDetails.hidden = false;
@@ -208,16 +271,46 @@ function viewerBrowserEntry(): void {
     domainSelect.disabled = (project?.views.length ?? 0) < 2;
   };
 
+  const populateFlowSelector = (): void => {
+    const project = currentProject();
+    flowSelect.replaceChildren(...(project?.flows ?? []).map((flow) => {
+      const option = document.createElement("option");
+      option.value = flow.id;
+      option.textContent = flow.name;
+      return option;
+    }));
+    if (!project?.flows.some(({ id }) => id === activeFlowId)) {
+      activeFlowId = project?.flows[0]?.id;
+    }
+    flowSelect.value = activeFlowId ?? "";
+    flowSelect.disabled = (project?.flows.length ?? 0) < 2;
+  };
+
   const activateView = (): void => {
     for (const view of mapViews) {
       const active = view.dataset.projectId === activeProjectId
-        && view.dataset.mapView === activeViewId;
+        && view.dataset.viewType === activeViewType
+        && (activeViewType === "relationships"
+          ? view.dataset.mapView === activeViewId
+          : view.dataset.flowView === activeFlowId);
       view.hidden = !active;
     }
+    relationshipSelector.hidden = activeViewType !== "relationships";
+    flowSelector.hidden = activeViewType !== "flows";
+    for (const button of viewTypeButtons) {
+      const buttonType = button.dataset.viewType as ViewerViewType;
+      button.setAttribute("aria-pressed", String(buttonType === activeViewType));
+      button.disabled = buttonType === "flows" && (currentProject()?.flows.length ?? 0) === 0;
+    }
     const view = currentView();
-    statistics.textContent = view
-      ? `${view.nodeCount} concepts / ${view.relationCount} relationships`
-      : "No business map";
+    const flow = currentFlow();
+    statistics.textContent = activeViewType === "relationships"
+      ? view
+        ? `${view.nodeCount} concepts / ${view.relationCount} relationships`
+        : "No business map"
+      : flow
+        ? `${flow.stepCount} steps / ${flow.transitionCount} transitions / ${flow.scenario.name}`
+        : "No business flows";
     const svg = activeSvg();
     if (svg) applyCamera(svg, ensureCamera(svg));
   };
@@ -227,7 +320,10 @@ function viewerBrowserEntry(): void {
     activeProjectId = projectSelect.value;
     const project = currentProject();
     activeViewId = project?.views[0]?.id;
+    activeFlowId = project?.flows[0]?.id;
+    activeViewType = "relationships";
     populateDomains();
+    populateFlowSelector();
     activateView();
   };
 
@@ -253,6 +349,20 @@ function viewerBrowserEntry(): void {
     activeViewId = domainSelect.value;
     activateView();
   });
+  flowSelect.addEventListener("change", () => {
+    closeNodeDetails();
+    activeFlowId = flowSelect.value;
+    activateView();
+  });
+  for (const button of viewTypeButtons) {
+    button.addEventListener("click", () => {
+      const requested = button.dataset.viewType as ViewerViewType;
+      if (requested === "flows" && (currentProject()?.flows.length ?? 0) === 0) return;
+      closeNodeDetails();
+      activeViewType = requested;
+      activateView();
+    });
+  }
   detailsClose.addEventListener("click", () => closeNodeDetails(true));
 
   document.querySelector<HTMLElement>('[data-action="zoom-in"]')
@@ -363,5 +473,6 @@ function viewerBrowserEntry(): void {
   projectSelect.disabled = model.projects.length < 2;
   projectSelect.value = activeProjectId ?? "";
   populateDomains();
+  populateFlowSelector();
   activateView();
 }

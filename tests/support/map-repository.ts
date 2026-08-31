@@ -12,6 +12,52 @@ export interface TestMapDocument {
   };
   readonly nodes: readonly Record<string, unknown>[];
   readonly relations: readonly Record<string, unknown>[];
+  readonly flows?: readonly Record<string, unknown>[];
+}
+
+export function flow(
+  id: string,
+  scenario: string,
+  startsAt: string,
+  steps: readonly Record<string, unknown>[],
+  transitions: readonly Record<string, unknown>[],
+): Record<string, unknown> {
+  return {
+    id,
+    name: id,
+    summary: `${id} business flow.`,
+    scenario,
+    startsAt,
+    steps,
+    transitions,
+  };
+}
+
+export function flowStep(
+  id: string,
+  kind: string,
+  name: string,
+  concept?: string,
+): Record<string, unknown> {
+  return {
+    id,
+    kind,
+    name,
+    summary: `${name} business meaning.`,
+    ...(concept ? { concept } : {}),
+  };
+}
+
+export function transition(
+  from: string,
+  to: string,
+  when?: string,
+): Record<string, unknown> {
+  return {
+    from,
+    to,
+    ...(when ? { when } : {}),
+  };
 }
 
 export async function createMapRepository(

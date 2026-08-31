@@ -202,3 +202,53 @@ relations:
     type: writes
     to: commerce.inventory.stock
     summary: Inventory reservation updates stock availability.
+
+flows:
+  - id: commerce.orders.place-order-flow
+    name: Place order
+    summary: Available stock becomes a reserved, durable customer order.
+    scenario: commerce.orders.place-order
+    startsAt: search-products
+    steps:
+      - id: search-products
+        kind: action
+        name: Search products
+        summary: The shopper identifies products for the order.
+        concept: commerce.orders.place-order.search-products
+      - id: check-inventory
+        kind: decision
+        name: Is inventory available?
+        summary: Only available stock may proceed to order creation.
+        concept: commerce.orders.place-order.check-inventory
+      - id: create-order
+        kind: action
+        name: Create order
+        summary: The purchase becomes a durable customer order.
+        concept: commerce.orders.place-order.create-order
+      - id: reserve-inventory
+        kind: action
+        name: Reserve inventory
+        summary: Available stock is reserved for the created order.
+        concept: commerce.orders.place-order.reserve-inventory
+      - id: order-placed
+        kind: outcome
+        name: Order placed
+        summary: The shopper has a durable order backed by reserved stock.
+        concept: commerce.orders.order
+      - id: order-not-created
+        kind: outcome
+        name: Order not created
+        summary: Unavailable stock ends the attempt without a durable order.
+    transitions:
+      - from: search-products
+        to: check-inventory
+      - from: check-inventory
+        when: available
+        to: create-order
+      - from: check-inventory
+        when: unavailable
+        to: order-not-created
+      - from: create-order
+        to: reserve-inventory
+      - from: reserve-inventory
+        to: order-placed

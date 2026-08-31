@@ -31,6 +31,7 @@ export class ContextQueryService {
         outgoing: Object.freeze(
           this.graph.outgoing(selected.id).map((relation) => this.describeRelation(relation)),
         ),
+        flows: this.graph.flowsRelatedTo(selected.id),
       },
     };
   }

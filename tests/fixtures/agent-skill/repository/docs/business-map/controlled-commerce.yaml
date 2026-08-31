@@ -274,3 +274,46 @@ relations:
     type: constrained_by
     to: commerce.risk.legacy-policy
     summary: The controlled map intentionally retains the historical policy relation.
+
+flows:
+  - id: commerce.checkout.place-order-flow
+    name: Place order
+    summary: An authorized checkout creates an order; a denied checkout does not.
+    scenario: commerce.checkout
+    startsAt: receive-checkout
+    steps:
+      - id: receive-checkout
+        kind: action
+        name: Receive checkout
+        summary: Checkout receives a priced customer request.
+        concept: commerce.checkout
+      - id: authorize-order
+        kind: decision
+        name: Is the order authorized?
+        summary: The active risk policy decides whether checkout may create an order.
+        concept: commerce.risk.authorize-order
+      - id: create-order
+        kind: action
+        name: Create order
+        summary: Checkout records the durable order and announces the result.
+        concept: commerce.checkout.place-order
+      - id: order-created
+        kind: outcome
+        name: Order created
+        summary: The buyer receives a durable order.
+        concept: commerce.orders.order
+      - id: order-denied
+        kind: outcome
+        name: Order not created
+        summary: Checkout ends without creating an order.
+    transitions:
+      - from: receive-checkout
+        to: authorize-order
+      - from: authorize-order
+        when: approved
+        to: create-order
+      - from: authorize-order
+        when: denied
+        to: order-denied
+      - from: create-order
+        to: order-created

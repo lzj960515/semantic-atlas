@@ -2,6 +2,7 @@ import path from "node:path";
 import type { ZodIssue } from "zod";
 import {
   mapDocumentSchema,
+  type BusinessFlow,
   type BusinessNode,
   type BusinessNodeKind,
   type BusinessRelation,
@@ -12,6 +13,7 @@ import {
   type RepositoryMapSource,
   type ValidatedBusinessMap,
 } from "../contracts/map.js";
+import { validateBusinessFlows } from "./business-flow-validator.js";
 
 export type MapValidationResult =
   | {
@@ -52,7 +54,8 @@ export class MapValidator {
 
     const nodes = normalizeNodes(parsedDocuments);
     const relations = normalizeRelations(parsedDocuments);
-    const graphIssues = validateGraph(parsedDocuments, nodes, relations);
+    const flows = normalizeFlows(parsedDocuments);
+    const graphIssues = validateGraph(parsedDocuments, nodes, relations, flows);
 
     if (graphIssues.length > 0) {
       return invalid(graphIssues);
@@ -65,6 +68,7 @@ export class MapValidator {
         documents: Object.freeze([...parsedDocuments]),
         nodes: Object.freeze(nodes.map(freezeNode)),
         relations: Object.freeze(relations.map(freezeRelation)),
+        flows: Object.freeze(flows.map(freezeFlow)),
       },
     };
   }
@@ -101,10 +105,27 @@ function normalizeRelations(documents: readonly ParsedMapDocument[]): BusinessRe
     .sort(compareRelations);
 }
 
+function normalizeFlows(documents: readonly ParsedMapDocument[]): BusinessFlow[] {
+  return documents
+    .flatMap(({ document, relativePath }) => document.flows.map((flow) => ({
+      ...flow,
+      steps: flow.steps
+        .map((step) => ({ ...step }))
+        .sort((left, right) => left.id.localeCompare(right.id)),
+      transitions: flow.transitions
+        .map((transition) => ({ ...transition }))
+        .sort((left, right) => flowTransitionKey(left).localeCompare(flowTransitionKey(right))),
+      documentId: document.map.id,
+      documentPath: relativePath,
+    })))
+    .sort((left, right) => left.id.localeCompare(right.id));
+}
+
 function validateGraph(
   documents: readonly ParsedMapDocument[],
   nodes: readonly BusinessNode[],
   relations: readonly BusinessRelation[],
+  flows: readonly BusinessFlow[],
 ): MapIssue[] {
   const issues: MapIssue[] = [];
   validateDocumentIds(documents, issues);
@@ -119,6 +140,7 @@ function validateGraph(
 
   validateRelations(relations, nodeById, issues);
   validateContainment(relations, nodeById, issues);
+  issues.push(...validateBusinessFlows(flows, nodeById));
   return issues;
 }
 
@@ -363,6 +385,12 @@ function compareRelations(left: BusinessRelation, right: BusinessRelation): numb
   return relationKey(left).localeCompare(relationKey(right));
 }
 
+function flowTransitionKey(
+  transition: BusinessFlow["transitions"][number],
+): string {
+  return `${transition.from}\0${transition.when ?? ""}\0${transition.to}`;
+}
+
 function normalizeTerm(value: string): string {
   return value.trim().toLocaleLowerCase("en-US");
 }
@@ -377,6 +405,16 @@ function freezeNode(node: BusinessNode): BusinessNode {
 
 function freezeRelation(relation: BusinessRelation): BusinessRelation {
   return Object.freeze({ ...relation });
+}
+
+function freezeFlow(flow: BusinessFlow): BusinessFlow {
+  return Object.freeze({
+    ...flow,
+    steps: Object.freeze(flow.steps.map((step) => Object.freeze({ ...step }))),
+    transitions: Object.freeze(
+      flow.transitions.map((transition) => Object.freeze({ ...transition })),
+    ),
+  });
 }
 
 function invalid(issues: readonly MapIssue[]): MapValidationResult {

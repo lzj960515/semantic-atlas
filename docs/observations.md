@@ -52,7 +52,9 @@ least one map query with one of these outcomes:
 Current-evidence dispositions are `confirmed`, `missing`, `stale`,
 `contradicted`, or `unresolved`. Each disposition and map-update candidate
 contains evidence references classified as source, test, tracked document, or
-runtime evidence. Candidate kinds are node, relation, and anchor. Every
+runtime evidence. Candidate kinds are node, relation, anchor, and flow. A flow
+candidate proposes a durable correction to a scenario's business actions,
+decisions, labeled branches, or outcomes. Every
 candidate names its stable `businessDomainId` and carries a candidate-specific
 `confirmed`, `contradicted`, or `unresolved` disposition. Domain ownership and
 disposition are recorded explicitly because they cannot be inferred safely from

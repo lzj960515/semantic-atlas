@@ -9,8 +9,9 @@ English | [简体中文](README.zh-CN.md)
 Semantic Atlas gives coding agents a compact map of the business before they
 change the code. A repository describes stable domains, capabilities,
 operations, data, rules, interfaces, and their relationships in tracked YAML.
-The CLI validates that map, returns a small neighborhood for investigation, and
-renders the same graph for people.
+Scenario flows add business-relevant actions, decisions, branches, and outcomes
+to the same documents. The CLI validates the map, returns a small neighborhood
+and its related flows for investigation, and renders both views for people.
 
 The map is deliberately advisory. It helps an agent enter through the right
 business boundary; current source, tests, tracked product documents, and
@@ -74,10 +75,11 @@ nodes:
         description: Likely source entry point for Commerce behavior.
 
 relations: []
+flows: []
 ```
 
 The [map format](docs/map-format.md) defines supported concepts, relations,
-anchors, validation rules, and lookup behavior.
+business flows, anchors, validation rules, and lookup behavior.
 
 ## Query And Render
 
@@ -90,14 +92,16 @@ semantic-atlas web --repo /path/to/repository
 
 `validate` checks every map document as one graph. `context` returns the
 selected concept, containment, direct incoming and outgoing relationships,
-related concepts, and source-navigation anchors in a versioned JSON envelope.
+related concepts, source-navigation anchors, and complete related flows in a
+versioned JSON envelope.
 `render` produces a deterministic, self-contained interactive HTML Viewer from
-that same normalized graph. Its compact toolbar can switch between the complete
-repository graph and each top-level business domain. Drag to pan, use the mouse
-wheel or controls to zoom, and use `Fit` to restore the complete selected view.
-Cards keep business type, title, and description visible without exposing code
-paths in the graph. Click a card, or focus it and press `Enter`, to inspect its
-navigation anchors in a desktop side panel or narrow-screen bottom panel.
+that same normalized map. Its compact toolbar switches between Relationships
+and Flows; each view then selects a business domain or scenario flow. Drag to pan,
+use the mouse wheel or controls to zoom, and use `Fit` to restore the
+complete selected view. Cards keep business type, title, and description visible
+without exposing code paths in the graph. Click a card, or focus it and press
+`Enter`, to inspect its navigation anchors and related flows in a desktop side
+panel or narrow-screen bottom panel. A related-flow link opens the actual flow.
 
 `web` starts the same Viewer on a read-only `127.0.0.1` server and opens the
 default browser. Pass several explicitly allowed repositories after one
@@ -119,12 +123,15 @@ For a business-changing engineering task:
 1. Probe the smallest useful map neighborhood whether or not map files exist.
 2. Use returned map knowledge as investigation leads, or build the smallest
    source-supported business model after `MAP_NOT_FOUND`.
-3. Confirm every change-controlling claim in current source and tests.
-4. Use tracked product documents for durable intent and runtime evidence for
+3. Trace any related business flow and identify the decisions, branches, and
+   outcomes that the task can affect.
+4. Confirm every change-controlling claim in current source and tests.
+5. Use tracked product documents for durable intent and runtime evidence for
    state-dependent behavior.
-5. Let current evidence override missing, stale, or contradicted map knowledge.
-6. Implement and verify through the repository's normal engineering workflow.
-7. Record the task outcome and decide whether shared business knowledge needs a
+6. Let current evidence override missing, stale, or contradicted map knowledge.
+7. Implement, verify, and recheck the affected business paths through the
+   repository's normal engineering workflow.
+8. Record the task outcome and decide whether shared business knowledge needs a
    separate maintenance change; a no-change decision is a complete result.
 
 The final engineering conclusion is expected to be more accurate than the map
@@ -135,9 +142,11 @@ that helped locate it.
 `semantic-atlas setup` installs two package-owned Skills:
 
 - `semantic-atlas` gives every business-changing task a bounded,
-  current-evidence understanding workflow, with or without an existing map.
+  current-evidence understanding workflow, including relevant flow branches,
+  with or without an existing map.
 - `semantic-atlas-maintenance` reviews retained candidates for one business
-  domain and prepares a normal reviewed YAML update or initial domain map.
+  domain, including flow corrections, and prepares a normal reviewed YAML
+  update or initial domain map.
 
 Target repositories do not copy these Skills. They share only their business
 maps through Git.
@@ -157,7 +166,8 @@ semantic-atlas insights summary --repo /path/to/repository --period 4w
 
 A task observation records queries including `map_not_found`, current-evidence
 classifications, candidate map corrections, and explicit human corrections. An
-empty candidate list is valid when knowledge is already represented,
+eligible correction can target a node, relation, anchor, or flow. An empty
+candidate list is valid when knowledge is already represented,
 implementation-local, or unresolved. The task never grades its own accuracy.
 An independent review observation owns correctness, impact, required-rework,
 and map-regression judgments. A maintenance observation records `accepted`,
@@ -190,6 +200,8 @@ submits any accepted map correction through an ordinary Git diff and independent
 review, and records the reviewed outcome after integration. When no map exists,
 a supported candidate can seed one bounded business-domain YAML instead of a
 repository-wide taxonomy.
+Flow candidates are checked as stable business paths rather than copied
+implementation control flow.
 Post-integration maintenance is the normal freshness path; periodic
 reconciliation recovers missed observations, accumulated drift, and changes
 outside the normal engineering workflow.

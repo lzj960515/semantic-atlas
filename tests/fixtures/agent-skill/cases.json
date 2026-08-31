@@ -163,6 +163,9 @@
             "from": "commerce.risk.authorize-order",
             "to": "commerce.risk.legacy-policy"
           }
+        ],
+        "flowIds": [
+          "commerce.checkout.place-order-flow"
         ]
       },
       "requiredEvidence": [

@@ -4,16 +4,19 @@ This page defines the accepted initial product. It answers what Semantic Atlas
 must improve, how agents and people use it, and which results establish
 that the product works.
 
-**Status: the public product is released and installed; the first target-domain
-pilot is in local use and longitudinal acceptance is in progress.**
+**Status: the public product is released and installed; the business-flow
+extension is implemented in the current source candidate, and longitudinal
+acceptance remains in progress.**
 
 ## Purpose
 
 Semantic Atlas helps coding agents make more accurate engineering changes.
 Its Agent Skill builds a task-specific understanding of stable business
 boundaries, meaningful concepts, relationships, data, rules, interfaces, and
-likely source entry points before an agent changes code. An existing shared map
-accelerates that work; a missing map starts a bounded current-evidence path.
+likely source entry points before an agent changes code. Scenario flows add the
+business-relevant decisions, branches, and outcomes that relationships alone
+cannot express. An existing shared map accelerates that work; a missing map
+starts a bounded current-evidence path.
 
 The map is a durable navigation prior rather than a synchronized copy of the
 codebase. Product structure normally changes more slowly than implementation,
@@ -31,6 +34,7 @@ reliably:
 - distinguish a downstream symptom from its upstream cause;
 - inspect the business collaborators, data, rules, and interfaces needed for a
   complete change;
+- preserve business-relevant branches and outcomes during refactors;
 - choose an implementation scope that fixes the cause without unrelated work;
 - preserve readable responsibilities and maintainable code;
 - identify when the map is incomplete or contradicted by current evidence;
@@ -61,10 +65,12 @@ implementation vocabulary differ.
 A person views deterministic projections of the same tracked map to discuss
 business boundaries and relationships. A self-contained export and a local
 read-only Web command share the same interactive Viewer, including project and
-business-domain selection, pan, zoom, and fit-to-view. Graph cards prioritize
-business meaning by showing type, title, and description; selecting a card
-reveals its navigation anchors in a side panel or narrow-screen bottom panel.
-The visual surface does not become a second authoring format.
+business-domain selection, relationship and flow views, pan, zoom, and
+fit-to-view. Graph cards prioritize business meaning by showing type, title,
+and description; selecting a card reveals its navigation anchors and related
+flows in a side panel or narrow-screen bottom panel. A related flow link
+switches directly to the scenario path. The visual surface does not become a
+second authoring format.
 
 ### Post-task maintenance decision and reconciliation
 
@@ -105,6 +111,19 @@ A concept is worth retaining when future tasks can independently name,
 navigate to, depend on, constrain, read, write, publish, consume, or change it.
 Methods, helpers, SQL statements, folders, and framework components remain
 source details until they express durable business meaning.
+
+### Business flows
+
+A flow belongs to one existing scenario and orders business-granularity
+`action`, `decision`, and `outcome` steps through transitions. Decision
+transitions carry distinct business labels. A step can reference an existing
+concept ID, which derives the relationship-to-flow navigation without a second
+link contract.
+
+Flows retain only steps that can change a user-visible result, durable data,
+cost or provider usage, authorization or tenant isolation, an interface, or a
+business outcome. They can express stable loops, but they remain advisory
+knowledge rather than an executable workflow or synchronized copy of source.
 
 ## Authority And Accuracy
 
@@ -151,9 +170,11 @@ The initial product delivers one coherent path:
 3. Normalize the complete map in memory.
 4. Find a business concept by stable ID, name, or alias.
 5. Return its containment, direct business relations, related concepts, and
-   navigation anchors as structured JSON.
+   navigation anchors as structured JSON, together with complete related
+   business flows.
 6. Render deterministic interactive human-readable projections from the same
-   graph as a portable HTML artifact or loopback Web session.
+   graph as a portable HTML artifact or loopback Web session, with linked
+   relationship and flow views.
 7. Package an Agent Skill that activates from business task meaning, routes map
    context or `MAP_NOT_FOUND` into current-source confirmation, and makes an
    explicit post-task maintenance decision.
@@ -175,7 +196,9 @@ The initial product does not provide:
 - mandatory map updates after every engineering task;
 - source editing, test execution, Git mutation, code review, or release
   orchestration;
-- branch conditions, retries, loops, timing, or executable workflow state;
+- retry policy, timing, executable workflow state, or automatic source-to-flow
+  synchronization;
+- a general workflow engine or full visual-diagram authoring system;
 - real-time multi-user map editing;
 - a second visual authoring representation.
 
@@ -191,8 +214,9 @@ the following:
 - tracked example and real-project map files load and validate through the
   public CLI;
 - context queries return the expected business owner, containment, incoming and
-  outgoing relationships, and navigation anchors;
-- the renderer produces readable projections from the same normalized graph;
+  outgoing relationships, navigation anchors, and related flows;
+- the renderer produces readable relationship and flow projections from the
+  same normalized map and links shared business concepts between them;
 - a package-managed Agent Skill activates for business-changing work with or
   without a map, probes bounded context before broad discovery, and confirms
   every change-controlling claim in current evidence;
@@ -259,9 +283,10 @@ Real-use evidence is separate from the Git business map and from business-map
 authority. The product records three immutable, versioned local artifacts:
 
 - `TaskObservation`: map query outcomes including `map_not_found`, selected
-  concepts, current-evidence classification, explicitly domain-owned map-update
-  candidates when maintenance is warranted, and any explicit human correction
-  known to the task Agent. Reads and writes use task artifact v2;
+  concepts, current-evidence classification, explicitly domain-owned node,
+  relation, anchor, or flow candidates when maintenance is warranted, and any
+  explicit human correction known to the task Agent. Reads and writes use task
+  artifact v2;
 - `ReviewObservation`: the independent review verdict, correctness of the
   business boundary and upstream cause, impact completeness, required rework,
   and whether the map caused a wrong conclusion;

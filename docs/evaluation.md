@@ -4,8 +4,9 @@ This page defines how the initial product proves that an advisory business map
 improves engineering accuracy and reduces routine human supervision. It applies
 to the CLI, renderer, Agent Skill, and real-project evaluation.
 
-**Status: accepted initial protocol; controlled Skill fixtures and the private
-real-project evaluation pass.**
+**Status: accepted initial protocol; controlled relationship fixtures and the
+private real-project evaluation pass. Business-flow behavior is covered by the
+current source candidate and still needs longitudinal real-task evidence.**
 
 ## Evaluation Question
 
@@ -42,6 +43,13 @@ initially named module.
 The agent identifies required incoming and outgoing collaborators, affected
 data, invariants, interfaces, tests, and asynchronous consumers. It avoids
 unsupported expansion into unrelated areas.
+
+### Business-path accuracy
+
+For a task that intersects a retained flow, the agent identifies the affected
+actions, decisions, labeled branches, and outcomes. A refactor preserves every
+confirmed branch that remains part of the product behavior, while a deliberate
+business change produces an explicit flow-maintenance decision.
 
 ### Evidence accuracy
 
@@ -83,6 +91,8 @@ The first real-project suite contains at least:
 7. A contradicted-relation case where current evidence must override the map.
 8. A code-quality case where the first runnable implementation would create an
    unclear responsibility or unnecessary mechanism.
+9. A branch-sensitive refactor where a broad implementation still appears to
+   work but violates a retained business decision or outcome.
 
 Cases use real repository structure and behavior. Private business facts stay
 inside the private evaluation workspace and are summarized publicly only in
@@ -94,7 +104,9 @@ The public repository contains a de-identified miniature engineering system at
 `tests/fixtures/agent-skill/repository`. Its case contract covers an upstream
 root cause, an interface with a downstream consumer, missing map knowledge, an
 ambiguous term, a node without anchors, a stale anchor, and a relation that
-current source contradicts.
+current source contradicts. The controlled Commerce map also contains one
+authorization flow so contract tests prove that `context` returns relevant
+scenario paths without treating them as current-source truth.
 
 Automated checks prove that each initial selector produces the intended public
 CLI outcome and that every acceptance oracle points to present source, test, or
@@ -140,6 +152,7 @@ The map file does not have to be repaired inside the engineering task.
 Each run records:
 
 - selected map nodes and relationships;
+- related business flows and affected paths;
 - map statements used as investigation leads;
 - current files, tests, documents, or runtime evidence opened;
 - confirmed and contradicted map statements;
@@ -166,6 +179,8 @@ The initial product passes when:
   mechanical control produces no business-maintenance work;
 - required business boundaries and impact surfaces are identified in every
   case;
+- each relevant flow is traced before and after the task, with confirmed
+  branches preserved or classified for maintenance;
 - implementation cases pass their behavioral tests and independent code-quality
   review;
 - map-assisted runs require no routine human correction after the task contract

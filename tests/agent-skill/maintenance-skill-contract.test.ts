@@ -92,6 +92,20 @@ describe("bundled Semantic Atlas maintenance Skill", () => {
     expect(skillDocument).toContain("MAP_NOT_FOUND");
   });
 
+  it("reconciles flow candidates as stable business paths instead of copied control flow", async () => {
+    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
+
+    expect(skillDocument).toContain('kind: "flow"');
+    expect(skillDocument).toContain("business-relevant actions, decisions, branches, and outcomes");
+    expect(skillDocument).toContain("Keep flow steps at business granularity");
+    expect(skillDocument).toContain("Treat a source diff as evidence to investigate");
+    expect(skillDocument).toContain("accepted");
+    expect(skillDocument).toContain("refined");
+    expect(skillDocument).toContain("discarded");
+    expect(skillDocument).toContain("unresolved");
+    expect(skillDocument).toContain("same domain-owned YAML");
+  });
+
   it("covers drift, duplicate provenance, correction, and a clean discard", async () => {
     const suite = JSON.parse(await readFile(
       path.join(projectRoot, "tests/fixtures/reconciliation/cases.json"),

@@ -4,9 +4,10 @@ This page defines the stable responsibilities, data lifecycle, dependency
 direction, and failure semantics for the initial product. It applies to the
 public CLI, renderer, and business-understanding Agent Skill.
 
-**Status: query, validation, visual projection, Agent Skills, managed
-Skill lifecycle, accuracy observations, read-only reconciliation, and public
-release verification are implemented and released.**
+**Status: query, validation, visual projection, Agent Skills, managed Skill
+lifecycle, accuracy observations, read-only reconciliation, and public release
+verification are implemented. The business-flow extension is implemented in
+the current source candidate.**
 
 ## System Model
 
@@ -14,15 +15,15 @@ release verification are implemented and released.**
 tracked map documents
         |
         v
-MapDocumentLoader -> MapValidator -> BusinessGraph
-                                        |
-                         +--------------+--------------+
-                         |                             |
-                         v                             v
-                  ContextQueryService            MapProjector
-                         |                             |
-                         v                             v
-                  stable JSON result             SVG / static HTML
+MapDocumentLoader -> MapValidator -> BusinessFlowValidator -> BusinessGraph
+                                                              |
+                                  +---------------------------+-------------------+
+                                  |                                               |
+                                  v                                               v
+                           ContextQueryService                       MapProjector + FlowProjector
+                                  |                                               |
+                                  v                                               v
+                 relationship + flow JSON                         shared relationship / flow Viewer
 
 Calling Agent
   -> activates from business task meaning
@@ -92,19 +93,28 @@ actionable issue that can be collected safely in one run, including duplicate
 IDs, missing relation endpoints, containment cycles, invalid kinds, and
 malformed anchors. It owns deterministic validity, not current-source truth.
 
+### BusinessFlowValidator
+
+Validates scenario ownership, flow and step identity, concept and transition
+references, action/decision/outcome branch shape, and reachability. Cycles are
+valid. It owns structural flow coherence while current source and durable
+product evidence decide whether the described business path is current.
+
 ### BusinessGraph
 
-Holds normalized immutable nodes, relations, aliases, containment indexes, and
-incoming/outgoing relation indexes for one command. It exposes domain
-operations in terms of business concepts rather than file layout or parser
-objects.
+Holds normalized immutable nodes, relations, flows, aliases, containment
+indexes, and incoming/outgoing relation indexes for one command. It exposes
+domain operations in terms of business concepts and scenario paths rather than
+file layout or parser objects. Related flows are derived from scenario
+containment and step concept references.
 
 ### ContextQueryService
 
 Resolves a concept by stable ID, name, or alias and returns the smallest useful
 business neighborhood: ancestors, direct children, incoming and outgoing
-relations, referenced concepts, summaries, and navigation anchors. It reports
-ambiguity explicitly rather than selecting a hidden match.
+relations, referenced concepts, summaries, navigation anchors, and complete
+related flows. It reports ambiguity explicitly rather than selecting a hidden
+match.
 
 ### MapProjector
 
@@ -114,16 +124,26 @@ concepts as visible boundary nodes. Every projection distinguishes semantic
 containment from directed horizontal relations and preserves stable element
 identities for repeatable layout and inspection.
 
+### FlowProjector
+
+Builds one deterministic top-to-bottom SVG per business flow. Dagre owns step
+placement and transition routing; action, decision, and outcome steps preserve
+distinct visual semantics, while labeled decision branches remain visible on
+their transitions. The projector reads normalized flow meaning and owns no
+query or maintenance decisions.
+
 ### ViewerPage
 
 Owns the compact human inspection surface shared by static export and Web. It
-combines project and business-domain selection, map statistics, a restrained
-legend, pan, zoom, and fit-to-view around deterministic SVG projections. Cards
-render stable business meaning only. Pointer or keyboard selection opens the
-node's navigation anchors in an overlaid desktop side panel or narrow-screen
-bottom panel without relaying out the graph. Camera coordinates use the SVG
-`xMidYMid meet` scale and letterbox offsets for both pointer zoom and pan. Its
-browser interaction state is disposable and never enters tracked map data.
+combines project selection, relationship/flow switching, business-domain or
+flow selection, map statistics, a restrained legend, pan, zoom, and fit-to-view
+around deterministic SVG projections. Cards render stable business meaning
+only. Pointer or keyboard selection opens the node's navigation anchors and
+derived related-flow links in an overlaid desktop side panel or narrow-screen
+bottom panel. Selecting a related flow switches to its projected path. Camera
+coordinates use the SVG `xMidYMid meet` scale and letterbox offsets for both
+pointer zoom and pan. Its browser interaction state is disposable and never
+enters tracked map data.
 
 ### LocalWebApplication And LocalWebServer
 
@@ -146,9 +166,12 @@ interpretation of its own.
 Owns the business-understanding workflow for every business-changing task. It
 activates from task meaning, converts a natural-language task into one bounded
 map probe, interprets advisory results or `MAP_NOT_FOUND`, builds the smallest
-current-evidence business model needed for the decision, and continues through
-the repository's normal implementation and verification process. Source editing
-and engineering judgment remain with the calling Agent.
+current-evidence business model needed for the decision, traces relevant
+business-flow branches before and after the change, and continues through the
+repository's normal implementation and verification process. It classifies a
+source/flow discrepancy before proposing either a code repair or a `flow`
+maintenance candidate. Source editing and engineering judgment remain with the
+calling Agent.
 
 The Skill invokes `context` through a small contract-checking adapter. The
 adapter prefers the CLI distributed with the Skill and accepts a PATH command
@@ -160,13 +183,14 @@ contract when another installed product uses the same executable name.
 Owns post-integration and periodic candidate triage after
 `ReconciliationService` has produced one read-only report. It selects one
 business domain, confirms proposed corrections against current source and
-tracked product meaning, resolves an existing or initial domain-owned YAML
-surface, leaves unresolved and implementation-local observations outside the
-canonical map, and submits any accepted correction as one normal reviewed YAML
-change. A `MAP_NOT_FOUND` repository can bootstrap one bounded domain when
-current evidence establishes its stable identity. Source confirmation, map
-editing, validation, rendering, Git diff, and independent review remain Agent
-and repository responsibilities rather than CLI side effects.
+tracked product meaning, reconstructs `flow` candidates at business granularity,
+resolves an existing or initial domain-owned YAML surface, leaves unresolved
+and implementation-local observations outside the canonical map, and submits
+any accepted correction as one normal reviewed YAML change. A `MAP_NOT_FOUND`
+repository can bootstrap one bounded domain when current evidence establishes
+its stable identity. Source confirmation, map editing, validation, rendering,
+Git diff, and independent review remain Agent and repository responsibilities
+rather than CLI side effects.
 
 The Skill keeps Work, Review, and Integration as separate evidence stages. Work
 prepares classifications and an observation document without consuming any
@@ -287,7 +311,7 @@ rather than local build effects.
 | --- | --- | --- | --- |
 | Business-map documents | Target repository | Git history | Normal reviewed file edit |
 | Parsed documents | One CLI invocation | Parse phase | Recreated from tracked files |
-| Normalized graph | One CLI invocation | Query/render phase | Recreated after validation |
+| Normalized map with relationships and flows | One CLI invocation | Query/render phase | Recreated after validation |
 | Rendered output | Calling workflow | Reproducible artifact | Regenerated from the graph |
 | Bundled Skill payloads | Installed npm package | Package version | Replaced only by exact package installation |
 | Managed user Skills | User home | Across repositories and CLI invocations | Per-Skill `semantic-atlas setup` atomic replacement |
@@ -321,7 +345,7 @@ application services
 filesystem, parser, CLI, and rendering adapters
 ```
 
-Domain contracts contain concept kinds, relation types, normalized graph
+Domain contracts contain concept kinds, relation and flow types, normalized map
 objects, selectors, and query results. They do not import CLI, YAML, rendering,
 filesystem, Git, or framework types.
 
@@ -360,7 +384,8 @@ discriminant.
 `context` returns ambiguity when multiple concepts match the term. Callers can
 then use a stable ID. A missing concept is a bounded map result and routes the
 Agent to a bounded current-evidence business model; it is not a repository
-failure.
+failure. A successful result includes every flow related through scenario
+containment or direct step concept references.
 
 `setup`, `upgrade`, and `--version` do not discover a repository or load a
 business map. Their results expose the package version and managed Skill paths
@@ -390,12 +415,15 @@ checks:
 - at most one direct `part_of` parent per node;
 - acyclic `part_of` containment;
 - well-formed aliases and navigation anchors;
+- unique scenario-owned flow identities and resolvable step references;
+- valid action, decision, and outcome branch shape;
+- reachability of every step from its flow entry while allowing cycles;
 - deterministic normalization independent of input file order.
 
 Validation does not claim that a path exists, a symbol still has the same name,
-or a business relation still matches current code. Those are task-time
-investigation questions. A separate advisory diagnostic may report obviously
-missing paths without changing graph validity.
+or a business relation or flow still matches current behavior. Those are
+task-time investigation questions. A separate advisory diagnostic may report
+obviously missing paths without changing graph validity.
 
 ## Error Semantics
 
@@ -451,7 +479,8 @@ documents load.
 
 Ordinary feature branches read their branch's map revision. Durable changes use
 normal Git merge behavior. Review focuses on business meaning, stable IDs,
-relationship direction, and whether the update belongs in the shared map.
+relationship direction, labeled branch outcomes, and whether the update belongs
+in the shared map.
 
 Every business-changing task writes its own immutable observation and maintenance
 disposition. Candidate-producing results can enter post-integration maintenance

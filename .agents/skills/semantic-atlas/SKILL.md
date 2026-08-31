@@ -1,6 +1,6 @@
 ---
 name: semantic-atlas
-description: Build source-supported business understanding and make maintenance decisions for business-changing engineering tasks, with or without an existing business map. Use for features, bugs, refactors, reviews, and impact analysis to find or establish business boundaries, collaborators, data, invariants, interfaces, and source entry points before broad discovery, then decide whether stable shared knowledge needs maintenance.
+description: Build source-supported business understanding and make maintenance decisions for business-changing engineering tasks, with or without an existing business map. Use for features, bugs, refactors, reviews, and impact analysis to find or establish business boundaries, collaborators, data, invariants, interfaces, business flows, and source entry points before broad discovery, then decide whether stable shared knowledge needs maintenance.
 compatibility: Requires Node.js 24+, a bundled or PATH-compatible semantic-atlas CLI, and repository source access.
 ---
 
@@ -55,9 +55,11 @@ produces no shared business-knowledge maintenance work.
 Route the probe result into one current-evidence investigation:
 
 - A successful context result supplies likely business scope and source entry
-  points. Open the most decisive anchors first. Query another returned stable
-  ID only when an owner, upstream action, downstream consumer, shared data
-  concept, invariant, or interface could change the implementation scope.
+  points. It can also return related business flows in `context.data.flows`.
+  Open the most decisive anchors first. Query another returned stable ID only
+  when an owner, upstream action, downstream consumer, shared data concept,
+  invariant, interface, or business-relevant path could change the
+  implementation scope.
 - `CONCEPT_AMBIGUOUS` supplies explicit candidates. Compare their stable IDs,
   names, kinds, and task meaning, then query the matching ID. Use bounded source
   evidence when current behavior is needed to choose.
@@ -109,6 +111,38 @@ Trace a downstream symptom toward its confirmed upstream cause before editing.
 For shared data or interfaces, inspect every confirmed producer and consumer
 needed to preserve the contract. Keep unrelated neighbors outside the change.
 
+## Check Relevant Business Flows
+
+Use each returned flow as a compact hypothesis about the business-relevant
+actions, decisions, branches, and outcomes in one scenario. Follow only the
+flows and paths that intersect the task; ordinary relation context remains
+sufficient when no flow is relevant.
+
+1. Before editing, trace each relevant path from `startsAt` through its labeled
+   decisions to the outcomes that could change. Give special attention to paths
+   controlling durable data, provider usage or cost, authorization or tenant
+   isolation, interfaces, and user-visible results.
+2. Confirm every step or branch that controls the engineering decision in
+   current source, tests, tracked product documents, or required runtime
+   evidence. Flow order is an investigation lead rather than current execution
+   truth.
+3. After implementation or review, trace the affected paths again. Check that
+   preserved branches still reach their intended outcomes and that an intended
+   product change has a clear durable meaning.
+4. Classify a discrepancy before changing either side:
+   - repair source when implementation accidentally breaks the confirmed
+     business path;
+   - propose a flow update when confirmed product intent changed the durable
+     business path;
+   - propose a flow correction when decisive current evidence establishes that
+     the retained path was already stale;
+   - preserve the discrepancy as unresolved when available evidence cannot
+     choose the durable behavior;
+   - keep the flow unchanged when only implementation structure changed.
+
+Keep routine parameter validation, DTO conversion, helpers, framework wiring,
+and Service or Queue names in source rather than flow steps.
+
 ## Implement And Verify
 
 Continue through the repository's normal engineering workflow after the
@@ -127,7 +161,9 @@ After the engineering or review result is known, choose one maintenance disposit
 
 - `candidate`: current evidence establishes stable business meaning that the
   shared map omits or represents incorrectly. Record one or more domain-owned
-  map-update candidates with decisive evidence.
+  map-update candidates with decisive evidence. Use `kind: "flow"` when the
+  durable correction concerns a scenario's actions, decisions, labeled
+  branches, or outcomes.
 - `already_represented`: the shared map still expresses the stable business
   meaning needed by the task. Record no candidate.
 - `implementation_local`: the result changes only helpers, framework wiring,
@@ -139,12 +175,14 @@ After the engineering or review result is known, choose one maintenance disposit
 
 A no-change disposition is a complete result when current shared knowledge
 already represents the durable meaning or the change is implementation-local.
-Add concepts and relations only when current evidence supports their accuracy.
+Add concepts, relations, and flows only when current evidence supports their
+accuracy. When no relevant flow changed, record no flow candidate.
 
 For a repository without a map, use `candidate` only when current evidence
-establishes a stable business domain and a bounded reusable concept or relation.
-Use `unresolved` when one task cannot support that identity. Limit bootstrap
-knowledge to the stable meaning established by the current task.
+establishes a stable business domain and a bounded reusable concept, relation,
+or business path. Use `unresolved` when one task cannot support that identity.
+Limit bootstrap knowledge to the stable meaning established by the current
+task.
 
 ## Record Accuracy Evidence
 

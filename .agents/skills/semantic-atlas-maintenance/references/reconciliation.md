@@ -45,6 +45,10 @@ and leave the candidate unresolved until the owning authority can decide it.
   relation direction are confirmed.
 - A missing concept can be added when current evidence establishes stable
   business identity, ownership, and meaning rather than only a source symbol.
+- A flow can be added or corrected when durable evidence establishes the
+  scenario's business-relevant actions, decisions, labeled branches, and
+  outcomes. Keep the flow at business granularity and classify a source
+  discrepancy before changing the canonical path.
 - A repository with `MAP_NOT_FOUND` can begin with one domain-owned map when
   current evidence establishes that domain and the selected bounded concepts.
   Cross-domain relations wait until both stable endpoints can join one valid

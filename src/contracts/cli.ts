@@ -1,4 +1,5 @@
 import type {
+  BusinessFlow,
   BusinessNode,
   BusinessRelation,
   MapIssue,
@@ -139,6 +140,7 @@ export interface ValidateData {
   readonly documentCount: number;
   readonly nodeCount: number;
   readonly relationCount: number;
+  readonly flowCount: number;
 }
 
 export type ConceptMatchKind = "id" | "name" | "alias" | "partial";
@@ -167,6 +169,7 @@ export interface ContextData {
   readonly children: readonly BusinessNode[];
   readonly incoming: readonly ContextRelation[];
   readonly outgoing: readonly ContextRelation[];
+  readonly flows: readonly BusinessFlow[];
 }
 
 export interface RenderData {
@@ -174,6 +177,7 @@ export interface RenderData {
   readonly outputPath: string;
   readonly nodeCount: number;
   readonly relationCount: number;
+  readonly flowCount: number;
 }
 
 export interface WebData {

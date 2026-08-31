@@ -7,6 +7,7 @@ import type {
 } from "../contracts/map.js";
 import { BusinessGraph } from "../map/business-graph.js";
 import { escapeHtml, safeDomToken } from "./html.js";
+import { FlowProjector } from "./flow-projector.js";
 import {
   renderViewerPage,
   type ViewerMapView,
@@ -77,6 +78,7 @@ export class MapProjector {
       content: renderViewerPage([viewerProject], "export"),
       nodeCount: completeView.nodeCount,
       relationCount: completeView.relationCount,
+      flowCount: viewerProject.flows.length,
     };
   }
 
@@ -98,6 +100,7 @@ export class MapProjector {
     return {
       ...metadata,
       views: Object.freeze([completeView, ...domainViews]),
+      flows: new FlowProjector(this.graph).project(metadata.id),
     };
   }
 
@@ -115,7 +118,10 @@ export class MapProjector {
       name: selection.name,
       nodeCount: nodes.length,
       relationCount: relations.length,
-      nodes: Object.freeze(nodes.map(toViewerNodeDetails)),
+      nodes: Object.freeze(nodes.map((node) => toViewerNodeDetails(
+        node,
+        this.graph.flowsRelatedTo(node.node.id).map(({ id }) => id),
+      ))),
       svg: renderMapSvg(layout, `${projectId}-${selection.id}`),
     };
   }
@@ -182,7 +188,10 @@ function presentNode(node: BusinessNode, boundary: boolean): NodePresentation {
   };
 }
 
-function toViewerNodeDetails(presentation: NodePresentation): ViewerNodeDetails {
+function toViewerNodeDetails(
+  presentation: NodePresentation,
+  relatedFlowIds: readonly string[],
+): ViewerNodeDetails {
   return {
     id: presentation.node.id,
     kind: presentation.node.kind,
@@ -190,6 +199,7 @@ function toViewerNodeDetails(presentation: NodePresentation): ViewerNodeDetails 
     summary: presentation.node.summary,
     boundary: presentation.boundary,
     anchors: presentation.node.anchors,
+    relatedFlowIds: Object.freeze([...relatedFlowIds]),
   };
 }
 

@@ -4,9 +4,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { runCli } from "../../src/cli/run-cli.js";
 import {
   createMapRepository,
+  flow,
+  flowStep,
   node,
   relation,
   removeRepository,
+  transition,
   type TestMapDocument,
 } from "../support/map-repository.js";
 
@@ -42,6 +45,22 @@ describe("semantic-atlas render", () => {
           relation("commerce.orders.place-order", "invokes", "commerce.orders.create-order"),
           relation("commerce.orders.create-order", "writes", "commerce.orders.order"),
         ],
+        [flow(
+          "commerce.orders.place-order-flow",
+          "commerce.orders.place-order",
+          "check-inventory",
+          [
+            flowStep("check-inventory", "decision", "Is inventory available?"),
+            flowStep("create-order", "action", "Create order", "commerce.orders.create-order"),
+            flowStep("order-created", "outcome", "Order created", "commerce.orders.order"),
+            flowStep("order-not-created", "outcome", "Order not created"),
+          ],
+          [
+            transition("check-inventory", "create-order", "available"),
+            transition("check-inventory", "order-not-created", "unavailable"),
+            transition("create-order", "order-created"),
+          ],
+        )],
       ),
     });
     const firstOutput = path.join(repositoryRoot, "artifacts", "first.html");
@@ -62,6 +81,7 @@ describe("semantic-atlas render", () => {
         outputPath: firstOutput,
         nodeCount: 5,
         relationCount: 6,
+        flowCount: 1,
       },
     });
 
@@ -78,6 +98,11 @@ describe("semantic-atlas render", () => {
     expect(firstProjection).toContain('data-viewer-mode="export"');
     expect(firstProjection).toContain('id="project-select"');
     expect(firstProjection).toContain('id="domain-select"');
+    expect(firstProjection).toContain('id="flow-select"');
+    expect(firstProjection).toContain('data-view-type="relationships"');
+    expect(firstProjection).toContain('data-view-type="flows"');
+    expect(firstProjection).toContain('data-flow-view="commerce.orders.place-order-flow"');
+    expect(firstProjection).toContain('data-flow-step-id="check-inventory"');
     expect(firstProjection).toContain('data-action="zoom-in"');
     expect(firstProjection).toContain('data-action="fit"');
     expect(firstProjection).toContain("Containment relationships");
@@ -193,6 +218,7 @@ function mapDocument(
   id: string,
   nodes: readonly Record<string, unknown>[],
   relations: readonly Record<string, unknown>[],
+  flows: readonly Record<string, unknown>[] = [],
 ): TestMapDocument {
   return {
     schemaVersion: 1,
@@ -203,6 +229,7 @@ function mapDocument(
     },
     nodes,
     relations,
+    flows,
   };
 }
 

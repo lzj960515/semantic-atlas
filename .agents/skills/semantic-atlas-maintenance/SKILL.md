@@ -31,7 +31,8 @@ duplicate handling, maintenance-observation fields, and stopping conditions.
    `candidateIndex`, task evidence, linked independent reviews, duplicate
    provenance, and any earlier unresolved maintenance history.
    Treat task-time `confirmed`, `contradicted`, and `unresolved` dispositions as
-   investigation inputs rather than maintenance conclusions.
+   investigation inputs rather than maintenance conclusions. A candidate with
+   `kind: "flow"` proposes a correction to one stable business scenario path.
 4. When `data.domains` is empty, finish with a no-change result. A positive
    `waitingForEvidenceOccurrences` means prior investigation remains retained
    but does not justify immediately repeating the same work.
@@ -42,6 +43,15 @@ Open every decisive current source, test, or tracked product document named by
 the selected origins. Follow current callers and collaborators when a proposed
 relation changes both endpoints. Use runtime evidence when deployed state owns
 the conclusion.
+
+For a flow candidate, reconstruct the durable scenario in business terms: the
+business-relevant actions, decisions, branches, and outcomes that can change
+user results, durable data, cost or provider usage, authorization or isolation,
+or interfaces. Keep flow steps at business granularity; leave parameter
+validation, DTO conversion, helpers, framework wiring, and Service or Queue
+names in source. Treat a source diff as evidence to investigate and retain the
+existing flow until tracked product intent or durable current evidence supports
+a change.
 
 Classify every selected origin:
 
@@ -74,6 +84,10 @@ owning file, and keep anchors as navigation hints. One duplicate candidate
 group produces one map edit while its maintenance draft retains every exact
 origin.
 
+Apply an accepted or refined flow correction in the same domain-owned YAML as
+its scenario. Reference existing business concept IDs from flow steps and keep
+the scenario's stable identity when its business meaning remains unchanged.
+
 ### Validate And Prepare The Review Candidate
 
 When the map changes, run:
@@ -87,8 +101,11 @@ git diff -- docs/business-map/<owning-file>.yaml
 ```
 
 Inspect the changed neighborhood in the Viewer. Confirm the Git diff changes at
-most one owning YAML and leaves retained observations unchanged. Commit the map
-candidate through the host workflow.
+most one owning YAML and leaves retained observations unchanged. For an initial
+map, confirm that the Viewer presents one bounded business domain rather than a
+repository structure. For a flow correction, inspect the affected path,
+decision labels, branches, outcomes, and relationship-to-flow links. Commit the
+map candidate through the host workflow.
 
 Prepare, but do not record, one maintenance-observation JSON document. It
 contains the maintenance task/run identity, selected `businessDomainId`, every
@@ -107,9 +124,9 @@ the host workflow.
 ## Review Phase
 
 Use the host workflow's ordinary independent review. Review durable business
-meaning, relation direction, evidence support, complete-graph validity, exact
-candidate coverage, one-domain ownership, and whether discarded or unresolved
-conclusions correctly avoid a map edit.
+meaning, relation direction, flow branch meaning, evidence support,
+complete-graph validity, exact candidate coverage, one-domain ownership, and
+whether discarded or unresolved conclusions correctly avoid a map edit.
 
 Changes requested return to the normal Work Phase. Approval authorizes the host
 workflow to enter Integration Phase; it does not itself consume candidates.

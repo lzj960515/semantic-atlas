@@ -183,6 +183,7 @@ async function exerciseInstalledProduct() {
       documentCount: 1,
       nodeCount: 12,
       relationCount: 19,
+      flowCount: 1,
     },
   });
 
@@ -193,7 +194,12 @@ async function exerciseInstalledProduct() {
     repositoryRoot,
   ]);
   assert.equal(context.stderr, "");
-  assert.equal(JSON.parse(context.stdout).data.selected.id, "commerce.orders.place-order");
+  const contextData = JSON.parse(context.stdout).data;
+  assert.equal(contextData.selected.id, "commerce.orders.place-order");
+  assert.deepEqual(
+    contextData.flows.map(({ id }) => id),
+    ["commerce.orders.place-order-flow"],
+  );
 
   const render = runInstalledCli([
     "render",
@@ -204,11 +210,14 @@ async function exerciseInstalledProduct() {
   ]);
   assert.equal(render.stderr, "");
   assert.equal(JSON.parse(render.stdout).data.outputPath, renderedOutputPath);
+  assert.equal(JSON.parse(render.stdout).data.flowCount, 1);
   const projection = await readFile(renderedOutputPath, "utf8");
   assert.match(projection, /data-node-id="commerce\.orders\.place-order"/u);
   assert.match(projection, /data-channel="directed-relation"/u);
   assert.match(projection, /data-viewer-mode="export"/u);
   assert.match(projection, /data-action="zoom-in"/u);
+  assert.match(projection, /data-view-type="flows"/u);
+  assert.match(projection, /data-flow-view="commerce\.orders\.place-order-flow"/u);
   assert.match(projection, /id="node-details"/u);
   assert.match(projection, /preserveAspectRatio="xMidYMid meet"/u);
   assert.match(projection, /"value":"src\/catalog"/u);
@@ -279,6 +288,8 @@ async function exerciseInstalledWeb() {
     assert.equal(page.status, 200);
     assert.match(html, /data-viewer-mode="web"/u);
     assert.match(html, /data-map-view="commerce"/u);
+    assert.match(html, /data-flow-view="commerce\.orders\.place-order-flow"/u);
+    assert.match(html, /data-view-type="flows"/u);
     assert.match(html, /id="node-details"/u);
     assert.match(html, /preserveAspectRatio="xMidYMid meet"/u);
     assert.match(html, /"value":"src\/catalog"/u);

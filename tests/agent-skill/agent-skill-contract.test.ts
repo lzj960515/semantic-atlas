@@ -16,6 +16,7 @@ interface EvaluationCase {
         readonly anchorValues?: readonly string[];
         readonly absentAnchorPaths?: readonly string[];
         readonly relations?: readonly ExpectedRelation[];
+        readonly flowIds?: readonly string[];
       }
     | { readonly outcome: "error"; readonly code: string };
   readonly requiredEvidence: readonly string[];
@@ -39,6 +40,7 @@ interface ContextEnvelopeView {
     };
     readonly incoming: readonly RelationView[];
     readonly outgoing: readonly RelationView[];
+    readonly flows: readonly { readonly id: string }[];
   };
 }
 
@@ -142,6 +144,20 @@ describe("business-understanding Agent Skill", () => {
     expect(skillDocument).toContain(
       "Keep canonical map editing in a separate maintenance change after stable reviewed source is available.",
     );
+  });
+
+  it("uses related business flows to check stable branches without treating them as source truth", async () => {
+    const skillDocument = await readFile(
+      path.join(skillDirectory, "SKILL.md"),
+      "utf8",
+    );
+
+    expect(skillDocument).toContain("context.data.flows");
+    expect(skillDocument).toContain("actions, decisions, branches, and outcomes");
+    expect(skillDocument).toContain("business-relevant path");
+    expect(skillDocument).toContain("Classify a discrepancy before changing either side");
+    expect(skillDocument).toContain('kind: "flow"');
+    expect(skillDocument).toContain("When no relevant flow changed, record no flow candidate");
   });
 
   it("records task evidence without moving accuracy authority into the task Agent", async () => {
@@ -258,6 +274,11 @@ async function assertExpectedContext(
         }),
       ]),
     );
+  }
+
+  if (expectation.flowIds) {
+    expect(envelope.data.flows.map(({ id }) => id), caseId)
+      .toEqual(expectation.flowIds);
   }
 
   for (const anchorPath of expectation.absentAnchorPaths ?? []) {

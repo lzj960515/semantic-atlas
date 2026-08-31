@@ -462,6 +462,7 @@ async function runRenderCommand(
         outputPath,
         nodeCount: result.projection.nodeCount,
         relationCount: result.projection.relationCount,
+        flowCount: result.projection.flowCount,
       },
     };
   } catch (error) {

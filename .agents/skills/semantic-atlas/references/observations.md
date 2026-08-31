@@ -69,6 +69,10 @@ is `confirmed` when current evidence supports the proposed correction,
 evidence, or `unresolved` when it remains a maintenance lead. Periodic
 maintenance preserves these task-time judgments and linked independent reviews,
 then confirms durable business meaning again before editing canonical YAML.
+Candidate kinds are `node`, `relation`, `anchor`, and `flow`. Use `flow` for
+a stable scenario path whose business actions, decisions, labeled branches, or
+outcomes need reconciliation. An implementation-only control-flow change does
+not create a flow candidate.
 Stored task observations must match this current schema; unsupported local
 artifacts fail visibly and are never migrated or promoted into reconciliation.
 

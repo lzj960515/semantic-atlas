@@ -23,8 +23,10 @@ documentation changes in `docs/log.md`.
 
 - Tracked declarative files are the shared business-map source.
 - Every CLI invocation loads those files into an in-memory graph.
-- The map supplies business boundaries, relationships, and navigation anchors
-  as investigation hypotheses.
+- The map supplies business boundaries, relationships, navigation anchors, and
+  scenario flows as investigation hypotheses.
+- Relationships describe durable collaboration. Flows separately describe
+  business-relevant actions, decisions, labeled branches, and outcomes.
 - Business-changing work activates the understanding Skill from task meaning,
   including when the selected repository has no map yet.
 - A missing map routes the Agent into a bounded current-evidence business model;
@@ -38,7 +40,7 @@ documentation changes in `docs/log.md`.
 - Durable map changes use normal file edits, Git diffs, review, and merge.
 - Post-integration maintenance integrates stable business changes by domain;
   periodic reconciliation recovers accumulated drift and missed work.
-- Rendered diagrams and derived local artifacts are reproducible outputs of the
+- Rendered relationship and flow diagrams are reproducible outputs of the
   tracked map.
 - Static export and the loopback Web command use one shared interactive Viewer;
   the service adds project selection without becoming a second graph model.
@@ -52,7 +54,7 @@ Build the first product as one small vertical path:
 ```text
 tracked map files
   -> schema validation and normalization
-  -> in-memory business graph
+  -> in-memory relationships and business flows
   -> local context query
   -> deterministic JSON and visual projections
 ```
@@ -91,14 +93,16 @@ For every business-changing engineering task:
    present.
 2. Treat returned map knowledge as investigation leads, or build the smallest
    source-supported business model after `MAP_NOT_FOUND`.
-3. Open the decisive current source, tests, or tracked product documents.
-4. Expand to upstream or downstream code when confirmed business relations
+3. Trace relevant business-flow decisions, branches, and outcomes.
+4. Open the decisive current source, tests, or tracked product documents.
+5. Expand to upstream or downstream code when confirmed business relations
    indicate another owner or collaborator.
-5. Form the task-specific system model from current evidence.
-6. Implement, verify, and independently review the engineering change.
-7. Record the task observation and choose `candidate`, `already_represented`,
+6. Form the task-specific system model from current evidence.
+7. Implement, verify, and independently review the engineering change, then
+   recheck each affected business path.
+8. Record the task observation and choose `candidate`, `already_represented`,
    `implementation_local`, or `unresolved` maintenance.
-8. Send durable candidates to a separate post-integration maintenance change.
+9. Send durable candidates to a separate post-integration maintenance change.
 
 The final engineering conclusion is expected to be more accurate than any map
 that helped locate it. Business-changing tasks with no map follow the same

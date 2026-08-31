@@ -1,4 +1,5 @@
 import type {
+  BusinessFlow,
   BusinessNode,
   BusinessRelation,
   ValidatedBusinessMap,
@@ -67,6 +68,20 @@ export class BusinessGraph {
 
   public relations(): readonly BusinessRelation[] {
     return this.map.relations;
+  }
+
+  public flows(): readonly BusinessFlow[] {
+    return this.map.flows;
+  }
+
+  public flowsRelatedTo(nodeId: string): readonly BusinessFlow[] {
+    const containedConceptIds = new Set([
+      nodeId,
+      ...this.descendants(nodeId).map(({ id }) => id),
+    ]);
+    return Object.freeze(this.map.flows.filter((flow) =>
+      containedConceptIds.has(flow.scenario)
+      || flow.steps.some((step) => step.concept === nodeId)));
   }
 
   public ancestors(nodeId: string): readonly BusinessNode[] {

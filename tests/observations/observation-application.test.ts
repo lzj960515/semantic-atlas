@@ -90,6 +90,32 @@ describe("accuracy observation boundary", () => {
     });
   });
 
+  it("retains a business-flow correction as a normal maintenance candidate", async () => {
+    const fixture = await createFixture();
+    const input = taskObservation({
+      id: "business-flow-observation",
+      mapUpdateCandidates: [{
+        businessDomainId: "commerce",
+        kind: "flow",
+        disposition: "contradicted",
+        summary: "Checkout must not create an order when payment is declined.",
+        evidence: [{
+          kind: "test",
+          reference: "src/checkout/place-order.test.ts",
+        }],
+      }],
+    } as unknown as Partial<TaskObservationInput>);
+
+    const result = await fixture.application.recordTask(fixture.repositoryRoot, input);
+
+    expect(JSON.parse(await readFile(result.path, "utf8"))).toMatchObject({
+      mapUpdateCandidates: [{
+        kind: "flow",
+        disposition: "contradicted",
+      }],
+    });
+  });
+
   it("rejects task self-scoring and missing review references before writing", async () => {
     const fixture = await createFixture();
     const selfScored = {

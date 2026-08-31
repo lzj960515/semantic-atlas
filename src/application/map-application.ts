@@ -71,6 +71,7 @@ export class MapApplication {
         documentCount: result.map.documents.length,
         nodeCount: result.map.nodes.length,
         relationCount: result.map.relations.length,
+        flowCount: result.map.flows.length,
       },
     };
   }

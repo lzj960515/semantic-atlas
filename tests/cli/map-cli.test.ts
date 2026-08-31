@@ -3,9 +3,12 @@ import { runCli } from "../../src/cli/run-cli.js";
 import {
   createEmptyRepository,
   createMapRepository,
+  flow,
+  flowStep,
   node,
   relation,
   removeRepository,
+  transition,
   type TestMapDocument,
 } from "../support/map-repository.js";
 
@@ -56,8 +59,84 @@ describe("semantic-atlas validate", () => {
         documentCount: 2,
         nodeCount: 4,
         relationCount: 3,
+        flowCount: 0,
       },
     });
+  });
+
+  it("validates business decisions, branches, outcomes, and concept references", async () => {
+    const repositoryRoot = await trackedRepository({
+      "commerce.yaml": mapDocument(
+        "commerce",
+        [
+          node("commerce", "domain", "Commerce"),
+          node("commerce.orders", "capability", "Orders"),
+          node("commerce.orders.place-order", "scenario", "Place order"),
+          node("commerce.orders.create-order", "operation", "Create order"),
+          node("commerce.orders.payment-required", "invariant", "Payment is required"),
+        ],
+        [
+          relation("commerce.orders", "part_of", "commerce"),
+          relation("commerce.orders.place-order", "part_of", "commerce.orders"),
+          relation("commerce.orders.create-order", "part_of", "commerce.orders.place-order"),
+        ],
+        [placeOrderFlow()],
+      ),
+    });
+
+    const result = await runCli(["validate", "--repo", repositoryRoot]);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: true,
+      data: {
+        flowCount: 1,
+      },
+    });
+  });
+
+  it("reports unusable flow structure instead of accepting an ambiguous diagram", async () => {
+    const repositoryRoot = await trackedRepository({
+      "commerce.yaml": mapDocument(
+        "commerce",
+        [
+          node("commerce", "domain", "Commerce"),
+          node("commerce.orders.place-order", "scenario", "Place order"),
+        ],
+        [],
+        [flow(
+          "commerce.orders.broken-flow",
+          "commerce.orders.missing-scenario",
+          "start",
+          [
+            flowStep("start", "action", "Start"),
+            flowStep("decision", "decision", "Should continue?", "commerce.missing-rule"),
+            flowStep("done", "outcome", "Done"),
+            flowStep("orphan", "action", "Unreachable action"),
+          ],
+          [
+            transition("start", "decision"),
+            transition("decision", "done"),
+            transition("decision", "missing-step", "yes"),
+            transition("done", "start"),
+          ],
+        )],
+      ),
+    });
+
+    const result = await runCli(["validate", "--repo", repositoryRoot]);
+    const codes = JSON.parse(result.stdout).error.issues
+      .map((issue: { code: string }) => issue.code);
+
+    expect(result.exitCode).toBe(1);
+    expect(codes).toEqual(expect.arrayContaining([
+      "FLOW_SCENARIO_MISSING",
+      "FLOW_CONCEPT_MISSING",
+      "FLOW_TRANSITION_ENDPOINT_MISSING",
+      "FLOW_DECISION_BRANCH_INVALID",
+      "FLOW_OUTCOME_HAS_TRANSITION",
+      "FLOW_STEP_UNREACHABLE",
+    ]));
   });
 
   it("returns every safely collectable graph issue in one invalid result", async () => {
@@ -247,6 +326,7 @@ describe("semantic-atlas context", () => {
             to: { id: "commerce.orders.create-order", name: "Create order" },
           },
         ],
+        flows: [],
       },
     });
 
@@ -273,6 +353,66 @@ describe("semantic-atlas context", () => {
             to: { id: "commerce.orders.order" },
           },
         ],
+      },
+    });
+  });
+
+  it("returns complete related flows for a scenario and its referenced concepts", async () => {
+    const repositoryRoot = await trackedRepository({
+      "commerce.yaml": mapDocument(
+        "commerce",
+        [
+          node("commerce", "domain", "Commerce"),
+          node("commerce.orders", "capability", "Orders"),
+          node("commerce.orders.place-order", "scenario", "Place order", {
+            aliases: ["Checkout"],
+          }),
+          node("commerce.orders.create-order", "operation", "Create order"),
+          node("commerce.orders.payment-required", "invariant", "Payment is required"),
+        ],
+        [
+          relation("commerce.orders", "part_of", "commerce"),
+          relation("commerce.orders.place-order", "part_of", "commerce.orders"),
+          relation("commerce.orders.create-order", "part_of", "commerce.orders.place-order"),
+        ],
+        [placeOrderFlow()],
+      ),
+    });
+
+    const scenarioResult = await runCli(["context", "Checkout", "--repo", repositoryRoot]);
+    const operationResult = await runCli([
+      "context",
+      "commerce.orders.create-order",
+      "--repo",
+      repositoryRoot,
+    ]);
+
+    expect(scenarioResult.exitCode).toBe(0);
+    expect(JSON.parse(scenarioResult.stdout)).toMatchObject({
+      ok: true,
+      data: {
+        flows: [{
+          id: "commerce.orders.place-order-flow",
+          scenario: "commerce.orders.place-order",
+          startsAt: "receive-order",
+          steps: [
+            { id: "create-order", concept: "commerce.orders.create-order" },
+            { id: "order-created", kind: "outcome" },
+            { id: "payment-authorized", kind: "decision" },
+            { id: "payment-declined", kind: "outcome" },
+            { id: "receive-order", kind: "action" },
+          ],
+          transitions: expect.arrayContaining([
+            { from: "payment-authorized", when: "authorized", to: "create-order" },
+            { from: "payment-authorized", when: "declined", to: "payment-declined" },
+          ]),
+        }],
+      },
+    });
+    expect(JSON.parse(operationResult.stdout)).toMatchObject({
+      ok: true,
+      data: {
+        flows: [{ id: "commerce.orders.place-order-flow" }],
       },
     });
   });
@@ -372,6 +512,7 @@ function mapDocument(
   id: string,
   nodes: readonly Record<string, unknown>[],
   relations: readonly Record<string, unknown>[],
+  flows: readonly Record<string, unknown>[] = [],
 ): TestMapDocument {
   return {
     schemaVersion: 1,
@@ -382,5 +523,32 @@ function mapDocument(
     },
     nodes,
     relations,
+    flows,
   };
+}
+
+function placeOrderFlow(): Record<string, unknown> {
+  return flow(
+    "commerce.orders.place-order-flow",
+    "commerce.orders.place-order",
+    "receive-order",
+    [
+      flowStep("receive-order", "action", "Receive order", "commerce.orders.place-order"),
+      flowStep(
+        "payment-authorized",
+        "decision",
+        "Is payment authorized?",
+        "commerce.orders.payment-required",
+      ),
+      flowStep("create-order", "action", "Create order", "commerce.orders.create-order"),
+      flowStep("order-created", "outcome", "Order created"),
+      flowStep("payment-declined", "outcome", "Order not created"),
+    ],
+    [
+      transition("receive-order", "payment-authorized"),
+      transition("payment-authorized", "create-order", "authorized"),
+      transition("payment-authorized", "payment-declined", "declined"),
+      transition("create-order", "order-created"),
+    ],
+  );
 }

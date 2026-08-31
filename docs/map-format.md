@@ -1,8 +1,7 @@
 # Semantic Atlas Map Format
 
-This page defines the initial tracked document model, graph meaning, validation
-rules, and context projection. The implementation will publish a machine schema
-that follows this contract.
+This page defines the tracked document model, relationship and flow meaning,
+validation rules, and context projection.
 
 **Status: implemented by the `schemaVersion: 1` validation and context-query
 path.**
@@ -47,6 +46,8 @@ relations:
     type: part_of
     to: commerce
     summary: Orders is a durable Commerce capability.
+
+flows: []
 ```
 
 Top-level `map` metadata identifies the owning document for diagnostics and
@@ -119,6 +120,86 @@ Relations describe durable business collaboration. They do not encode branch
 conditions, total order, retry behavior, loops, timing, or runtime execution
 state.
 
+## Business Flow Contract
+
+A business flow describes one scenario's business-relevant actions,
+decisions, labeled branches, and outcomes. It complements the relationship
+graph: relations explain which concepts collaborate, while a flow explains how
+one stable business path can reach different results.
+
+```yaml
+flows:
+  - id: commerce.orders.place-order-flow
+    name: Place order
+    summary: Available stock becomes a reserved customer order.
+    scenario: commerce.orders.place-order
+    startsAt: check-inventory
+    steps:
+      - id: check-inventory
+        kind: decision
+        name: Is inventory available?
+        summary: Only available stock may proceed to order creation.
+        concept: commerce.orders.place-order.check-inventory
+      - id: create-order
+        kind: action
+        name: Create order
+        summary: The purchase becomes a durable customer order.
+        concept: commerce.orders.place-order.create-order
+      - id: order-placed
+        kind: outcome
+        name: Order placed
+        summary: The shopper receives a durable order.
+        concept: commerce.orders.order
+      - id: order-not-created
+        kind: outcome
+        name: Order not created
+        summary: Unavailable stock ends the attempt without an order.
+    transitions:
+      - from: check-inventory
+        when: available
+        to: create-order
+      - from: check-inventory
+        when: unavailable
+        to: order-not-created
+      - from: create-order
+        to: order-placed
+```
+
+Each flow contains:
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `id` | yes | Stable repository-wide flow identity |
+| `name` | yes | Human-facing scenario path name |
+| `summary` | yes | Durable business result represented by the flow |
+| `scenario` | yes | Existing `scenario` node that owns the flow |
+| `startsAt` | yes | Entry step ID within the flow |
+| `steps` | yes | One or more business-granularity steps |
+| `transitions` | yes | Directed step connections and decision labels |
+| `notes` | no | Durable qualification or known uncertainty |
+
+Step kinds are:
+
+- `action`: a meaningful business action with at most one unlabeled next step;
+- `decision`: a business choice with at least two uniquely labeled branches;
+- `outcome`: a business result that ends its path.
+
+Each step has an ID unique within its flow, a name, a summary, and an optional
+`concept` reference to an existing graph node. Referencing the same concept is
+what lets the Viewer navigate from a relationship card into related flows;
+there is no separately maintained link list.
+
+Record a step when changing it can alter a user-visible result, durable data,
+cost or provider usage, authorization or tenant isolation, an interface, or a
+business outcome. Keep parameter validation, DTO conversion, helpers,
+framework wiring, Service or Queue names, retries, and timing in current-source
+evidence. Cycles are valid when the repeated business path itself is durable.
+
+Flows remain advisory knowledge. A source discrepancy starts an investigation
+into whether source regressed, product intent changed, the flow was already
+stale, or available evidence is unresolved. It never synchronizes either side
+automatically.
+
 ## Navigation Anchors
 
 Anchors help an agent enter the current repository. They are hints rather than
@@ -168,6 +249,13 @@ The complete repository map must satisfy:
 10. Aliases are unique for one node after case-insensitive normalization.
 11. Repository-relative anchors remain relative and normalized.
 12. Normalized graph order is deterministic across file discovery order.
+13. Flow IDs are repository-wide unique and each flow belongs to an existing
+    `scenario`.
+14. Step IDs are unique within a flow; `startsAt`, transition endpoints, and
+    optional concept references resolve.
+15. Actions have at most one unlabeled outgoing transition, decisions have at
+    least two uniquely labeled outgoing transitions, and outcomes have none.
+16. Every flow step is reachable from `startsAt`; cycles remain valid.
 
 Horizontal relation endpoints follow their business meaning:
 
@@ -209,7 +297,12 @@ For one selected node, `context` returns:
 - complete summaries for referenced endpoint nodes;
 - navigation anchors for all directly returned nodes;
 - the document IDs that supplied each item;
-- advisory anchor diagnostics when requested and available.
+- advisory anchor diagnostics when requested and available;
+- complete related flows, including steps and labeled transitions.
+
+A flow is related when it belongs to the selected scenario, belongs to a
+scenario under the selected domain or capability, or directly references the
+selected operation, data, invariant, or interface from one of its steps.
 
 The result is intentionally local. The caller can query another returned stable
 ID when it needs to expand the investigation.
@@ -220,7 +313,8 @@ Agents edit the owning YAML file directly and use `semantic-atlas validate`
 before submitting a map change. Git diff is the review surface.
 
 Business-changing engineering tasks record observations outside the canonical
-map and create candidates only for stable meaning that needs maintenance.
+map and create node, relation, anchor, or flow candidates only for stable
+meaning that needs maintenance.
 Post-integration or periodic reconciliation confirms candidates in current
 evidence, updates one bounded neighborhood, validates the complete graph, and
 submits the normal repository change for review. A mapless repository can use

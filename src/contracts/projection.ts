@@ -3,4 +3,5 @@ export interface MapProjection {
   readonly content: string;
   readonly nodeCount: number;
   readonly relationCount: number;
+  readonly flowCount: number;
 }

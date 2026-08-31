@@ -51,6 +51,7 @@ try {
       outputPath,
       nodeCount: 12,
       relationCount: 19,
+      flowCount: 1,
     },
   });
 
@@ -59,6 +60,9 @@ try {
   assert.match(projection, /data-channel="directed-relation"/u);
   assert.match(projection, /data-viewer-mode="export"/u);
   assert.match(projection, /data-action="zoom-in"/u);
+  assert.match(projection, /data-view-type="flows"/u);
+  assert.match(projection, /data-flow-view="commerce\.orders\.place-order-flow"/u);
+  assert.match(projection, /data-flow-step-id="check-inventory"/u);
   assert.match(projection, /id="node-details"/u);
   assert.match(projection, /preserveAspectRatio="xMidYMid meet"/u);
   assert.match(projection, /"value":"src\/catalog"/u);

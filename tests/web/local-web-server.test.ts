@@ -4,9 +4,12 @@ import { LocalWebApplication } from "../../src/web/local-web-application.js";
 import { startLocalWebServer, type LocalWebServer } from "../../src/web/local-web-server.js";
 import {
   createMapRepository,
+  flow,
+  flowStep,
   node,
   relation,
   removeRepository,
+  transition,
   type TestMapDocument,
 } from "../support/map-repository.js";
 
@@ -34,6 +37,9 @@ describe("Semantic Atlas local Web server", () => {
     expect(response.headers.get("content-security-policy")).toContain("default-src 'none'");
     expect(html).toContain('data-viewer-mode="web"');
     expect(html).toContain("Commerce");
+    expect(html).toContain('data-view-type="relationships"');
+    expect(html).toContain('data-view-type="flows"');
+    expect(html).toContain('data-flow-view="commerce.orders.checkout-flow"');
     expect(html).not.toContain(repositoryRoot);
 
     const head = await fetch(server.url, { method: "HEAD" });
@@ -55,8 +61,19 @@ async function trackedRepository(): Promise<string> {
     nodes: [
       node("commerce", "domain", "Commerce"),
       node("commerce.orders", "capability", "Orders"),
+      node("commerce.orders.checkout", "scenario", "Checkout"),
     ],
-    relations: [relation("commerce.orders", "part_of", "commerce")],
+    relations: [
+      relation("commerce.orders", "part_of", "commerce"),
+      relation("commerce.orders.checkout", "part_of", "commerce.orders"),
+    ],
+    flows: [flow(
+      "commerce.orders.checkout-flow",
+      "commerce.orders.checkout",
+      "receive-checkout",
+      [flowStep("receive-checkout", "outcome", "Checkout received")],
+      [],
+    )],
   };
   const repositoryRoot = await createMapRepository({ "commerce.yaml": document });
   repositories.push(repositoryRoot);

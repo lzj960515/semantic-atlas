@@ -1,5 +1,6 @@
 import { escapeHtml } from "./html.js";
 import { renderViewerBrowserScript } from "./viewer-browser.js";
+import type { BusinessFlowStepDefinition } from "../contracts/map.js";
 
 export type ViewerMode = "export" | "web";
 
@@ -16,6 +17,21 @@ export interface ViewerNodeDetails {
   readonly summary: string;
   readonly boundary: boolean;
   readonly anchors: readonly ViewerNavigationAnchor[];
+  readonly relatedFlowIds: readonly string[];
+}
+
+export interface ViewerBusinessFlow {
+  readonly id: string;
+  readonly name: string;
+  readonly summary: string;
+  readonly scenario: {
+    readonly id: string;
+    readonly name: string;
+  };
+  readonly stepCount: number;
+  readonly transitionCount: number;
+  readonly steps: readonly BusinessFlowStepDefinition[];
+  readonly svg: string;
 }
 
 export interface ViewerMapView {
@@ -31,6 +47,7 @@ export interface ViewerProject {
   readonly id: string;
   readonly name: string;
   readonly views: readonly ViewerMapView[];
+  readonly flows: readonly ViewerBusinessFlow[];
 }
 
 export function renderViewerPage(
@@ -39,7 +56,7 @@ export function renderViewerPage(
 ): string {
   const displayedProjects = disambiguateProjectNames(projects);
   const model = JSON.stringify({
-    projects: displayedProjects.map(({ id, name, views }) => ({
+    projects: displayedProjects.map(({ id, name, views, flows }) => ({
       id,
       name,
       views: views.map(({ id: viewId, name: viewName, nodeCount, relationCount, nodes }) => ({
@@ -49,6 +66,7 @@ export function renderViewerPage(
         relationCount,
         nodes,
       })),
+      flows: flows.map(({ svg: _svg, ...flow }) => flow),
     })),
   }).replaceAll("<", "\\u003c");
 
@@ -74,9 +92,17 @@ export function renderViewerPage(
             ${displayedProjects.map(({ id, name }) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`).join("")}
           </select>
         </label>
-        <label class="field">
+        <div class="view-switch" role="group" aria-label="View type">
+          <button type="button" data-view-type="relationships" aria-pressed="true">Relationships</button>
+          <button type="button" data-view-type="flows" aria-pressed="false">Flows</button>
+        </div>
+        <label id="relationship-selector" class="field">
           <span>Business</span>
           <select id="domain-select" aria-label="Business domain"></select>
+        </label>
+        <label id="flow-selector" class="field" hidden>
+          <span>Flow</span>
+          <select id="flow-select" aria-label="Business flow"></select>
         </label>
       </div>
       <div class="viewer-toolbar__meta">
@@ -99,8 +125,12 @@ export function renderViewerPage(
     </header>
     <section id="map-viewport" class="map-viewport" aria-label="Interactive business map">
       ${displayedProjects.flatMap((project) => project.views.map((view) => `
-        <div class="project-view" data-project-view data-project-id="${escapeHtml(project.id)}" data-map-view="${escapeHtml(view.id)}" hidden>
+        <div class="project-view" data-project-view data-view-type="relationships" data-project-id="${escapeHtml(project.id)}" data-map-view="${escapeHtml(view.id)}" hidden>
           ${view.svg}
+        </div>`)).join("")}
+      ${displayedProjects.flatMap((project) => project.flows.map((flow) => `
+        <div class="project-view" data-project-view data-view-type="flows" data-project-id="${escapeHtml(project.id)}" data-flow-view="${escapeHtml(flow.id)}" hidden>
+          ${flow.svg}
         </div>`)).join("")}
     </section>
     <aside id="node-details" class="node-details" aria-labelledby="node-details-title" hidden>
@@ -113,6 +143,10 @@ export function renderViewerPage(
       </header>
       <h2 id="node-details-title" class="node-details__title"></h2>
       <p id="node-details-summary" class="node-details__summary"></p>
+      <section id="node-details-flows" class="node-details__related" aria-labelledby="node-details-flows-title" hidden>
+        <h3 id="node-details-flows-title">Related business flows</h3>
+        <div id="node-details-flow-list" class="node-details__flow-list"></div>
+      </section>
       <section id="node-details-anchors" class="node-details__anchors" aria-labelledby="node-details-anchors-title" hidden>
         <h3 id="node-details-anchors-title">Navigation anchors</h3>
         <div id="node-details-anchor-list" class="node-details__anchor-list"></div>
@@ -216,6 +250,7 @@ function viewerStyles(): string {
     .viewer-toolbar__selectors { gap: 10px; min-width: 0; }
     .viewer-toolbar__meta { justify-content: flex-end; gap: 12px; white-space: nowrap; }
     .field { display: flex; align-items: center; gap: 7px; min-width: 0; }
+    .field[hidden] { display: none; }
     .field > span {
       color: var(--muted);
       font-size: 10px;
@@ -236,6 +271,27 @@ function viewerStyles(): string {
       font-weight: 650;
     }
     select:disabled { color: var(--muted); opacity: 0.72; }
+    .view-switch {
+      display: flex;
+      overflow: hidden;
+      border: 1px solid rgba(56, 89, 103, 0.28);
+      border-radius: 7px;
+      background: var(--surface-strong);
+    }
+    .view-switch button {
+      height: 34px;
+      padding: 0 12px;
+      border: 0;
+      border-right: 1px solid rgba(56, 89, 103, 0.20);
+      color: var(--muted);
+      background: transparent;
+      font-size: 12px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+    .view-switch button:last-child { border-right: 0; }
+    .view-switch button[aria-pressed="true"] { color: #fffdf7; background: var(--ink); }
+    .view-switch button:disabled { cursor: default; opacity: 0.42; }
     .statistics { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
     .legend { position: relative; }
     .legend summary {
@@ -291,7 +347,7 @@ function viewerStyles(): string {
     }
     .camera-controls button:last-child { border-right: 0; }
     .camera-controls button:hover { background: #f4ead2; }
-    .camera-controls button:focus-visible, select:focus-visible, summary:focus-visible {
+    .camera-controls button:focus-visible, .view-switch button:focus-visible, select:focus-visible, summary:focus-visible {
       outline: 3px solid rgba(217, 164, 65, 0.42);
       outline-offset: 2px;
     }
@@ -339,6 +395,22 @@ function viewerStyles(): string {
     .node-card__kind { fill: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: 0.12em; }
     .node-card__title { fill: var(--ink); font-family: Georgia, "Times New Roman", serif; font-size: 18px; font-weight: 650; }
     .node-card__summary { fill: #405052; font-size: 13px; }
+    .flow-transition__path {
+      fill: none;
+      stroke: var(--relation);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .flow-transition__label-surface { fill: var(--surface-strong); stroke: var(--relation); stroke-width: 1; }
+    .flow-transition__label { fill: var(--ink); font-size: 11px; font-weight: 850; letter-spacing: 0.05em; }
+    .flow-step__surface { fill: var(--surface-strong); stroke: var(--line); stroke-width: 2; }
+    .flow-step--action .flow-step__surface { stroke: var(--accent); }
+    .flow-step--decision .flow-step__surface { fill: #fff8e8; stroke: var(--relation); stroke-width: 2.5; }
+    .flow-step--outcome .flow-step__surface { fill: #eef3ee; stroke: var(--containment); }
+    .flow-step__kind { fill: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: 0.12em; }
+    .flow-step__title { fill: var(--ink); font-family: Georgia, "Times New Roman", serif; font-size: 18px; font-weight: 650; }
+    .flow-step__summary { fill: #405052; font-size: 13px; }
     .node-details {
       z-index: 2;
       grid-row: 2;
@@ -404,9 +476,9 @@ function viewerStyles(): string {
       letter-spacing: -0.02em;
     }
     .node-details__summary { margin: 0; color: #405052; font-size: 14px; line-height: 1.6; }
-    .node-details__anchors { margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(56, 89, 103, 0.20); }
-    .node-details__anchors[hidden] { display: none; }
-    .node-details__anchors h3 {
+    .node-details__anchors, .node-details__related { margin-top: 24px; padding-top: 18px; border-top: 1px solid rgba(56, 89, 103, 0.20); }
+    .node-details__anchors[hidden], .node-details__related[hidden] { display: none; }
+    .node-details__anchors h3, .node-details__related h3 {
       margin: 0 0 12px;
       color: var(--relation);
       font-size: 11px;
@@ -414,6 +486,23 @@ function viewerStyles(): string {
       text-transform: uppercase;
     }
     .node-details__anchor-list { display: grid; gap: 10px; }
+    .node-details__flow-list { display: grid; gap: 8px; }
+    .node-details__flow-link {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid rgba(180, 83, 47, 0.24);
+      border-radius: 9px;
+      color: var(--ink);
+      background: #fff8e8;
+      text-align: left;
+      cursor: pointer;
+    }
+    .node-details__flow-link::after { content: "\\2192"; color: var(--relation); font-size: 18px; }
+    .node-details__flow-link:hover { border-color: var(--relation); background: #fff3d7; }
     .node-details__anchor {
       padding: 12px;
       border: 1px solid rgba(56, 89, 103, 0.18);
