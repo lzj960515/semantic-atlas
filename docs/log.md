@@ -2,6 +2,8 @@
 
 ## 2026-08-31
 
+- Defined `semantic-atlas@2.1.3` as the public-package recovery after the
+  immutable `v2.1.2` Release stopped before npm publication.
 - Made packed-product acceptance perform a credential-free public-registry
   install under its isolated user home instead of depending on the runner's
   pnpm metadata and tarball cache containing the same dependency versions.
