@@ -2,6 +2,8 @@
 
 ## 2026-08-31
 
+- Defined `semantic-atlas@2.1.2` as the reviewed maintenance-result and narrow
+  orchestration-status release.
 - Added immutable `MaintenanceObservation` artifacts for reviewed
   post-integration candidate outcomes, with exact source positions, explicit
   business-domain validation, current evidence, and merged-map identity.
