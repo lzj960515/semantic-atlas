@@ -181,6 +181,103 @@ describe("semantic-atlas observation commands", () => {
       },
     });
   });
+
+  it("reports only whether the current repository requires maintenance", async () => {
+    const fixture = await createFixture();
+    const task = {
+      ...taskObservation(),
+      mapUpdateCandidates: [{
+        businessDomainId: "commerce",
+        kind: "anchor" as const,
+        disposition: "confirmed" as const,
+        summary: "Add the current Orders navigation anchor.",
+        evidence: [{ kind: "source" as const, reference: "src/orders.ts" }],
+      }],
+    };
+    await fixture.runtime.observationApplication.recordTask(
+      fixture.repositoryRoot,
+      task,
+    );
+
+    const required = await runCli([
+      "reconcile",
+      "status",
+      "--repo",
+      fixture.repositoryRoot,
+    ], fixture.runtime);
+    expect(required.exitCode).toBe(0);
+    expect(JSON.parse(required.stdout)).toEqual({
+      schemaVersion: 1,
+      ok: true,
+      command: "reconcile status",
+      data: { required: true },
+    });
+
+    await fixture.runtime.observationApplication.recordMaintenance(
+      fixture.repositoryRoot,
+      maintenanceObservation(task.id),
+    );
+    const current = await runCli([
+      "reconcile",
+      "status",
+      "--repo",
+      fixture.repositoryRoot,
+    ], fixture.runtime);
+    expect(current.exitCode).toBe(0);
+    expect(JSON.parse(current.stdout)).toMatchObject({
+      command: "reconcile status",
+      data: { required: false },
+    });
+  });
+
+  it("waits after an unresolved origin until the same candidate gains a new origin", async () => {
+    const fixture = await createFixture();
+    const candidate = {
+      businessDomainId: "commerce",
+      kind: "anchor" as const,
+      disposition: "confirmed" as const,
+      summary: "Add the current Orders navigation anchor.",
+      evidence: [{ kind: "source" as const, reference: "src/orders.ts" }],
+    };
+    const firstTask = { ...taskObservation(), mapUpdateCandidates: [candidate] };
+    await fixture.runtime.observationApplication.recordTask(
+      fixture.repositoryRoot,
+      firstTask,
+    );
+    await fixture.runtime.observationApplication.recordMaintenance(
+      fixture.repositoryRoot,
+      maintenanceObservation(firstTask.id, "unresolved"),
+    );
+
+    const waiting = await runCli([
+      "reconcile",
+      "status",
+      "--repo",
+      fixture.repositoryRoot,
+    ], fixture.runtime);
+    expect(JSON.parse(waiting.stdout)).toMatchObject({
+      data: { required: false },
+    });
+
+    await fixture.runtime.observationApplication.recordTask(
+      fixture.repositoryRoot,
+      {
+        ...taskObservation(),
+        id: "task-observation-cli-new-origin",
+        task: { taskId: "task-cli-new-origin", runId: "run-cli-new-origin" },
+        mapUpdateCandidates: [candidate],
+      },
+    );
+    const actionable = await runCli([
+      "reconcile",
+      "status",
+      "--repo",
+      fixture.repositoryRoot,
+    ], fixture.runtime);
+    expect(JSON.parse(actionable.stdout)).toMatchObject({
+      data: { required: true },
+    });
+  });
 });
 
 async function createFixture(): Promise<{
@@ -248,7 +345,10 @@ function reviewObservation(taskObservationId: string): ReviewObservationInput {
   };
 }
 
-function maintenanceObservation(taskObservationId: string): MaintenanceObservationInput {
+function maintenanceObservation(
+  taskObservationId: string,
+  status: "discarded" | "unresolved" = "discarded",
+): MaintenanceObservationInput {
   return {
     schemaVersion: 1,
     id: "maintenance-observation-cli",
@@ -257,7 +357,7 @@ function maintenanceObservation(taskObservationId: string): MaintenanceObservati
     businessDomainId: "commerce",
     results: [{
       candidate: { taskObservationId, candidateIndex: 0 },
-      status: "discarded",
+      status,
       reason: "The proposed relation was implementation-local rather than durable meaning.",
       evidence: [{ kind: "source", reference: "src/orders.ts" }],
     }],

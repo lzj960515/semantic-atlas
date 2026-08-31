@@ -171,14 +171,20 @@ semantics.
 ## Reconciliation
 
 ```bash
+semantic-atlas reconcile status --repo /path/to/repository
 semantic-atlas reconcile candidates --repo /path/to/repository
 ```
 
-The command returns current actionable candidates by explicit business-domain
-ownership while preserving each origin, evidence disposition, linked
-independent review, and earlier unresolved investigation. Accepted, refined,
+`reconcile status` returns only whether the repository currently has at least
+one actionable candidate. It reads task and maintenance observations, leaving
+candidate details, Review evidence, and business-domain selection inside the
+maintenance workflow. This is the narrow orchestration contract.
+
+`reconcile candidates` returns current actionable candidates by explicit
+business-domain ownership while preserving each origin, evidence disposition,
+linked independent review, and earlier unresolved investigation. Accepted, refined,
 and discarded origins are terminal. An unresolved origin waits for new evidence
-instead of immediately producing the same task again. The command is read-only.
+instead of immediately producing the same task again. Both commands are read-only.
 The maintenance Skill then confirms one domain against current evidence,
 submits any accepted map correction through an ordinary Git diff and independent
 review, and records the reviewed outcome after integration. When no map exists,

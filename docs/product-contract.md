@@ -282,6 +282,7 @@ semantic-atlas observe task --stdin
 semantic-atlas observe review --stdin
 semantic-atlas observe maintenance --stdin
 semantic-atlas insights summary [--repo <path>] [--period <duration>]
+semantic-atlas reconcile status --repo <path>
 semantic-atlas reconcile candidates --repo <path>
 ```
 
@@ -296,6 +297,9 @@ map-maintenance effort remain explanatory measures.
 
 Normal engineering work records one task observation and creates durable
 map-update candidates only when the maintenance disposition is `candidate`.
+`reconcile status` reads only task and maintenance observations and returns a
+single `required` boolean. It lets an orchestrator decide whether to create one
+maintenance task without receiving candidate, Review, or business-domain data.
 `reconcile candidates` is read-only and returns current actionable origins while
 preserving their evidence disposition, duplicate provenance, linked independent
 review, and earlier unresolved investigation. Accepted, refined, and discarded

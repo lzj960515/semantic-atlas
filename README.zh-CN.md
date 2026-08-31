@@ -154,12 +154,17 @@ semantic-atlas insights summary --repo /path/to/repository --period 4w
 ## 地图校准
 
 ```bash
+semantic-atlas reconcile status --repo /path/to/repository
 semantic-atlas reconcile candidates --repo /path/to/repository
 ```
 
-该命令按明确的业务域归属返回当前可行动候选，同时保留每个来源、证据判断、
-关联的独立审查和之前未解决的调查。已接受、已细化和已丢弃的来源会进入终态；
-未解决的来源会等待新证据，而不会立刻重复生成相同任务。命令本身只读。随后，
+`reconcile status` 只回答当前仓库是否至少存在一个可行动候选。它只读取任务观测和
+维护观测，把候选详情、Review 证据和业务域选择留在维护流程内部；这是提供给任务
+编排器的最小契约。
+
+`reconcile candidates` 按明确的业务域归属返回当前可行动候选，同时保留每个来源、
+证据判断、关联的独立审查和之前未解决的调查。已接受、已细化和已丢弃的来源会进入终态；
+未解决的来源会等待新证据，而不会立刻重复生成相同任务。两个命令都只读。随后，
 维护 Skill 会选择一个业务域，使用当前证据重新确认候选，把被接受的地图修正
 作为普通 Git 差异提交独立审查，并在合入后记录处理结果。如果仓库还没有地图，
 有充分证据的候选可以建立第一份有边界的业务域 YAML，而不是一次推断整个仓库。

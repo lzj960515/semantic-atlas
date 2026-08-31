@@ -458,6 +458,14 @@ async function exerciseInstalledObservations() {
     candidates.data.domains[0].candidates[0].origins[0].reviews[0].review.verdict,
     "approved",
   );
+  const required = JSON.parse(runInstalledCli([
+    "reconcile",
+    "status",
+    "--repo",
+    observationWorktree,
+  ]).stdout);
+  assert.equal(required.command, "reconcile status");
+  assert.deepEqual(required.data, { required: true });
 
   const maintenance = maintenanceObservation("installed-task-0");
   const maintenanceResult = runInstalledCliWithInput([
@@ -495,6 +503,13 @@ async function exerciseInstalledObservations() {
     waitingForEvidenceOccurrences: 0,
   });
   assert.deepEqual(reconciled.data.domains, []);
+  const current = JSON.parse(runInstalledCli([
+    "reconcile",
+    "status",
+    "--repo",
+    observationWorktree,
+  ]).stdout);
+  assert.deepEqual(current.data, { required: false });
 
   const observationEntries = await readdir(observationRoot, { recursive: true });
   const observationFiles = observationEntries

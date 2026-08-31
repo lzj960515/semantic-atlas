@@ -195,6 +195,7 @@ describe("public release candidate", () => {
     expect(readme).toContain("Drag to pan");
     expect(readme).toContain("semantic-atlas observe task --stdin");
     expect(readme).toContain("semantic-atlas reconcile candidates");
+    expect(readme).toContain("semantic-atlas reconcile status");
     expect(readme).toContain("img.shields.io/npm/v/semantic-atlas.svg");
     expect(readme).toContain("License-MIT");
     expect(readme).toContain("[简体中文](README.zh-CN.md)");
@@ -215,6 +216,7 @@ describe("public release candidate", () => {
     expect(readmeZh).toContain("127.0.0.1");
     expect(readmeZh).toContain("桌面右侧面板或窄屏底部");
     expect(readmeZh).toContain("semantic-atlas reconcile candidates");
+    expect(readmeZh).toContain("semantic-atlas reconcile status");
     expect(readmeZh).toContain("[English](README.md)");
 
     for (const evidence of [

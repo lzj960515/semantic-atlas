@@ -11,6 +11,7 @@ import type {
   ObserveReviewEnvelope,
   ObserveTaskEnvelope,
   ReconciliationCandidatesEnvelope,
+  ReconciliationStatusEnvelope,
   RenderEnvelope,
   SetupEnvelope,
   UpgradeEnvelope,
@@ -47,6 +48,7 @@ import { writeProjection } from "./projection-writer.js";
 import {
   type ReconciliationCliRuntime,
   runReconciliationCandidatesCommand,
+  runReconciliationStatusCommand,
 } from "./reconciliation-command.js";
 import {
   WebCommandService,
@@ -85,6 +87,7 @@ export async function runCli(
     | InsightsSummaryEnvelope
     | ObserveMaintenanceEnvelope
     | ReconciliationCandidatesEnvelope
+    | ReconciliationStatusEnvelope
     | WebEnvelope
     | undefined;
   let commandOutput = "";
@@ -209,14 +212,27 @@ export async function runCli(
       commandEnvelope = await runInsightsSummaryCommand(resolvedRuntime, options);
     });
 
-  program
+  const reconcile = program
     .command("reconcile")
-    .description("Prepare reviewed business-map maintenance")
+    .description("Prepare reviewed business-map maintenance");
+
+  reconcile
     .command("candidates")
     .description("Group retained map-update candidates without editing the repository")
     .option("--repo <path>", "repository root", process.cwd())
     .action(async (options: { readonly repo: string }) => {
       commandEnvelope = await runReconciliationCandidatesCommand(
+        resolvedRuntime,
+        options.repo,
+      );
+    });
+
+  reconcile
+    .command("status")
+    .description("Report whether the repository has actionable maintenance")
+    .option("--repo <path>", "repository root", process.cwd())
+    .action(async (options: { readonly repo: string }) => {
+      commandEnvelope = await runReconciliationStatusCommand(
         resolvedRuntime,
         options.repo,
       );

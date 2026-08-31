@@ -50,6 +50,11 @@ export interface RepositoryObservations {
   readonly maintenances: readonly MaintenanceObservation[];
 }
 
+export interface ReconciliationInputs {
+  readonly tasks: readonly TaskObservation[];
+  readonly maintenances: readonly MaintenanceObservation[];
+}
+
 export class ObservationConflictError extends Error {
   public constructor(
     public readonly kind: ObservationKind,
@@ -129,6 +134,19 @@ export class ObservationStore {
     return {
       tasks: tasks as readonly TaskObservation[],
       reviews: reviews as readonly ReviewObservation[],
+      maintenances: maintenances as readonly MaintenanceObservation[],
+    };
+  }
+
+  public async readReconciliationInputs(
+    repository: RepositoryIdentity,
+  ): Promise<ReconciliationInputs> {
+    const [tasks, maintenances] = await Promise.all([
+      this.readDirectory(repository, "task"),
+      this.readDirectory(repository, "maintenance"),
+    ]);
+    return {
+      tasks: tasks as readonly TaskObservation[],
       maintenances: maintenances as readonly MaintenanceObservation[],
     };
   }

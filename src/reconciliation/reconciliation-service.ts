@@ -64,6 +64,23 @@ export class ReconciliationService {
       domains,
     };
   }
+
+  public async maintenanceRequired(repositoryPath: string): Promise<boolean> {
+    const repository = (await this.repositoryResolver.resolve(repositoryPath)).identity;
+    const observations = await this.store.readReconciliationInputs(repository);
+    const maintenanceByCandidate = groupMaintenanceByCandidate(
+      observations.maintenances,
+    );
+
+    return observations.tasks.some((task) =>
+      task.mapUpdateCandidates.some((_, candidateIndex) => {
+        const history = maintenanceByCandidate.get(
+          candidateOriginKey(task.id, candidateIndex),
+        ) ?? [];
+        return candidateState(history) === "actionable";
+      })
+    );
+  }
 }
 
 function groupReviewsByTask(
@@ -107,7 +124,7 @@ function groupCandidates(
       const maintenanceHistory = maintenanceByCandidate.get(
         candidateOriginKey(task.id, candidateIndex),
       ) ?? [];
-      if (maintenanceHistory.some(({ status }) => status !== "unresolved")) {
+      if (candidateState(maintenanceHistory) === "terminal") {
         return;
       }
       const key = candidateKey(candidate.businessDomainId, candidate.kind, candidate.summary);
@@ -139,14 +156,27 @@ function groupCandidates(
   }
   candidates.sort(compareCandidates);
   const actionable = candidates.filter(({ origins }) =>
-    origins.some(({ maintenanceHistory }) => maintenanceHistory.length === 0)
+    origins.some(({ maintenanceHistory }) =>
+      candidateState(maintenanceHistory) === "actionable"
+    )
   );
   const waitingForEvidenceOccurrences = candidates
     .filter(({ origins }) =>
-      origins.every(({ maintenanceHistory }) => maintenanceHistory.length > 0)
+      origins.every(({ maintenanceHistory }) =>
+        candidateState(maintenanceHistory) === "waiting"
+      )
     )
     .reduce((total, candidate) => total + candidate.origins.length, 0);
   return { actionable, waitingForEvidenceOccurrences };
+}
+
+function candidateState(
+  maintenanceHistory: readonly ReconciliationMaintenanceOrigin[],
+): "actionable" | "waiting" | "terminal" {
+  if (maintenanceHistory.some(({ status }) => status !== "unresolved")) {
+    return "terminal";
+  }
+  return maintenanceHistory.length === 0 ? "actionable" : "waiting";
 }
 
 function groupMaintenanceByCandidate(

@@ -53,12 +53,12 @@ Independent review -----------+                      v
                                                       |
                                                       v
                                              ReconciliationService
-                                                      |
-                                                      v
-                                      deterministic candidate report
-                                                      |
-                                                      v
-                                         Maintenance Agent Skill
+                                              /                \
+                                             v                  v
+                                  required boolean   deterministic candidate report
+                                         |                    |
+                                         v                    v
+                                  task orchestrator   Maintenance Agent Skill
                                                       |
                                                       v
                                        current evidence + reviewed YAML
@@ -252,6 +252,11 @@ only previously unresolved origins waits for a new origin before becoming
 actionable again. The service reads repository identity and observations
 without loading or editing the business map.
 
+The service also owns the narrow maintenance-status projection used by task
+orchestrators. That path reads task and maintenance observations only and
+returns whether any exact origin remains actionable; Review joins and complete
+candidate reports are deferred until a maintenance Agent requests them.
+
 ### Release Candidate Verification
 
 The repository-owned release gate composes contract and source tests,
@@ -292,6 +297,7 @@ rather than local build effects.
 | Review observation | User-local repository partition | Immutable retained evidence | Existing task reference plus strict validation and atomic publication |
 | Maintenance observation | User-local repository partition | Immutable retained evidence | Exact candidate validation after review and integration plus atomic publication |
 | Accuracy summary | One CLI invocation | Read phase | Re-derived from retained task and review files |
+| Reconciliation status | One CLI invocation | Read phase | Re-derived from retained task and maintenance files |
 | Reconciliation candidate report | One CLI invocation | Read phase | Re-derived from retained candidate and review provenance |
 | Packed npm candidate | One verified source revision | Release review | Rebuilt from the package allowlist |
 | Public release identity | Annotated tag and immutable GitHub Release | Permanent remote history | Explicit release command after repository cutover and immutable-release enablement |
@@ -339,6 +345,7 @@ semantic-atlas observe task --stdin [--repo <path>]
 semantic-atlas observe review --stdin [--repo <path>]
 semantic-atlas observe maintenance --stdin [--repo <path>]
 semantic-atlas insights summary [--repo <path>] [--period <duration>]
+semantic-atlas reconcile status [--repo <path>]
 semantic-atlas reconcile candidates [--repo <path>]
 semantic-atlas --version
 ```
@@ -365,7 +372,9 @@ They derive a private repository identity, validate before publication, and
 return recorded, idempotent, or explicit conflict results. Maintenance input
 also verifies every candidate source and its business-domain ownership.
 `insights summary` reads retained task and review files without changing them or
-the business map. `reconcile candidates` derives actionable candidates and
+the business map. `reconcile status` reads only retained task and maintenance
+files and returns whether any origin is actionable. `reconcile candidates`
+derives actionable candidates and
 unresolved waiting counts without changing observations, source, maps, rendered
 artifacts, or Git state.
 

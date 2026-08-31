@@ -166,10 +166,18 @@ because it was retained.
 The candidate discovery command is:
 
 ```text
+semantic-atlas reconcile status --repo <path>
 semantic-atlas reconcile candidates --repo <path>
 ```
 
-It derives one deterministic v1 report from the selected repository partition.
+`reconcile status` is the narrow orchestration boundary. It reads task and
+maintenance observations only and returns `{ "required": boolean }`. It does
+not load independent Review observations or expose candidate groups and
+business-domain ownership to the caller. The actionable decision uses the same
+exact-origin completion semantics as the full report.
+
+`reconcile candidates` derives one deterministic v1 report from the selected
+repository partition.
 Exact domain, candidate kind, and candidate summary form a group. The report
 contains only groups with a current actionable origin. Every returned task
 occurrence remains visible with its candidate position, evidence disposition,
@@ -181,9 +189,9 @@ unresolved result, the group leaves `domains` and contributes to
 `waitingForEvidenceOccurrences`; a new origin in the same group makes the full
 unresolved-plus-new evidence set actionable again.
 
-The command reads repository identity and immutable observation files only. It
-does not edit observations, source, `docs/business-map`, rendered artifacts, or
-Git state. The bundled `semantic-atlas-maintenance` Skill selects one business
+Both commands read repository identity and immutable observation files only.
+They do not edit observations, source, `docs/business-map`, rendered artifacts,
+or Git state. The bundled `semantic-atlas-maintenance` Skill selects one business
 domain, rechecks current source and tracked product meaning, and submits any
 accepted correction as a normal reviewed YAML change. Unresolved and
 implementation-local observations remain outside the canonical map. When the

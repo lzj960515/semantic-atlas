@@ -11,6 +11,9 @@
 - Split the maintenance Skill into Work, independent Review, and Integration
   phases so work-stage proposals cannot consume candidates and uncertain record
   retries reuse one idempotent document.
+- Added the read-only `reconcile status` contract for orchestration. It returns
+  one `required` boolean from task and maintenance observations while keeping
+  candidate details, Review evidence, and business-domain selection internal.
 
 ## 2026-08-28
 

@@ -9,6 +9,8 @@ export type {
   ObserveReviewEnvelope,
   ObserveTaskEnvelope,
   ReconciliationCandidatesEnvelope,
+  ReconciliationStatusData,
+  ReconciliationStatusEnvelope,
   RenderData,
   RenderEnvelope,
   SetupData,

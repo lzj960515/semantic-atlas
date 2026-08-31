@@ -208,6 +208,10 @@ export interface ObservationRecordedData {
   readonly path: string;
 }
 
+export interface ReconciliationStatusData {
+  readonly required: boolean;
+}
+
 export type ValidateEnvelope =
   | CliSuccessEnvelope<"validate", ValidateData>
   | CliErrorEnvelope<"validate">;
@@ -251,3 +255,7 @@ export type InsightsSummaryEnvelope =
 export type ReconciliationCandidatesEnvelope =
   | StandaloneCliSuccessEnvelope<"reconcile candidates", ReconciliationCandidateReport>
   | CliErrorEnvelope<"reconcile candidates">;
+
+export type ReconciliationStatusEnvelope =
+  | StandaloneCliSuccessEnvelope<"reconcile status", ReconciliationStatusData>
+  | CliErrorEnvelope<"reconcile status">;
