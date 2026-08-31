@@ -130,8 +130,9 @@ async function installPackedProduct(archivePath) {
   );
   run(
     "pnpm",
-    ["add", "--offline", "--ignore-scripts", archivePath],
+    ["add", "--ignore-scripts", archivePath],
     consumerDirectory,
+    cliEnvironment,
   );
 }
 

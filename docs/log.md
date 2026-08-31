@@ -2,6 +2,9 @@
 
 ## 2026-08-31
 
+- Made packed-product acceptance perform a credential-free public-registry
+  install under its isolated user home instead of depending on the runner's
+  pnpm metadata and tarball cache containing the same dependency versions.
 - Defined `semantic-atlas@2.1.2` as the reviewed maintenance-result and narrow
   orchestration-status release.
 - Added immutable `MaintenanceObservation` artifacts for reviewed
