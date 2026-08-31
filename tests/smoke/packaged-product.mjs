@@ -451,6 +451,7 @@ async function exerciseInstalledObservations() {
     candidateGroups: 1,
     candidateOccurrences: 1,
     duplicateGroups: 0,
+    waitingForEvidenceOccurrences: 0,
   });
   assert.equal(candidates.data.domains[0].businessDomainId, "commerce");
   assert.equal(
@@ -458,10 +459,47 @@ async function exerciseInstalledObservations() {
     "approved",
   );
 
+  const maintenance = maintenanceObservation("installed-task-0");
+  const maintenanceResult = runInstalledCliWithInput([
+    "observe",
+    "maintenance",
+    "--stdin",
+    "--repo",
+    observationWorktree,
+  ], JSON.stringify(maintenance));
+  assert.equal(
+    maintenanceResult.status,
+    0,
+    maintenanceResult.stderr || maintenanceResult.stdout,
+  );
+  const maintenanceReceipt = JSON.parse(maintenanceResult.stdout).data;
+  assert.equal(maintenanceReceipt.outcome, "recorded");
+  assert.equal(maintenanceReceipt.kind, "maintenance");
+  assert.equal(maintenanceReceipt.id, maintenance.id);
+  assert.equal(
+    maintenanceReceipt.path.endsWith("/maintenances/installed-maintenance-0.json"),
+    true,
+  );
+
+  const reconciled = JSON.parse(runInstalledCli([
+    "reconcile",
+    "candidates",
+    "--repo",
+    observationWorktree,
+  ]).stdout);
+  assert.deepEqual(reconciled.data.summary, {
+    businessDomains: 0,
+    candidateGroups: 0,
+    candidateOccurrences: 0,
+    duplicateGroups: 0,
+    waitingForEvidenceOccurrences: 0,
+  });
+  assert.deepEqual(reconciled.data.domains, []);
+
   const observationEntries = await readdir(observationRoot, { recursive: true });
   const observationFiles = observationEntries
     .filter((entry) => entry.endsWith(".json"));
-  assert.equal(observationFiles.length, 14);
+  assert.equal(observationFiles.length, 15);
   assert.equal(
     observationEntries.some((entry) => entry.endsWith(".tmp") || entry.endsWith(".lock")),
     false,
@@ -520,6 +558,25 @@ function reviewObservation(taskObservationId) {
       requiredRework: false,
       mapCausedRegression: false,
     },
+  };
+}
+
+function maintenanceObservation(taskObservationId) {
+  return {
+    schemaVersion: 1,
+    id: "installed-maintenance-0",
+    recordedAt: "2026-08-27T05:00:00.000Z",
+    maintenance: {
+      taskId: "installed-maintenance-task",
+      runId: "installed-maintenance-run",
+    },
+    businessDomainId: "commerce",
+    results: [{
+      candidate: { taskObservationId, candidateIndex: 0 },
+      status: "discarded",
+      reason: "Current evidence shows this anchor is an implementation detail.",
+      evidence: [{ kind: "source", reference: "src/orders/place-order.ts" }],
+    }],
   };
 }
 

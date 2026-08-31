@@ -168,6 +168,12 @@ current evidence establishes its stable identity. Source confirmation, map
 editing, validation, rendering, Git diff, and independent review remain Agent
 and repository responsibilities rather than CLI side effects.
 
+The Skill keeps Work, Review, and Integration as separate evidence stages. Work
+prepares classifications and an observation document without consuming any
+candidate. Integration adds the actual merged commit when a map changed and
+records the reviewed result through `observe maintenance`. A no-map-change
+discarded or unresolved result follows the same independent-review boundary.
+
 ### ManagedSkillsInstaller
 
 Coordinates the package's `semantic-atlas` and `semantic-atlas-maintenance`
@@ -203,10 +209,12 @@ and exposes neither repository paths nor remote URLs in retained artifacts.
 
 ### ObservationApplication
 
-Owns complete task and review input validation and the accuracy-authority
-boundary. It creates a repository-bound artifact only after strict schema
-validation. Review recording additionally resolves the referenced task
-observation from the same repository partition before persistence.
+Owns complete task, review, and maintenance input validation and the
+accuracy-authority boundary. It creates a repository-bound artifact only after
+strict schema validation. Review recording additionally resolves the referenced
+task observation from the same repository partition before persistence.
+Maintenance recording resolves every exact candidate position and verifies its
+business domain before persistence.
 
 ### ObservationClaimManager
 
@@ -221,8 +229,8 @@ Owns immutable, versioned user-local observation files and composes the claim
 manager around each write. The store writes and syncs a complete observation
 staging file, atomically renames it into place, returns idempotency for an exact
 replay, and reports a conflict for changed content under an existing ID. Its
-write boundary accepts current task v2 and review v1 artifacts. Its read
-boundary accepts the same current task and review contracts; unsupported stored
+write boundary accepts current task v2, review v1, and maintenance v1 artifacts.
+Its read boundary accepts those same contracts; unsupported stored
 artifacts fail the read instead of being reinterpreted.
 
 ### InsightService
@@ -236,10 +244,13 @@ contradicted map knowledge.
 
 Owns deterministic read-only grouping of retained map-update candidates. It
 uses explicit business-domain ownership plus exact candidate kind and summary,
-preserves each candidate occurrence, evidence disposition, task query record,
-human correction, and linked independent review, and marks groups with multiple
-origins as duplicates. It reads repository identity and observations without
-loading or editing the business map.
+preserves each actionable candidate occurrence, evidence disposition, task
+query record, human correction, linked independent review, and unresolved
+maintenance history, and marks groups with multiple origins as duplicates.
+Terminal maintenance results remove their exact origins. A group containing
+only previously unresolved origins waits for a new origin before becoming
+actionable again. The service reads repository identity and observations
+without loading or editing the business map.
 
 ### Release Candidate Verification
 
@@ -279,6 +290,7 @@ rather than local build effects.
 | Repository identity | One local repository across worktrees | Observation lookup | Re-derived from the Git common directory or selected directory |
 | Task observation | User-local repository partition | Immutable retained evidence | Strict validation and one atomic file publication |
 | Review observation | User-local repository partition | Immutable retained evidence | Existing task reference plus strict validation and atomic publication |
+| Maintenance observation | User-local repository partition | Immutable retained evidence | Exact candidate validation after review and integration plus atomic publication |
 | Accuracy summary | One CLI invocation | Read phase | Re-derived from retained task and review files |
 | Reconciliation candidate report | One CLI invocation | Read phase | Re-derived from retained candidate and review provenance |
 | Packed npm candidate | One verified source revision | Release review | Rebuilt from the package allowlist |
@@ -325,6 +337,7 @@ semantic-atlas setup
 semantic-atlas upgrade
 semantic-atlas observe task --stdin [--repo <path>]
 semantic-atlas observe review --stdin [--repo <path>]
+semantic-atlas observe maintenance --stdin [--repo <path>]
 semantic-atlas insights summary [--repo <path>] [--period <duration>]
 semantic-atlas reconcile candidates [--repo <path>]
 semantic-atlas --version
@@ -347,12 +360,14 @@ business map. Their results expose the package version and managed Skill paths
 needed to verify one installed identity. Business repositories retain only
 their Git-tracked map documents.
 
-`observe task` and `observe review` read one complete JSON object from standard
-input. They derive a private repository identity, validate before publication,
-and return recorded, idempotent, or explicit conflict results. `insights
-summary` reads those retained files without changing them or the business map.
-`reconcile candidates` groups retained candidates and linked reviews without
-changing observations, source, maps, rendered artifacts, or Git state.
+The three `observe` commands read one complete JSON object from standard input.
+They derive a private repository identity, validate before publication, and
+return recorded, idempotent, or explicit conflict results. Maintenance input
+also verifies every candidate source and its business-domain ownership.
+`insights summary` reads retained task and review files without changing them or
+the business map. `reconcile candidates` derives actionable candidates and
+unresolved waiting counts without changing observations, source, maps, rendered
+artifacts, or Git state.
 
 ## Validation Boundary
 
@@ -399,6 +414,9 @@ Errors fall into stable categories:
   versioned task or review contract and no observation is written.
 - `TASK_OBSERVATION_NOT_FOUND`: a review references no task observation in the
   selected repository partition.
+- `MAINTENANCE_CANDIDATE_INVALID`: a maintenance result references no exact
+  candidate position in the selected repository or uses another business
+  domain.
 - `OBSERVATION_CONFLICT`: an immutable ID already belongs to different content.
 - `OBSERVATION_STORAGE_FAILED`: atomic publication could not complete and no
   new final artifact is reported.

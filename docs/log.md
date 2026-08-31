@@ -1,5 +1,17 @@
 # Documentation Log
 
+## 2026-08-31
+
+- Added immutable `MaintenanceObservation` artifacts for reviewed
+  post-integration candidate outcomes, with exact source positions, explicit
+  business-domain validation, current evidence, and merged-map identity.
+- Made reconciliation return current actionable candidates: accepted, refined,
+  and discarded sources terminate; unresolved sources wait for a new origin in
+  the same candidate group before becoming actionable again.
+- Split the maintenance Skill into Work, independent Review, and Integration
+  phases so work-stage proposals cannot consume candidates and uncertain record
+  retries reuse one idempotent document.
+
 ## 2026-08-28
 
 - Defined `semantic-atlas@2.1.1` as the task-semantic business-understanding

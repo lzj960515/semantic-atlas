@@ -14,6 +14,8 @@ Every origin retains:
 - the task's map queries and current-evidence dispositions;
 - any task or review human correction;
 - every linked independent review and its accuracy assessment.
+- earlier unresolved maintenance classifications and current evidence, when
+  the candidate group has become actionable again through a new origin.
 
 `confirmed` says task-time evidence supported the proposed correction.
 `contradicted` says current evidence contradicted the mapped statement that the
@@ -60,3 +62,56 @@ relation endpoints and containment remain repository-wide even when the Git
 diff is local. Render the changed graph and inspect the selected neighborhood.
 The final Git diff is the independent review surface; retained observation
 artifacts stay unchanged.
+
+## Record The Reviewed Outcome
+
+One maintenance result identifies an exact source with both
+`taskObservationId` and zero-based `candidateIndex`. Repeated summaries do not
+replace this identity. The command rejects a missing source or a source owned by
+another `businessDomainId`.
+
+Use this shape after independent review and integration:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "maintenance-observation-id",
+  "recordedAt": "2026-08-31T08:00:00.000Z",
+  "maintenance": {
+    "taskId": "maintenance-task-id",
+    "runId": "integration-run-id"
+  },
+  "businessDomainId": "commerce",
+  "results": [
+    {
+      "candidate": {
+        "taskObservationId": "task-observation-id",
+        "candidateIndex": 0
+      },
+      "status": "accepted",
+      "reason": "Current source confirms the durable business meaning.",
+      "evidence": [
+        { "kind": "source", "reference": "src/orders/place-order.ts" }
+      ]
+    }
+  ],
+  "mapChange": {
+    "owningMapPath": "docs/business-map/commerce.yaml",
+    "mergedCommit": "MERGED_COMMIT_HEX"
+  }
+}
+```
+
+Replace `MERGED_COMMIT_HEX` with the full hexadecimal commit that actually
+merged the reviewed map change before submitting the observation.
+
+`accepted` and `refined` require `mapChange`; a document containing only
+`discarded` and `unresolved` results omits it. Every result needs a concise
+reason and at least one current evidence reference. One document lists each
+exact candidate source once.
+
+The reconciliation report exposes only actionable groups in `domains`.
+`waitingForEvidenceOccurrences` counts unresolved sources for which no new
+origin has appeared. A new origin with the same domain, kind, and summary makes
+the group actionable again and returns the earlier unresolved history beside
+the new evidence.

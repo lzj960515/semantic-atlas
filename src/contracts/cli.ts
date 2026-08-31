@@ -108,6 +108,12 @@ export type CliError =
       readonly taskObservationId: string;
     }
   | {
+      readonly code: "MAINTENANCE_CANDIDATE_INVALID";
+      readonly message: string;
+      readonly taskObservationId: string;
+      readonly candidateIndex: number;
+    }
+  | {
       readonly code: "OBSERVATION_STORAGE_FAILED";
       readonly message: string;
     }
@@ -233,6 +239,10 @@ export type ObserveTaskEnvelope =
 export type ObserveReviewEnvelope =
   | StandaloneCliSuccessEnvelope<"observe review", ObservationRecordedData>
   | CliErrorEnvelope<"observe review">;
+
+export type ObserveMaintenanceEnvelope =
+  | StandaloneCliSuccessEnvelope<"observe maintenance", ObservationRecordedData>
+  | CliErrorEnvelope<"observe maintenance">;
 
 export type InsightsSummaryEnvelope =
   | StandaloneCliSuccessEnvelope<"insights summary", InsightSummaryResult>

@@ -255,7 +255,7 @@ Skills must have one verifiable version identity.
 ### Accuracy observations
 
 Real-use evidence is separate from the Git business map and from business-map
-authority. The product records two immutable, versioned local artifacts:
+authority. The product records three immutable, versioned local artifacts:
 
 - `TaskObservation`: map query outcomes including `map_not_found`, selected
   concepts, current-evidence classification, explicitly domain-owned map-update
@@ -263,7 +263,11 @@ authority. The product records two immutable, versioned local artifacts:
   known to the task Agent. Reads and writes use task artifact v2;
 - `ReviewObservation`: the independent review verdict, correctness of the
   business boundary and upstream cause, impact completeness, required rework,
-  and whether the map caused a wrong conclusion.
+  and whether the map caused a wrong conclusion;
+- `MaintenanceObservation`: a reviewed post-integration result for exact
+  `taskObservationId + candidateIndex` sources, their `accepted`, `refined`,
+  `discarded`, or `unresolved` classification, current evidence, and the owning
+  YAML plus real merged commit when the map changed.
 
 The task Agent never grades its own engineering accuracy. Review or explicit
 human correction owns correctness. Each observation uses an independent ID and
@@ -276,6 +280,7 @@ The deterministic CLI exposes the observation boundary:
 ```text
 semantic-atlas observe task --stdin
 semantic-atlas observe review --stdin
+semantic-atlas observe maintenance --stdin
 semantic-atlas insights summary [--repo <path>] [--period <duration>]
 semantic-atlas reconcile candidates --repo <path>
 ```
@@ -291,12 +296,16 @@ map-maintenance effort remain explanatory measures.
 
 Normal engineering work records one task observation and creates durable
 map-update candidates only when the maintenance disposition is `candidate`.
-`reconcile candidates` is read-only and preserves every candidate origin,
-evidence disposition, duplicate provenance, and linked independent review. A
+`reconcile candidates` is read-only and returns current actionable origins while
+preserving their evidence disposition, duplicate provenance, linked independent
+review, and earlier unresolved investigation. Accepted, refined, and discarded
+origins are terminal. Unresolved origins wait for a new origin in the same
+candidate group before becoming actionable again. A
 post-integration maintenance task selects one business domain, checks current
 source and durable product meaning, updates one owning YAML map through normal
-Git review, and leaves unresolved or implementation-local meaning outside the
-canonical map. A mapless repository can create one initial domain-owned YAML
+Git review, and records the immutable result only after review and integration.
+It leaves unresolved or implementation-local meaning outside the canonical map.
+A mapless repository can create one initial domain-owned YAML
 when current evidence establishes stable identity and bounded meaning. Periodic
 runs provide a fallback for missed observations, accumulated drift, and changes
 outside the normal workflow.

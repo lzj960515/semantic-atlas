@@ -15,9 +15,9 @@ verified gates.
   dependency direction, collaboration model, and failure semantics.
 - [Map format](map-format.md): tracked graph documents, concepts, relations,
   anchors, validation, and query projections.
-- [Accuracy observations](observations.md): task and independent-review
-  evidence schemas, immutable local persistence, replay, privacy, derived
-  summaries, and read-only reconciliation candidate reports.
+- [Accuracy observations](observations.md): task, independent-review, and
+  maintenance evidence schemas, immutable local persistence, replay, privacy,
+  derived summaries, and read-only actionable candidate reports.
 - [Evaluation](evaluation.md): real-task accuracy, stale-map recovery, code
   quality, and human-intervention evidence.
 - [Delivery plan](delivery-plan.md): integrated initial slices and the ordered,

@@ -133,19 +133,21 @@ semantic-atlas web --repo /path/to/api /path/to/frontend --port 4310 --no-open
 ## 准确性观测
 
 每个业务改动任务都会保存自己的调查证据，而不直接修改业务地图。独立审查会另外
-保存审查证据：
+保存审查证据；完成审查和合入的维护任务还会记录每个精确候选来源的处理结果：
 
 ```bash
 semantic-atlas observe task --stdin --repo /path/to/repository
 semantic-atlas observe review --stdin --repo /path/to/repository
+semantic-atlas observe maintenance --stdin --repo /path/to/repository
 semantic-atlas insights summary --repo /path/to/repository --period 4w
 ```
 
 任务观测记录包括 `map_not_found` 在内的查询结果、当前证据分类、地图修正候选
 和明确的人类纠正。业务知识已经覆盖、改动只涉及实现细节或稳定含义尚不明确时，
 候选列表可以为空。任务不会给自己的准确性打分；独立审查观测负责记录正确性、
-影响完整性、是否需要返工，以及地图是否导致了错误结论。观测 ID 不可变：完全
-相同的重放是幂等的，内容发生变化则会报告冲突。
+影响完整性、是否需要返工，以及地图是否导致了错误结论。维护观测只在审查和
+合入完成后记录 `accepted`、`refined`、`discarded` 或 `unresolved`。观测 ID
+不可变：完全相同的重放是幂等的，内容发生变化则会报告冲突。
 
 具体 schema 和证据语义见[准确性观测](docs/observations.md)。
 
@@ -155,12 +157,14 @@ semantic-atlas insights summary --repo /path/to/repository --period 4w
 semantic-atlas reconcile candidates --repo /path/to/repository
 ```
 
-该命令按明确的业务域归属对保留候选进行分组，同时保留每个来源、证据判断和
-关联的独立审查。命令本身只读。随后，维护 Skill 会选择一个业务域，使用当前
-证据重新确认候选，并把被接受的地图修正作为普通 Git 差异提交独立审查。如果
-仓库还没有地图，有充分证据的候选可以建立第一份有边界的业务域 YAML，而不是
-一次推断整个仓库。代码合入后的维护是正常的保鲜路径；定期校准负责补回遗漏
-观测、累计漂移和常规流程以外的变更。
+该命令按明确的业务域归属返回当前可行动候选，同时保留每个来源、证据判断、
+关联的独立审查和之前未解决的调查。已接受、已细化和已丢弃的来源会进入终态；
+未解决的来源会等待新证据，而不会立刻重复生成相同任务。命令本身只读。随后，
+维护 Skill 会选择一个业务域，使用当前证据重新确认候选，把被接受的地图修正
+作为普通 Git 差异提交独立审查，并在合入后记录处理结果。如果仓库还没有地图，
+有充分证据的候选可以建立第一份有边界的业务域 YAML，而不是一次推断整个仓库。
+代码合入后的维护是正常的保鲜路径；定期校准负责补回遗漏观测、累计漂移和常规
+流程以外的变更。
 
 ## 本地数据与隐私
 

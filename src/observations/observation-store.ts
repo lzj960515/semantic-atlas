@@ -9,12 +9,14 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import type {
+  MaintenanceObservation,
   ObservationKind,
   RepositoryIdentity,
   ReviewObservation,
   TaskObservation,
 } from "../contracts/observation.js";
 import {
+  maintenanceObservationSchema,
   reviewObservationSchema,
   taskObservationSchema,
 } from "../contracts/observation.js";
@@ -24,6 +26,7 @@ import { ObservationClaimManager } from "./observation-claim-manager.js";
 const observationDirectoryNames = {
   task: "tasks",
   review: "reviews",
+  maintenance: "maintenances",
 } as const;
 
 export interface ObservationStoreOptions {
@@ -44,6 +47,7 @@ export interface ObservationWriteResult {
 export interface RepositoryObservations {
   readonly tasks: readonly TaskObservation[];
   readonly reviews: readonly ReviewObservation[];
+  readonly maintenances: readonly MaintenanceObservation[];
 }
 
 export class ObservationConflictError extends Error {
@@ -90,6 +94,12 @@ export class ObservationStore {
     return this.write("review", observation);
   }
 
+  public async writeMaintenance(
+    observation: MaintenanceObservation,
+  ): Promise<ObservationWriteResult> {
+    return this.write("maintenance", observation);
+  }
+
   public async readTask(
     repository: RepositoryIdentity,
     id: string,
@@ -111,19 +121,21 @@ export class ObservationStore {
   public async readAll(
     repository: RepositoryIdentity,
   ): Promise<RepositoryObservations> {
-    const [tasks, reviews] = await Promise.all([
+    const [tasks, reviews, maintenances] = await Promise.all([
       this.readDirectory(repository, "task"),
       this.readDirectory(repository, "review"),
+      this.readDirectory(repository, "maintenance"),
     ]);
     return {
       tasks: tasks as readonly TaskObservation[],
       reviews: reviews as readonly ReviewObservation[],
+      maintenances: maintenances as readonly MaintenanceObservation[],
     };
   }
 
   private async write(
     kind: ObservationKind,
-    observation: TaskObservation | ReviewObservation,
+    observation: TaskObservation | ReviewObservation | MaintenanceObservation,
   ): Promise<ObservationWriteResult> {
     const directory = this.observationDirectory(observation.repository, kind);
     const observationPath = this.observationPath(
@@ -231,7 +243,7 @@ export class ObservationStore {
     repository: RepositoryIdentity,
     id: string,
   ): Promise<ExistingObservation | undefined> {
-    for (const kind of ["task", "review"] as const) {
+    for (const kind of ["task", "review", "maintenance"] as const) {
       const observationPath = this.observationPath(repository, kind, id);
       const document = await readExistingDocument(observationPath);
       if (document !== undefined) {
@@ -244,7 +256,7 @@ export class ObservationStore {
   private async readDirectory(
     repository: RepositoryIdentity,
     kind: ObservationKind,
-  ): Promise<readonly (TaskObservation | ReviewObservation)[]> {
+  ): Promise<readonly (TaskObservation | ReviewObservation | MaintenanceObservation)[]> {
     const directory = this.observationDirectory(repository, kind);
     let fileNames: readonly string[];
     try {
@@ -267,7 +279,9 @@ export class ObservationStore {
       );
       const parsed = kind === "task"
         ? taskObservationSchema.safeParse(value)
-        : reviewObservationSchema.safeParse(value);
+        : kind === "review"
+        ? reviewObservationSchema.safeParse(value)
+        : maintenanceObservationSchema.safeParse(value);
       if (!parsed.success || !sameRepository(parsed.data.repository, repository)) {
         throw new ObservationStorageError(
           `Stored ${kind} observation '${fileName}' is invalid`,

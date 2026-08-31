@@ -1,12 +1,11 @@
 # Semantic Atlas Accuracy Observations
 
-This page defines the versioned task and independent-review evidence retained
+This page defines the versioned task, independent-review, and maintenance evidence retained
 from real engineering work. The [product contract](product-contract.md#accuracy-observations)
 owns why observations exist; this page owns their data, persistence, replay,
 and summary contract.
 
-**Status: implemented with one current task contract and one current review
-contract.**
+**Status: implemented with current task, review, and maintenance contracts.**
 
 ## Authority Boundary
 
@@ -29,10 +28,15 @@ correct or complete, `requiredRework` is `false`, and `mapCausedRegression` is
 `false`. A `changes_requested` review sets `requiredRework` to `true` and
 records the affected dimensions.
 
+A post-integration maintenance run produces one `MaintenanceObservation`. It
+references exact task-candidate positions, records the reviewed classification
+and current evidence, and includes the owning YAML plus real merged commit when
+the canonical map changed. Work-stage proposals are not observations.
+
 ## Versioned Schemas
 
-Current task artifacts use `schemaVersion: 2`; review artifacts remain on
-`schemaVersion: 1`. Both use an Agent-supplied immutable `id` and an RFC 3339
+Current task artifacts use `schemaVersion: 2`; review and maintenance artifacts
+use `schemaVersion: 1`. All use an Agent-supplied immutable `id` and an RFC 3339
 `recordedAt` value. The caller creates the ID and timestamp once and reuses the
 complete document for an uncertain retry.
 
@@ -66,8 +70,17 @@ Review identity also contains `taskId` and `runId`, plus the referenced
 `taskObservationId`. Review accuracy values explicitly distinguish correct,
 incorrect, complete, incomplete, not applicable, and not assessed outcomes.
 
-The bundled Skill's [observation reference](../.agents/skills/semantic-atlas/references/observations.md)
-contains complete task and review JSON examples.
+Maintenance identity contains its task and run ID plus one `businessDomainId`.
+Each result references `taskObservationId` and zero-based `candidateIndex`, then
+records `accepted`, `refined`, `discarded`, or `unresolved`, an evidence-based
+reason, and current evidence. Accepted and refined results require one
+`docs/business-map/*.yaml` path and hexadecimal `mergedCommit`; a document with
+only discarded and unresolved results omits `mapChange`.
+
+The understanding Skill's [observation reference](../.agents/skills/semantic-atlas/references/observations.md)
+contains complete task and review JSON examples. The maintenance Skill's
+[reconciliation reference](../.agents/skills/semantic-atlas-maintenance/references/reconciliation.md)
+contains the maintenance result shape.
 
 ## Repository Identity And Privacy
 
@@ -82,7 +95,8 @@ Observations live under the user's local data boundary:
 ```text
 ~/.semantic-atlas/observations/v1/repositories/<repository-id>/
 ├── tasks/<observation-id>.json
-└── reviews/<observation-id>.json
+├── reviews/<observation-id>.json
+└── maintenances/<observation-id>.json
 ```
 
 The directory `v1` identifies the private storage layout. Each artifact's own
@@ -100,11 +114,14 @@ The public write commands are:
 ```text
 semantic-atlas observe task --stdin [--repo <path>]
 semantic-atlas observe review --stdin [--repo <path>]
+semantic-atlas observe maintenance --stdin [--repo <path>]
 ```
 
 The CLI parses and strictly validates the current complete input before
 resolving a write destination. Review recording then confirms that its task
-observation already exists in the same repository partition. The store reads
+observation already exists in the same repository partition. Maintenance
+recording resolves every exact candidate position and verifies its explicit
+business-domain ownership. The store reads
 the same current task version that it writes. Before publication it writes and
 syncs claim metadata, exposes the claim
 through an atomic, non-overwriting link, then writes and syncs a private
@@ -153,11 +170,16 @@ semantic-atlas reconcile candidates --repo <path>
 ```
 
 It derives one deterministic v1 report from the selected repository partition.
-Exact domain, candidate kind, and candidate summary form a group; every task
+Exact domain, candidate kind, and candidate summary form a group. The report
+contains only groups with a current actionable origin. Every returned task
 occurrence remains visible with its candidate position, evidence disposition,
-task query and evidence record, human correction, and linked independent
-reviews. Duplicate groups produce one maintenance lead while preserving all
-origins. Observations without a durable candidate remain outside the report.
+task query and evidence record, human correction, linked independent reviews,
+and earlier unresolved maintenance history. Duplicate groups produce one
+maintenance lead while preserving all origins. Accepted, refined, and discarded
+results terminate their exact origins. When every remaining origin has only an
+unresolved result, the group leaves `domains` and contributes to
+`waitingForEvidenceOccurrences`; a new origin in the same group makes the full
+unresolved-plus-new evidence set actionable again.
 
 The command reads repository identity and immutable observation files only. It
 does not edit observations, source, `docs/business-map`, rendered artifacts, or
@@ -166,7 +188,9 @@ domain, rechecks current source and tracked product meaning, and submits any
 accepted correction as a normal reviewed YAML change. Unresolved and
 implementation-local observations remain outside the canonical map. When the
 repository has no map, the maintenance Skill can turn a supported candidate
-into one bounded initial business-domain YAML.
+into one bounded initial business-domain YAML. After independent review and
+integration, the Skill records the result through `observe maintenance` and
+requires a recorded or idempotent response before reporting completion.
 
 ## Engineering Result Semantics
 

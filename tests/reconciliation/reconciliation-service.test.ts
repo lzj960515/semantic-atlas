@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import type {
+  MaintenanceObservationInput,
   MapUpdateCandidate,
   ReviewObservationInput,
   TaskObservationInput,
@@ -52,6 +53,7 @@ describe("ReconciliationService", () => {
       candidateGroups: 4,
       candidateOccurrences: 5,
       duplicateGroups: 1,
+      waitingForEvidenceOccurrences: 0,
     });
     expect(report.domains.map(({ businessDomainId }) => businessDomainId)).toEqual([
       "commerce",
@@ -91,6 +93,79 @@ describe("ReconciliationService", () => {
     const unresolved = report.domains[1]?.candidates[0];
     expect(unresolved?.origins[0]?.disposition).toBe("unresolved");
     expect(JSON.stringify(report)).not.toContain("discarded-transient-observation");
+  });
+
+  it("removes terminal candidate origins from the actionable report", async () => {
+    const fixture = await createFixture();
+    const candidate = controlledCandidate();
+    const task = taskObservation("terminal-task-observation", candidate);
+    await fixture.application.recordTask(controlledRepository, task);
+    await fixture.application.recordMaintenance(
+      controlledRepository,
+      maintenanceObservation({
+        id: "terminal-maintenance-observation",
+        taskObservationId: task.id,
+        status: "discarded",
+      }),
+    );
+
+    await expect(fixture.service.listCandidates(controlledRepository)).resolves.toMatchObject({
+      summary: {
+        businessDomains: 0,
+        candidateGroups: 0,
+        candidateOccurrences: 0,
+        waitingForEvidenceOccurrences: 0,
+      },
+      domains: [],
+    });
+  });
+
+  it("defers unresolved origins until the same candidate group receives new evidence", async () => {
+    const fixture = await createFixture();
+    const candidate = controlledCandidate();
+    const firstTask = taskObservation("unresolved-task-observation", candidate);
+    await fixture.application.recordTask(controlledRepository, firstTask);
+    await fixture.application.recordMaintenance(
+      controlledRepository,
+      maintenanceObservation({
+        id: "unresolved-maintenance-observation",
+        taskObservationId: firstTask.id,
+        status: "unresolved",
+      }),
+    );
+
+    const waiting = await fixture.service.listCandidates(controlledRepository);
+    expect(waiting).toMatchObject({
+      summary: {
+        businessDomains: 0,
+        candidateOccurrences: 0,
+        waitingForEvidenceOccurrences: 1,
+      },
+      domains: [],
+    });
+
+    const newTask = taskObservation("new-evidence-task-observation", candidate);
+    await fixture.application.recordTask(controlledRepository, newTask);
+    const actionable = await fixture.service.listCandidates(controlledRepository);
+    expect(actionable.summary).toMatchObject({
+      businessDomains: 1,
+      candidateGroups: 1,
+      candidateOccurrences: 2,
+      waitingForEvidenceOccurrences: 0,
+    });
+    expect(actionable.domains[0]?.candidates[0]?.origins).toEqual([
+      expect.objectContaining({
+        taskObservationId: "new-evidence-task-observation",
+        maintenanceHistory: [],
+      }),
+      expect.objectContaining({
+        taskObservationId: "unresolved-task-observation",
+        maintenanceHistory: [expect.objectContaining({
+          maintenanceObservationId: "unresolved-maintenance-observation",
+          status: "unresolved",
+        })],
+      }),
+    ]);
   });
 
   it("returns the same report without changing source, Git, maps, or observations", async () => {
@@ -235,4 +310,50 @@ async function directorySnapshot(
 
 async function gitStatus(repository: string): Promise<string> {
   return (await execFileAsync("git", ["status", "--short"], { cwd: repository })).stdout;
+}
+
+function controlledCandidate(): ControlledCase {
+  return {
+    id: "controlled-candidate",
+    businessDomainId: "commerce",
+    kind: "anchor",
+    disposition: "confirmed",
+    summary: "Replace the stale inventory reservation anchor with the current fulfillment source.",
+    evidence: [{
+      kind: "source",
+      reference: "src/fulfillment/reserve-inventory.ts",
+    }],
+    expectedOutcome: "candidate",
+  };
+}
+
+function maintenanceObservation(input: {
+  readonly id: string;
+  readonly taskObservationId: string;
+  readonly status: "discarded" | "unresolved";
+}): MaintenanceObservationInput {
+  return {
+    schemaVersion: 1,
+    id: input.id,
+    recordedAt: "2026-08-27T12:00:00.000Z",
+    maintenance: {
+      taskId: "maintenance-task",
+      runId: `run-${input.id}`,
+    },
+    businessDomainId: "commerce",
+    results: [{
+      candidate: {
+        taskObservationId: input.taskObservationId,
+        candidateIndex: 0,
+      },
+      status: input.status,
+      reason: input.status === "unresolved"
+        ? "Current evidence does not establish a stable replacement yet."
+        : "The candidate describes an implementation-local detail.",
+      evidence: [{
+        kind: "source",
+        reference: "src/fulfillment/reserve-inventory.ts",
+      }],
+    }],
+  };
 }

@@ -3,6 +3,7 @@ import type {
   CliErrorEnvelope,
   InsightsSummaryEnvelope,
   ObservationRecordedData,
+  ObserveMaintenanceEnvelope,
   ObserveReviewEnvelope,
   ObserveTaskEnvelope,
   StandaloneCliSuccessEnvelope,
@@ -12,6 +13,7 @@ import {
   InvalidInsightPeriodError,
 } from "../insights/insight-service.js";
 import {
+  MaintenanceCandidateError,
   ObservationApplication,
   ObservationInputError,
   TaskObservationNotFoundError,
@@ -52,6 +54,22 @@ export async function runObserveReviewCommand(
     return observationSuccess("observe review", result);
   } catch (error) {
     return observationError("observe review", error);
+  }
+}
+
+export async function runObserveMaintenanceCommand(
+  runtime: ObservationCliRuntime,
+  repositoryPath: string,
+): Promise<ObserveMaintenanceEnvelope> {
+  try {
+    const input = await readObservationInput(runtime);
+    const result = await runtime.observationApplication.recordMaintenance(
+      repositoryPath,
+      input,
+    );
+    return observationSuccess("observe maintenance", result);
+  } catch (error) {
+    return observationError("observe maintenance", error);
   }
 }
 
@@ -101,7 +119,9 @@ async function readObservationInput(
   }
 }
 
-function observationSuccess<TCommand extends "observe task" | "observe review">(
+function observationSuccess<
+  TCommand extends "observe task" | "observe review" | "observe maintenance",
+>(
   command: TCommand,
   data: ObservationRecordedData,
 ): StandaloneCliSuccessEnvelope<TCommand, ObservationRecordedData> {
@@ -113,7 +133,9 @@ function observationSuccess<TCommand extends "observe task" | "observe review">(
   };
 }
 
-function observationError<TCommand extends "observe task" | "observe review">(
+function observationError<
+  TCommand extends "observe task" | "observe review" | "observe maintenance",
+>(
   command: TCommand,
   error: unknown,
 ): CliErrorEnvelope<TCommand> {
@@ -135,6 +157,13 @@ function observationError<TCommand extends "observe task" | "observe review">(
       code: "TASK_OBSERVATION_NOT_FOUND",
       message: error.message,
       taskObservationId: error.taskObservationId,
+    };
+  } else if (error instanceof MaintenanceCandidateError) {
+    cliError = {
+      code: "MAINTENANCE_CANDIDATE_INVALID",
+      message: error.message,
+      taskObservationId: error.taskObservationId,
+      candidateIndex: error.candidateIndex,
     };
   } else {
     cliError = repositoryOrStorageError(error, "OBSERVATION_STORAGE_FAILED");

@@ -61,9 +61,19 @@ describe("bundled Semantic Atlas maintenance Skill", () => {
     expect(skillDocument).toContain("semantic-atlas validate");
     expect(skillDocument).toContain("semantic-atlas render");
     expect(skillDocument).toContain("independent review");
+    expect(skillDocument).toContain("Work Phase");
+    expect(skillDocument).toContain("Review Phase");
+    expect(skillDocument).toContain("Integration Phase");
+    expect(skillDocument).toContain("semantic-atlas observe maintenance --stdin --repo");
+    expect(skillDocument).toContain("Do not record a terminal maintenance observation");
+    expect(skillDocument).toContain("mergedCommit");
+    expect(skillDocument).toContain("idempotent");
     expect(reference).toContain("implementation-local");
     expect(reference).toContain("duplicate");
     expect(reference).toContain("Git diff");
+    expect(reference).toContain("taskObservationId");
+    expect(reference).toContain("candidateIndex");
+    expect(reference).toContain("waitingForEvidenceOccurrences");
   });
 
   it("can bootstrap one evidence-supported domain when no map exists", async () => {

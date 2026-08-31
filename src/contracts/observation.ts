@@ -129,6 +129,56 @@ export const reviewObservationInputSchema = z.object({
   humanCorrection: humanCorrectionSchema.optional(),
 }).strict();
 
+export const maintenanceCandidateReferenceSchema = z.object({
+  taskObservationId: observationIdSchema,
+  candidateIndex: z.number().int().nonnegative(),
+}).strict();
+
+export const maintenanceResultSchema = z.object({
+  candidate: maintenanceCandidateReferenceSchema,
+  status: z.enum(["accepted", "refined", "discarded", "unresolved"]),
+  reason: nonEmptyStringSchema,
+  evidence: z.array(evidenceReferenceSchema).min(1),
+}).strict();
+
+const maintenanceObservationFields = {
+  schemaVersion: z.literal(1),
+  id: observationIdSchema,
+  recordedAt: timestampSchema,
+  maintenance: z.object({
+    taskId: identitySchema,
+    runId: identitySchema,
+  }).strict(),
+  businessDomainId: identitySchema,
+  results: z.array(maintenanceResultSchema).min(1),
+  mapChange: z.object({
+    owningMapPath: nonEmptyStringSchema.superRefine((value, context) => {
+      if (
+        isNormalizedRepositoryReference(value)
+        && value.startsWith("docs/business-map/")
+        && value.endsWith(".yaml")
+      ) {
+        return;
+      }
+      context.addIssue({
+        code: "custom",
+        message: "The owning map is a normalized docs/business-map/*.yaml path",
+      });
+    }),
+    mergedCommit: z.string().regex(
+      /^[a-f0-9]{7,64}$/u,
+      "The merged commit is a hexadecimal Git object ID",
+    ),
+  }).strict().optional(),
+};
+
+const maintenanceObservationDocumentSchema = z.object(
+  maintenanceObservationFields,
+).strict();
+
+export const maintenanceObservationInputSchema = maintenanceObservationDocumentSchema
+  .superRefine(validateMaintenanceObservation);
+
 export const taskObservationSchema = taskObservationInputSchema.extend({
   repository: repositoryIdentitySchema,
 }).strict();
@@ -137,6 +187,10 @@ export const reviewObservationSchema = reviewObservationInputSchema.extend({
   repository: repositoryIdentitySchema,
 }).strict();
 
+export const maintenanceObservationSchema = maintenanceObservationDocumentSchema.extend({
+  repository: repositoryIdentitySchema,
+}).strict().superRefine(validateMaintenanceObservation);
+
 export type RepositoryIdentity = z.infer<typeof repositoryIdentitySchema>;
 export type EvidenceReference = z.infer<typeof evidenceReferenceSchema>;
 export type MapQueryObservation = z.infer<typeof mapQueryObservationSchema>;
@@ -144,11 +198,55 @@ export type EvidenceDisposition = z.infer<typeof evidenceDispositionSchema>;
 export type MapUpdateCandidate = z.infer<typeof mapUpdateCandidateSchema>;
 export type HumanCorrection = z.infer<typeof humanCorrectionSchema>;
 export type ReviewAssessment = z.infer<typeof reviewAssessmentSchema>;
+export type MaintenanceCandidateReference = z.infer<
+  typeof maintenanceCandidateReferenceSchema
+>;
+export type MaintenanceResult = z.infer<typeof maintenanceResultSchema>;
 export type TaskObservationInput = z.infer<typeof taskObservationInputSchema>;
 export type ReviewObservationInput = z.infer<typeof reviewObservationInputSchema>;
+export type MaintenanceObservationInput = z.infer<
+  typeof maintenanceObservationInputSchema
+>;
 export type TaskObservation = z.infer<typeof taskObservationSchema>;
 export type ReviewObservation = z.infer<typeof reviewObservationSchema>;
-export type ObservationKind = "task" | "review";
+export type MaintenanceObservation = z.infer<typeof maintenanceObservationSchema>;
+export type ObservationKind = "task" | "review" | "maintenance";
+
+function validateMaintenanceObservation(
+  observation: z.infer<typeof maintenanceObservationDocumentSchema>,
+  context: z.RefinementCtx,
+): void {
+  const candidateKeys = new Set<string>();
+  for (const [index, result] of observation.results.entries()) {
+    const key = `${result.candidate.taskObservationId}:${result.candidate.candidateIndex}`;
+    if (candidateKeys.has(key)) {
+      context.addIssue({
+        code: "custom",
+        path: ["results", index, "candidate"],
+        message: "Each exact candidate source appears once in a maintenance observation",
+      });
+    }
+    candidateKeys.add(key);
+  }
+
+  const changesMap = observation.results.some(({ status }) =>
+    status === "accepted" || status === "refined"
+  );
+  if (changesMap && !observation.mapChange) {
+    context.addIssue({
+      code: "custom",
+      path: ["mapChange"],
+      message: "Accepted and refined results require the owning map and merged commit",
+    });
+  }
+  if (!changesMap && observation.mapChange) {
+    context.addIssue({
+      code: "custom",
+      path: ["mapChange"],
+      message: "A map change requires at least one accepted or refined result",
+    });
+  }
+}
 
 function isNormalizedRepositoryReference(reference: string): boolean {
   return !reference.startsWith("/")

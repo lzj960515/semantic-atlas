@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type {
+  MaintenanceObservationInput,
   ReviewObservationInput,
   TaskObservationInput,
 } from "../../src/contracts/observation.js";
@@ -114,6 +115,72 @@ describe("semantic-atlas observation commands", () => {
       error: { code: "INSIGHTS_PERIOD_INVALID" },
     });
   });
+
+  it("records a maintenance result only after resolving its exact candidate source", async () => {
+    const fixture = await createFixture();
+    const task = {
+      ...taskObservation(),
+      mapUpdateCandidates: [{
+        businessDomainId: "commerce",
+        kind: "relation" as const,
+        disposition: "contradicted" as const,
+        summary: "Replace the contradicted Orders collaborator.",
+        evidence: [{ kind: "source" as const, reference: "src/orders.ts" }],
+      }],
+    };
+    await fixture.runtime.observationApplication.recordTask(
+      fixture.repositoryRoot,
+      task,
+    );
+    const maintenance = maintenanceObservation(task.id);
+    fixture.setInput(JSON.stringify(maintenance));
+
+    const result = await runCli([
+      "observe",
+      "maintenance",
+      "--stdin",
+      "--repo",
+      fixture.repositoryRoot,
+    ], fixture.runtime);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      schemaVersion: 1,
+      ok: true,
+      command: "observe maintenance",
+      data: {
+        outcome: "recorded",
+        kind: "maintenance",
+        id: maintenance.id,
+      },
+    });
+
+    fixture.setInput(JSON.stringify({
+      ...maintenance,
+      id: "maintenance-observation-invalid-source",
+      results: [{
+        ...maintenance.results[0]!,
+        candidate: { taskObservationId: task.id, candidateIndex: 1 },
+      }],
+    }));
+    const invalidSource = await runCli([
+      "observe",
+      "maintenance",
+      "--stdin",
+      "--repo",
+      fixture.repositoryRoot,
+    ], fixture.runtime);
+    expect(invalidSource.exitCode).toBe(1);
+    expect(JSON.parse(invalidSource.stdout)).toMatchObject({
+      ok: false,
+      command: "observe maintenance",
+      error: {
+        code: "MAINTENANCE_CANDIDATE_INVALID",
+        taskObservationId: task.id,
+        candidateIndex: 1,
+      },
+    });
+  });
 });
 
 async function createFixture(): Promise<{
@@ -178,5 +245,21 @@ function reviewObservation(taskObservationId: string): ReviewObservationInput {
       requiredRework: false,
       mapCausedRegression: false,
     },
+  };
+}
+
+function maintenanceObservation(taskObservationId: string): MaintenanceObservationInput {
+  return {
+    schemaVersion: 1,
+    id: "maintenance-observation-cli",
+    recordedAt: "2026-08-27T12:00:00.000Z",
+    maintenance: { taskId: "maintenance-task-cli", runId: "maintenance-run-cli" },
+    businessDomainId: "commerce",
+    results: [{
+      candidate: { taskObservationId, candidateIndex: 0 },
+      status: "discarded",
+      reason: "The proposed relation was implementation-local rather than durable meaning.",
+      evidence: [{ kind: "source", reference: "src/orders.ts" }],
+    }],
   };
 }

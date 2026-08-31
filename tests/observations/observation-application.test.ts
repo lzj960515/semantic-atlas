@@ -13,10 +13,12 @@ import {
 import os from "node:os";
 import path from "node:path";
 import type {
+  MaintenanceObservationInput,
   ReviewObservationInput,
   TaskObservationInput,
 } from "../../src/contracts/observation.js";
 import {
+  MaintenanceCandidateError,
   ObservationApplication,
   ObservationInputError,
   TaskObservationNotFoundError,
@@ -142,6 +144,93 @@ describe("accuracy observation boundary", () => {
         },
       }),
     ).rejects.toBeInstanceOf(ObservationConflictError);
+  });
+
+  it("records a source-validated maintenance result with immutable replay semantics", async () => {
+    const fixture = await createFixture();
+    const task = taskObservation();
+    await fixture.application.recordTask(fixture.repositoryRoot, task);
+    const maintenance = maintenanceObservation(task.id);
+
+    const recorded = await fixture.application.recordMaintenance(
+      fixture.repositoryRoot,
+      maintenance,
+    );
+    expect(recorded).toMatchObject({
+      outcome: "recorded",
+      kind: "maintenance",
+      id: maintenance.id,
+    });
+    expect(JSON.parse(await readFile(recorded.path, "utf8"))).toMatchObject({
+      schemaVersion: 1,
+      businessDomainId: "commerce",
+      maintenance: maintenance.maintenance,
+      results: [{
+        candidate: { taskObservationId: task.id, candidateIndex: 0 },
+        status: "accepted",
+      }],
+      mapChange: {
+        owningMapPath: "docs/business-map/commerce.yaml",
+        mergedCommit: "1234567890abcdef1234567890abcdef12345678",
+      },
+    });
+    await expect(
+      fixture.application.recordMaintenance(fixture.repositoryRoot, maintenance),
+    ).resolves.toMatchObject({ outcome: "idempotent" });
+    await expect(
+      fixture.application.recordMaintenance(fixture.repositoryRoot, {
+        ...maintenance,
+        results: [{
+          ...maintenance.results[0]!,
+          reason: "Changed content must not reuse the observation ID.",
+        }],
+      }),
+    ).rejects.toBeInstanceOf(ObservationConflictError);
+  });
+
+  it("rejects maintenance results whose exact candidate origin is absent or belongs to another domain", async () => {
+    const fixture = await createFixture();
+    const task = taskObservation();
+    await fixture.application.recordTask(fixture.repositoryRoot, task);
+
+    await expect(
+      fixture.application.recordMaintenance(fixture.repositoryRoot, {
+        ...maintenanceObservation(task.id),
+        results: [{
+          ...maintenanceObservation(task.id).results[0]!,
+          candidate: { taskObservationId: task.id, candidateIndex: 1 },
+        }],
+      }),
+    ).rejects.toBeInstanceOf(MaintenanceCandidateError);
+    await expect(
+      fixture.application.recordMaintenance(fixture.repositoryRoot, {
+        ...maintenanceObservation(task.id),
+        id: "maintenance-observation-wrong-domain",
+        businessDomainId: "support",
+      }),
+    ).rejects.toBeInstanceOf(MaintenanceCandidateError);
+  });
+
+  it("requires merged map identity exactly when a maintenance result changes the map", async () => {
+    const fixture = await createFixture();
+    const task = taskObservation();
+    await fixture.application.recordTask(fixture.repositoryRoot, task);
+    const accepted = maintenanceObservation(task.id);
+
+    const { mapChange: _mapChange, ...acceptedWithoutMerge } = accepted;
+    await expect(
+      fixture.application.recordMaintenance(fixture.repositoryRoot, acceptedWithoutMerge),
+    ).rejects.toBeInstanceOf(ObservationInputError);
+    await expect(
+      fixture.application.recordMaintenance(fixture.repositoryRoot, {
+        ...accepted,
+        id: "maintenance-observation-discarded-with-merge",
+        results: [{
+          ...accepted.results[0]!,
+          status: "discarded",
+        }],
+      }),
+    ).rejects.toBeInstanceOf(ObservationInputError);
   });
 
   it("keeps task and review observations in one repository-wide ID namespace", async () => {
@@ -435,6 +524,29 @@ function reviewObservation(taskObservationId: string): ReviewObservationInput {
       impactCompleteness: "complete",
       requiredRework: false,
       mapCausedRegression: false,
+    },
+  };
+}
+
+function maintenanceObservation(taskObservationId: string): MaintenanceObservationInput {
+  return {
+    schemaVersion: 1,
+    id: "maintenance-observation-1",
+    recordedAt: "2026-08-27T04:00:00.000Z",
+    maintenance: {
+      taskId: "maintenance-task-1",
+      runId: "maintenance-run-1",
+    },
+    businessDomainId: "commerce",
+    results: [{
+      candidate: { taskObservationId, candidateIndex: 0 },
+      status: "accepted",
+      reason: "Current source confirms the durable concept and its replacement anchor.",
+      evidence: [{ kind: "source", reference: "src/checkout/place-order.ts" }],
+    }],
+    mapChange: {
+      owningMapPath: "docs/business-map/commerce.yaml",
+      mergedCommit: "1234567890abcdef1234567890abcdef12345678",
     },
   };
 }

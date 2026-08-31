@@ -1,95 +1,82 @@
 ---
 name: semantic-atlas-maintenance
-description: Reconcile retained Semantic Atlas map-update candidates for one business domain into a source-supported, normally reviewed docs/business-map YAML change, with or without an existing business map. Use for post-integration maintenance, initial-domain bootstrap, drift cleanup, candidate triage, and domain-scoped reconciliation in repositories with local observations.
+description: Reconcile current Semantic Atlas candidates for one business domain into a source-supported reviewed map update or evidence conclusion, then record the result after integration. Use for post-integration maintenance, initial-domain bootstrap, drift cleanup, candidate triage, and domain-scoped reconciliation with or without an existing business map.
 compatibility: Requires Node.js 24+, Git, the current semantic-atlas CLI, retained local observations, and repository source access.
 ---
 
 # Semantic Atlas Maintenance
 
-Turn retained investigation leads into one bounded, current-evidence map change.
-The candidate report preserves why a correction was proposed; current source,
-tests, tracked product documents, and required runtime evidence decide whether
-the canonical map changes.
+Turn current candidate leads for one business domain into one independently
+reviewable map update or evidence conclusion. Current source, tests, tracked product documents,
+and required runtime evidence decide the result. Candidate
+provenance explains where to investigate; it does not authorize a map edit.
 
-## Prepare The Candidate Set
+Read [references/reconciliation.md](references/reconciliation.md) before
+classifying candidates. It defines evidence meaning, durable-content tests,
+duplicate handling, maintenance-observation fields, and stopping conditions.
 
-1. Resolve the repository root and keep the maintenance work in its assigned
-   worktree.
-2. Run the read-only report:
+## Work Phase
+
+### Load Current Actionable Candidates
+
+1. Resolve the repository root and work only in the assigned worktree.
+2. Run:
 
    ```bash
    semantic-atlas reconcile candidates --repo <absolute-repository-root>
    ```
 
-3. Confirm the response is the v1 `reconcile candidates` envelope. Read each
-   candidate's business-domain ownership, task evidence, `confirmed`,
-   `contradicted`, or `unresolved` disposition, duplicate provenance, and
-   linked independent reviews.
-4. When the report contains no candidates, finish with a no-change result. An
-   empty report is a complete maintenance outcome.
+3. Confirm the v1 `reconcile candidates` envelope. Select one business domain
+   from `data.domains`. Read each origin's exact `taskObservationId` and
+   `candidateIndex`, task evidence, linked independent reviews, duplicate
+   provenance, and any earlier unresolved maintenance history.
+   Treat task-time `confirmed`, `contradicted`, and `unresolved` dispositions as
+   investigation inputs rather than maintenance conclusions.
+4. When `data.domains` is empty, finish with a no-change result. A positive
+   `waitingForEvidenceOccurrences` means prior investigation remains retained
+   but does not justify immediately repeating the same work.
 
-## Select One Business Domain
+### Confirm Current Business Meaning
 
-Choose one business domain for the run. Keep candidates from other domains in
-the retained report for later maintenance. Within the selected domain, use
-linked approved reviews and repeated provenance to prioritize investigation;
-they strengthen the trail but remain evidence to verify rather than automatic
-map authority.
+Open every decisive current source, test, or tracked product document named by
+the selected origins. Follow current callers and collaborators when a proposed
+relation changes both endpoints. Use runtime evidence when deployed state owns
+the conclusion.
 
-Read [references/reconciliation.md](references/reconciliation.md) before
-classifying candidates. It defines the evidence meaning, durable-content test,
-duplicate handling, and clean stopping conditions.
+Classify every selected origin:
 
-## Confirm Current Business Meaning
+- `accepted`: current evidence supports the proposed durable correction;
+- `refined`: current evidence supports a narrower or differently worded durable
+  correction;
+- `discarded`: current evidence shows implementation-local, obsolete, or
+  unsupported meaning that does not belong in the shared map;
+- `unresolved`: available evidence cannot yet establish stable business meaning.
 
-1. Determine whether the selected domain already has an owning
-   `docs/business-map/*.yaml` file. Preserve a `MAP_NOT_FOUND` result as the
-   explicit bootstrap state.
-2. Open every decisive current source, test, or tracked product document named
-   by the candidate origins. Follow current callers or collaborators when the
-   proposed relation changes both business endpoints.
-3. Classify each candidate for this maintenance run:
-   - `accepted`: current evidence supports the proposed durable correction;
-   - `refined`: current evidence supports a narrower or differently worded
-     durable correction;
-   - `discarded`: the observation is implementation-local, stale in a way that
-     no longer matters, or unsupported by current evidence;
-   - `unresolved`: available evidence cannot decide stable business meaning.
-4. Keep discarded and unresolved candidates outside the canonical map. Record
-   their evidence-based reason in the maintenance result.
+Keep discarded and unresolved results outside the canonical map. A correct
+discard or unresolved conclusion is a complete work result and may have no Git
+change.
 
-## Resolve One Owning YAML
+### Resolve And Edit One Owning YAML
 
-Use the selected business domain as the ownership boundary:
-
-- When the domain already has an owning YAML file, edit that file.
-- When the graph exists but the selected domain has no owning file, create one
-  domain-owned YAML file that participates in complete-graph validation.
+- Edit the selected domain's existing owning `docs/business-map/*.yaml` file.
+- When the graph exists without an owning file for this domain, create one
+  domain-owned YAML that participates in complete-graph validation.
 - When no map documents exist, create one initial business-domain YAML under
   `docs/business-map/`. Establish its stable domain ID, title, summary, root
-  node, and bounded accepted concepts from current evidence.
+  node, and only the bounded accepted or refined meaning supported by current
+  evidence. Preserve `MAP_NOT_FOUND` as the explicit bootstrap condition.
 
 Limit the initial map to stable meaning supported by the selected candidates and current evidence.
-Retain cross-domain relations as unresolved until both durable endpoints and
-their owning domains can participate in one valid graph. The first map is a
-reviewable business-domain seed rather than a taxonomy inferred from repository
-structure.
 
-## Edit One Owning YAML
+Limit the run to one owning YAML. Preserve stable node IDs when business
+identity is unchanged, declare directed relations from the source concept's
+owning file, and keep anchors as navigation hints. One duplicate candidate
+group produces one map edit while its maintenance draft retains every exact
+origin.
 
-Apply accepted and refined corrections to one owning YAML surface for the
-selected business domain. This surface can be an existing domain file or the
-new initial domain file. Preserve stable node IDs when business identity is
-unchanged, use the source concept's owning file for directed relations, and keep
-anchors as navigation hints rather than current-behavior claims.
+### Validate And Prepare The Review Candidate
 
-Repeated origins for one duplicate candidate produce one map edit. Preserve
-all originating task and review IDs in the maintenance result so independent
-review can trace why the edit exists.
-
-## Validate The Normal Git Change
-
-Run the supported product boundaries after the edit:
+When the map changes, run:
 
 ```bash
 semantic-atlas validate --repo <absolute-repository-root>
@@ -99,18 +86,56 @@ git diff --check
 git diff -- docs/business-map/<owning-file>.yaml
 ```
 
-Inspect the rendered projection for the changed neighborhood. For an initial
-map, confirm that the Viewer presents one bounded business domain rather than a
-repository structure. Confirm the Git diff changes one owning YAML surface and
-leaves retained observations unchanged. Submit the ordinary map change for
-independent review; the reviewer checks durable business meaning, relation
-direction, evidence support, complete graph validity, and the one-domain
-boundary.
+Inspect the changed neighborhood in the Viewer. Confirm the Git diff changes at
+most one owning YAML and leaves retained observations unchanged. Commit the map
+candidate through the host workflow.
 
-## Report The Result
+Prepare, but do not record, one maintenance-observation JSON document. It
+contains the maintenance task/run identity, selected `businessDomainId`, every
+exact candidate source, classification, reason, and current evidence. Accepted
+or refined results reserve `mapChange.owningMapPath`; the Integration Phase adds
+the real `mergedCommit`.
 
-Report the selected business domain, candidate origins, each maintenance
-classification and decisive evidence, the owning YAML file, validation and
-render results, whether this is an initial map or an update, the Git diff, and
-any discarded or unresolved leads. Separate the proposed map change from
-independent-review approval and later merge.
+Do not record a terminal maintenance observation during the Work Phase. At this
+point the classification and YAML are proposals that have not completed
+independent review and integration.
+
+Report the selected domain, origins, classifications, evidence, owning YAML,
+validation and render results, Git candidate, and the prepared observation to
+the host workflow.
+
+## Review Phase
+
+Use the host workflow's ordinary independent review. Review durable business
+meaning, relation direction, evidence support, complete-graph validity, exact
+candidate coverage, one-domain ownership, and whether discarded or unresolved
+conclusions correctly avoid a map edit.
+
+Changes requested return to the normal Work Phase. Approval authorizes the host
+workflow to enter Integration Phase; it does not itself consume candidates.
+
+## Integration Phase
+
+1. Re-read the approved work and review evidence.
+2. When a map candidate exists, merge it through the repository's normal Git
+   flow and capture the actual `mergedCommit`. Put that commit and the one
+   `owningMapPath` into `mapChange`.
+3. When every result is discarded or unresolved, keep `mapChange` absent and
+   continue only after the no-change conclusion has passed independent review.
+4. Send the complete JSON document through standard input:
+
+   ```bash
+   semantic-atlas observe maintenance --stdin --repo <absolute-repository-root>
+   ```
+
+5. Require a `recorded` or `idempotent` success response before reporting the
+   maintenance task complete. Reuse the exact observation ID and document on an
+   uncertain retry. The same ID with changed content is a conflict.
+6. Rerun `semantic-atlas reconcile candidates --repo` when confirming the
+   result. Accepted, refined, and discarded origins disappear from actionable
+   candidates. Unresolved origins remain retained as waiting for new evidence
+   and do not immediately schedule the same work again.
+
+If the map merged but observation recording failed, preserve the merged Git
+result and keep the task incomplete. Resume or retry the Integration Phase with
+the exact same observation document until the idempotent record succeeds.

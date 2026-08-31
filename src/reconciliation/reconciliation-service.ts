@@ -3,9 +3,11 @@ import type {
   ReconciliationCandidateOrigin,
   ReconciliationCandidateReport,
   ReconciliationDomainGroup,
+  ReconciliationMaintenanceOrigin,
   ReconciliationReviewOrigin,
 } from "../contracts/reconciliation.js";
 import type {
+  MaintenanceObservation,
   ReviewObservation,
   TaskObservation,
 } from "../contracts/observation.js";
@@ -31,7 +33,15 @@ export class ReconciliationService {
     const repository = (await this.repositoryResolver.resolve(repositoryPath)).identity;
     const observations = await this.store.readAll(repository);
     const reviewsByTask = groupReviewsByTask(observations.reviews);
-    const candidates = groupCandidates(observations.tasks, reviewsByTask);
+    const maintenanceByCandidate = groupMaintenanceByCandidate(
+      observations.maintenances,
+    );
+    const groupedCandidates = groupCandidates(
+      observations.tasks,
+      reviewsByTask,
+      maintenanceByCandidate,
+    );
+    const candidates = groupedCandidates.actionable;
     const domains = groupByDomain(candidates);
     const candidateGroups = domains.reduce(
       (total, domain) => total + domain.candidates.length,
@@ -49,6 +59,7 @@ export class ReconciliationService {
         candidateGroups,
         candidateOccurrences,
         duplicateGroups: candidates.filter(({ origins }) => origins.length > 1).length,
+        waitingForEvidenceOccurrences: groupedCandidates.waitingForEvidenceOccurrences,
       },
       domains,
     };
@@ -82,10 +93,23 @@ function groupReviewsByTask(
 function groupCandidates(
   tasks: readonly TaskObservation[],
   reviewsByTask: ReadonlyMap<string, readonly ReconciliationReviewOrigin[]>,
-): readonly CandidateAccumulator[] {
+  maintenanceByCandidate: ReadonlyMap<
+    string,
+    readonly ReconciliationMaintenanceOrigin[]
+  >,
+): {
+  readonly actionable: readonly CandidateAccumulator[];
+  readonly waitingForEvidenceOccurrences: number;
+} {
   const grouped = new Map<string, CandidateAccumulator>();
   for (const task of tasks) {
     task.mapUpdateCandidates.forEach((candidate, candidateIndex) => {
+      const maintenanceHistory = maintenanceByCandidate.get(
+        candidateOriginKey(task.id, candidateIndex),
+      ) ?? [];
+      if (maintenanceHistory.some(({ status }) => status !== "unresolved")) {
+        return;
+      }
       const key = candidateKey(candidate.businessDomainId, candidate.kind, candidate.summary);
       const current = grouped.get(key) ?? {
         businessDomainId: candidate.businessDomainId,
@@ -103,6 +127,7 @@ function groupCandidates(
         evidence: candidate.evidence,
         ...(task.humanCorrection ? { humanCorrection: task.humanCorrection } : {}),
         reviews: reviewsByTask.get(task.id) ?? [],
+        maintenanceHistory,
       });
       grouped.set(key, current);
     });
@@ -112,7 +137,50 @@ function groupCandidates(
   for (const candidate of candidates) {
     candidate.origins.sort(compareOrigins);
   }
-  return candidates.sort(compareCandidates);
+  candidates.sort(compareCandidates);
+  const actionable = candidates.filter(({ origins }) =>
+    origins.some(({ maintenanceHistory }) => maintenanceHistory.length === 0)
+  );
+  const waitingForEvidenceOccurrences = candidates
+    .filter(({ origins }) =>
+      origins.every(({ maintenanceHistory }) => maintenanceHistory.length > 0)
+    )
+    .reduce((total, candidate) => total + candidate.origins.length, 0);
+  return { actionable, waitingForEvidenceOccurrences };
+}
+
+function groupMaintenanceByCandidate(
+  maintenances: readonly MaintenanceObservation[],
+): ReadonlyMap<string, readonly ReconciliationMaintenanceOrigin[]> {
+  const grouped = new Map<string, ReconciliationMaintenanceOrigin[]>();
+  for (const observation of maintenances) {
+    for (const result of observation.results) {
+      const key = candidateOriginKey(
+        result.candidate.taskObservationId,
+        result.candidate.candidateIndex,
+      );
+      const history = grouped.get(key) ?? [];
+      history.push({
+        maintenanceObservationId: observation.id,
+        recordedAt: observation.recordedAt,
+        maintenance: observation.maintenance,
+        status: result.status,
+        reason: result.reason,
+        evidence: result.evidence,
+      });
+      grouped.set(key, history);
+    }
+  }
+  for (const history of grouped.values()) {
+    history.sort((left, right) =>
+      compareText(left.maintenanceObservationId, right.maintenanceObservationId)
+    );
+  }
+  return grouped;
+}
+
+function candidateOriginKey(taskObservationId: string, candidateIndex: number): string {
+  return JSON.stringify([taskObservationId, candidateIndex]);
 }
 
 function groupByDomain(

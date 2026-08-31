@@ -1,5 +1,7 @@
 import type {
   EvidenceReference,
+  MaintenanceObservation,
+  MaintenanceResult,
   MapUpdateCandidate,
   ReviewObservation,
   TaskObservation,
@@ -22,6 +24,16 @@ export interface ReconciliationCandidateOrigin {
   readonly evidence: readonly EvidenceReference[];
   readonly humanCorrection?: TaskObservation["humanCorrection"];
   readonly reviews: readonly ReconciliationReviewOrigin[];
+  readonly maintenanceHistory: readonly ReconciliationMaintenanceOrigin[];
+}
+
+export interface ReconciliationMaintenanceOrigin {
+  readonly maintenanceObservationId: string;
+  readonly recordedAt: string;
+  readonly maintenance: MaintenanceObservation["maintenance"];
+  readonly status: MaintenanceResult["status"];
+  readonly reason: string;
+  readonly evidence: readonly EvidenceReference[];
 }
 
 export interface ReconciliationCandidateGroup {
@@ -41,6 +53,7 @@ export interface ReconciliationSummary {
   readonly candidateGroups: number;
   readonly candidateOccurrences: number;
   readonly duplicateGroups: number;
+  readonly waitingForEvidenceOccurrences: number;
 }
 
 export interface ReconciliationCandidateReport {

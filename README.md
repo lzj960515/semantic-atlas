@@ -145,11 +145,13 @@ maps through Git.
 ## Accuracy Observations
 
 Every business-changing task records task evidence without changing the
-business map. An independent review records its separate review evidence:
+business map. Independent review records separate review evidence, and a
+reviewed maintenance run records what happened to each exact candidate origin:
 
 ```bash
 semantic-atlas observe task --stdin --repo /path/to/repository
 semantic-atlas observe review --stdin --repo /path/to/repository
+semantic-atlas observe maintenance --stdin --repo /path/to/repository
 semantic-atlas insights summary --repo /path/to/repository --period 4w
 ```
 
@@ -158,8 +160,10 @@ classifications, candidate map corrections, and explicit human corrections. An
 empty candidate list is valid when knowledge is already represented,
 implementation-local, or unresolved. The task never grades its own accuracy.
 An independent review observation owns correctness, impact, required-rework,
-and map-regression judgments. IDs are immutable: an exact replay is idempotent
-and changed content conflicts.
+and map-regression judgments. A maintenance observation records `accepted`,
+`refined`, `discarded`, or `unresolved` results only after review and
+integration. IDs are immutable: an exact replay is idempotent and changed
+content conflicts.
 
 See [accuracy observations](docs/observations.md) for the schemas and evidence
 semantics.
@@ -170,12 +174,16 @@ semantics.
 semantic-atlas reconcile candidates --repo /path/to/repository
 ```
 
-The command groups retained candidates by explicit business-domain ownership
-while preserving each origin, evidence disposition, and linked independent
-review. It is read-only. The maintenance Skill then confirms one domain against
-current evidence and submits any accepted map correction through an ordinary
-Git diff and independent review. When no map exists, a supported candidate can
-seed one bounded business-domain YAML instead of a repository-wide taxonomy.
+The command returns current actionable candidates by explicit business-domain
+ownership while preserving each origin, evidence disposition, linked
+independent review, and earlier unresolved investigation. Accepted, refined,
+and discarded origins are terminal. An unresolved origin waits for new evidence
+instead of immediately producing the same task again. The command is read-only.
+The maintenance Skill then confirms one domain against current evidence,
+submits any accepted map correction through an ordinary Git diff and independent
+review, and records the reviewed outcome after integration. When no map exists,
+a supported candidate can seed one bounded business-domain YAML instead of a
+repository-wide taxonomy.
 Post-integration maintenance is the normal freshness path; periodic
 reconciliation recovers missed observations, accumulated drift, and changes
 outside the normal engineering workflow.

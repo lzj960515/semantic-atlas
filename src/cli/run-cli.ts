@@ -7,6 +7,7 @@ import type {
   CliRunResult,
   ContextEnvelope,
   InsightsSummaryEnvelope,
+  ObserveMaintenanceEnvelope,
   ObserveReviewEnvelope,
   ObserveTaskEnvelope,
   ReconciliationCandidatesEnvelope,
@@ -38,6 +39,7 @@ import {
 import {
   type ObservationCliRuntime,
   runInsightsSummaryCommand,
+  runObserveMaintenanceCommand,
   runObserveReviewCommand,
   runObserveTaskCommand,
 } from "./observation-commands.js";
@@ -81,6 +83,7 @@ export async function runCli(
     | ObserveTaskEnvelope
     | ObserveReviewEnvelope
     | InsightsSummaryEnvelope
+    | ObserveMaintenanceEnvelope
     | ReconciliationCandidatesEnvelope
     | WebEnvelope
     | undefined;
@@ -181,6 +184,18 @@ export async function runCli(
     .option("--repo <path>", "repository root", process.cwd())
     .action(async (options: { readonly repo: string }) => {
       commandEnvelope = await runObserveReviewCommand(resolvedRuntime, options.repo);
+    });
+
+  observe
+    .command("maintenance")
+    .description("Record a reviewed post-integration candidate result")
+    .requiredOption("--stdin", "read one JSON observation from standard input")
+    .option("--repo <path>", "repository root", process.cwd())
+    .action(async (options: { readonly repo: string }) => {
+      commandEnvelope = await runObserveMaintenanceCommand(
+        resolvedRuntime,
+        options.repo,
+      );
     });
 
   program
