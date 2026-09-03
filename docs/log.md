@@ -2,6 +2,8 @@
 
 ## 2026-09-03
 
+- Added the bounded initial Human Map Inspection map for validated project
+  registration, opaque one-project loading, and isolated unavailable results.
 - Added the versioned user-local project list and the single validating,
   idempotent `semantic-atlas project add [path]` registration entry point.
 - Made parameterless `web` start from registered projects in any directory,

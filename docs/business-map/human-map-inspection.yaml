@@ -1,0 +1,255 @@
+schemaVersion: 1
+map:
+  id: human-map-inspection
+  title: Human Map Inspection
+  summary: Manual project registration and read-only inspection of selected business maps.
+
+nodes:
+  - id: human-map-inspection
+    kind: domain
+    name: Human map inspection
+    summary: Lets a person inspect tracked business meaning through local read-only projections.
+    aliases:
+      - Business map viewing
+    anchors:
+      - kind: document
+        value: docs/product-contract.md
+        description: Durable product contract for human inspection.
+
+  - id: human-map-inspection.registered-project-viewing
+    kind: capability
+    name: Registered project viewing
+    summary: Makes manually registered checkouts available for one-project-at-a-time inspection.
+    aliases:
+      - Viewer project catalog
+    anchors:
+      - kind: document
+        value: docs/architecture.md
+        description: Ownership and lifecycle of registration, the catalog, and selected map loading.
+
+  - id: human-map-inspection.registered-project-viewing.inspect-project
+    kind: scenario
+    name: Inspect a registered project
+    summary: A valid checkout enters the local catalog and its current map loads only when selected.
+    aliases:
+      - Project selection
+    anchors:
+      - kind: file
+        value: tests/web/local-web-server.test.ts
+        description: Public-flow coverage for catalog loading and isolated unavailable projects.
+
+  - id: human-map-inspection.registered-project-viewing.inspect-project.register-project
+    kind: operation
+    name: Register project
+    summary: Validates a checkout's complete tracked map before adding it once to the local catalog.
+    aliases:
+      - Project registration
+    anchors:
+      - kind: file
+        value: src/projects/project-registration-service.ts
+        description: Current registration boundary and map-validation entry point.
+
+  - id: human-map-inspection.registered-project-viewing.inspect-project.open-catalog
+    kind: operation
+    name: Open project catalog
+    summary: Starts the local Viewer from registered projects without loading every business map.
+    aliases:
+      - Open Viewer
+    anchors:
+      - kind: file
+        value: src/web/web-command-service.ts
+        description: Current parameterless Viewer startup and registered-list loading.
+
+  - id: human-map-inspection.registered-project-viewing.inspect-project.load-selected-map
+    kind: operation
+    name: Load selected map
+    summary: Resolves one server-owned project selection and loads only that project's current map.
+    aliases:
+      - Project map loading
+    anchors:
+      - kind: file
+        value: src/web/local-web-application.ts
+        description: Current project catalog and selected-map loading boundary.
+
+  - id: human-map-inspection.registered-project-viewing.registered-projects
+    kind: data
+    name: Registered projects
+    summary: The user-local list of normalized checkout paths that supplies the Viewer catalog.
+    aliases:
+      - Project list
+    anchors:
+      - kind: file
+        value: src/projects/project-store.ts
+        description: Current durable registered-project record.
+
+  - id: human-map-inspection.registered-project-viewing.valid-registration
+    kind: invariant
+    name: Valid project registration
+    summary: Only a checkout with a valid complete map enters the list; failure leaves that list unchanged.
+    aliases:
+      - Registration validation
+    anchors:
+      - kind: file
+        value: tests/projects/project-registration.test.ts
+        description: Registration validation, idempotency, and unchanged-list coverage.
+
+  - id: human-map-inspection.registered-project-viewing.opaque-selection
+    kind: invariant
+    name: Opaque project selection
+    summary: The browser selects a server-assigned project ID without receiving or submitting its path.
+    aliases:
+      - Server-owned project identity
+    anchors:
+      - kind: file
+        value: tests/web/local-web-server.test.ts
+        description: Coverage for opaque project requests and path privacy.
+
+  - id: human-map-inspection.registered-project-viewing.unavailable-project-isolation
+    kind: invariant
+    name: Unavailable project isolation
+    summary: A later project or map failure affects only its selected view while other projects remain usable.
+    aliases:
+      - Project failure isolation
+    anchors:
+      - kind: file
+        value: tests/web/local-web-server.test.ts
+        description: Coverage for selecting another project after one is unavailable.
+
+relations:
+  - from: human-map-inspection.registered-project-viewing
+    type: part_of
+    to: human-map-inspection
+    summary: Registered project viewing is part of human map inspection.
+
+  - from: human-map-inspection.registered-project-viewing.inspect-project
+    type: part_of
+    to: human-map-inspection.registered-project-viewing
+    summary: Inspecting one registered project is the capability's central scenario.
+
+  - from: human-map-inspection.registered-project-viewing.inspect-project.register-project
+    type: part_of
+    to: human-map-inspection.registered-project-viewing.inspect-project
+    summary: Registration makes a validated project available for later inspection.
+
+  - from: human-map-inspection.registered-project-viewing.inspect-project.open-catalog
+    type: part_of
+    to: human-map-inspection.registered-project-viewing.inspect-project
+    summary: Opening the catalog begins inspection from the registered project list.
+
+  - from: human-map-inspection.registered-project-viewing.inspect-project.load-selected-map
+    type: part_of
+    to: human-map-inspection.registered-project-viewing.inspect-project
+    summary: Loading a selected map completes or rejects the current inspection attempt.
+
+  - from: human-map-inspection.registered-project-viewing.registered-projects
+    type: part_of
+    to: human-map-inspection.registered-project-viewing
+    summary: The registered-project list belongs to the viewing capability.
+
+  - from: human-map-inspection.registered-project-viewing.valid-registration
+    type: part_of
+    to: human-map-inspection.registered-project-viewing
+    summary: Registration validity governs the projects admitted to this capability.
+
+  - from: human-map-inspection.registered-project-viewing.opaque-selection
+    type: part_of
+    to: human-map-inspection.registered-project-viewing
+    summary: Opaque selection governs the browser's project boundary.
+
+  - from: human-map-inspection.registered-project-viewing.unavailable-project-isolation
+    type: part_of
+    to: human-map-inspection.registered-project-viewing
+    summary: Project-local unavailability governs multi-project inspection.
+
+  - from: human-map-inspection.registered-project-viewing.inspect-project
+    type: invokes
+    to: human-map-inspection.registered-project-viewing.inspect-project.register-project
+    summary: Inspection starts by making a validated checkout available to the catalog.
+
+  - from: human-map-inspection.registered-project-viewing.inspect-project
+    type: invokes
+    to: human-map-inspection.registered-project-viewing.inspect-project.open-catalog
+    summary: Inspection opens the Viewer catalog of manually registered projects.
+
+  - from: human-map-inspection.registered-project-viewing.inspect-project
+    type: invokes
+    to: human-map-inspection.registered-project-viewing.inspect-project.load-selected-map
+    summary: Inspection requests the current map for the project a person selects.
+
+  - from: human-map-inspection.registered-project-viewing.inspect-project.register-project
+    type: writes
+    to: human-map-inspection.registered-project-viewing.registered-projects
+    summary: Successful registration adds one normalized checkout to the project list.
+
+  - from: human-map-inspection.registered-project-viewing.inspect-project.open-catalog
+    type: reads
+    to: human-map-inspection.registered-project-viewing.registered-projects
+    summary: Viewer startup reads the registered projects that form its catalog.
+
+  - from: human-map-inspection.registered-project-viewing.inspect-project.load-selected-map
+    type: reads
+    to: human-map-inspection.registered-project-viewing.registered-projects
+    summary: Selected-map loading resolves the chosen project from the current catalog.
+
+  - from: human-map-inspection.registered-project-viewing.inspect-project.register-project
+    type: constrained_by
+    to: human-map-inspection.registered-project-viewing.valid-registration
+    summary: Registration changes the list only after complete map validation succeeds.
+
+  - from: human-map-inspection.registered-project-viewing.inspect-project.load-selected-map
+    type: constrained_by
+    to: human-map-inspection.registered-project-viewing.opaque-selection
+    summary: Selected-map loading accepts an opaque catalog identity rather than a browser path.
+
+  - from: human-map-inspection.registered-project-viewing.inspect-project
+    type: constrained_by
+    to: human-map-inspection.registered-project-viewing.unavailable-project-isolation
+    summary: A selected project's failure cannot block inspection of another catalog entry.
+
+flows:
+  - id: human-map-inspection.registered-project-viewing.inspect-project-flow
+    name: Inspect a registered project
+    summary: A checkout valid at registration enters the catalog; later selection loads only that map and isolates unavailability.
+    scenario: human-map-inspection.registered-project-viewing.inspect-project
+    startsAt: register-project
+    steps:
+      - id: register-project
+        kind: action
+        name: Register valid project
+        summary: A checkout with a valid complete map is retained once for local inspection.
+        concept: human-map-inspection.registered-project-viewing.inspect-project.register-project
+      - id: open-project-catalog
+        kind: action
+        name: Open project catalog
+        summary: The local Viewer lists manually registered projects before loading a map.
+        concept: human-map-inspection.registered-project-viewing.inspect-project.open-catalog
+      - id: select-project
+        kind: action
+        name: Select project
+        summary: The Viewer requests only the chosen project through its server-assigned identity.
+        concept: human-map-inspection.registered-project-viewing.inspect-project.load-selected-map
+      - id: project-available
+        kind: decision
+        name: Can the selected project be loaded?
+        summary: The current checkout and tracked map are validated when the selection is loaded.
+      - id: selected-map-ready
+        kind: outcome
+        name: Selected map ready
+        summary: The person can inspect the chosen project's current relationships and flows.
+      - id: selected-project-unavailable
+        kind: outcome
+        name: Selected project unavailable
+        summary: Only the chosen view reports failure while the catalog and other projects remain usable.
+    transitions:
+      - from: register-project
+        to: open-project-catalog
+      - from: open-project-catalog
+        to: select-project
+      - from: select-project
+        to: project-available
+      - from: project-available
+        when: available
+        to: selected-map-ready
+      - from: project-available
+        when: unavailable
+        to: selected-project-unavailable
