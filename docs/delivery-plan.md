@@ -157,11 +157,11 @@ Acceptance:
 ## Current Public Rollout
 
 The initial product is public and installed. The current
-`semantic-atlas@2.2.0` release adds scenario-owned business flows and a linked
-relationship/flow Viewer while preserving reviewed maintenance outcomes, the
-narrow orchestration-status contract, current observations, managed Skills,
-reconciliation, and real-use acceptance thresholds defined by the
-[product contract](product-contract.md).
+`semantic-atlas@2.3.0` release adds manual project registration, parameterless
+Web startup, on-demand single-project loading, and project-level unavailable
+states while preserving the tracked business-map model, current observations,
+managed Skills, reconciliation, and real-use acceptance thresholds defined by
+the [product contract](product-contract.md).
 
 Delivery keeps these gates separate:
 
@@ -186,8 +186,8 @@ target-repository changes, or real-use acceptance.
 ## Interactive Viewer Extension
 
 **Status: the base Viewer was released in `semantic-atlas@2.1.0`; persistent
-registration and on-demand project loading are implemented in the current
-source candidate.**
+registration and on-demand project loading were released in
+`semantic-atlas@2.3.0`.**
 
 Human inspection feedback established that a fixed-width static page without
 zoom is insufficient once a real domain map contains many relations. The

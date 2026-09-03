@@ -249,11 +249,9 @@ human-intervention evidence as acceptance conditions.
 The initial product, managed setup, versioned observations, read-only
 reconciliation, public repository, and npm publication are complete. The first
 real target-domain map and reviewed observation pair are in local use. The
-current `semantic-atlas@2.2.0` release includes scenario-owned business flows
-and the linked relationship/flow Viewer. The current source candidate adds
-manual project registration, parameterless Web startup, on-demand
-single-project loading, and project-level unavailable states without changing
-the tracked YAML business-map source.
+current `semantic-atlas@2.3.0` release adds manual project registration,
+parameterless Web startup, on-demand single-project loading, and project-level
+unavailable states without changing the tracked YAML business-map source.
 Target-repository sharing and longitudinal acceptance remain separate verified
 stages.
 

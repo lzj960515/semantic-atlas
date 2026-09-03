@@ -2,6 +2,8 @@
 
 ## 2026-09-03
 
+- Defined `semantic-atlas@2.3.0` as the manual project-registration and
+  on-demand Web loading release.
 - Added the bounded initial Human Map Inspection map for validated project
   registration, opaque one-project loading, and isolated unavailable results.
 - Added the versioned user-local project list and the single validating,
