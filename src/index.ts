@@ -8,6 +8,8 @@ export type {
   ObserveMaintenanceEnvelope,
   ObserveReviewEnvelope,
   ObserveTaskEnvelope,
+  ProjectAddData,
+  ProjectAddEnvelope,
   ReconciliationCandidatesEnvelope,
   ReconciliationStatusData,
   ReconciliationStatusEnvelope,

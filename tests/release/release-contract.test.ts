@@ -167,12 +167,13 @@ describe("public release candidate", () => {
   });
 
   it("documents the complete public user and release-owner journeys", async () => {
-    const [readme, readmeZh, agents, release, productContract, deliveryPlan] = await Promise.all([
+    const [readme, readmeZh, agents, release, productContract, architecture, deliveryPlan] = await Promise.all([
       read("README.md"),
       read("README.zh-CN.md"),
       read("AGENTS.md"),
       read(".claude/commands/release.md"),
       read("docs/product-contract.md"),
+      read("docs/architecture.md"),
       read("docs/delivery-plan.md"),
     ]);
 
@@ -191,6 +192,9 @@ describe("public release candidate", () => {
     expect(readme).toContain("semantic-atlas setup");
     expect(readme).toContain("docs/business-map/*.yaml");
     expect(readme).toContain("semantic-atlas web --repo");
+    expect(readme).toContain("semantic-atlas project add");
+    expect(readme).toContain("~/.semantic-atlas/projects.json");
+    expect(readme).toContain("not merged with registered projects");
     expect(readme).toContain("127.0.0.1");
     expect(readme).toContain("Drag to pan");
     expect(readme).toContain("semantic-atlas observe task --stdin");
@@ -213,6 +217,9 @@ describe("public release candidate", () => {
     }
     expect(readmeZh).toContain("semantic-atlas setup");
     expect(readmeZh).toContain("semantic-atlas web --repo");
+    expect(readmeZh).toContain("semantic-atlas project add");
+    expect(readmeZh).toContain("~/.semantic-atlas/projects.json");
+    expect(readmeZh).toContain("不会与已登记路径合并");
     expect(readmeZh).toContain("127.0.0.1");
     expect(readmeZh).toContain("桌面右侧面板或窄屏底部");
     expect(readmeZh).toContain("semantic-atlas reconcile candidates");
@@ -244,8 +251,14 @@ describe("public release candidate", () => {
       expect(productDocument).not.toContain("v0.4 transition rehearsal");
     }
     expect(productContract).toMatch(/local\s+read-only Web command/u);
+    expect(productContract).toContain("semantic-atlas project add [path]");
+    expect(productContract).toContain("service-assigned project IDs");
+    expect(architecture).toContain("### ProjectStore And ProjectRegistrationService");
+    expect(architecture).toContain("Current Web project model and SVG");
+    expect(architecture).toContain("semantic-atlas project add [path]");
     expect(deliveryPlan).toContain("## Interactive Viewer Extension");
-    expect(deliveryPlan).toContain("Status: released in `semantic-atlas@2.1.0`");
+    expect(deliveryPlan).toContain("base Viewer was released in `semantic-atlas@2.1.0`");
+    expect(deliveryPlan).toContain("currently selected opaque project ID");
   });
 });
 

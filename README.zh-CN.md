@@ -84,7 +84,8 @@ flows: []
 semantic-atlas validate --repo /path/to/repository
 semantic-atlas context "Checkout" --repo /path/to/repository
 semantic-atlas render --repo /path/to/repository --output ./business-map.html
-semantic-atlas web --repo /path/to/repository
+semantic-atlas project add /path/to/repository
+semantic-atlas web
 ```
 
 `validate` 把所有地图文档作为一张完整图进行检查。`context` 使用带版本的 JSON
@@ -96,16 +97,25 @@ semantic-atlas web --repo /path/to/repository
 会在桌面右侧面板或窄屏底部面板中显示导航锚点和相关流程；点击相关流程会直接
 进入实际流程图。
 
+`project add [path]` 会先校验完整业务地图，再把规范化的 checkout 路径保存到
+带版本的用户本地文件 `~/.semantic-atlas/projects.json`。省略 `path` 时使用当前
+目录；重复登记有效路径是幂等操作，地图缺失或无效时不会修改文件。
+
 `web` 会在只读的 `127.0.0.1` 服务上启动同一个 Viewer，并打开默认浏览器。
-一个 `--repo` 参数可以接收多个启动时明确允许的仓库，从而启用项目切换：
+不带 `--repo` 时，它可以从任意当前目录读取已登记项目；清单为空时仍会打开
+Viewer，并显示登记指引。首页只包含项目名称和不透明标识，浏览器初次选择或
+切换项目时才加载、校验并渲染该项目。路径不可用的项目仍保留在列表中，而且
+不会阻止其他项目正常加载。
+
+一个 `--repo` 参数也可以接收多个仓库，组成仅用于本次启动的临时项目集合：
 
 ```bash
 semantic-atlas web --repo /path/to/api /path/to/frontend --port 4310 --no-open
 ```
 
-浏览器不能提交任意仓库路径。刷新页面会重新读取命令启动时指定仓库中的 YAML。
-目录名相同的仓库会获得稳定的编号标签，同时不会暴露父目录。按 `Ctrl+C` 停止
-服务。
+显式路径不会写入项目文件，也不会与已登记路径合并。浏览器不能提交任意仓库
+路径，也不会收到保存的路径。重新选择或刷新项目会重新读取其当前 YAML。目录
+名相同的仓库会获得稳定的编号标签，同时不会暴露父目录。按 `Ctrl+C` 停止服务。
 
 ## 证据顺序
 
@@ -186,10 +196,12 @@ semantic-atlas reconcile candidates --repo /path/to/repository
 ~/.semantic-atlas/observations/v1/repositories/<repository-id>/
 ```
 
-观测文件既不包含仓库路径，也不包含远端 URL。Semantic Atlas 没有远程观测
-服务、账号系统、遥测上传、持久化图数据库或自动修改源码和地图的行为。`setup`
-和观测命令不会向目标仓库添加文件；`render` 只写入调用者明确指定的本地输出；
-`web` 只绑定 loopback，只接受 GET 和 HEAD，并且只读取启动时明确指定的仓库。
+观测文件既不包含仓库路径，也不包含远端 URL。独立的 Viewer 配置文件
+`~/.semantic-atlas/projects.json` 只保存用户明确登记的 checkout 路径；这些路径
+始终留在服务端，不会发送给浏览器。Semantic Atlas 没有远程观测服务、账号系统、
+遥测上传、持久化图数据库或自动修改源码和地图的行为。`setup` 和观测命令不会
+向目标仓库添加文件；`render` 只写入调用者明确指定的本地输出；`web` 只绑定
+loopback，只接受 GET 和 HEAD，并且只读取登记清单或显式的临时 `--repo` 集合。
 
 ## 开发
 

@@ -10,6 +10,7 @@ import {
   type MapViewBox,
   type MapViewport,
 } from "./map-camera.js";
+import { createLatestProjectLoader } from "./latest-project-loader.js";
 
 interface ViewerNavigationAnchorModel {
   readonly kind: string;
@@ -47,15 +48,36 @@ interface ViewerMapModel {
   readonly nodes: readonly ViewerNodeModel[];
 }
 
-interface ViewerProjectModel {
+interface ViewerProjectReferenceModel {
   readonly id: string;
   readonly name: string;
+}
+
+interface ViewerProjectModel extends ViewerProjectReferenceModel {
   readonly views: readonly ViewerMapModel[];
   readonly flows: readonly ViewerFlowModel[];
 }
 
+interface ViewerProjectPayloadModel {
+  readonly project: ViewerProjectModel;
+  readonly markup: string;
+}
+
 interface ViewerModel {
-  readonly projects: readonly ViewerProjectModel[];
+  readonly schemaVersion: 1;
+  readonly mode: "export" | "web";
+  readonly projects: readonly ViewerProjectReferenceModel[];
+  readonly projectPayloads: readonly ViewerProjectPayloadModel[];
+}
+
+interface WebProjectEnvelope {
+  readonly schemaVersion: 1;
+  readonly ok: boolean;
+  readonly data?: ViewerProjectPayloadModel;
+  readonly error?: {
+    readonly code: string;
+    readonly message: string;
+  };
 }
 
 export function renderViewerBrowserScript(): string {
@@ -67,7 +89,9 @@ export function renderViewerBrowserScript(): string {
     zoomViewBoxAt.toString(),
     mapPointFromViewport.toString(),
     panViewBox.toString(),
+    createLatestProjectLoader.toString(),
     "globalThis.__semanticAtlasCamera = { fitViewBox, zoomViewBoxAt, mapPointFromViewport, panViewBox };",
+    "globalThis.__semanticAtlasCreateLatestProjectLoader = createLatestProjectLoader;",
     `(${viewerBrowserEntry.toString()})();`,
   ].join("\n");
 }
@@ -101,9 +125,12 @@ interface MapDragState {
 type ViewerViewType = "relationships" | "flows";
 
 function viewerBrowserEntry(): void {
-  const cameraApi = (globalThis as typeof globalThis & {
+  const browserGlobal = globalThis as typeof globalThis & {
     readonly __semanticAtlasCamera: BrowserCameraApi;
-  }).__semanticAtlasCamera;
+    readonly __semanticAtlasCreateLatestProjectLoader: typeof createLatestProjectLoader;
+  };
+  const cameraApi = browserGlobal.__semanticAtlasCamera;
+  const latestProjectLoader = browserGlobal.__semanticAtlasCreateLatestProjectLoader;
   const modelElement = document.querySelector<HTMLScriptElement>("#viewer-model");
   const projectSelect = document.querySelector<HTMLSelectElement>("#project-select");
   const domainSelect = document.querySelector<HTMLSelectElement>("#domain-select");
@@ -113,8 +140,16 @@ function viewerBrowserEntry(): void {
   const viewTypeButtons = Array.from(
     document.querySelectorAll<HTMLButtonElement>("button[data-view-type]"),
   );
+  const cameraButtons = Array.from(
+    document.querySelectorAll<HTMLButtonElement>(".camera-controls button"),
+  );
   const statistics = document.querySelector<HTMLElement>("#map-statistics");
   const viewport = document.querySelector<HTMLElement>("#map-viewport");
+  const projectViewHost = document.querySelector<HTMLElement>("#project-view-host");
+  const viewerStatus = document.querySelector<HTMLElement>("#viewer-status");
+  const statusEyebrow = document.querySelector<HTMLElement>("#viewer-status-eyebrow");
+  const statusTitle = document.querySelector<HTMLElement>("#viewer-status-title");
+  const statusMessage = document.querySelector<HTMLElement>("#viewer-status-message");
   const nodeDetails = document.querySelector<HTMLElement>("#node-details");
   const detailsKind = document.querySelector<HTMLElement>("#node-details-kind");
   const detailsTitle = document.querySelector<HTMLElement>("#node-details-title");
@@ -124,9 +159,6 @@ function viewerBrowserEntry(): void {
   const detailsAnchors = document.querySelector<HTMLElement>("#node-details-anchors");
   const detailsAnchorList = document.querySelector<HTMLElement>("#node-details-anchor-list");
   const detailsClose = document.querySelector<HTMLButtonElement>('[data-action="close-details"]');
-  const mapViews = Array.from(
-    document.querySelectorAll<HTMLElement>("[data-project-view]"),
-  );
   if (
     !modelElement
     || !projectSelect
@@ -135,8 +167,14 @@ function viewerBrowserEntry(): void {
     || !relationshipSelector
     || !flowSelector
     || viewTypeButtons.length !== 2
+    || cameraButtons.length !== 3
     || !statistics
     || !viewport
+    || !projectViewHost
+    || !viewerStatus
+    || !statusEyebrow
+    || !statusTitle
+    || !statusMessage
     || !nodeDetails
     || !detailsKind
     || !detailsTitle
@@ -151,14 +189,15 @@ function viewerBrowserEntry(): void {
   const model = JSON.parse(modelElement.textContent ?? "{}") as ViewerModel;
   const cameras = new Map<string, MapViewBox>();
   let activeProjectId = model.projects[0]?.id;
-  let activeViewId = model.projects[0]?.views[0]?.id;
-  let activeFlowId = model.projects[0]?.flows[0]?.id;
+  let activeProject: ViewerProjectModel | undefined;
+  let activeViewId: string | undefined;
+  let activeFlowId: string | undefined;
   let activeViewType: ViewerViewType = "relationships";
   let activeNodeElement: SVGGElement | undefined;
   let dragState: MapDragState | undefined;
 
   const currentProject = (): ViewerProjectModel | undefined =>
-    model.projects.find(({ id }) => id === activeProjectId);
+    activeProject?.id === activeProjectId ? activeProject : undefined;
   const currentView = (): ViewerMapModel | undefined =>
     currentProject()?.views.find(({ id }) => id === activeViewId);
   const currentFlow = (): ViewerFlowModel | undefined =>
@@ -167,8 +206,11 @@ function viewerBrowserEntry(): void {
     activeViewType === "relationships" ? activeViewId : activeFlowId;
   const cameraKey = (): string =>
     `${activeProjectId ?? ""}:${activeViewType}:${activeDiagramId() ?? ""}`;
+  const mapViews = (): readonly HTMLElement[] => Array.from(
+    projectViewHost.querySelectorAll<HTMLElement>("[data-project-view]"),
+  );
   const activeSvg = (): SVGSVGElement | undefined =>
-    mapViews.find((element) =>
+    mapViews().find((element) =>
       element.dataset.projectId === activeProjectId
       && element.dataset.viewType === activeViewType
       && (activeViewType === "relationships"
@@ -199,6 +241,67 @@ function viewerBrowserEntry(): void {
     activeNodeElement = undefined;
     nodeDetails.hidden = true;
     if (restoreFocus) previousNode?.focus({ preventScroll: true });
+  };
+
+  const setMapControlsEnabled = (enabled: boolean): void => {
+    domainSelect.disabled = !enabled;
+    flowSelect.disabled = !enabled;
+    for (const button of viewTypeButtons) button.disabled = !enabled;
+    for (const button of cameraButtons) button.disabled = !enabled;
+  };
+
+  const showStatus = (eyebrow: string, title: string, message: string): void => {
+    statusEyebrow.textContent = eyebrow;
+    statusTitle.textContent = title;
+    statusMessage.textContent = message;
+    viewerStatus.hidden = false;
+  };
+
+  const clearProject = (): void => {
+    closeNodeDetails();
+    activeProject = undefined;
+    activeViewId = undefined;
+    activeFlowId = undefined;
+    activeViewType = "relationships";
+    dragState = undefined;
+    delete viewport.dataset.dragging;
+    cameras.clear();
+    projectViewHost.replaceChildren();
+    domainSelect.replaceChildren();
+    flowSelect.replaceChildren();
+    relationshipSelector.hidden = false;
+    flowSelector.hidden = true;
+    statistics.textContent = "";
+    setMapControlsEnabled(false);
+  };
+
+  const markProjectAvailability = (projectId: string, unavailable: boolean): void => {
+    const reference = model.projects.find(({ id }) => id === projectId);
+    const option = Array.from(projectSelect.options).find(({ value }) => value === projectId);
+    if (!reference || !option) return;
+    option.textContent = unavailable ? `${reference.name} - Unavailable` : reference.name;
+  };
+
+  const enterLoading = (projectId: string): void => {
+    const reference = model.projects.find(({ id }) => id === projectId);
+    activeProjectId = projectId;
+    clearProject();
+    viewport.setAttribute("aria-busy", "true");
+    showStatus(
+      "Loading project",
+      reference?.name ?? "Business map",
+      "Loading and validating the selected project's tracked map.",
+    );
+  };
+
+  const enterUnavailable = (error: unknown, projectId: string): void => {
+    if (projectId !== activeProjectId) return;
+    viewport.setAttribute("aria-busy", "false");
+    markProjectAvailability(projectId, true);
+    const message = error instanceof Error
+      ? error.message
+      : "This project's business map could not be loaded.";
+    showStatus("Unavailable", "This project is unavailable", message);
   };
 
   const createAnchorElement = (anchor: ViewerNavigationAnchorModel): HTMLElement => {
@@ -287,7 +390,7 @@ function viewerBrowserEntry(): void {
   };
 
   const activateView = (): void => {
-    for (const view of mapViews) {
+    for (const view of mapViews()) {
       const active = view.dataset.projectId === activeProjectId
         && view.dataset.viewType === activeViewType
         && (activeViewType === "relationships"
@@ -315,16 +418,63 @@ function viewerBrowserEntry(): void {
     if (svg) applyCamera(svg, ensureCamera(svg));
   };
 
-  const activateProject = (): void => {
-    closeNodeDetails();
-    activeProjectId = projectSelect.value;
-    const project = currentProject();
-    activeViewId = project?.views[0]?.id;
-    activeFlowId = project?.flows[0]?.id;
-    activeViewType = "relationships";
+  const enterReady = (payload: ViewerProjectPayloadModel, projectId: string): void => {
+    if (projectId !== activeProjectId || payload.project.id !== projectId) return;
+    activeProject = payload.project;
+    activeViewId = payload.project.views[0]?.id;
+    activeFlowId = payload.project.flows[0]?.id;
+    if (payload.markup) projectViewHost.innerHTML = payload.markup;
+    viewport.setAttribute("aria-busy", "false");
+    viewerStatus.hidden = true;
+    markProjectAvailability(projectId, false);
+    setMapControlsEnabled(true);
     populateDomains();
     populateFlowSelector();
     activateView();
+  };
+
+  const fetchProject = async (
+    projectId: string,
+    signal: AbortSignal,
+  ): Promise<ViewerProjectPayloadModel> => {
+    const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal,
+    });
+    const envelope = await response.json() as WebProjectEnvelope;
+    if (!response.ok || !envelope.ok || !envelope.data) {
+      throw new Error(
+        envelope.error?.message ?? "This project's business map could not be loaded.",
+      );
+    }
+    if (envelope.data.project.id !== projectId) {
+      throw new Error("The selected project returned an invalid response.");
+    }
+    return envelope.data;
+  };
+
+  const loadLatestProject = latestProjectLoader(
+    fetchProject,
+    enterReady,
+    enterUnavailable,
+  );
+
+  const activateProject = (): void => {
+    const projectId = projectSelect.value;
+    if (!projectId) return;
+    if (model.mode === "web") {
+      enterLoading(projectId);
+      void loadLatestProject(projectId);
+      return;
+    }
+    closeNodeDetails();
+    activeProjectId = projectId;
+    activeViewType = "relationships";
+    const payload = model.projectPayloads.find(({ project }) => project.id === projectId);
+    if (payload) enterReady(payload, projectId);
+    else enterUnavailable(new Error("The exported project could not be loaded."), projectId);
   };
 
   const zoom = (factor: number, pointer?: MapPoint): void => {
@@ -394,7 +544,7 @@ function viewerBrowserEntry(): void {
       : undefined;
 
   viewport.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || !activeSvg()) return;
     event.preventDefault();
     document.getSelection()?.removeAllRanges();
     const nodeElement = nodeElementFromTarget(event.target);
@@ -472,7 +622,15 @@ function viewerBrowserEntry(): void {
 
   projectSelect.disabled = model.projects.length < 2;
   projectSelect.value = activeProjectId ?? "";
-  populateDomains();
-  populateFlowSelector();
-  activateView();
+  if (activeProjectId) activateProject();
+  else {
+    clearProject();
+    projectSelect.disabled = true;
+    viewport.setAttribute("aria-busy", "false");
+    showStatus(
+      "Project catalog",
+      "No projects registered",
+      "Run semantic-atlas project add [path], then restart semantic-atlas web.",
+    );
+  }
 }

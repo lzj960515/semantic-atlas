@@ -223,7 +223,37 @@ async function exerciseInstalledProduct() {
   assert.match(projection, /"value":"src\/catalog"/u);
   assert.doesNotMatch(projection, /class="node-card__anchor/u);
 
-  await exerciseInstalledWeb();
+  const firstRegistration = JSON.parse(runInstalledCli(
+    ["project", "add"],
+    repositoryRoot,
+  ).stdout);
+  assert.equal(firstRegistration.command, "project add");
+  assert.equal(firstRegistration.data.outcome, "added");
+  const repeatedRegistration = JSON.parse(runInstalledCli([
+    "project",
+    "add",
+    repositoryRoot,
+  ]).stdout);
+  assert.equal(repeatedRegistration.data.outcome, "already_exists");
+  assert.deepEqual(
+    JSON.parse(await readFile(path.join(userHome, ".semantic-atlas", "projects.json"), "utf8")),
+    { schemaVersion: 1, paths: [resolvedRepositoryRoot] },
+  );
+
+  await exerciseInstalledWeb([], repositoryRoot);
+
+  const explicitRepositoryRoot = path.join(sandbox, "explicit-repository");
+  const explicitMapDirectory = path.join(explicitRepositoryRoot, "docs", "business-map");
+  await mkdir(explicitMapDirectory, { recursive: true });
+  await copyFile(
+    path.join(installedPackageRoot, "examples", "commerce.yaml"),
+    path.join(explicitMapDirectory, "commerce.yaml"),
+  );
+  await exerciseInstalledWeb(["--repo", explicitRepositoryRoot], explicitRepositoryRoot);
+  assert.deepEqual(
+    JSON.parse(await readFile(path.join(userHome, ".semantic-atlas", "projects.json"), "utf8")),
+    { schemaVersion: 1, paths: [resolvedRepositoryRoot] },
+  );
 
   const packagedSkillAdapter = path.join(
     installedPackageRoot,
@@ -246,13 +276,12 @@ async function exerciseInstalledProduct() {
   );
 }
 
-async function exerciseInstalledWeb() {
+async function exerciseInstalledWeb(repositoryArguments, selectedRepositoryRoot) {
   const port = await reserveLoopbackPort();
   const child = spawn(process.execPath, [
     installedCli,
     "web",
-    "--repo",
-    repositoryRoot,
+    ...repositoryArguments,
     "--port",
     String(port),
     "--no-open",
@@ -285,16 +314,33 @@ async function exerciseInstalledWeb() {
     });
     const page = await fetch(envelope.data.url);
     const html = await page.text();
+    const model = JSON.parse(
+      /<script id="viewer-model" type="application\/json">([^<]+)<\/script>/u.exec(html)?.[1]
+        ?? "{}",
+    );
     assert.equal(page.status, 200);
     assert.match(html, /data-viewer-mode="web"/u);
-    assert.match(html, /data-map-view="commerce"/u);
-    assert.match(html, /data-flow-view="commerce\.orders\.place-order-flow"/u);
     assert.match(html, /data-view-type="flows"/u);
     assert.match(html, /id="node-details"/u);
-    assert.match(html, /preserveAspectRatio="xMidYMid meet"/u);
-    assert.match(html, /"value":"src\/catalog"/u);
-    assert.doesNotMatch(html, /class="node-card__anchor/u);
-    assert.doesNotMatch(html, new RegExp(escapeRegularExpression(repositoryRoot), "u"));
+    assert.deepEqual(model.projectPayloads, []);
+    assert.equal(model.projects.length, 1);
+    assert.doesNotMatch(html, /data-map-view="commerce"/u);
+    assert.doesNotMatch(html, new RegExp(escapeRegularExpression(selectedRepositoryRoot), "u"));
+
+    const project = await fetch(`${envelope.data.url}/api/projects/${model.projects[0].id}`);
+    const projectEnvelope = await project.json();
+    assert.equal(project.status, 200);
+    assert.equal(project.headers.get("cache-control"), "no-store");
+    assert.match(projectEnvelope.data.markup, /data-map-view="commerce"/u);
+    assert.match(projectEnvelope.data.markup, /data-flow-view="commerce\.orders\.place-order-flow"/u);
+    assert.match(projectEnvelope.data.markup, /preserveAspectRatio="xMidYMid meet"/u);
+    assert.equal(projectEnvelope.data.project.views[0].nodes.some((node) =>
+      node.anchors.some((anchor) => anchor.value === "src/catalog")
+    ), true);
+    assert.doesNotMatch(JSON.stringify(projectEnvelope), new RegExp(
+      escapeRegularExpression(selectedRepositoryRoot),
+      "u",
+    ));
 
     const mutation = await fetch(envelope.data.url, { method: "POST" });
     assert.equal(mutation.status, 405);
@@ -803,8 +849,8 @@ function setupSkill(envelope, skillName) {
   return skill;
 }
 
-function runInstalledCli(arguments_) {
-  return run(process.execPath, [installedCli, ...arguments_], consumerDirectory, cliEnvironment);
+function runInstalledCli(arguments_, cwd = consumerDirectory) {
+  return run(process.execPath, [installedCli, ...arguments_], cwd, cliEnvironment);
 }
 
 function runInstalledCliAllowFailure(arguments_) {

@@ -2,6 +2,7 @@ import { createServer, type ServerResponse } from "node:http";
 import type { LocalWebApplication } from "./local-web-application.js";
 
 const LOOPBACK_HOST = "127.0.0.1";
+const PROJECT_ROUTE = "/api/projects/";
 
 export interface LocalWebServerOptions {
   readonly application: LocalWebApplication;
@@ -17,9 +18,13 @@ export interface LocalWebServer {
 export async function startLocalWebServer(
   options: LocalWebServerOptions,
 ): Promise<LocalWebServer> {
-  await options.application.render();
   const server = createServer((request, response) => {
-    void routeRequest(options.application, request.method ?? "GET", request.url ?? "/", response);
+    void routeRequest(
+      options.application,
+      request.method ?? "GET",
+      request.url ?? "/",
+      response,
+    );
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -51,6 +56,7 @@ async function routeRequest(
   requestUrl: string,
   response: ServerResponse,
 ): Promise<void> {
+  response.setHeader("X-Content-Type-Options", "nosniff");
   if (method !== "GET" && method !== "HEAD") {
     response.writeHead(405, {
       Allow: "GET, HEAD",
@@ -65,28 +71,77 @@ async function routeRequest(
     sendResponse(response, method, 200, "application/json; charset=utf-8", '{"ok":true}\n');
     return;
   }
+  if (pathname.startsWith(PROJECT_ROUTE)) {
+    try {
+      await sendProject(application, pathname.slice(PROJECT_ROUTE.length), method, response);
+    } catch {
+      sendJson(response, method, 500, {
+        schemaVersion: 1,
+        ok: false,
+        error: {
+          code: "PROJECT_UNAVAILABLE",
+          message: "This project's business map could not be loaded.",
+        },
+      });
+    }
+    return;
+  }
   if (pathname !== "/") {
     sendResponse(response, method, 404, "text/plain; charset=utf-8", "Not found\n");
     return;
   }
 
-  try {
-    const html = await application.render();
-    response.setHeader(
-      "Content-Security-Policy",
-      "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
-    );
-    response.setHeader("X-Content-Type-Options", "nosniff");
-    sendResponse(response, method, 200, "text/html; charset=utf-8", html);
-  } catch {
-    sendResponse(
-      response,
-      method,
-      500,
-      "text/plain; charset=utf-8",
-      "The business map could not be loaded.\n",
-    );
+  response.setHeader(
+    "Content-Security-Policy",
+    "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'",
+  );
+  sendResponse(response, method, 200, "text/html; charset=utf-8", application.render());
+}
+
+function sendJson(
+  response: ServerResponse,
+  method: string,
+  status: number,
+  value: object,
+): void {
+  sendResponse(
+    response,
+    method,
+    status,
+    "application/json; charset=utf-8",
+    `${JSON.stringify(value)}\n`,
+  );
+}
+
+async function sendProject(
+  application: LocalWebApplication,
+  projectId: string,
+  method: string,
+  response: ServerResponse,
+): Promise<void> {
+  response.setHeader("Cache-Control", "no-store");
+  const result = await application.loadProject(projectId);
+  if (!result.found) {
+    sendJson(response, method, 404, {
+      schemaVersion: 1,
+      ok: false,
+      error: { code: "PROJECT_NOT_FOUND", message: "Project was not found." },
+    });
+    return;
   }
+  if (!result.ok) {
+    sendJson(response, method, 422, {
+      schemaVersion: 1,
+      ok: false,
+      error: { code: "PROJECT_UNAVAILABLE", message: result.message },
+    });
+    return;
+  }
+  sendJson(response, method, 200, {
+    schemaVersion: 1,
+    ok: true,
+    data: result.data,
+  });
 }
 
 function sendResponse(

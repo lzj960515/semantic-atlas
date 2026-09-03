@@ -4,6 +4,11 @@ import type { BusinessFlowStepDefinition } from "../contracts/map.js";
 
 export type ViewerMode = "export" | "web";
 
+export interface ViewerProjectReference {
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface ViewerNavigationAnchor {
   readonly kind: string;
   readonly value: string;
@@ -50,24 +55,60 @@ export interface ViewerProject {
   readonly flows: readonly ViewerBusinessFlow[];
 }
 
+export interface ViewerProjectModel extends ViewerProjectReference {
+  readonly views: readonly Omit<ViewerMapView, "svg">[];
+  readonly flows: readonly Omit<ViewerBusinessFlow, "svg">[];
+}
+
+export interface ViewerProjectPayload {
+  readonly project: ViewerProjectModel;
+  readonly markup: string;
+}
+
 export function renderViewerPage(
   projects: readonly ViewerProject[],
-  mode: ViewerMode,
 ): string {
   const displayedProjects = disambiguateProjectNames(projects);
-  const model = JSON.stringify({
-    projects: displayedProjects.map(({ id, name, views, flows }) => ({
-      id,
-      name,
-      views: views.map(({ id: viewId, name: viewName, nodeCount, relationCount, nodes }) => ({
-        id: viewId,
-        name: viewName,
-        nodeCount,
-        relationCount,
-        nodes,
-      })),
-      flows: flows.map(({ svg: _svg, ...flow }) => flow),
+  return renderViewerShell(
+    displayedProjects,
+    "export",
+    displayedProjects.map((project) => ({
+      ...toViewerProjectPayload(project),
+      markup: "",
     })),
+    displayedProjects.map(renderProjectMarkup).join(""),
+  );
+}
+
+export function renderWebViewerPage(
+  projects: readonly ViewerProjectReference[],
+): string {
+  return renderViewerShell(disambiguateProjectNames(projects), "web", [], "");
+}
+
+export function toViewerProjectPayload(project: ViewerProject): ViewerProjectPayload {
+  return {
+    project: {
+      id: project.id,
+      name: project.name,
+      views: project.views.map(({ svg: _svg, ...view }) => view),
+      flows: project.flows.map(({ svg: _svg, ...flow }) => flow),
+    },
+    markup: renderProjectMarkup(project),
+  };
+}
+
+function renderViewerShell(
+  displayedProjects: readonly ViewerProjectReference[],
+  mode: ViewerMode,
+  projectPayloads: readonly ViewerProjectPayload[],
+  initialMarkup: string,
+): string {
+  const model = JSON.stringify({
+    schemaVersion: 1,
+    mode,
+    projects: displayedProjects.map(({ id, name }) => ({ id, name })),
+    projectPayloads,
   }).replaceAll("<", "\\u003c");
 
   return `<!doctype html>
@@ -124,14 +165,16 @@ export function renderViewerPage(
       </div>
     </header>
     <section id="map-viewport" class="map-viewport" aria-label="Interactive business map">
-      ${displayedProjects.flatMap((project) => project.views.map((view) => `
-        <div class="project-view" data-project-view data-view-type="relationships" data-project-id="${escapeHtml(project.id)}" data-map-view="${escapeHtml(view.id)}" hidden>
-          ${view.svg}
-        </div>`)).join("")}
-      ${displayedProjects.flatMap((project) => project.flows.map((flow) => `
-        <div class="project-view" data-project-view data-view-type="flows" data-project-id="${escapeHtml(project.id)}" data-flow-view="${escapeHtml(flow.id)}" hidden>
-          ${flow.svg}
-        </div>`)).join("")}
+      <div id="project-view-host" class="project-view-host">${initialMarkup}</div>
+      <section id="viewer-status" class="viewer-status" role="status" aria-live="polite" ${displayedProjects.length > 0 ? "hidden" : ""}>
+        <div class="viewer-status__panel">
+          <p id="viewer-status-eyebrow" class="viewer-status__eyebrow">Project catalog</p>
+          <h1 id="viewer-status-title">${displayedProjects.length > 0 ? "Loading project" : "No projects registered"}</h1>
+          <p id="viewer-status-message">${displayedProjects.length > 0
+            ? "Reading the selected business map."
+            : "Run semantic-atlas project add [path], then restart semantic-atlas web."}</p>
+        </div>
+      </section>
     </section>
     <aside id="node-details" class="node-details" aria-labelledby="node-details-title" hidden>
       <header class="node-details__header">
@@ -160,9 +203,22 @@ export function renderViewerPage(
 `;
 }
 
-function disambiguateProjectNames(
-  projects: readonly ViewerProject[],
-): readonly ViewerProject[] {
+function renderProjectMarkup(project: ViewerProject): string {
+  return [
+    ...project.views.map((view) => `
+      <div class="project-view" data-project-view data-view-type="relationships" data-project-id="${escapeHtml(project.id)}" data-map-view="${escapeHtml(view.id)}" hidden>
+        ${view.svg}
+      </div>`),
+    ...project.flows.map((flow) => `
+      <div class="project-view" data-project-view data-view-type="flows" data-project-id="${escapeHtml(project.id)}" data-flow-view="${escapeHtml(flow.id)}" hidden>
+        ${flow.svg}
+      </div>`),
+  ].join("");
+}
+
+function disambiguateProjectNames<TProject extends ViewerProjectReference>(
+  projects: readonly TProject[],
+): readonly TProject[] {
   const nameCounts = new Map<string, number>();
   for (const project of projects) {
     nameCounts.set(project.name, (nameCounts.get(project.name) ?? 0) + 1);
@@ -363,8 +419,47 @@ function viewerStyles(): string {
       -webkit-user-select: none;
     }
     .map-viewport[data-dragging="true"] { cursor: grabbing; }
+    .project-view-host { position: absolute; inset: 0; }
     .project-view { position: absolute; inset: 0; }
     .project-view[hidden] { display: none; }
+    .viewer-status {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      cursor: default;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(255, 253, 247, 0.68), transparent 24rem),
+        linear-gradient(135deg, rgba(56, 89, 103, 0.04), rgba(217, 164, 65, 0.06));
+    }
+    .viewer-status[hidden] { display: none; }
+    .viewer-status__panel {
+      width: min(520px, 100%);
+      padding: 34px;
+      border: 1px solid rgba(56, 89, 103, 0.24);
+      border-left: 7px solid var(--accent);
+      border-radius: 14px;
+      background: var(--surface-strong);
+      box-shadow: 0 24px 64px rgba(29, 42, 43, 0.14);
+    }
+    .viewer-status__eyebrow {
+      margin: 0 0 10px;
+      color: var(--relation);
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+    .viewer-status h1 {
+      margin: 0 0 12px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(28px, 5vw, 44px);
+      font-weight: 650;
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+    }
+    .viewer-status p:last-child { margin: 0; color: #405052; line-height: 1.65; }
     .map-svg { display: block; width: 100%; height: 100%; }
     .grid-line { stroke: #d9ddd3; stroke-width: 1; }
     .edge__path { fill: none; stroke-linecap: round; stroke-linejoin: round; }

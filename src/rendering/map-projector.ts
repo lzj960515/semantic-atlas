@@ -75,7 +75,7 @@ export class MapProjector {
 
     return {
       format: "html",
-      content: renderViewerPage([viewerProject], "export"),
+      content: renderViewerPage([viewerProject]),
       nodeCount: completeView.nodeCount,
       relationCount: completeView.relationCount,
       flowCount: viewerProject.flows.length,

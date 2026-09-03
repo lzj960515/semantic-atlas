@@ -10,6 +10,7 @@ import type {
   ObserveMaintenanceEnvelope,
   ObserveReviewEnvelope,
   ObserveTaskEnvelope,
+  ProjectAddEnvelope,
   ReconciliationCandidatesEnvelope,
   ReconciliationStatusEnvelope,
   RenderEnvelope,
@@ -23,6 +24,11 @@ import { ObservationApplication } from "../observations/observation-application.
 import { ObservationStore } from "../observations/observation-store.js";
 import { RepositoryIdentityResolver } from "../observations/repository-identity.js";
 import { ReconciliationService } from "../reconciliation/reconciliation-service.js";
+import {
+  ProjectRegistrationService,
+  type ProjectRegistrationResult,
+} from "../projects/project-registration-service.js";
+import { ProjectStore } from "../projects/project-store.js";
 import {
   ManagedSkillConflictError,
   ManagedSkillsInstaller,
@@ -59,6 +65,7 @@ import {
 export interface CliRuntime extends ObservationCliRuntime, ReconciliationCliRuntime {
   readonly packageIdentity: PackageIdentity;
   readonly mapApplication: MapApplication;
+  addProject(repositoryPath: string): Promise<ProjectRegistrationResult>;
   installSkills(): Promise<ManagedSkillsInstallation>;
   upgradePackage(): Promise<PackageUpgradeResult>;
   startWeb(options: StartWebOptions): Promise<WebSessionData>;
@@ -83,6 +90,7 @@ export async function runCli(
     | SetupEnvelope
     | UpgradeEnvelope
     | ObserveTaskEnvelope
+    | ProjectAddEnvelope
     | ObserveReviewEnvelope
     | InsightsSummaryEnvelope
     | ObserveMaintenanceEnvelope
@@ -138,6 +146,21 @@ export async function runCli(
       commandEnvelope = await runRenderCommand(application, options);
     });
 
+  const project = program
+    .command("project")
+    .description("Manage user-local Viewer projects");
+
+  project
+    .command("add")
+    .description("Validate and register a project for the local Viewer")
+    .argument("[path]", "repository root", process.cwd())
+    .action(async (repositoryPath: string) => {
+      commandEnvelope = await runProjectAddCommand(
+        resolvedRuntime,
+        path.resolve(repositoryPath),
+      );
+    });
+
   program
     .command("web")
     .description("Start the local interactive business-map viewer")
@@ -149,10 +172,10 @@ export async function runCli(
       readonly port: number;
       readonly open: boolean;
     }) => {
-      const repositoryPaths = (options.repo ?? [process.cwd()]).map((repositoryPath) =>
-        path.resolve(repositoryPath));
       commandEnvelope = await runWebCommand(resolvedRuntime, {
-        repositoryPaths,
+        ...(options.repo
+          ? { repositoryPaths: options.repo.map((repositoryPath) => path.resolve(repositoryPath)) }
+          : {}),
         port: options.port,
         openBrowser: options.open,
       });
@@ -297,9 +320,14 @@ export async function createCliRuntime(
   const observationStore = new ObservationStore({
     userHome: options.userHome ?? os.homedir(),
   });
+  const projectStore = new ProjectStore({
+    userHome: options.userHome ?? os.homedir(),
+  });
+  const projectRegistration = new ProjectRegistrationService(mapApplication, projectStore);
   return {
     packageIdentity,
     mapApplication,
+    addProject: (repositoryPath) => projectRegistration.add(repositoryPath),
     observationApplication: new ObservationApplication(
       repositoryResolver,
       observationStore,
@@ -313,9 +341,32 @@ export async function createCliRuntime(
     upgradePackage: () => new SemanticAtlasPackageUpgrader({
       currentVersion: packageIdentity.version,
     }).upgrade(),
-    startWeb: (webOptions) => new WebCommandService(mapApplication).start(webOptions),
+    startWeb: (webOptions) => new WebCommandService(mapApplication, projectStore).start(webOptions),
     readStandardInput: options.readStandardInput ?? readStandardInput,
     now: options.now ?? (() => new Date()),
+  };
+}
+
+async function runProjectAddCommand(
+  runtime: CliRuntime,
+  repositoryPath: string,
+): Promise<ProjectAddEnvelope> {
+  const result = await runtime.addProject(repositoryPath);
+  if (!result.ok) {
+    return {
+      schemaVersion: 1,
+      ok: false,
+      command: "project add",
+      ...(result.repository ? { repository: result.repository } : {}),
+      error: result.error,
+    };
+  }
+  return {
+    schemaVersion: 1,
+    ok: true,
+    command: "project add",
+    repository: result.repository,
+    data: { outcome: result.outcome },
   };
 }
 

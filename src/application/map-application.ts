@@ -14,7 +14,10 @@ import { MapDocumentLoader, RepositoryResolutionError } from "../map/map-documen
 import { BusinessGraph } from "../map/business-graph.js";
 import { MapValidator } from "../map/map-validator.js";
 import { ContextQueryService } from "../query/context-query-service.js";
-import { MapProjector } from "../rendering/map-projector.js";
+import {
+  MapProjector,
+  type ViewerProjectMetadata,
+} from "../rendering/map-projector.js";
 import type { ViewerProject } from "../rendering/viewer-page.js";
 
 type ValidatedMapResult =
@@ -126,7 +129,10 @@ export class MapApplication {
     };
   }
 
-  public async viewerProject(repositoryPath: string): Promise<ViewerProjectResult> {
+  public async viewerProject(
+    repositoryPath: string,
+    metadata?: ViewerProjectMetadata,
+  ): Promise<ViewerProjectResult> {
     const result = await this.loadValidatedMap(repositoryPath);
     if (!result.ok) return result;
 
@@ -135,7 +141,7 @@ export class MapApplication {
       ok: true,
       repository: result.map.source,
       viewerProject: new MapProjector(graph)
-        .viewerProject(viewerProjectMetadata(result.map.source.root)),
+        .viewerProject(metadata ?? viewerProjectMetadata(result.map.source.root)),
     };
   }
 

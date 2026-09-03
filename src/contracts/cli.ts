@@ -134,6 +134,10 @@ export type CliError =
   | {
       readonly code: "WEB_START_FAILED";
       readonly message: string;
+    }
+  | {
+      readonly code: "PROJECT_CONFIG_INVALID" | "PROJECT_CONFIG_STORAGE_FAILED";
+      readonly message: string;
     };
 
 export interface ValidateData {
@@ -185,6 +189,10 @@ export interface WebData {
   readonly repositoryCount: number;
 }
 
+export interface ProjectAddData {
+  readonly outcome: "added" | "already_exists";
+}
+
 export interface SetupData {
   readonly skills: readonly {
     readonly outcome: "installed" | "current" | "repaired" | "upgraded" | "recovered";
@@ -231,6 +239,10 @@ export type RenderEnvelope =
 export type WebEnvelope =
   | StandaloneCliSuccessEnvelope<"web", WebData>
   | CliErrorEnvelope<"web">;
+
+export type ProjectAddEnvelope =
+  | CliSuccessEnvelope<"project add", ProjectAddData>
+  | CliErrorEnvelope<"project add">;
 
 export type SetupEnvelope =
   | StandaloneCliSuccessEnvelope<"setup", SetupData>

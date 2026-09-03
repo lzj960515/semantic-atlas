@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
 import { MapApplication } from "../application/map-application.js";
+import { ProjectStore } from "../projects/project-store.js";
 import { LocalWebApplication } from "./local-web-application.js";
 import { startLocalWebServer, type LocalWebServer } from "./local-web-server.js";
 
 export interface StartWebOptions {
-  readonly repositoryPaths: readonly string[];
+  readonly repositoryPaths?: readonly string[];
   readonly port: number;
   readonly openBrowser: boolean;
 }
@@ -15,10 +16,14 @@ export interface WebSessionData {
 }
 
 export class WebCommandService {
-  public constructor(private readonly mapApplication: MapApplication) {}
+  public constructor(
+    private readonly mapApplication: MapApplication,
+    private readonly projectStore: ProjectStore,
+  ) {}
 
   public async start(options: StartWebOptions): Promise<WebSessionData> {
-    const application = new LocalWebApplication(this.mapApplication, options.repositoryPaths);
+    const repositoryPaths = options.repositoryPaths ?? await this.projectStore.read();
+    const application = new LocalWebApplication(this.mapApplication, repositoryPaths);
     const server = await startLocalWebServer({ application, port: options.port });
     installShutdownHandlers(server);
     if (options.openBrowser) openDefaultBrowser(server.url);

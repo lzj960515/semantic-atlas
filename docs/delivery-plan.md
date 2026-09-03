@@ -185,7 +185,9 @@ target-repository changes, or real-use acceptance.
 
 ## Interactive Viewer Extension
 
-**Status: released in `semantic-atlas@2.1.0`.**
+**Status: the base Viewer was released in `semantic-atlas@2.1.0`; persistent
+registration and on-demand project loading are implemented in the current
+source candidate.**
 
 Human inspection feedback established that a fixed-width static page without
 zoom is insufficient once a real domain map contains many relations. The
@@ -195,9 +197,15 @@ usable in daily inspection:
 - `render` exports a self-contained interactive Viewer with a compact one-row
   desktop toolbar, top-level-domain selection, pan, zoom, and fit-to-view;
 - `web` serves the same Viewer on `127.0.0.1` for one or more repositories
-  explicitly supplied at startup;
+  selected from a user-local registered list or explicitly supplied at startup;
+- `project add [path]` is the only persistent registration entry point, while
+  explicit `web --repo` paths remain temporary and never merge into that list;
+- the initial Web page contains only the project catalog, and map validation,
+  layout, and rendering occur only for the currently selected opaque project ID;
 - project and domain selection remain read-only projections over the current
-  tracked YAML and create no repository catalog or persistent graph;
+  tracked YAML and create no persistent graph or browser-side authoring state;
+- an empty catalog shows registration guidance, while an unavailable checkout
+  remains selectable and does not prevent another project from loading;
 - graph cards show business type, title, and description while pointer or
   keyboard selection reveals navigation anchors in an overlaid details panel;
 - map drag suppresses text selection, and pointer zoom plus pan use the SVG's

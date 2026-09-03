@@ -87,7 +87,8 @@ business flows, anchors, validation rules, and lookup behavior.
 semantic-atlas validate --repo /path/to/repository
 semantic-atlas context "Checkout" --repo /path/to/repository
 semantic-atlas render --repo /path/to/repository --output ./business-map.html
-semantic-atlas web --repo /path/to/repository
+semantic-atlas project add /path/to/repository
+semantic-atlas web
 ```
 
 `validate` checks every map document as one graph. `context` returns the
@@ -103,18 +104,30 @@ without exposing code paths in the graph. Click a card, or focus it and press
 `Enter`, to inspect its navigation anchors and related flows in a desktop side
 panel or narrow-screen bottom panel. A related-flow link opens the actual flow.
 
+`project add [path]` validates the complete business map and saves its
+normalized checkout path in the versioned user-local
+`~/.semantic-atlas/projects.json` file. Omitting `path` uses the current
+directory. Repeating a valid path is idempotent; a missing or invalid map leaves
+the file unchanged.
+
 `web` starts the same Viewer on a read-only `127.0.0.1` server and opens the
-default browser. Pass several explicitly allowed repositories after one
-`--repo` option to enable project switching:
+default browser. With no `--repo`, it reads the registered list from any current
+directory. An empty list opens an instructional empty state. The initial page
+contains only project names and opaque IDs; it loads and validates a map only
+when that project is initially selected or selected later. An unavailable path
+stays in the list and does not prevent another project from loading.
+
+Pass several repositories after one `--repo` option for a temporary session:
 
 ```bash
 semantic-atlas web --repo /path/to/api /path/to/frontend --port 4310 --no-open
 ```
 
-The browser cannot provide arbitrary repository paths. Refreshing the page
-reloads the tracked YAML from the repositories supplied when the command
-started. Repositories with the same directory name receive deterministic
-numbered labels without exposing their parent paths. `Ctrl+C` stops the server.
+Explicit paths are not saved and are not merged with registered projects. The
+browser cannot provide arbitrary repository paths and never receives the saved
+paths. Reselecting or refreshing a project reloads its tracked YAML.
+Repositories with the same directory name receive deterministic numbered
+labels without exposing their parent paths. `Ctrl+C` stops the server.
 
 ## Evidence Order
 
@@ -215,12 +228,15 @@ immutable JSON files under a hashed user-local repository partition:
 ~/.semantic-atlas/observations/v1/repositories/<repository-id>/
 ```
 
-Observation files contain neither repository paths nor remote URLs. Semantic
-Atlas has no remote observation service, account, telemetry upload, persistent
-graph database, or automatic source/map mutation. `setup` and observation
-commands do not add files to a target repository; `render` writes only the
-explicitly requested local output. `web` binds only to loopback, exposes GET
-and HEAD, and reads only the repositories explicitly selected at startup.
+Observation files contain neither repository paths nor remote URLs. The
+separate `~/.semantic-atlas/projects.json` Viewer configuration stores only the
+checkout paths the user explicitly registers. Those paths remain server-side
+and are never sent to the browser. Semantic Atlas has no remote observation
+service, account, telemetry upload, persistent graph database, or automatic
+source/map mutation. `setup` and observation commands do not add files to a
+target repository; `render` writes only the explicitly requested local output.
+`web` binds only to loopback, exposes GET and HEAD, and reads either the
+registered list or the explicit temporary `--repo` set.
 
 ## Development
 

@@ -4,9 +4,9 @@ This page defines the accepted initial product. It answers what Semantic Atlas
 must improve, how agents and people use it, and which results establish
 that the product works.
 
-**Status: the public product is released and installed; the business-flow
-extension is implemented in the current source candidate, and longitudinal
-acceptance remains in progress.**
+**Status: the public product is released and installed; the current source
+candidate adds persistent manual project registration and on-demand Web
+loading, while longitudinal acceptance remains in progress.**
 
 ## Purpose
 
@@ -64,13 +64,20 @@ implementation vocabulary differ.
 
 A person views deterministic projections of the same tracked map to discuss
 business boundaries and relationships. A self-contained export and a local
-read-only Web command share the same interactive Viewer, including project and
-business-domain selection, relationship and flow views, pan, zoom, and
-fit-to-view. Graph cards prioritize business meaning by showing type, title,
-and description; selecting a card reveals its navigation anchors and related
-flows in a side panel or narrow-screen bottom panel. A related flow link
-switches directly to the scenario path. The visual surface does not become a
-second authoring format.
+read-only Web command share the same interactive Viewer. The user manually
+registers checkouts with `semantic-atlas project add [path]`; an omitted path
+means the current directory. A parameterless `semantic-atlas web` can then
+start from any directory, list the registered projects, and load only the
+initially selected or newly selected map. An unavailable checkout remains in
+the list and affects only its own view.
+
+The explicit `web --repo <paths...>` form remains a temporary project set for
+one session. It neither writes the user-local project file nor implicitly
+merges registered paths. The browser receives service-assigned project IDs and
+display names, never repository paths, and cannot submit a filesystem path.
+Project and business-domain selection, relationship and flow views, pan, zoom,
+fit-to-view, navigation details, and related-flow links remain read-only. The
+visual surface does not become a second authoring or registration format.
 
 ### Post-task maintenance decision and reconciliation
 
@@ -181,8 +188,10 @@ The initial product delivers one coherent path:
 8. Exercise the workflow against real engineering tasks, including stale and
    incomplete map cases.
 
-The runtime is stateless between commands. Derived render artifacts and future
-performance caches are reproducible from tracked files.
+Map loading, validation, querying, and rendering remain stateless between
+commands. Derived render artifacts and future performance caches are
+reproducible from tracked files. The user-local, versioned project-path list is
+disposable Viewer configuration rather than business knowledge.
 
 ## Current Non-Goals
 
@@ -200,7 +209,9 @@ The initial product does not provide:
   synchronization;
 - a general workflow engine or full visual-diagram authoring system;
 - real-time multi-user map editing;
-- a second visual authoring representation.
+- a second visual authoring representation;
+- browser-side project registration or automatic repository discovery;
+- branch and worktree management for registered checkout paths.
 
 These boundaries keep the first product centered on better engineering
 judgment. Later capabilities require observed evidence that they improve that
@@ -238,10 +249,11 @@ human-intervention evidence as acceptance conditions.
 The initial product, managed setup, versioned observations, read-only
 reconciliation, public repository, and npm publication are complete. The first
 real target-domain map and reviewed observation pair are in local use. The
-current `semantic-atlas@2.2.0` release adds scenario-owned business flows and a
-linked relationship/flow Viewer while preserving reviewed maintenance outcomes,
-the narrow orchestration-status contract, and current managed Skill,
-observation, and claim contracts.
+current `semantic-atlas@2.2.0` release includes scenario-owned business flows
+and the linked relationship/flow Viewer. The current source candidate adds
+manual project registration, parameterless Web startup, on-demand
+single-project loading, and project-level unavailable states without changing
+the tracked YAML business-map source.
 Target-repository sharing and longitudinal acceptance remain separate verified
 stages.
 
