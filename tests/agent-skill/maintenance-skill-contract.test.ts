@@ -20,7 +20,7 @@ const skillDirectory = path.join(projectRoot, ".agents/skills/semantic-atlas-mai
 const controlledRepository = path.join(projectRoot, "tests/fixtures/agent-skill/repository");
 
 describe("bundled Semantic Atlas maintenance Skill", () => {
-  it("is discoverable with one narrow maintenance identity", async () => {
+  it("is discoverable with one map-authoring and maintenance identity", async () => {
     const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
     const metadataDocument = await readFile(
       path.join(skillDirectory, "agents/openai.yaml"),
@@ -59,7 +59,9 @@ describe("bundled Semantic Atlas maintenance Skill", () => {
     expect(skillDocument).toContain("Review Phase");
     expect(skillDocument).toContain("Integration Phase");
     expect(skillDocument).toContain("semantic-atlas observe maintenance --stdin --repo");
-    expect(skillDocument).toContain("Do not record a terminal maintenance observation");
+    expect(skillDocument).toContain(
+      "Keep this draft unrecorded until independent review and integration finish.",
+    );
     expect(skillDocument).toContain("mergedCommit");
     expect(skillDocument).toContain("idempotent");
     expect(reference).toContain("implementation-local");
@@ -76,12 +78,37 @@ describe("bundled Semantic Atlas maintenance Skill", () => {
 
     expect(frontmatter.description).toContain("with or without an existing business map");
     expect(skillDocument).toContain(
-      "When no map documents exist, create one initial business-domain YAML",
+      "one initial business-domain YAML for the selected candidate scope",
     );
     expect(skillDocument).toContain(
-      "Limit the initial map to stable meaning supported by the selected candidates and current evidence.",
+      "initial map to stable meaning supported by the selected candidates and current",
     );
     expect(skillDocument).toContain("MAP_NOT_FOUND");
+  });
+
+  it("separates requested initialization from candidate reconciliation", async () => {
+    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
+    const reference = await readFile(
+      path.join(skillDirectory, "references/reconciliation.md"),
+      "utf8",
+    );
+    const understanding = await readFile(
+      path.join(projectRoot, ".agents/skills/semantic-atlas/SKILL.md"),
+      "utf8",
+    );
+
+    expect(skillDocument).toContain("Project initialization");
+    expect(skillDocument).toContain("Bounded initialization");
+    expect(skillDocument).toContain("Candidate reconciliation");
+    expect(skillDocument).toContain("candidate report is empty");
+    expect(skillDocument).toContain("multiple domain-owned YAML files");
+    expect(skillDocument).toContain("File count follows business boundaries");
+    expect(skillDocument).toContain("Define each shared concept once");
+    expect(skillDocument).toContain("Declare each directed relation in its source concept's file");
+    expect(skillDocument).toContain("Domain roots drive Viewer selection");
+    expect(skillDocument).toContain("Direct initialization has no candidate-origin observation");
+    expect(reference).toContain("not a general map-authoring");
+    expect(understanding).toContain("initialization path");
   });
 
   it("reconciles flow candidates as stable business paths instead of copied control flow", async () => {

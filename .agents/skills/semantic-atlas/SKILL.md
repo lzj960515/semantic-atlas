@@ -17,6 +17,13 @@ investigation leads.
 
 ## Choose The Workflow From The Task
 
+For an explicit request to initialize a project or local business map, use
+`semantic-atlas-maintenance`'s initialization path. Project initialization first
+identifies the real business areas and normally writes one owning YAML per
+independent area; a bounded request or a single-business project can use one.
+That authoring request proceeds from current evidence without retained candidates.
+The engineering workflow below keeps ordinary feature and bug tasks bounded.
+
 Use this workflow when work can change or depend on business behavior,
 ownership, shared data, an invariant, or an interface. This includes feature,
 bug, refactor, impact-analysis, and independent-review work whose correct scope
@@ -219,9 +226,9 @@ evidence from missing accuracy evidence.
 ## Hand Off Canonical Maintenance
 
 Keep canonical map editing in a separate maintenance change after stable reviewed source is available.
-The `semantic-atlas-maintenance` Skill rechecks retained candidates by business
-domain, edits one owning YAML surface, validates the complete graph, renders the
-changed neighborhood, and submits the Git diff for independent review.
+For this candidate-driven handoff, the `semantic-atlas-maintenance` Skill
+rechecks one business domain and edits one owning YAML surface, validates the
+complete graph, renders the changed neighborhood, and submits the Git diff for independent review.
 
 A post-integration maintenance run can examine retained candidates from
 business-changing results; an empty or no-change run is successful. Periodic

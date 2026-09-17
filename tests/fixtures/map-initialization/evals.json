@@ -1,0 +1,34 @@
+{
+  "skill_name": "semantic-atlas-maintenance",
+  "source": "GitHub issue #8: three independent project initialization tasks needed a human request to split one oversized YAML.",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "为这个项目初始化业务模块图谱。",
+      "fixture": "multi-business",
+      "sandbox": "workspace-write",
+      "expected_output": "A source-supported project map with separate business-owned YAML files and selectable business domains, preserving shared order/event identity and collaboration.",
+      "expectations": [
+        "Creates multiple business-owned YAML documents without receiving a file-splitting instruction; partition covers purchasing, shipment fulfillment, and revenue reporting with evidence-backed boundaries rather than src/actions versus src/records.",
+        "Uses meaningful top-level business domain nodes and containment; Viewer can select the distinct business areas rather than only one project umbrella.",
+        "Defines the shared Order and Order placed event concepts once; publishing, consuming and shared-data references connect the source-supported collaborators across files.",
+        "Relations are declared in the source concept document and flows in their scenario document; stable flow steps preserve at least the dispatch allowed/refused outcomes supported by source.",
+        "All generated YAML documents validate together, rendered project/domain views retain cross-domain boundary concepts and relevant flows remain navigable.",
+        "No fabricated candidate/task origin or maintenance observation is recorded for direct initialization; Git diff, evidence and review/integration status are reported accurately."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "为这个小项目初始化业务图谱。",
+      "fixture": "single-business",
+      "sandbox": "workspace-write",
+      "expected_output": "One bounded business-domain YAML for appointment cancellation, without splitting technical directories into business domains.",
+      "expectations": [
+        "Creates one business-owned YAML covering appointment cancellation; HTTP/rules/storage are source anchors, not artificial independent business domains.",
+        "Represents the cancellation deadline, durable appointment state, and accepted/refused outcomes in a source-supported scenario flow.",
+        "Complete graph validation passes and the Viewer presents the one meaningful domain with its flow.",
+        "Does not manufacture candidate origins or post-integration observation results; reports the actual review and integration boundary."
+      ]
+    }
+  ]
+}

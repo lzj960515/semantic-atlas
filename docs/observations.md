@@ -33,6 +33,14 @@ references exact task-candidate positions, records the reviewed classification
 and current evidence, and includes the owning YAML plus real merged commit when
 the canonical map changed. Work-stage proposals are not observations.
 
+Direct project or local map initialization is authoring work whose evidence is
+its source-supported Git diff, independent review and actual integration state.
+It has no retained candidate origins to consume and does not manufacture task
+observations or maintenance results to satisfy the candidate schema. Existing
+candidates remain available for separate domain-scoped reconciliation. The
+single `businessDomainId` and `owningMapPath` describe a candidate maintenance
+result; they do not constrain the number of files in a project initialization.
+
 ## Versioned Schemas
 
 Current task artifacts use `schemaVersion: 2`; review and maintenance artifacts

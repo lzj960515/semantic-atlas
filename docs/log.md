@@ -2,6 +2,12 @@
 
 ## 2026-09-17
 
+- Separated explicit project/local map initialization from one-domain candidate
+  reconciliation after repeated oversized single-file maps. Initialization now
+  chooses business boundaries before owning files, preserves shared concept and
+  flow ownership, and uses Git review evidence without fabricated candidate
+  observations. Added paired multi-business and single-business Agent fixtures.
+
 - Added i18next catalogs for English and Simplified Chinese: the CLI follows
   system locale variables and the shared offline/Web Viewer follows browser
   language preferences through the i18next browser detector.

@@ -284,8 +284,18 @@ contract when another installed product uses the same executable name.
 
 ### Maintenance Agent Skill
 
-Owns post-integration and periodic candidate triage after
-`ReconciliationService` has produced one read-only report. It selects one
+Owns explicit map initialization and candidate-driven maintenance as separate
+entry paths. Initialization discovers the requested project's or local area's
+business boundaries from current evidence, assigns meaningful domain roots and
+owning YAML files, and validates their complete graph before normal review.
+An empty candidate report does not block this authoring request. Direct
+initialization records Git review/integration evidence without inventing
+candidate origins or maintenance observations. The
+[map format](map-format.md#business-partition-and-initialization) owns shared
+concept, relation, flow and file partition rules.
+
+For post-integration and periodic candidate triage,
+`ReconciliationService` supplies one read-only report. The Skill selects one
 business domain, confirms proposed corrections against current source and
 tracked product meaning, reconstructs `flow` candidates at business granularity,
 resolves an existing or initial domain-owned YAML surface, leaves unresolved
@@ -296,8 +306,8 @@ its stable identity. Source confirmation, map editing, validation, rendering,
 Git diff, and independent review remain Agent and repository responsibilities
 rather than CLI side effects.
 
-The Skill keeps Work, Review, and Integration as separate evidence stages. Work
-prepares classifications and an observation document without consuming any
+For candidate reconciliation, the Skill keeps Work, Review, and Integration as
+separate evidence stages. Work prepares classifications and an observation document without consuming any
 candidate. Integration adds the actual merged commit when a map changed and
 records the reviewed result through `observe maintenance`. A no-map-change
 discarded or unresolved result follows the same independent-review boundary.
@@ -604,9 +614,11 @@ in the shared map.
 Every business-changing task writes its own immutable observation and maintenance
 disposition. Candidate-producing results can enter post-integration maintenance
 as soon as stable reviewed source is available. Periodic reconciliation uses the
-same deterministic report to recover accumulated drift and missed work. Each run
-updates one owning YAML surface for one business domain rather than rewriting
-the complete map. A no-candidate or no-change run is a valid outcome and does not
+same deterministic report to recover accumulated drift and missed work. Each
+candidate reconciliation run updates one owning YAML surface for one business
+domain. Explicit initialization reviews the owning files for the requested
+business scope together. A no-candidate or no-change run is a valid outcome and
+does not
 affect an engineering task already completed against current evidence.
 
 The understanding and maintenance Skills operate independently of task

@@ -21,6 +21,27 @@ The first implementation uses this conventional directory. Every `*.yaml` file
 in the directory participates in one repository-wide graph. File names organize
 ownership but do not become graph nodes.
 
+## Business Partition And Initialization
+
+Choose file boundaries from stable business responsibilities, owned data and
+rules, and collaborations. Source directories are supporting evidence rather
+than a file-per-directory rule. An explicit project initialization identifies
+these areas before writing the map and normally creates one owning YAML per
+independent business area. A local request or a small project with one business
+responsibility can use one file.
+
+Each independent top-level area has a meaningful `domain` node. Narrower
+responsibilities use `capability` and `part_of` within that area. Viewer domain
+selection comes from those nodes and containment, not YAML filenames; moving
+nodes between files without correcting an oversized project domain leaves the
+business browsing problem unchanged.
+
+Define shared concepts once in their owning file. Declare each relation in the
+source concept's file and each flow in its scenario's file. References resolve
+by stable ID across all documents, including flow-step concepts. Validate the
+complete repository graph and inspect each affected domain with its external
+collaborators and relevant flows.
+
 ## Document Shape
 
 ```yaml
@@ -324,4 +345,6 @@ meaning that needs maintenance.
 Post-integration or periodic reconciliation confirms candidates in current
 evidence, updates one bounded neighborhood, validates the complete graph, and
 submits the normal repository change for review. A mapless repository can use
-the same reviewed path to establish one evidence-supported initial domain.
+the same candidate path to establish one evidence-supported initial domain.
+Explicit project initialization uses the business partition above and reviews
+its complete set of owning files together.

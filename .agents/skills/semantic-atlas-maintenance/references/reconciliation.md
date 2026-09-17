@@ -1,7 +1,8 @@
 # Reconciliation Evidence Guide
 
-Use this guide after loading the versioned candidate report and selecting one
-business domain.
+Use this guide for candidate reconciliation after loading the versioned report
+and selecting one business domain. Explicit project or local initialization uses
+the Skill's initialization path and Git review evidence.
 
 ## Read Candidate Provenance
 
@@ -57,7 +58,7 @@ and leave the candidate unresolved until the owning authority can decide it.
 - A transient or implementation-local observation is discarded with a concise
   evidence-backed reason and produces no map change.
 
-## Keep One Review Surface
+## Keep One Candidate Domain Review Surface
 
 Edit or create one owning `docs/business-map/*.yaml` file for the selected
 domain. An initial map contains only the stable domain and bounded accepted
@@ -68,6 +69,11 @@ The final Git diff is the independent review surface; retained observation
 artifacts stay unchanged.
 
 ## Record The Reviewed Outcome
+
+A maintenance observation settles retained candidates, not a general map-authoring
+run. Direct initialization without retained origins uses Git review and
+integration evidence; keep its task IDs, candidate indexes and merged state
+truthful rather than manufacturing an observation.
 
 One maintenance result identifies an exact source with both
 `taskObservationId` and zero-based `candidateIndex`. Repeated summaries do not

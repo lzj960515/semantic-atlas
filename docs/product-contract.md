@@ -104,6 +104,23 @@ stable.
 Language configuration and translation maintenance are defined in
 [Internationalization](architecture.md#internationalization).
 
+### Explicit map initialization
+
+A user can request a project business/module map or a bounded initial map. The
+maintenance Skill starts from current evidence, identifies the requested
+business boundaries, and creates their owning documents through normal Git
+review. Independent business areas normally have separate YAML files and
+meaningful selectable domain roots; a local task or a single-business project
+can use one file. Shared concepts have one owner, directed relations live with
+their source concept, and flows live with their scenario. All documents validate
+together. The [map format](map-format.md#business-partition-and-initialization)
+owns the partitioning rules.
+
+Direct initialization works without retained candidate observations. Its
+source evidence, map diff, review and integration state are Git delivery
+evidence. Candidate reconciliation retains its existing exact-origin observation
+contract and remains bounded to one business domain.
+
 ### Post-task maintenance decision and reconciliation
 
 Every business-changing task records its map outcome and decides whether stable
