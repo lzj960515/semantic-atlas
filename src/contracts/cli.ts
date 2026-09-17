@@ -232,13 +232,9 @@ export type ContextEnvelope =
   | CliSuccessEnvelope<"context", ContextData>
   | CliErrorEnvelope<"context">;
 
-export type RenderEnvelope =
-  | CliSuccessEnvelope<"render", RenderData>
-  | CliErrorEnvelope<"render">;
+export type RenderEnvelope = CliSuccessEnvelope<"render", RenderData> | CliErrorEnvelope<"render">;
 
-export type WebEnvelope =
-  | StandaloneCliSuccessEnvelope<"web", WebData>
-  | CliErrorEnvelope<"web">;
+export type WebEnvelope = StandaloneCliSuccessEnvelope<"web", WebData> | CliErrorEnvelope<"web">;
 
 export type ProjectAddEnvelope =
   | CliSuccessEnvelope<"project add", ProjectAddData>

@@ -4,22 +4,15 @@ import os from "node:os";
 import path from "node:path";
 import { MapApplication } from "../../src/application/map-application.js";
 import { ProjectRegistrationService } from "../../src/projects/project-registration-service.js";
-import {
-  ProjectStore,
-  ProjectStoreError,
-} from "../../src/projects/project-store.js";
-import {
-  createEmptyRepository,
-  createMapRepository,
-  node,
-} from "../support/map-repository.js";
+import { ProjectStore, ProjectStoreError } from "../../src/projects/project-store.js";
+import { createEmptyRepository, createMapRepository, node } from "../support/map-repository.js";
 
 const sandboxes: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(sandboxes.splice(0).map((directory) =>
-    rm(directory, { recursive: true, force: true })
-  ));
+  await Promise.all(
+    sandboxes.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
+  );
 });
 
 describe("project registration", () => {
@@ -40,10 +33,14 @@ describe("project registration", () => {
     await writeFile(projectFile, '{"schemaVersion":2,"paths":[]}\n', "utf8");
     await expect(store.read()).rejects.toMatchObject({ code: "PROJECT_CONFIG_INVALID" });
 
-    await writeFile(projectFile, JSON.stringify({
-      schemaVersion: 1,
-      paths: [`${userHome}${path.sep}folder${path.sep}..${path.sep}repository`],
-    }), "utf8");
+    await writeFile(
+      projectFile,
+      JSON.stringify({
+        schemaVersion: 1,
+        paths: [`${userHome}${path.sep}folder${path.sep}..${path.sep}repository`],
+      }),
+      "utf8",
+    );
     await expect(store.read()).rejects.toMatchObject({ code: "PROJECT_CONFIG_INVALID" });
   });
 
@@ -105,15 +102,21 @@ describe("project registration", () => {
     expect(path.basename(String(temporaryPath ?? ""))).toMatch(/^\.projects\..+\.tmp$/u);
     expect(targetPath).toBe(path.join(userHome, ".semantic-atlas", "projects.json"));
 
-    const failingStore = new ProjectStore({ userHome }, {
-      rename: async () => {
-        throw new Error("simulated replacement failure");
+    const failingStore = new ProjectStore(
+      { userHome },
+      {
+        rename: async () => {
+          throw new Error("simulated replacement failure");
+        },
       },
-    });
+    );
     await expect(failingStore.add(secondPath)).rejects.toBeInstanceOf(ProjectStoreError);
     await expect(initialStore.read()).resolves.toEqual([firstPath]);
-    expect((await readdir(path.join(userHome, ".semantic-atlas")))
-      .filter((name) => name.endsWith(".tmp"))).toEqual([]);
+    expect(
+      (await readdir(path.join(userHome, ".semantic-atlas"))).filter((name) =>
+        name.endsWith(".tmp"),
+      ),
+    ).toEqual([]);
   });
 });
 

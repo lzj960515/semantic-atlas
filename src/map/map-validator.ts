@@ -38,8 +38,9 @@ export class MapValidator {
     for (const loadedDocument of loadedDocuments) {
       const parsed = mapDocumentSchema.safeParse(loadedDocument.value, validationOptions());
       if (!parsed.success) {
-        shapeIssues.push(...parsed.error.issues.map((issue) =>
-          schemaIssue(loadedDocument.fileName, issue)));
+        shapeIssues.push(
+          ...parsed.error.issues.map((issue) => schemaIssue(loadedDocument.fileName, issue)),
+        );
         continue;
       }
       parsedDocuments.push({
@@ -86,39 +87,45 @@ function schemaIssue(document: string, issue: ZodIssue): MapIssue {
 
 function normalizeNodes(documents: readonly ParsedMapDocument[]): BusinessNode[] {
   return documents
-    .flatMap(({ document, relativePath }) => document.nodes.map((node) => ({
-      ...node,
-      aliases: [...node.aliases],
-      anchors: node.anchors.map((anchor) => ({ ...anchor })),
-      documentId: document.map.id,
-      documentPath: relativePath,
-    })))
+    .flatMap(({ document, relativePath }) =>
+      document.nodes.map((node) => ({
+        ...node,
+        aliases: [...node.aliases],
+        anchors: node.anchors.map((anchor) => ({ ...anchor })),
+        documentId: document.map.id,
+        documentPath: relativePath,
+      })),
+    )
     .sort((left, right) => left.id.localeCompare(right.id));
 }
 
 function normalizeRelations(documents: readonly ParsedMapDocument[]): BusinessRelation[] {
   return documents
-    .flatMap(({ document, relativePath }) => document.relations.map((relation) => ({
-      ...relation,
-      documentId: document.map.id,
-      documentPath: relativePath,
-    })))
+    .flatMap(({ document, relativePath }) =>
+      document.relations.map((relation) => ({
+        ...relation,
+        documentId: document.map.id,
+        documentPath: relativePath,
+      })),
+    )
     .sort(compareRelations);
 }
 
 function normalizeFlows(documents: readonly ParsedMapDocument[]): BusinessFlow[] {
   return documents
-    .flatMap(({ document, relativePath }) => document.flows.map((flow) => ({
-      ...flow,
-      steps: flow.steps
-        .map((step) => ({ ...step }))
-        .sort((left, right) => left.id.localeCompare(right.id)),
-      transitions: flow.transitions
-        .map((transition) => ({ ...transition }))
-        .sort((left, right) => flowTransitionKey(left).localeCompare(flowTransitionKey(right))),
-      documentId: document.map.id,
-      documentPath: relativePath,
-    })))
+    .flatMap(({ document, relativePath }) =>
+      document.flows.map((flow) => ({
+        ...flow,
+        steps: flow.steps
+          .map((step) => ({ ...step }))
+          .sort((left, right) => left.id.localeCompare(right.id)),
+        transitions: flow.transitions
+          .map((transition) => ({ ...transition }))
+          .sort((left, right) => flowTransitionKey(left).localeCompare(flowTransitionKey(right))),
+        documentId: document.map.id,
+        documentPath: relativePath,
+      })),
+    )
     .sort((left, right) => left.id.localeCompare(right.id));
 }
 
@@ -145,10 +152,7 @@ function validateGraph(
   return issues;
 }
 
-function validateDocumentIds(
-  documents: readonly ParsedMapDocument[],
-  issues: MapIssue[],
-): void {
+function validateDocumentIds(documents: readonly ParsedMapDocument[], issues: MapIssue[]): void {
   const ownerById = new Map<string, string>();
   for (const { fileName, document } of documents) {
     const existing = ownerById.get(document.map.id);
@@ -174,7 +178,10 @@ function validateNodeIdentities(nodes: readonly BusinessNode[], issues: MapIssue
         code: "DUPLICATE_NODE_ID",
         document: node.documentPath,
         subject: node.id,
-        message: t("errors.duplicateNode", { nodeId: node.id, documentPath: existing.documentPath }),
+        message: t("errors.duplicateNode", {
+          nodeId: node.id,
+          documentPath: existing.documentPath,
+        }),
       });
     } else {
       ownerById.set(node.id, node);
@@ -278,7 +285,11 @@ function validateContainment(
         code: "MULTIPLE_CONTAINMENT_PARENTS",
         document: relation.documentPath,
         subject: relation.from,
-        message: t("errors.multipleParents", { from: relation.from, existingParent, to: relation.to }),
+        message: t("errors.multipleParents", {
+          from: relation.from,
+          existingParent,
+          to: relation.to,
+        }),
       });
     } else if (!existingParent) {
       parentByChild.set(relation.from, relation.to);
@@ -338,10 +349,9 @@ function findContainmentCycles(
 
 function canonicalCycleKey(cycle: readonly string[]): string {
   if (cycle.length === 0) return "";
-  const rotations = cycle.map((_, index) => [
-    ...cycle.slice(index),
-    ...cycle.slice(0, index),
-  ].join(" -> "));
+  const rotations = cycle.map((_, index) =>
+    [...cycle.slice(index), ...cycle.slice(0, index)].join(" -> "),
+  );
   return rotations.sort()[0] ?? "";
 }
 
@@ -386,9 +396,7 @@ function compareRelations(left: BusinessRelation, right: BusinessRelation): numb
   return relationKey(left).localeCompare(relationKey(right));
 }
 
-function flowTransitionKey(
-  transition: BusinessFlow["transitions"][number],
-): string {
+function flowTransitionKey(transition: BusinessFlow["transitions"][number]): string {
   return `${transition.from}\0${transition.when ?? ""}\0${transition.to}`;
 }
 

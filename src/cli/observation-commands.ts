@@ -9,10 +9,7 @@ import type {
   ObserveTaskEnvelope,
   StandaloneCliSuccessEnvelope,
 } from "../contracts/cli.js";
-import {
-  InsightService,
-  InvalidInsightPeriodError,
-} from "../insights/insight-service.js";
+import { InsightService, InvalidInsightPeriodError } from "../insights/insight-service.js";
 import {
   MaintenanceCandidateError,
   ObservationApplication,
@@ -64,10 +61,7 @@ export async function runObserveMaintenanceCommand(
 ): Promise<ObserveMaintenanceEnvelope> {
   try {
     const input = await readObservationInput(runtime);
-    const result = await runtime.observationApplication.recordMaintenance(
-      repositoryPath,
-      input,
-    );
+    const result = await runtime.observationApplication.recordMaintenance(repositoryPath, input);
     return observationSuccess("observe maintenance", result);
   } catch (error) {
     return observationError("observe maintenance", error);
@@ -91,13 +85,14 @@ export async function runInsightsSummaryCommand(
       data: result,
     };
   } catch (error) {
-    const cliError = error instanceof InvalidInsightPeriodError
-      ? {
-          code: "INSIGHTS_PERIOD_INVALID" as const,
-          message: error.message,
-          period: error.period,
-        }
-      : repositoryOrStorageError(error, "INSIGHTS_READ_FAILED");
+    const cliError =
+      error instanceof InvalidInsightPeriodError
+        ? {
+            code: "INSIGHTS_PERIOD_INVALID" as const,
+            message: error.message,
+            period: error.period,
+          }
+        : repositoryOrStorageError(error, "INSIGHTS_READ_FAILED");
     return {
       schemaVersion: 1,
       ok: false,
@@ -107,16 +102,12 @@ export async function runInsightsSummaryCommand(
   }
 }
 
-async function readObservationInput(
-  runtime: ObservationCliRuntime,
-): Promise<unknown> {
+async function readObservationInput(runtime: ObservationCliRuntime): Promise<unknown> {
   const input = await runtime.readStandardInput();
   try {
     return JSON.parse(input) as unknown;
   } catch {
-    throw new ObservationInputError(
-      t("cli.observationInput"),
-    );
+    throw new ObservationInputError(t("cli.observationInput"));
   }
 }
 
@@ -136,10 +127,7 @@ function observationSuccess<
 
 function observationError<
   TCommand extends "observe task" | "observe review" | "observe maintenance",
->(
-  command: TCommand,
-  error: unknown,
-): CliErrorEnvelope<TCommand> {
+>(command: TCommand, error: unknown): CliErrorEnvelope<TCommand> {
   let cliError: CliError;
   if (error instanceof ObservationInputError) {
     cliError = {
@@ -180,10 +168,7 @@ function observationError<
 function repositoryOrStorageError(
   error: unknown,
   fallbackCode: "OBSERVATION_STORAGE_FAILED" | "INSIGHTS_READ_FAILED",
-): Extract<
-  CliError,
-  { readonly code: "REPOSITORY_INVALID" | typeof fallbackCode }
-> {
+): Extract<CliError, { readonly code: "REPOSITORY_INVALID" | typeof fallbackCode }> {
   if (error instanceof RepositoryIdentityError) {
     return {
       code: "REPOSITORY_INVALID",
@@ -192,13 +177,8 @@ function repositoryOrStorageError(
   }
   return {
     code: fallbackCode,
-    message: error instanceof ObservationStorageError
-      ? error.message
-      : errorMessage(error),
-  } as Extract<
-    CliError,
-    { readonly code: "REPOSITORY_INVALID" | typeof fallbackCode }
-  >;
+    message: error instanceof ObservationStorageError ? error.message : errorMessage(error),
+  } as Extract<CliError, { readonly code: "REPOSITORY_INVALID" | typeof fallbackCode }>;
 }
 
 function errorMessage(error: unknown): string {

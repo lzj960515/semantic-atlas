@@ -1,17 +1,8 @@
 import { t, validationOptions } from "../i18n/index.js";
 import { randomUUID } from "node:crypto";
-import {
-  mkdir,
-  open,
-  readFile,
-  rename,
-  rm,
-} from "node:fs/promises";
+import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import path from "node:path";
-import {
-  projectFileSchema,
-  type ProjectFile,
-} from "../contracts/project.js";
+import { projectFileSchema, type ProjectFile } from "../contracts/project.js";
 
 export interface ProjectStoreOptions {
   readonly userHome: string;
@@ -64,11 +55,9 @@ export class ProjectStore {
       if (!validStoredPaths(parsed.paths)) throw new Error(t("errors.projectPaths"));
       return Object.freeze([...parsed.paths]);
     } catch (error) {
-      throw new ProjectStoreError(
-        "PROJECT_CONFIG_INVALID",
-        t("errors.projectConfig"),
-        { cause: error },
-      );
+      throw new ProjectStoreError("PROJECT_CONFIG_INVALID", t("errors.projectConfig"), {
+        cause: error,
+      });
     }
   }
 
@@ -87,10 +76,7 @@ export class ProjectStore {
 
   private async publish(document: ProjectFile): Promise<void> {
     await mkdir(this.projectDirectory, { recursive: true, mode: 0o700 });
-    const stagePath = path.join(
-      this.projectDirectory,
-      `.projects.${randomUUID()}.tmp`,
-    );
+    const stagePath = path.join(this.projectDirectory, `.projects.${randomUUID()}.tmp`);
     try {
       const stage = await open(stagePath, "wx", 0o600);
       try {
@@ -113,15 +99,14 @@ export class ProjectStore {
 }
 
 function validStoredPaths(paths: readonly string[]): boolean {
-  return new Set(paths).size === paths.length
-    && paths.every((value) => path.isAbsolute(value) && path.normalize(value) === value);
+  return (
+    new Set(paths).size === paths.length &&
+    paths.every((value) => path.isAbsolute(value) && path.normalize(value) === value)
+  );
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {
-  return typeof error === "object"
-    && error !== null
-    && "code" in error
-    && error.code === code;
+  return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }
 
 function errorMessage(error: unknown): string {

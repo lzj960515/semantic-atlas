@@ -37,7 +37,7 @@ export function zoomViewBoxAt(
     MAP_SCALE_LIMITS.maximum,
   );
   const targetWidth = bounds.width / targetScale;
-  const targetHeight = current.height * targetWidth / current.width;
+  const targetHeight = (current.height * targetWidth) / current.width;
   const anchorRatioX = (anchor.x - current.x) / current.width;
   const anchorRatioY = (anchor.y - current.y) / current.height;
 
@@ -80,10 +80,7 @@ export function mapPointFromViewport(
 }
 
 export function viewportScale(viewBox: MapViewBox, viewport: MapViewport): number {
-  return Math.min(
-    viewport.width / viewBox.width,
-    viewport.height / viewBox.height,
-  );
+  return Math.min(viewport.width / viewBox.width, viewport.height / viewBox.height);
 }
 
 export function mapPointToViewport(

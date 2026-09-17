@@ -1,13 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  access,
-  mkdir,
-  mkdtemp,
-  readFile,
-  rename,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -23,9 +15,9 @@ const packageIdentity = {
 } as const;
 
 afterEach(async () => {
-  await Promise.all(sandboxes.splice(0).map((directory) =>
-    rm(directory, { recursive: true, force: true })
-  ));
+  await Promise.all(
+    sandboxes.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
+  );
 });
 
 describe("ManagedSkillInstaller", () => {
@@ -64,11 +56,9 @@ describe("ManagedSkillInstaller", () => {
       { outcome: "current", identity: { skillName: "semantic-atlas" } },
       { outcome: "repaired", identity: { skillName: "semantic-atlas-maintenance" } },
     ]);
-    await expect(readFile(path.join(maintenanceDirectory, "SKILL.md"), "utf8"))
-      .resolves.toBe(skillDocumentForName(
-        "maintenance workflow",
-        "semantic-atlas-maintenance",
-      ));
+    await expect(readFile(path.join(maintenanceDirectory, "SKILL.md"), "utf8")).resolves.toBe(
+      skillDocumentForName("maintenance workflow", "semantic-atlas-maintenance"),
+    );
   });
 
   it("installs, verifies, and repairs the package-owned Skill", async () => {
@@ -101,13 +91,11 @@ describe("ManagedSkillInstaller", () => {
 
     await expect(installer.install()).resolves.toMatchObject({ outcome: "current" });
 
-    await writeFile(
-      path.join(fixture.targetDirectory, "SKILL.md"),
-      "modified managed copy\n",
-    );
+    await writeFile(path.join(fixture.targetDirectory, "SKILL.md"), "modified managed copy\n");
     await expect(installer.install()).resolves.toMatchObject({ outcome: "repaired" });
-    await expect(readFile(path.join(fixture.targetDirectory, "SKILL.md"), "utf8"))
-      .resolves.toBe(skillDocument("current bundled workflow"));
+    await expect(readFile(path.join(fixture.targetDirectory, "SKILL.md"), "utf8")).resolves.toBe(
+      skillDocument("current bundled workflow"),
+    );
   });
 
   it("refuses to replace an unrelated same-named directory", async () => {
@@ -123,8 +111,9 @@ describe("ManagedSkillInstaller", () => {
     });
 
     await expect(installer.install()).rejects.toBeInstanceOf(ManagedSkillConflictError);
-    await expect(readFile(path.join(fixture.targetDirectory, "SKILL.md"), "utf8"))
-      .resolves.toBe(unrelatedDocument);
+    await expect(readFile(path.join(fixture.targetDirectory, "SKILL.md"), "utf8")).resolves.toBe(
+      unrelatedDocument,
+    );
   });
 
   it("requires the bundled Skill identity in frontmatter", async () => {
@@ -139,9 +128,7 @@ describe("ManagedSkillInstaller", () => {
       userHome: fixture.userHome,
     });
 
-    await expect(installer.install()).rejects.toThrow(
-      "is not the 'semantic-atlas' Skill",
-    );
+    await expect(installer.install()).rejects.toThrow("is not the 'semantic-atlas' Skill");
     await expect(access(fixture.targetDirectory)).rejects.toThrow();
   });
 
@@ -154,10 +141,14 @@ describe("ManagedSkillInstaller", () => {
     );
     await writeFile(
       path.join(fixture.targetDirectory, ".semantic-atlas-managed.json"),
-      `${JSON.stringify({
-        version: "0.4.0",
-        fingerprint: "a".repeat(64),
-      }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          version: "0.4.0",
+          fingerprint: "a".repeat(64),
+        },
+        null,
+        2,
+      )}\n`,
     );
 
     const installer = new ManagedSkillInstaller({
@@ -166,10 +157,9 @@ describe("ManagedSkillInstaller", () => {
       userHome: fixture.userHome,
     });
     await expect(installer.install()).rejects.toBeInstanceOf(ManagedSkillConflictError);
-    await expect(readFile(
-      path.join(fixture.targetDirectory, ".semantic-atlas-managed.json"),
-      "utf8",
-    )).resolves.toContain('"version": "0.4.0"');
+    await expect(
+      readFile(path.join(fixture.targetDirectory, ".semantic-atlas-managed.json"), "utf8"),
+    ).resolves.toContain('"version": "0.4.0"');
   });
 
   it("recovers an interrupted replacement of a current managed Skill", async () => {
@@ -189,8 +179,9 @@ describe("ManagedSkillInstaller", () => {
     await copyManagedMarker(backupDirectory, orphanStage);
 
     await expect(installer.install()).resolves.toMatchObject({ outcome: "recovered" });
-    await expect(readFile(path.join(fixture.targetDirectory, "SKILL.md"), "utf8"))
-      .resolves.toBe(skillDocument("current bundled workflow"));
+    await expect(readFile(path.join(fixture.targetDirectory, "SKILL.md"), "utf8")).resolves.toBe(
+      skillDocument("current bundled workflow"),
+    );
     await expect(access(backupDirectory)).rejects.toThrow();
     await expect(access(orphanStage)).rejects.toThrow();
   });
@@ -203,31 +194,32 @@ describe("ManagedSkillInstaller", () => {
       userHome: fixture.userHome,
     });
     await installer.install();
-    const previousDocument = await readFile(
-      path.join(fixture.targetDirectory, "SKILL.md"),
-      "utf8",
-    );
+    const previousDocument = await readFile(path.join(fixture.targetDirectory, "SKILL.md"), "utf8");
     await writeFile(
       path.join(fixture.sourceDirectory, "SKILL.md"),
       skillDocument("replacement workflow"),
     );
 
-    const failingInstaller = new ManagedSkillInstaller({
-      packageIdentity,
-      sourceDirectory: fixture.sourceDirectory,
-      userHome: fixture.userHome,
-    }, {
-      moveDirectory: async (source, target) => {
-        if (source.includes(".installing-") && target === fixture.targetDirectory) {
-          throw new Error("simulated activation failure");
-        }
-        await rename(source, target);
+    const failingInstaller = new ManagedSkillInstaller(
+      {
+        packageIdentity,
+        sourceDirectory: fixture.sourceDirectory,
+        userHome: fixture.userHome,
       },
-    });
+      {
+        moveDirectory: async (source, target) => {
+          if (source.includes(".installing-") && target === fixture.targetDirectory) {
+            throw new Error("simulated activation failure");
+          }
+          await rename(source, target);
+        },
+      },
+    );
 
     await expect(failingInstaller.install()).rejects.toThrow("simulated activation failure");
-    await expect(readFile(path.join(fixture.targetDirectory, "SKILL.md"), "utf8"))
-      .resolves.toBe(previousDocument);
+    await expect(readFile(path.join(fixture.targetDirectory, "SKILL.md"), "utf8")).resolves.toBe(
+      previousDocument,
+    );
     await expect(access(`${fixture.targetDirectory}.backup`)).rejects.toThrow();
   });
 
@@ -245,8 +237,9 @@ describe("ManagedSkillInstaller", () => {
     await writeFile(path.join(unrelatedStage, "keep.txt"), "stage-owned-by-user\n");
 
     await expect(installer.install()).resolves.toMatchObject({ outcome: "current" });
-    await expect(readFile(path.join(unrelatedStage, "keep.txt"), "utf8"))
-      .resolves.toBe("stage-owned-by-user\n");
+    await expect(readFile(path.join(unrelatedStage, "keep.txt"), "utf8")).resolves.toBe(
+      "stage-owned-by-user\n",
+    );
 
     await mkdir(unrelatedBackup);
     await writeFile(path.join(unrelatedBackup, "keep.txt"), "backup-owned-by-user\n");
@@ -254,8 +247,9 @@ describe("ManagedSkillInstaller", () => {
     await expect(installer.install()).rejects.toMatchObject({
       directory: unrelatedBackup,
     } satisfies Partial<ManagedSkillConflictError>);
-    await expect(readFile(path.join(unrelatedBackup, "keep.txt"), "utf8"))
-      .resolves.toBe("backup-owned-by-user\n");
+    await expect(readFile(path.join(unrelatedBackup, "keep.txt"), "utf8")).resolves.toBe(
+      "backup-owned-by-user\n",
+    );
   });
 });
 
@@ -293,10 +287,7 @@ async function createBundleFixture(): Promise<{
   const maintenanceDirectory = path.join(sourceRoot, "semantic-atlas-maintenance");
   await mkdir(primaryDirectory, { recursive: true });
   await mkdir(maintenanceDirectory, { recursive: true });
-  await writeFile(
-    path.join(primaryDirectory, "SKILL.md"),
-    skillDocument("primary workflow"),
-  );
+  await writeFile(path.join(primaryDirectory, "SKILL.md"), skillDocument("primary workflow"));
   await writeFile(
     path.join(maintenanceDirectory, "SKILL.md"),
     skillDocumentForName("maintenance workflow", "semantic-atlas-maintenance"),
@@ -321,9 +312,6 @@ async function readManagedMarker(directory: string): Promise<unknown> {
 async function copyManagedMarker(sourceDirectory: string, targetDirectory: string): Promise<void> {
   await writeFile(
     path.join(targetDirectory, ".semantic-atlas-managed.json"),
-    await readFile(
-      path.join(sourceDirectory, ".semantic-atlas-managed.json"),
-      "utf8",
-    ),
+    await readFile(path.join(sourceDirectory, ".semantic-atlas-managed.json"), "utf8"),
   );
 }

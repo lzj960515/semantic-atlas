@@ -16,14 +16,8 @@ interface ControlledSuite {
 }
 
 const projectRoot = fileURLToPath(new URL("../..", import.meta.url));
-const skillDirectory = path.join(
-  projectRoot,
-  ".agents/skills/semantic-atlas-maintenance",
-);
-const controlledRepository = path.join(
-  projectRoot,
-  "tests/fixtures/agent-skill/repository",
-);
+const skillDirectory = path.join(projectRoot, ".agents/skills/semantic-atlas-maintenance");
+const controlledRepository = path.join(projectRoot, "tests/fixtures/agent-skill/repository");
 
 describe("bundled Semantic Atlas maintenance Skill", () => {
   it("is discoverable with one narrow maintenance identity", async () => {
@@ -80,9 +74,7 @@ describe("bundled Semantic Atlas maintenance Skill", () => {
     const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
     const frontmatter = parseFrontmatter(skillDocument);
 
-    expect(frontmatter.description).toContain(
-      "with or without an existing business map",
-    );
+    expect(frontmatter.description).toContain("with or without an existing business map");
     expect(skillDocument).toContain(
       "When no map documents exist, create one initial business-domain YAML",
     );
@@ -107,26 +99,29 @@ describe("bundled Semantic Atlas maintenance Skill", () => {
   });
 
   it("covers drift, duplicate provenance, correction, and a clean discard", async () => {
-    const suite = JSON.parse(await readFile(
-      path.join(projectRoot, "tests/fixtures/reconciliation/cases.json"),
-      "utf8",
-    )) as ControlledSuite;
+    const suite = JSON.parse(
+      await readFile(path.join(projectRoot, "tests/fixtures/reconciliation/cases.json"), "utf8"),
+    ) as ControlledSuite;
 
     expect(suite.schemaVersion).toBe(1);
-    expect(suite.cases.map(({ id }) => id)).toEqual(expect.arrayContaining([
-      "stale-anchor-primary",
-      "stale-anchor-duplicate",
-      "contradicted-relation",
-      "missing-durable-concept",
-      "unresolved-business-meaning",
-      "discarded-transient-observation",
-    ]));
-    expect(suite.cases.filter(({ expectedOutcome }) => expectedOutcome === "discarded"))
-      .toHaveLength(1);
+    expect(suite.cases.map(({ id }) => id)).toEqual(
+      expect.arrayContaining([
+        "stale-anchor-primary",
+        "stale-anchor-duplicate",
+        "contradicted-relation",
+        "missing-durable-concept",
+        "unresolved-business-meaning",
+        "discarded-transient-observation",
+      ]),
+    );
+    expect(
+      suite.cases.filter(({ expectedOutcome }) => expectedOutcome === "discarded"),
+    ).toHaveLength(1);
     for (const controlledCase of suite.cases) {
       for (const evidence of controlledCase.evidence) {
-        await expect(access(path.join(controlledRepository, evidence.reference)))
-          .resolves.toBeUndefined();
+        await expect(
+          access(path.join(controlledRepository, evidence.reference)),
+        ).resolves.toBeUndefined();
       }
     }
   });

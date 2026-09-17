@@ -1,13 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import {
-  copyFile,
-  mkdir,
-  mkdtemp,
-  readFile,
-  realpath,
-  rm,
-} from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

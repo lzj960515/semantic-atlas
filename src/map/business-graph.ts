@@ -5,10 +5,7 @@ import type {
   BusinessRelation,
   ValidatedBusinessMap,
 } from "../contracts/map.js";
-import type {
-  ConceptCandidate,
-  ConceptMatchKind,
-} from "../contracts/cli.js";
+import type { ConceptCandidate, ConceptMatchKind } from "../contracts/cli.js";
 
 export type ConceptResolution =
   | {
@@ -53,13 +50,16 @@ export class BusinessGraph {
     if (nameResolution) return nameResolution;
 
     const exactAlias = this.map.nodes.filter((node) =>
-      node.aliases.some((alias) => normalizeTerm(alias) === normalizedSelector));
+      node.aliases.some((alias) => normalizeTerm(alias) === normalizedSelector),
+    );
     const aliasResolution = resolveMatches(exactAlias, "alias");
     if (aliasResolution) return aliasResolution;
 
-    const partial = this.map.nodes.filter((node) =>
-      normalizeTerm(node.name).includes(normalizedSelector)
-      || node.aliases.some((alias) => normalizeTerm(alias).includes(normalizedSelector)));
+    const partial = this.map.nodes.filter(
+      (node) =>
+        normalizeTerm(node.name).includes(normalizedSelector) ||
+        node.aliases.some((alias) => normalizeTerm(alias).includes(normalizedSelector)),
+    );
     return resolveMatches(partial, "partial") ?? { found: false, ambiguous: false };
   }
 
@@ -76,13 +76,14 @@ export class BusinessGraph {
   }
 
   public flowsRelatedTo(nodeId: string): readonly BusinessFlow[] {
-    const containedConceptIds = new Set([
-      nodeId,
-      ...this.descendants(nodeId).map(({ id }) => id),
-    ]);
-    return Object.freeze(this.map.flows.filter((flow) =>
-      containedConceptIds.has(flow.scenario)
-      || flow.steps.some((step) => step.concept === nodeId)));
+    const containedConceptIds = new Set([nodeId, ...this.descendants(nodeId).map(({ id }) => id)]);
+    return Object.freeze(
+      this.map.flows.filter(
+        (flow) =>
+          containedConceptIds.has(flow.scenario) ||
+          flow.steps.some((step) => step.concept === nodeId),
+      ),
+    );
   }
 
   public ancestors(nodeId: string): readonly BusinessNode[] {
@@ -156,9 +157,7 @@ function compareCandidates(left: ConceptCandidate, right: ConceptCandidate): num
   return left.id.localeCompare(right.id);
 }
 
-function buildParentIndex(
-  relations: readonly BusinessRelation[],
-): ReadonlyMap<string, string> {
+function buildParentIndex(relations: readonly BusinessRelation[]): ReadonlyMap<string, string> {
   return new Map(
     relations
       .filter((relation) => relation.type === "part_of")

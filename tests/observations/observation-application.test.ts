@@ -36,9 +36,9 @@ import {
 const sandboxes: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(sandboxes.splice(0).map((directory) =>
-    rm(directory, { recursive: true, force: true })
-  ));
+  await Promise.all(
+    sandboxes.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
+  );
 });
 
 describe("accuracy observation boundary", () => {
@@ -46,10 +46,7 @@ describe("accuracy observation boundary", () => {
     const fixture = await createFixture();
     const task = taskObservation();
 
-    const recordedTask = await fixture.application.recordTask(
-      fixture.repositoryRoot,
-      task,
-    );
+    const recordedTask = await fixture.application.recordTask(fixture.repositoryRoot, task);
     expect(recordedTask.outcome).toBe("recorded");
     expect(recordedTask.path.startsWith(fixture.userHome)).toBe(true);
     expect(recordedTask.path.startsWith(fixture.repositoryRoot)).toBe(false);
@@ -68,10 +65,7 @@ describe("accuracy observation boundary", () => {
     });
 
     const review = reviewObservation(task.id);
-    const recordedReview = await fixture.application.recordReview(
-      fixture.repositoryRoot,
-      review,
-    );
+    const recordedReview = await fixture.application.recordReview(fixture.repositoryRoot, review);
     expect(recordedReview).toMatchObject({
       outcome: "recorded",
       kind: "review",
@@ -94,25 +88,31 @@ describe("accuracy observation boundary", () => {
     const fixture = await createFixture();
     const input = taskObservation({
       id: "business-flow-observation",
-      mapUpdateCandidates: [{
-        businessDomainId: "commerce",
-        kind: "flow",
-        disposition: "contradicted",
-        summary: "Checkout must not create an order when payment is declined.",
-        evidence: [{
-          kind: "test",
-          reference: "src/checkout/place-order.test.ts",
-        }],
-      }],
+      mapUpdateCandidates: [
+        {
+          businessDomainId: "commerce",
+          kind: "flow",
+          disposition: "contradicted",
+          summary: "Checkout must not create an order when payment is declined.",
+          evidence: [
+            {
+              kind: "test",
+              reference: "src/checkout/place-order.test.ts",
+            },
+          ],
+        },
+      ],
     } as unknown as Partial<TaskObservationInput>);
 
     const result = await fixture.application.recordTask(fixture.repositoryRoot, input);
 
     expect(JSON.parse(await readFile(result.path, "utf8"))).toMatchObject({
-      mapUpdateCandidates: [{
-        kind: "flow",
-        disposition: "contradicted",
-      }],
+      mapUpdateCandidates: [
+        {
+          kind: "flow",
+          disposition: "contradicted",
+        },
+      ],
     });
   });
 
@@ -191,10 +191,12 @@ describe("accuracy observation boundary", () => {
       schemaVersion: 1,
       businessDomainId: "commerce",
       maintenance: maintenance.maintenance,
-      results: [{
-        candidate: { taskObservationId: task.id, candidateIndex: 0 },
-        status: "accepted",
-      }],
+      results: [
+        {
+          candidate: { taskObservationId: task.id, candidateIndex: 0 },
+          status: "accepted",
+        },
+      ],
       mapChange: {
         owningMapPath: "docs/business-map/commerce.yaml",
         mergedCommit: "1234567890abcdef1234567890abcdef12345678",
@@ -206,10 +208,12 @@ describe("accuracy observation boundary", () => {
     await expect(
       fixture.application.recordMaintenance(fixture.repositoryRoot, {
         ...maintenance,
-        results: [{
-          ...maintenance.results[0]!,
-          reason: "Changed content must not reuse the observation ID.",
-        }],
+        results: [
+          {
+            ...maintenance.results[0]!,
+            reason: "Changed content must not reuse the observation ID.",
+          },
+        ],
       }),
     ).rejects.toBeInstanceOf(ObservationConflictError);
   });
@@ -222,10 +226,12 @@ describe("accuracy observation boundary", () => {
     await expect(
       fixture.application.recordMaintenance(fixture.repositoryRoot, {
         ...maintenanceObservation(task.id),
-        results: [{
-          ...maintenanceObservation(task.id).results[0]!,
-          candidate: { taskObservationId: task.id, candidateIndex: 1 },
-        }],
+        results: [
+          {
+            ...maintenanceObservation(task.id).results[0]!,
+            candidate: { taskObservationId: task.id, candidateIndex: 1 },
+          },
+        ],
       }),
     ).rejects.toBeInstanceOf(MaintenanceCandidateError);
     await expect(
@@ -251,10 +257,12 @@ describe("accuracy observation boundary", () => {
       fixture.application.recordMaintenance(fixture.repositoryRoot, {
         ...accepted,
         id: "maintenance-observation-discarded-with-merge",
-        results: [{
-          ...accepted.results[0]!,
-          status: "discarded",
-        }],
+        results: [
+          {
+            ...accepted.results[0]!,
+            status: "discarded",
+          },
+        ],
       }),
     ).rejects.toBeInstanceOf(ObservationInputError);
   });
@@ -274,14 +282,16 @@ describe("accuracy observation boundary", () => {
 
   it("publishes concurrent observations as separate complete files", async () => {
     const fixture = await createFixture();
-    const inputs = Array.from({ length: 24 }, (_, index) => taskObservation({
-      id: `task-observation-${index}`,
-      task: { taskId: `task-${index}`, runId: `run-${index}` },
-    }));
+    const inputs = Array.from({ length: 24 }, (_, index) =>
+      taskObservation({
+        id: `task-observation-${index}`,
+        task: { taskId: `task-${index}`, runId: `run-${index}` },
+      }),
+    );
 
-    const results = await Promise.all(inputs.map((input) =>
-      fixture.application.recordTask(fixture.repositoryRoot, input)
-    ));
+    const results = await Promise.all(
+      inputs.map((input) => fixture.application.recordTask(fixture.repositoryRoot, input)),
+    );
     expect(results.every(({ outcome }) => outcome === "recorded")).toBe(true);
     expect(new Set(results.map(({ path: resultPath }) => resultPath)).size).toBe(24);
 
@@ -289,19 +299,23 @@ describe("accuracy observation boundary", () => {
     expect((await readdir(taskDirectory)).sort()).toEqual(
       inputs.map(({ id }) => `${id}.json`).sort(),
     );
-    await Promise.all(results.map(async ({ path: resultPath }) => {
-      const document = await readFile(resultPath, "utf8");
-      expect(() => JSON.parse(document)).not.toThrow();
-    }));
+    await Promise.all(
+      results.map(async ({ path: resultPath }) => {
+        const document = await readFile(resultPath, "utf8");
+        expect(() => JSON.parse(document)).not.toThrow();
+      }),
+    );
   });
 
   it("serializes concurrent replays without overwriting the winning content", async () => {
     const fixture = await createFixture();
     const input = taskObservation();
 
-    const results = await Promise.all(Array.from({ length: 12 }, () =>
-      fixture.application.recordTask(fixture.repositoryRoot, input)
-    ));
+    const results = await Promise.all(
+      Array.from({ length: 12 }, () =>
+        fixture.application.recordTask(fixture.repositoryRoot, input),
+      ),
+    );
     expect(results.filter(({ outcome }) => outcome === "recorded")).toHaveLength(1);
     expect(results.filter(({ outcome }) => outcome === "idempotent")).toHaveLength(11);
   });
@@ -323,10 +337,7 @@ describe("accuracy observation boundary", () => {
       },
     });
 
-    const firstWrite = fixture.application.recordTask(
-      fixture.repositoryRoot,
-      taskObservation(),
-    );
+    const firstWrite = fixture.application.recordTask(fixture.repositoryRoot, taskObservation());
     await publicationStarted;
     const claimPath = await observationClaimPath(fixture);
     try {
@@ -387,12 +398,15 @@ describe("accuracy observation boundary", () => {
     const fixture = await createFixture();
     const claimPath = await observationClaimPath(fixture);
     await mkdir(path.dirname(claimPath), { recursive: true });
-    await writeFile(claimPath, `${JSON.stringify({
-      schemaVersion: 1,
-      pid: process.pid,
-      processInstanceId: "previous-process-instance",
-      claimId: "abandoned-claim",
-    })}\n`);
+    await writeFile(
+      claimPath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        pid: process.pid,
+        processInstanceId: "previous-process-instance",
+        claimId: "abandoned-claim",
+      })}\n`,
+    );
 
     await expect(
       fixture.application.recordTask(fixture.repositoryRoot, taskObservation()),
@@ -411,20 +425,14 @@ describe("accuracy observation boundary", () => {
     );
     await mkdir(worktreeGitDirectory, { recursive: true });
     await mkdir(worktreeRoot);
-    await writeFile(
-      path.join(worktreeRoot, ".git"),
-      `gitdir: ${worktreeGitDirectory}\n`,
-    );
+    await writeFile(path.join(worktreeRoot, ".git"), `gitdir: ${worktreeGitDirectory}\n`);
     await writeFile(path.join(worktreeGitDirectory, "commondir"), "../..\n");
 
     const mainIdentity = await fixture.resolver.resolve(fixture.repositoryRoot);
     const worktreeIdentity = await fixture.resolver.resolve(worktreeRoot);
     expect(worktreeIdentity.identity).toEqual(mainIdentity.identity);
 
-    const recorded = await fixture.application.recordTask(
-      worktreeRoot,
-      taskObservation(),
-    );
+    const recorded = await fixture.application.recordTask(worktreeRoot, taskObservation());
     expect(recorded.path).toContain(mainIdentity.identity.id);
   });
 
@@ -435,9 +443,9 @@ describe("accuracy observation boundary", () => {
     await mkdir(repositoryRoot);
     await writeFile(path.join(repositoryRoot, ".git"), "gitdir: missing-directory\n");
 
-    await expect(
-      new RepositoryIdentityResolver().resolve(repositoryRoot),
-    ).rejects.toBeInstanceOf(RepositoryIdentityError);
+    await expect(new RepositoryIdentityResolver().resolve(repositoryRoot)).rejects.toBeInstanceOf(
+      RepositoryIdentityError,
+    );
   });
 });
 
@@ -472,12 +480,7 @@ async function createFixture(options: FixtureOptions = {}): Promise<{
   sandboxes.push(sandbox);
   const userHome = path.join(sandbox, "home");
   const repositoryRoot = path.join(sandbox, "repository");
-  const observationRoot = path.join(
-    userHome,
-    ".semantic-atlas",
-    "observations",
-    "v1",
-  );
+  const observationRoot = path.join(userHome, ".semantic-atlas", "observations", "v1");
   await mkdir(path.join(repositoryRoot, ".git"), { recursive: true });
   const resolver = new RepositoryIdentityResolver();
   const store = new ObservationStore(
@@ -495,9 +498,7 @@ async function createFixture(options: FixtureOptions = {}): Promise<{
   };
 }
 
-function taskObservation(
-  overrides: Partial<TaskObservationInput> = {},
-): TaskObservationInput {
+function taskObservation(overrides: Partial<TaskObservationInput> = {}): TaskObservationInput {
   return {
     schemaVersion: 2,
     id: "task-observation-1",
@@ -507,30 +508,40 @@ function taskObservation(
       runId: "run-1",
     },
     map: {
-      queries: [{
-        selector: "Checkout",
-        outcome: "context",
-        selectedConceptIds: ["commerce.orders.place-order"],
-      }],
-      dispositions: [{
-        status: "stale",
-        summary: "The checkout anchor moved while its business meaning stayed stable.",
-        evidence: [{
-          kind: "source",
-          reference: "src/checkout/place-order.ts",
-        }],
-      }],
+      queries: [
+        {
+          selector: "Checkout",
+          outcome: "context",
+          selectedConceptIds: ["commerce.orders.place-order"],
+        },
+      ],
+      dispositions: [
+        {
+          status: "stale",
+          summary: "The checkout anchor moved while its business meaning stayed stable.",
+          evidence: [
+            {
+              kind: "source",
+              reference: "src/checkout/place-order.ts",
+            },
+          ],
+        },
+      ],
     },
-    mapUpdateCandidates: [{
-      businessDomainId: "commerce",
-      kind: "anchor",
-      disposition: "confirmed",
-      summary: "Replace the stale checkout source anchor.",
-      evidence: [{
-        kind: "source",
-        reference: "src/checkout/place-order.ts",
-      }],
-    }],
+    mapUpdateCandidates: [
+      {
+        businessDomainId: "commerce",
+        kind: "anchor",
+        disposition: "confirmed",
+        summary: "Replace the stale checkout source anchor.",
+        evidence: [
+          {
+            kind: "source",
+            reference: "src/checkout/place-order.ts",
+          },
+        ],
+      },
+    ],
     ...overrides,
   };
 }
@@ -564,12 +575,14 @@ function maintenanceObservation(taskObservationId: string): MaintenanceObservati
       runId: "maintenance-run-1",
     },
     businessDomainId: "commerce",
-    results: [{
-      candidate: { taskObservationId, candidateIndex: 0 },
-      status: "accepted",
-      reason: "Current source confirms the durable concept and its replacement anchor.",
-      evidence: [{ kind: "source", reference: "src/checkout/place-order.ts" }],
-    }],
+    results: [
+      {
+        candidate: { taskObservationId, candidateIndex: 0 },
+        status: "accepted",
+        reason: "Current source confirms the durable concept and its replacement anchor.",
+        evidence: [{ kind: "source", reference: "src/checkout/place-order.ts" }],
+      },
+    ],
     mapChange: {
       owningMapPath: "docs/business-map/commerce.yaml",
       mergedCommit: "1234567890abcdef1234567890abcdef12345678",

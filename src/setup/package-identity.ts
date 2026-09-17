@@ -13,10 +13,10 @@ export async function readPackageIdentity(): Promise<PackageIdentity> {
     readonly version?: unknown;
   };
   if (
-    typeof packageDocument.name !== "string"
-    || packageDocument.name.trim().length === 0
-    || typeof packageDocument.version !== "string"
-    || packageDocument.version.trim().length === 0
+    typeof packageDocument.name !== "string" ||
+    packageDocument.name.trim().length === 0 ||
+    typeof packageDocument.version !== "string" ||
+    packageDocument.version.trim().length === 0
   ) {
     throw new Error(t("errors.packageIdentity"));
   }

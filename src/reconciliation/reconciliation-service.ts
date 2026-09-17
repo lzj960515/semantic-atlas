@@ -27,15 +27,11 @@ export class ReconciliationService {
     private readonly store: ObservationStore,
   ) {}
 
-  public async listCandidates(
-    repositoryPath: string,
-  ): Promise<ReconciliationCandidateReport> {
+  public async listCandidates(repositoryPath: string): Promise<ReconciliationCandidateReport> {
     const repository = (await this.repositoryResolver.resolve(repositoryPath)).identity;
     const observations = await this.store.readAll(repository);
     const reviewsByTask = groupReviewsByTask(observations.reviews);
-    const maintenanceByCandidate = groupMaintenanceByCandidate(
-      observations.maintenances,
-    );
+    const maintenanceByCandidate = groupMaintenanceByCandidate(observations.maintenances);
     const groupedCandidates = groupCandidates(
       observations.tasks,
       reviewsByTask,
@@ -43,10 +39,7 @@ export class ReconciliationService {
     );
     const candidates = groupedCandidates.actionable;
     const domains = groupByDomain(candidates);
-    const candidateGroups = domains.reduce(
-      (total, domain) => total + domain.candidates.length,
-      0,
-    );
+    const candidateGroups = domains.reduce((total, domain) => total + domain.candidates.length, 0);
     const candidateOccurrences = candidates.reduce(
       (total, candidate) => total + candidate.origins.length,
       0,
@@ -68,17 +61,14 @@ export class ReconciliationService {
   public async maintenanceRequired(repositoryPath: string): Promise<boolean> {
     const repository = (await this.repositoryResolver.resolve(repositoryPath)).identity;
     const observations = await this.store.readReconciliationInputs(repository);
-    const maintenanceByCandidate = groupMaintenanceByCandidate(
-      observations.maintenances,
-    );
+    const maintenanceByCandidate = groupMaintenanceByCandidate(observations.maintenances);
 
     return observations.tasks.some((task) =>
       task.mapUpdateCandidates.some((_, candidateIndex) => {
-        const history = maintenanceByCandidate.get(
-          candidateOriginKey(task.id, candidateIndex),
-        ) ?? [];
+        const history =
+          maintenanceByCandidate.get(candidateOriginKey(task.id, candidateIndex)) ?? [];
         return candidateState(history) === "actionable";
-      })
+      }),
     );
   }
 }
@@ -93,15 +83,13 @@ function groupReviewsByTask(
       reviewObservationId: observation.id,
       recordedAt: observation.recordedAt,
       review: observation.review,
-      ...(observation.humanCorrection
-        ? { humanCorrection: observation.humanCorrection }
-        : {}),
+      ...(observation.humanCorrection ? { humanCorrection: observation.humanCorrection } : {}),
     });
     grouped.set(observation.taskObservationId, taskReviews);
   }
   for (const taskReviews of grouped.values()) {
     taskReviews.sort((left, right) =>
-      compareText(left.reviewObservationId, right.reviewObservationId)
+      compareText(left.reviewObservationId, right.reviewObservationId),
     );
   }
   return grouped;
@@ -110,10 +98,7 @@ function groupReviewsByTask(
 function groupCandidates(
   tasks: readonly TaskObservation[],
   reviewsByTask: ReadonlyMap<string, readonly ReconciliationReviewOrigin[]>,
-  maintenanceByCandidate: ReadonlyMap<
-    string,
-    readonly ReconciliationMaintenanceOrigin[]
-  >,
+  maintenanceByCandidate: ReadonlyMap<string, readonly ReconciliationMaintenanceOrigin[]>,
 ): {
   readonly actionable: readonly CandidateAccumulator[];
   readonly waitingForEvidenceOccurrences: number;
@@ -121,9 +106,8 @@ function groupCandidates(
   const grouped = new Map<string, CandidateAccumulator>();
   for (const task of tasks) {
     task.mapUpdateCandidates.forEach((candidate, candidateIndex) => {
-      const maintenanceHistory = maintenanceByCandidate.get(
-        candidateOriginKey(task.id, candidateIndex),
-      ) ?? [];
+      const maintenanceHistory =
+        maintenanceByCandidate.get(candidateOriginKey(task.id, candidateIndex)) ?? [];
       if (candidateState(maintenanceHistory) === "terminal") {
         return;
       }
@@ -156,15 +140,11 @@ function groupCandidates(
   }
   candidates.sort(compareCandidates);
   const actionable = candidates.filter(({ origins }) =>
-    origins.some(({ maintenanceHistory }) =>
-      candidateState(maintenanceHistory) === "actionable"
-    )
+    origins.some(({ maintenanceHistory }) => candidateState(maintenanceHistory) === "actionable"),
   );
   const waitingForEvidenceOccurrences = candidates
     .filter(({ origins }) =>
-      origins.every(({ maintenanceHistory }) =>
-        candidateState(maintenanceHistory) === "waiting"
-      )
+      origins.every(({ maintenanceHistory }) => candidateState(maintenanceHistory) === "waiting"),
     )
     .reduce((total, candidate) => total + candidate.origins.length, 0);
   return { actionable, waitingForEvidenceOccurrences };
@@ -203,7 +183,7 @@ function groupMaintenanceByCandidate(
   }
   for (const history of grouped.values()) {
     history.sort((left, right) =>
-      compareText(left.maintenanceObservationId, right.maintenanceObservationId)
+      compareText(left.maintenanceObservationId, right.maintenanceObservationId),
     );
   }
   return grouped;
@@ -244,21 +224,22 @@ function candidateKey(
   return JSON.stringify([businessDomainId, kind, summary]);
 }
 
-function compareCandidates(
-  left: CandidateAccumulator,
-  right: CandidateAccumulator,
-): number {
-  return compareText(left.businessDomainId, right.businessDomainId)
-    || compareText(left.kind, right.kind)
-    || compareText(left.summary, right.summary);
+function compareCandidates(left: CandidateAccumulator, right: CandidateAccumulator): number {
+  return (
+    compareText(left.businessDomainId, right.businessDomainId) ||
+    compareText(left.kind, right.kind) ||
+    compareText(left.summary, right.summary)
+  );
 }
 
 function compareOrigins(
   left: ReconciliationCandidateOrigin,
   right: ReconciliationCandidateOrigin,
 ): number {
-  return compareText(left.taskObservationId, right.taskObservationId)
-    || left.candidateIndex - right.candidateIndex;
+  return (
+    compareText(left.taskObservationId, right.taskObservationId) ||
+    left.candidateIndex - right.candidateIndex
+  );
 }
 
 function compareText(left: string, right: string): number {

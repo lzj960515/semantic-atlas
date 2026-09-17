@@ -3,194 +3,226 @@ import { z } from "zod";
 
 const nonEmptyStringSchema = z.string().trim().min(1).max(2_000);
 const identitySchema = z.string().trim().min(1).max(256);
-const observationIdSchema = identitySchema.regex(
-  /^[A-Za-z0-9][A-Za-z0-9._-]*$/u,
-  { error: () => t("errors.observationId") },
-);
+const observationIdSchema = identitySchema.regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/u, {
+  error: () => t("errors.observationId"),
+});
 const repositoryIdSchema = z.string().regex(/^[a-f0-9]{64}$/u);
 const timestampSchema = z.iso.datetime({ offset: true });
 
-export const repositoryIdentitySchema = z.object({
-  kind: z.enum(["git", "directory"]),
-  id: repositoryIdSchema,
-}).strict();
+export const repositoryIdentitySchema = z
+  .object({
+    kind: z.enum(["git", "directory"]),
+    id: repositoryIdSchema,
+  })
+  .strict();
 
-export const evidenceReferenceSchema = z.object({
-  kind: z.enum(["source", "test", "document", "runtime"]),
-  reference: nonEmptyStringSchema,
-}).strict().superRefine((evidence, context) => {
-  if (evidence.kind === "runtime" || isNormalizedRepositoryReference(evidence.reference)) {
-    return;
-  }
-  context.addIssue({
-    code: "custom",
-    path: ["reference"],
-    message: t("errors.evidencePath"),
+export const evidenceReferenceSchema = z
+  .object({
+    kind: z.enum(["source", "test", "document", "runtime"]),
+    reference: nonEmptyStringSchema,
+  })
+  .strict()
+  .superRefine((evidence, context) => {
+    if (evidence.kind === "runtime" || isNormalizedRepositoryReference(evidence.reference)) {
+      return;
+    }
+    context.addIssue({
+      code: "custom",
+      path: ["reference"],
+      message: t("errors.evidencePath"),
+    });
   });
-});
 
-const contextQuerySchema = z.object({
-  selector: nonEmptyStringSchema,
-  outcome: z.literal("context"),
-  selectedConceptIds: z.array(identitySchema).min(1),
-}).strict();
+const contextQuerySchema = z
+  .object({
+    selector: nonEmptyStringSchema,
+    outcome: z.literal("context"),
+    selectedConceptIds: z.array(identitySchema).min(1),
+  })
+  .strict();
 
-const boundedQuerySchema = z.object({
-  selector: nonEmptyStringSchema,
-  outcome: z.enum([
-    "concept_not_found",
-    "concept_ambiguous",
-    "map_not_found",
-    "unavailable",
-  ]),
-}).strict();
+const boundedQuerySchema = z
+  .object({
+    selector: nonEmptyStringSchema,
+    outcome: z.enum(["concept_not_found", "concept_ambiguous", "map_not_found", "unavailable"]),
+  })
+  .strict();
 
 export const mapQueryObservationSchema = z.discriminatedUnion("outcome", [
   contextQuerySchema,
   boundedQuerySchema,
 ]);
 
-export const evidenceDispositionSchema = z.object({
-  status: z.enum(["confirmed", "missing", "stale", "contradicted", "unresolved"]),
-  summary: nonEmptyStringSchema,
-  evidence: z.array(evidenceReferenceSchema).min(1),
-}).strict();
+export const evidenceDispositionSchema = z
+  .object({
+    status: z.enum(["confirmed", "missing", "stale", "contradicted", "unresolved"]),
+    summary: nonEmptyStringSchema,
+    evidence: z.array(evidenceReferenceSchema).min(1),
+  })
+  .strict();
 
-export const mapUpdateCandidateSchema = z.object({
-  businessDomainId: identitySchema,
-  kind: z.enum(["node", "relation", "anchor", "flow"]),
-  disposition: z.enum(["confirmed", "contradicted", "unresolved"]),
-  summary: nonEmptyStringSchema,
-  evidence: z.array(evidenceReferenceSchema).min(1),
-}).strict();
+export const mapUpdateCandidateSchema = z
+  .object({
+    businessDomainId: identitySchema,
+    kind: z.enum(["node", "relation", "anchor", "flow"]),
+    disposition: z.enum(["confirmed", "contradicted", "unresolved"]),
+    summary: nonEmptyStringSchema,
+    evidence: z.array(evidenceReferenceSchema).min(1),
+  })
+  .strict();
 
-export const humanCorrectionSchema = z.object({
-  summary: nonEmptyStringSchema,
-  dimensions: z.array(z.enum([
-    "business_boundary",
-    "upstream_cause",
-    "impact",
-    "map_use",
-  ])).min(1),
-}).strict();
+export const humanCorrectionSchema = z
+  .object({
+    summary: nonEmptyStringSchema,
+    dimensions: z
+      .array(z.enum(["business_boundary", "upstream_cause", "impact", "map_use"]))
+      .min(1),
+  })
+  .strict();
 
 const taskObservationFields = {
   id: observationIdSchema,
   recordedAt: timestampSchema,
-  task: z.object({
-    taskId: identitySchema,
-    runId: identitySchema,
-  }).strict(),
-  map: z.object({
-    queries: z.array(mapQueryObservationSchema).min(1),
-    dispositions: z.array(evidenceDispositionSchema),
-  }).strict(),
+  task: z
+    .object({
+      taskId: identitySchema,
+      runId: identitySchema,
+    })
+    .strict(),
+  map: z
+    .object({
+      queries: z.array(mapQueryObservationSchema).min(1),
+      dispositions: z.array(evidenceDispositionSchema),
+    })
+    .strict(),
   humanCorrection: humanCorrectionSchema.optional(),
 };
 
-export const taskObservationInputSchema = z.object({
-  schemaVersion: z.literal(2),
-  ...taskObservationFields,
-  mapUpdateCandidates: z.array(mapUpdateCandidateSchema),
-}).strict();
+export const taskObservationInputSchema = z
+  .object({
+    schemaVersion: z.literal(2),
+    ...taskObservationFields,
+    mapUpdateCandidates: z.array(mapUpdateCandidateSchema),
+  })
+  .strict();
 
-const approvedReviewSchema = z.object({
-  taskId: identitySchema,
-  runId: identitySchema,
-  verdict: z.literal("approved"),
-  businessBoundary: z.enum(["correct", "not_assessed"]),
-  upstreamCause: z.enum(["correct", "not_applicable", "not_assessed"]),
-  impactCompleteness: z.enum(["complete", "not_assessed"]),
-  requiredRework: z.literal(false),
-  mapCausedRegression: z.literal(false),
-}).strict();
+const approvedReviewSchema = z
+  .object({
+    taskId: identitySchema,
+    runId: identitySchema,
+    verdict: z.literal("approved"),
+    businessBoundary: z.enum(["correct", "not_assessed"]),
+    upstreamCause: z.enum(["correct", "not_applicable", "not_assessed"]),
+    impactCompleteness: z.enum(["complete", "not_assessed"]),
+    requiredRework: z.literal(false),
+    mapCausedRegression: z.literal(false),
+  })
+  .strict();
 
-const changesRequestedReviewSchema = z.object({
-  taskId: identitySchema,
-  runId: identitySchema,
-  verdict: z.literal("changes_requested"),
-  businessBoundary: z.enum(["correct", "incorrect", "not_assessed"]),
-  upstreamCause: z.enum(["correct", "incorrect", "not_applicable", "not_assessed"]),
-  impactCompleteness: z.enum(["complete", "incomplete", "not_assessed"]),
-  requiredRework: z.literal(true),
-  mapCausedRegression: z.boolean(),
-}).strict();
+const changesRequestedReviewSchema = z
+  .object({
+    taskId: identitySchema,
+    runId: identitySchema,
+    verdict: z.literal("changes_requested"),
+    businessBoundary: z.enum(["correct", "incorrect", "not_assessed"]),
+    upstreamCause: z.enum(["correct", "incorrect", "not_applicable", "not_assessed"]),
+    impactCompleteness: z.enum(["complete", "incomplete", "not_assessed"]),
+    requiredRework: z.literal(true),
+    mapCausedRegression: z.boolean(),
+  })
+  .strict();
 
 export const reviewAssessmentSchema = z.discriminatedUnion("verdict", [
   approvedReviewSchema,
   changesRequestedReviewSchema,
 ]);
 
-export const reviewObservationInputSchema = z.object({
-  schemaVersion: z.literal(1),
-  id: observationIdSchema,
-  recordedAt: timestampSchema,
-  taskObservationId: observationIdSchema,
-  review: reviewAssessmentSchema,
-  humanCorrection: humanCorrectionSchema.optional(),
-}).strict();
+export const reviewObservationInputSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    id: observationIdSchema,
+    recordedAt: timestampSchema,
+    taskObservationId: observationIdSchema,
+    review: reviewAssessmentSchema,
+    humanCorrection: humanCorrectionSchema.optional(),
+  })
+  .strict();
 
-export const maintenanceCandidateReferenceSchema = z.object({
-  taskObservationId: observationIdSchema,
-  candidateIndex: z.number().int().nonnegative(),
-}).strict();
+export const maintenanceCandidateReferenceSchema = z
+  .object({
+    taskObservationId: observationIdSchema,
+    candidateIndex: z.number().int().nonnegative(),
+  })
+  .strict();
 
-export const maintenanceResultSchema = z.object({
-  candidate: maintenanceCandidateReferenceSchema,
-  status: z.enum(["accepted", "refined", "discarded", "unresolved"]),
-  reason: nonEmptyStringSchema,
-  evidence: z.array(evidenceReferenceSchema).min(1),
-}).strict();
+export const maintenanceResultSchema = z
+  .object({
+    candidate: maintenanceCandidateReferenceSchema,
+    status: z.enum(["accepted", "refined", "discarded", "unresolved"]),
+    reason: nonEmptyStringSchema,
+    evidence: z.array(evidenceReferenceSchema).min(1),
+  })
+  .strict();
 
 const maintenanceObservationFields = {
   schemaVersion: z.literal(1),
   id: observationIdSchema,
   recordedAt: timestampSchema,
-  maintenance: z.object({
-    taskId: identitySchema,
-    runId: identitySchema,
-  }).strict(),
+  maintenance: z
+    .object({
+      taskId: identitySchema,
+      runId: identitySchema,
+    })
+    .strict(),
   businessDomainId: identitySchema,
   results: z.array(maintenanceResultSchema).min(1),
-  mapChange: z.object({
-    owningMapPath: nonEmptyStringSchema.superRefine((value, context) => {
-      if (
-        isNormalizedRepositoryReference(value)
-        && value.startsWith("docs/business-map/")
-        && value.endsWith(".yaml")
-      ) {
-        return;
-      }
-      context.addIssue({
-        code: "custom",
-        message: t("errors.owningMapPath"),
-      });
-    }),
-    mergedCommit: z.string().regex(
-      /^[a-f0-9]{7,64}$/u,
-      { error: () => t("errors.mergedCommit") },
-    ),
-  }).strict().optional(),
+  mapChange: z
+    .object({
+      owningMapPath: nonEmptyStringSchema.superRefine((value, context) => {
+        if (
+          isNormalizedRepositoryReference(value) &&
+          value.startsWith("docs/business-map/") &&
+          value.endsWith(".yaml")
+        ) {
+          return;
+        }
+        context.addIssue({
+          code: "custom",
+          message: t("errors.owningMapPath"),
+        });
+      }),
+      mergedCommit: z
+        .string()
+        .regex(/^[a-f0-9]{7,64}$/u, { error: () => t("errors.mergedCommit") }),
+    })
+    .strict()
+    .optional(),
 };
 
-const maintenanceObservationDocumentSchema = z.object(
-  maintenanceObservationFields,
-).strict();
+const maintenanceObservationDocumentSchema = z.object(maintenanceObservationFields).strict();
 
-export const maintenanceObservationInputSchema = maintenanceObservationDocumentSchema
+export const maintenanceObservationInputSchema = maintenanceObservationDocumentSchema.superRefine(
+  validateMaintenanceObservation,
+);
+
+export const taskObservationSchema = taskObservationInputSchema
+  .extend({
+    repository: repositoryIdentitySchema,
+  })
+  .strict();
+
+export const reviewObservationSchema = reviewObservationInputSchema
+  .extend({
+    repository: repositoryIdentitySchema,
+  })
+  .strict();
+
+export const maintenanceObservationSchema = maintenanceObservationDocumentSchema
+  .extend({
+    repository: repositoryIdentitySchema,
+  })
+  .strict()
   .superRefine(validateMaintenanceObservation);
-
-export const taskObservationSchema = taskObservationInputSchema.extend({
-  repository: repositoryIdentitySchema,
-}).strict();
-
-export const reviewObservationSchema = reviewObservationInputSchema.extend({
-  repository: repositoryIdentitySchema,
-}).strict();
-
-export const maintenanceObservationSchema = maintenanceObservationDocumentSchema.extend({
-  repository: repositoryIdentitySchema,
-}).strict().superRefine(validateMaintenanceObservation);
 
 export type RepositoryIdentity = z.infer<typeof repositoryIdentitySchema>;
 export type EvidenceReference = z.infer<typeof evidenceReferenceSchema>;
@@ -199,15 +231,11 @@ export type EvidenceDisposition = z.infer<typeof evidenceDispositionSchema>;
 export type MapUpdateCandidate = z.infer<typeof mapUpdateCandidateSchema>;
 export type HumanCorrection = z.infer<typeof humanCorrectionSchema>;
 export type ReviewAssessment = z.infer<typeof reviewAssessmentSchema>;
-export type MaintenanceCandidateReference = z.infer<
-  typeof maintenanceCandidateReferenceSchema
->;
+export type MaintenanceCandidateReference = z.infer<typeof maintenanceCandidateReferenceSchema>;
 export type MaintenanceResult = z.infer<typeof maintenanceResultSchema>;
 export type TaskObservationInput = z.infer<typeof taskObservationInputSchema>;
 export type ReviewObservationInput = z.infer<typeof reviewObservationInputSchema>;
-export type MaintenanceObservationInput = z.infer<
-  typeof maintenanceObservationInputSchema
->;
+export type MaintenanceObservationInput = z.infer<typeof maintenanceObservationInputSchema>;
 export type TaskObservation = z.infer<typeof taskObservationSchema>;
 export type ReviewObservation = z.infer<typeof reviewObservationSchema>;
 export type MaintenanceObservation = z.infer<typeof maintenanceObservationSchema>;
@@ -230,8 +258,8 @@ function validateMaintenanceObservation(
     candidateKeys.add(key);
   }
 
-  const changesMap = observation.results.some(({ status }) =>
-    status === "accepted" || status === "refined"
+  const changesMap = observation.results.some(
+    ({ status }) => status === "accepted" || status === "refined",
   );
   if (changesMap && !observation.mapChange) {
     context.addIssue({
@@ -250,10 +278,12 @@ function validateMaintenanceObservation(
 }
 
 function isNormalizedRepositoryReference(reference: string): boolean {
-  return !reference.startsWith("/")
-    && !reference.includes("\\")
-    && !/^[A-Za-z]:/u.test(reference)
-    && reference.split("/").every((segment) =>
-      segment.length > 0 && segment !== "." && segment !== ".."
-    );
+  return (
+    !reference.startsWith("/") &&
+    !reference.includes("\\") &&
+    !/^[A-Za-z]:/u.test(reference) &&
+    reference
+      .split("/")
+      .every((segment) => segment.length > 0 && segment !== "." && segment !== "..")
+  );
 }

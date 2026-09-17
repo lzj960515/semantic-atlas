@@ -21,92 +21,97 @@ export const businessRelationKinds = [
   "constrained_by",
 ] as const;
 
-export const navigationAnchorKinds = [
-  "file",
-  "directory",
-  "symbol",
-  "search",
-  "document",
-] as const;
+export const navigationAnchorKinds = ["file", "directory", "symbol", "search", "document"] as const;
 
-export const businessFlowStepKinds = [
-  "action",
-  "decision",
-  "outcome",
-] as const;
+export const businessFlowStepKinds = ["action", "decision", "outcome"] as const;
 
 const nonEmptyStringSchema = z.string().trim().min(1);
-const businessIdSchema = nonEmptyStringSchema.regex(
-  /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/,
-  { error: () => t("errors.businessId") },
-);
+const businessIdSchema = nonEmptyStringSchema.regex(/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/, {
+  error: () => t("errors.businessId"),
+});
 
-export const navigationAnchorSchema = z.object({
-  kind: z.enum(navigationAnchorKinds),
-  value: nonEmptyStringSchema,
-  description: nonEmptyStringSchema,
-}).strict();
+export const navigationAnchorSchema = z
+  .object({
+    kind: z.enum(navigationAnchorKinds),
+    value: nonEmptyStringSchema,
+    description: nonEmptyStringSchema,
+  })
+  .strict();
 
-export const businessNodeSchema = z.object({
-  id: businessIdSchema,
-  kind: z.enum(businessNodeKinds),
-  name: nonEmptyStringSchema,
-  summary: nonEmptyStringSchema,
-  aliases: z.array(nonEmptyStringSchema),
-  anchors: z.array(navigationAnchorSchema),
-  notes: nonEmptyStringSchema.optional(),
-}).strict();
-
-export const businessRelationSchema = z.object({
-  from: businessIdSchema,
-  type: z.enum(businessRelationKinds),
-  to: businessIdSchema,
-  summary: nonEmptyStringSchema,
-  notes: nonEmptyStringSchema.optional(),
-}).strict();
-
-export const businessFlowStepSchema = z.object({
-  id: businessIdSchema,
-  kind: z.enum(businessFlowStepKinds),
-  name: nonEmptyStringSchema,
-  summary: nonEmptyStringSchema,
-  concept: businessIdSchema.optional(),
-  notes: nonEmptyStringSchema.optional(),
-}).strict();
-
-export const businessFlowTransitionSchema = z.object({
-  from: businessIdSchema,
-  to: businessIdSchema,
-  when: nonEmptyStringSchema.optional(),
-}).strict();
-
-export const businessFlowSchema = z.object({
-  id: businessIdSchema,
-  name: nonEmptyStringSchema,
-  summary: nonEmptyStringSchema,
-  scenario: businessIdSchema,
-  startsAt: businessIdSchema,
-  steps: z.array(businessFlowStepSchema).min(1),
-  transitions: z.array(businessFlowTransitionSchema),
-  notes: nonEmptyStringSchema.optional(),
-}).strict();
-
-export const mapDocumentSchema = z.object({
-  schemaVersion: z.literal(1),
-  map: z.object({
+export const businessNodeSchema = z
+  .object({
     id: businessIdSchema,
-    title: nonEmptyStringSchema,
+    kind: z.enum(businessNodeKinds),
+    name: nonEmptyStringSchema,
     summary: nonEmptyStringSchema,
-  }).strict(),
-  nodes: z.array(businessNodeSchema),
-  relations: z.array(businessRelationSchema),
-  flows: z.array(businessFlowSchema).default([]),
-}).strict();
+    aliases: z.array(nonEmptyStringSchema),
+    anchors: z.array(navigationAnchorSchema),
+    notes: nonEmptyStringSchema.optional(),
+  })
+  .strict();
 
-export type BusinessNodeKind = typeof businessNodeKinds[number];
-export type BusinessRelationKind = typeof businessRelationKinds[number];
-export type NavigationAnchorKind = typeof navigationAnchorKinds[number];
-export type BusinessFlowStepKind = typeof businessFlowStepKinds[number];
+export const businessRelationSchema = z
+  .object({
+    from: businessIdSchema,
+    type: z.enum(businessRelationKinds),
+    to: businessIdSchema,
+    summary: nonEmptyStringSchema,
+    notes: nonEmptyStringSchema.optional(),
+  })
+  .strict();
+
+export const businessFlowStepSchema = z
+  .object({
+    id: businessIdSchema,
+    kind: z.enum(businessFlowStepKinds),
+    name: nonEmptyStringSchema,
+    summary: nonEmptyStringSchema,
+    concept: businessIdSchema.optional(),
+    notes: nonEmptyStringSchema.optional(),
+  })
+  .strict();
+
+export const businessFlowTransitionSchema = z
+  .object({
+    from: businessIdSchema,
+    to: businessIdSchema,
+    when: nonEmptyStringSchema.optional(),
+  })
+  .strict();
+
+export const businessFlowSchema = z
+  .object({
+    id: businessIdSchema,
+    name: nonEmptyStringSchema,
+    summary: nonEmptyStringSchema,
+    scenario: businessIdSchema,
+    startsAt: businessIdSchema,
+    steps: z.array(businessFlowStepSchema).min(1),
+    transitions: z.array(businessFlowTransitionSchema),
+    notes: nonEmptyStringSchema.optional(),
+  })
+  .strict();
+
+export const mapDocumentSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    map: z
+      .object({
+        id: businessIdSchema,
+        title: nonEmptyStringSchema,
+        summary: nonEmptyStringSchema,
+      })
+      .strict(),
+    nodes: z.array(businessNodeSchema),
+    relations: z.array(businessRelationSchema),
+    flows: z.array(businessFlowSchema).default([]),
+  })
+  .strict();
+
+export type BusinessNodeKind = (typeof businessNodeKinds)[number];
+export type BusinessRelationKind = (typeof businessRelationKinds)[number];
+export type NavigationAnchorKind = (typeof navigationAnchorKinds)[number];
+export type BusinessFlowStepKind = (typeof businessFlowStepKinds)[number];
 export type NavigationAnchor = z.infer<typeof navigationAnchorSchema>;
 export type BusinessNodeDefinition = z.infer<typeof businessNodeSchema>;
 export type BusinessRelationDefinition = z.infer<typeof businessRelationSchema>;

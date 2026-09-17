@@ -22,7 +22,7 @@ export class WebCommandService {
   ) {}
 
   public async start(options: StartWebOptions): Promise<WebSessionData> {
-    const repositoryPaths = options.repositoryPaths ?? await this.projectStore.read();
+    const repositoryPaths = options.repositoryPaths ?? (await this.projectStore.read());
     const application = new LocalWebApplication(this.mapApplication, repositoryPaths);
     const server = await startLocalWebServer({ application, port: options.port });
     installShutdownHandlers(server);
@@ -48,11 +48,12 @@ function installShutdownHandlers(server: LocalWebServer): void {
 }
 
 function openDefaultBrowser(url: string): void {
-  const command = process.platform === "darwin"
-    ? { executable: "open", arguments: [url] }
-    : process.platform === "win32"
-      ? { executable: "cmd", arguments: ["/c", "start", "", url] }
-      : { executable: "xdg-open", arguments: [url] };
+  const command =
+    process.platform === "darwin"
+      ? { executable: "open", arguments: [url] }
+      : process.platform === "win32"
+        ? { executable: "cmd", arguments: ["/c", "start", "", url] }
+        : { executable: "xdg-open", arguments: [url] };
   const child = spawn(command.executable, command.arguments, {
     detached: true,
     stdio: "ignore",

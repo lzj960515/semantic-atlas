@@ -43,9 +43,7 @@ export async function runReconciliationStatusCommand(
       ok: true,
       command: "reconcile status",
       data: {
-        required: await runtime.reconciliationService.maintenanceRequired(
-          repositoryPath,
-        ),
+        required: await runtime.reconciliationService.maintenanceRequired(repositoryPath),
       },
     };
   } catch (error) {
@@ -64,9 +62,7 @@ function reconciliationError(error: unknown) {
     ? { code: "REPOSITORY_INVALID" as const, message: error.message }
     : {
         code: "RECONCILIATION_READ_FAILED" as const,
-        message: error instanceof ObservationStorageError
-          ? error.message
-          : errorMessage(error),
+        message: error instanceof ObservationStorageError ? error.message : errorMessage(error),
       };
 }
 

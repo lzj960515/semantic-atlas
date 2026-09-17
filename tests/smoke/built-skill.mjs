@@ -9,10 +9,7 @@ const contextEnvelope = JSON.parse(contextResult.stdout);
 assert.equal(contextEnvelope.schemaVersion, 1);
 assert.equal(contextEnvelope.ok, true);
 assert.equal(contextEnvelope.command, "context");
-assert.equal(
-  contextEnvelope.data.selected.id,
-  "engagement.notifications.send-order-confirmation",
-);
+assert.equal(contextEnvelope.data.selected.id, "engagement.notifications.send-order-confirmation");
 
 const missingResult = query("Refund eligibility");
 assert.equal(missingResult.status, 1, missingResult.stderr || missingResult.stdout);

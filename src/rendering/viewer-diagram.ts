@@ -26,23 +26,37 @@ export function createDiagramLayoutController(
     const svg = view.querySelector<SVGSVGElement>("svg");
     const root = svg?.querySelector<SVGGElement>("[data-layout-root]");
     if (!svg || !root) return;
-    const cards = Array.from(view.querySelectorAll<HTMLElement>(".diagram-card-text[data-layout-node]"));
-    const labels = Array.from(view.querySelectorAll<HTMLElement>(".diagram-label[data-layout-edge]"));
+    const cards = Array.from(
+      view.querySelectorAll<HTMLElement>(".diagram-card-text[data-layout-node]"),
+    );
+    const labels = Array.from(
+      view.querySelectorAll<HTMLElement>(".diagram-label[data-layout-edge]"),
+    );
     const cardById = new Map(cards.map((card) => [card.dataset.layoutNode!, card]));
     const labelById = new Map(labels.map((label) => [label.dataset.layoutEdge!, label]));
-    const shapeById = new Map(Array.from(root.querySelectorAll<SVGGElement>("[data-layout-node]"))
-      .map((shape) => [shape.dataset.layoutNode!, shape]));
-    const edgeById = new Map(Array.from(root.querySelectorAll<SVGGElement>("[data-layout-edge]"))
-      .map((edge) => [edge.dataset.layoutEdge!, edge]));
+    const shapeById = new Map(
+      Array.from(root.querySelectorAll<SVGGElement>("[data-layout-node]")).map((shape) => [
+        shape.dataset.layoutNode!,
+        shape,
+      ]),
+    );
+    const edgeById = new Map(
+      Array.from(root.querySelectorAll<SVGGElement>("[data-layout-edge]")).map((edge) => [
+        edge.dataset.layoutEdge!,
+        edge,
+      ]),
+    );
     const definitionById = new Map(spec.nodes.map((node) => [node.id, node]));
     let previousMeasurements = "";
 
     const update = (): void => {
       frame = undefined;
-      const sizes = Object.fromEntries(cards.map((card) => [
-        card.dataset.layoutNode!,
-        { width: card.offsetWidth, height: card.offsetHeight },
-      ]));
+      const sizes = Object.fromEntries(
+        cards.map((card) => [
+          card.dataset.layoutNode!,
+          { width: card.offsetWidth, height: card.offsetHeight },
+        ]),
+      );
       const edges = spec.edges.map((edge) => {
         const label = labelById.get(edge.id);
         return label ? { ...edge, width: label.offsetWidth, height: label.offsetHeight } : edge;
@@ -68,9 +82,14 @@ export function createDiagramLayoutController(
         const decision = definition.kind === "decision";
         const left = node.x - node.width / 2;
         const top = node.y - node.height / 2;
-        const surface = shape?.querySelector<SVGElement>(".node-card__surface, .flow-step__surface");
+        const surface = shape?.querySelector<SVGElement>(
+          ".node-card__surface, .flow-step__surface",
+        );
         if (decision) {
-          surface?.setAttribute("d", `M ${node.x} ${top} L ${left + node.width} ${node.y} L ${node.x} ${top + node.height} L ${left} ${node.y} Z`);
+          surface?.setAttribute(
+            "d",
+            `M ${node.x} ${top} L ${left + node.width} ${node.y} L ${node.x} ${top + node.height} L ${left} ${node.y} Z`,
+          );
         } else {
           surface?.setAttribute("x", String(left));
           surface?.setAttribute("y", String(top));
@@ -87,7 +106,9 @@ export function createDiagramLayoutController(
         }
       }
       for (const edge of layout.edges) {
-        const path = edge.points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+        const path = edge.points
+          .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+          .join(" ");
         edgeById.get(edge.id)?.querySelector("path")?.setAttribute("d", path);
         const label = labelById.get(edge.id);
         if (label) {

@@ -3,12 +3,16 @@ import { createLatestProjectLoader } from "../../src/rendering/latest-project-lo
 
 describe("latest project loader", () => {
   it("aborts the previous request and ignores its late result", async () => {
-    const pending = new Map<string, {
-      readonly signal: AbortSignal;
-      resolve(value: string): void;
-    }>();
-    const load = vi.fn((projectId: string, signal: AbortSignal) =>
-      new Promise<string>((resolve) => pending.set(projectId, { signal, resolve }))
+    const pending = new Map<
+      string,
+      {
+        readonly signal: AbortSignal;
+        resolve(value: string): void;
+      }
+    >();
+    const load = vi.fn(
+      (projectId: string, signal: AbortSignal) =>
+        new Promise<string>((resolve) => pending.set(projectId, { signal, resolve })),
     );
     const ready = vi.fn();
     const failed = vi.fn();

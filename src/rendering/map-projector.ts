@@ -2,10 +2,7 @@ import { getTranslator } from "../i18n/index.js";
 import dagre from "@dagrejs/dagre";
 import stringWidth from "string-width";
 import type { MapProjection } from "../contracts/projection.js";
-import type {
-  BusinessNode,
-  BusinessRelation,
-} from "../contracts/map.js";
+import type { BusinessNode, BusinessRelation } from "../contracts/map.js";
 import { BusinessGraph } from "../map/business-graph.js";
 import { escapeHtml, safeDomToken, translationAttributes } from "./html.js";
 import { FlowProjector } from "./flow-projector.js";
@@ -82,13 +79,16 @@ export class MapProjector {
   public viewerProject(metadata: ViewerProjectMetadata): ViewerProject {
     const completeNodes = this.graph.nodes();
     const completeRelations = this.graph.relations();
-    const completeView = this.projectView({
-      id: "all",
-      name: t("viewer.allBusiness"),
-      nodes: completeNodes,
-      relations: completeRelations,
-      boundaryNodeIds: new Set(),
-    }, metadata.id);
+    const completeView = this.projectView(
+      {
+        id: "all",
+        name: t("viewer.allBusiness"),
+        nodes: completeNodes,
+        relations: completeRelations,
+        boundaryNodeIds: new Set(),
+      },
+      metadata.id,
+    );
     const domainViews = completeNodes
       .filter((node) => node.kind === "domain")
       .sort((left, right) => left.id.localeCompare(right.id))
@@ -105,9 +105,7 @@ export class MapProjector {
     const nodes = selection.nodes
       .map((node) => presentNode(node, selection.boundaryNodeIds.has(node.id)))
       .sort(comparePresentedNodes);
-    const relations = selection.relations
-      .map(presentRelation)
-      .sort(comparePresentedRelations);
+    const relations = selection.relations.map(presentRelation).sort(comparePresentedRelations);
     const layoutSpec = createLayoutSpec(nodes, relations);
     const layout = layoutProjection(nodes, relations, layoutSpec);
 
@@ -116,10 +114,14 @@ export class MapProjector {
       name: selection.name,
       nodeCount: nodes.length,
       relationCount: relations.length,
-      nodes: Object.freeze(nodes.map((node) => toViewerNodeDetails(
-        node,
-        this.graph.flowsRelatedTo(node.node.id).map(({ id }) => id),
-      ))),
+      nodes: Object.freeze(
+        nodes.map((node) =>
+          toViewerNodeDetails(
+            node,
+            this.graph.flowsRelatedTo(node.node.id).map(({ id }) => id),
+          ),
+        ),
+      ),
       svg: renderMapSvg(layout, `${projectId}-${selection.id}`),
       textLayer: renderMapTextLayer(layout),
       layout: layoutSpec,
@@ -141,12 +143,10 @@ interface MapViewSelection {
 }
 
 function selectDomainView(graph: BusinessGraph, domain: BusinessNode): MapViewSelection {
-  const domainNodeIds = new Set([
-    domain.id,
-    ...graph.descendants(domain.id).map(({ id }) => id),
-  ]);
-  const relatedRelations = graph.relations().filter((relation) =>
-    domainNodeIds.has(relation.from) || domainNodeIds.has(relation.to));
+  const domainNodeIds = new Set([domain.id, ...graph.descendants(domain.id).map(({ id }) => id)]);
+  const relatedRelations = graph
+    .relations()
+    .filter((relation) => domainNodeIds.has(relation.from) || domainNodeIds.has(relation.to));
   const boundaryNodeIds = new Set<string>();
   for (const relation of relatedRelations) {
     if (relation.type === "part_of") continue;
@@ -156,8 +156,10 @@ function selectDomainView(graph: BusinessGraph, domain: BusinessNode): MapViewSe
   const includedNodeIds = new Set([...domainNodeIds, ...boundaryNodeIds]);
   const relations = relatedRelations.filter((relation) => {
     if (!includedNodeIds.has(relation.from) || !includedNodeIds.has(relation.to)) return false;
-    return relation.type !== "part_of"
-      || (domainNodeIds.has(relation.from) && domainNodeIds.has(relation.to));
+    return (
+      relation.type !== "part_of" ||
+      (domainNodeIds.has(relation.from) && domainNodeIds.has(relation.to))
+    );
   });
 
   return {
@@ -172,11 +174,12 @@ function selectDomainView(graph: BusinessGraph, domain: BusinessNode): MapViewSe
 function presentNode(node: BusinessNode, boundary: boolean): NodePresentation {
   const titleLines = wrapText(node.name, 30);
   const summaryLines = wrapText(node.summary, 43);
-  const contentHeight = 38
-    + titleLines.length * TITLE_LINE_HEIGHT
-    + 12
-    + summaryLines.length * LINE_HEIGHT
-    + CARD_PADDING;
+  const contentHeight =
+    38 +
+    titleLines.length * TITLE_LINE_HEIGHT +
+    12 +
+    summaryLines.length * LINE_HEIGHT +
+    CARD_PADDING;
 
   return {
     node,
@@ -315,9 +318,7 @@ function renderRelation(
   const ariaLabel = t(ariaKey, values);
   const relationMarker = `data-i18n-relation-kind="${relation.relation.type}"`;
   const titleKey = containment ? "viewer.containsSummary" : "viewer.relationSummary";
-  const marker = relation.channel === "directed-relation"
-    ? ` marker-end="url(#${markerId})"`
-    : "";
+  const marker = relation.channel === "directed-relation" ? ` marker-end="url(#${markerId})"` : "";
 
   return `<g class="edge edge--${relation.channel}" data-channel="${relation.channel}" data-relation-id="${escapeHtml(relation.id)}" data-layout-edge="${escapeHtml(relation.id)}" data-relation-type="${escapeHtml(relation.relation.type)}" role="group" ${translationAttributes(ariaKey, values, "aria-label")} ${relationMarker} aria-label="${escapeHtml(ariaLabel)}">
             <title ${translationAttributes(titleKey, values)} ${relationMarker}>${escapeHtml(t(titleKey, values))}</title>
@@ -339,8 +340,10 @@ function renderNode(node: PositionedNode, domToken: string): string {
 function renderMapTextLayer(layout: ProjectionLayout): string {
   const { offsetX, offsetY } = layout;
   const cards = layout.nodes.map((node) => renderNodeText(node, offsetX, offsetY));
-  const labels = layout.relations.map((relation) =>
-    `<span class="diagram-label edge__label edge__label--${relation.channel}" data-layout-edge="${escapeHtml(relation.id)}" data-i18n="viewer.relationKinds.${relation.channel === "containment" ? "contains" : relation.relation.type}" style="left:${formatNumber(relation.labelX + offsetX)}px;top:${formatNumber(relation.labelY + offsetY)}px">${escapeHtml(relation.label)}</span>`);
+  const labels = layout.relations.map(
+    (relation) =>
+      `<span class="diagram-label edge__label edge__label--${relation.channel}" data-layout-edge="${escapeHtml(relation.id)}" data-i18n="viewer.relationKinds.${relation.channel === "containment" ? "contains" : relation.relation.type}" style="left:${formatNumber(relation.labelX + offsetX)}px;top:${formatNumber(relation.labelY + offsetY)}px">${escapeHtml(relation.label)}</span>`,
+  );
   return [...cards, ...labels].join("\n");
 }
 
@@ -355,8 +358,11 @@ function renderNodeText(node: PositionedNode, offsetX: number, offsetY: number):
 }
 
 function routePath(points: readonly dagre.GraphEdge["points"][number][]): string {
-  return points.map((point, index) =>
-    `${index === 0 ? "M" : "L"} ${formatNumber(point.x)} ${formatNumber(point.y)}`)
+  return points
+    .map(
+      (point, index) =>
+        `${index === 0 ? "M" : "L"} ${formatNumber(point.x)} ${formatNumber(point.y)}`,
+    )
     .join(" ");
 }
 

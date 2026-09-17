@@ -5,7 +5,10 @@ import { planDiagramImage } from "../../src/rendering/diagram-image.js";
 describe("diagram image dimensions", () => {
   it("exports small diagrams at twice their full layout size", () => {
     expect(planDiagramImage({ width: 960, height: 1504 })).toEqual({
-      width: 960, height: 1504, pixelWidth: 1920, pixelHeight: 3008,
+      width: 960,
+      height: 1504,
+      pixelWidth: 1920,
+      pixelHeight: 3008,
     });
   });
 

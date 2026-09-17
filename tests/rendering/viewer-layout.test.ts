@@ -8,28 +8,32 @@ import {
 } from "../../src/rendering/viewer-layout.js";
 
 describe("diagram layout", () => {
-  it.each(["LR", "TB"] as const)("keeps %s cards separate and every branch connected", (direction) => {
-    const spec = branchingDiagram(direction);
-    const layout = layoutDiagram(dagre, spec);
+  it.each(["LR", "TB"] as const)(
+    "keeps %s cards separate and every branch connected",
+    (direction) => {
+      const spec = branchingDiagram(direction);
+      const layout = layoutDiagram(dagre, spec);
 
-    expect(layout.nodes.map(({ id }) => id)).toEqual(spec.nodes.map(({ id }) => id));
-    expect(layout.edges.map(({ id }) => id)).toEqual(spec.edges.map(({ id }) => id));
-    expect(layout.width).toBeGreaterThanOrEqual(960);
-    for (const [index, node] of layout.nodes.entries()) {
-      for (const other of layout.nodes.slice(index + 1)) {
-        const separateX = Math.abs(node.x - other.x) >= (node.width + other.width) / 2;
-        const separateY = Math.abs(node.y - other.y) >= (node.height + other.height) / 2;
-        expect(separateX || separateY).toBe(true);
+      expect(layout.nodes.map(({ id }) => id)).toEqual(spec.nodes.map(({ id }) => id));
+      expect(layout.edges.map(({ id }) => id)).toEqual(spec.edges.map(({ id }) => id));
+      expect(layout.width).toBeGreaterThanOrEqual(960);
+      for (const [index, node] of layout.nodes.entries()) {
+        for (const other of layout.nodes.slice(index + 1)) {
+          const separateX = Math.abs(node.x - other.x) >= (node.width + other.width) / 2;
+          const separateY = Math.abs(node.y - other.y) >= (node.height + other.height) / 2;
+          expect(separateX || separateY).toBe(true);
+        }
+        expect(node.x - node.width / 2 + layout.offsetX).toBeGreaterThanOrEqual(0);
+        expect(node.y + node.height / 2 + layout.offsetY).toBeLessThanOrEqual(layout.height);
       }
-      expect(node.x - node.width / 2 + layout.offsetX).toBeGreaterThanOrEqual(0);
-      expect(node.y + node.height / 2 + layout.offsetY).toBeLessThanOrEqual(layout.height);
-    }
-    for (const edge of layout.edges) {
-      expect(edge.points.length).toBeGreaterThanOrEqual(2);
-      expect([edge.x, edge.y, ...edge.points.flatMap(({ x, y }) => [x, y])].every(Number.isFinite))
-        .toBe(true);
-    }
-  });
+      for (const edge of layout.edges) {
+        expect(edge.points.length).toBeGreaterThanOrEqual(2);
+        expect(
+          [edge.x, edge.y, ...edge.points.flatMap(({ x, y }) => [x, y])].every(Number.isFinite),
+        ).toBe(true);
+      }
+    },
+  );
 
   it("reflows translated content and returns to its original size when content shrinks", () => {
     const spec: DiagramLayoutSpec = {
@@ -57,21 +61,23 @@ describe("diagram layout", () => {
     expect(310 / decision.width + 290 / decision.height).toBeCloseTo(1);
   });
 
-  it.each(["LR", "TB"] as const)("joins %s branch routes to the visible diamond boundary", (direction) => {
-    const spec = branchingDiagram(direction);
-    const layout = layoutDiagram(dagre, spec);
-    const decision = layout.nodes.find(({ id }) => id === "choice")!;
+  it.each(["LR", "TB"] as const)(
+    "joins %s branch routes to the visible diamond boundary",
+    (direction) => {
+      const spec = branchingDiagram(direction);
+      const layout = layoutDiagram(dagre, spec);
+      const decision = layout.nodes.find(({ id }) => id === "choice")!;
 
-    for (const edge of layout.edges) {
-      const definition = spec.edges.find(({ id }) => id === edge.id)!;
-      const endpoint = definition.from === decision.id
-        ? edge.points[0]!
-        : edge.points.at(-1)!;
-      const boundary = Math.abs(endpoint.x - decision.x) / (decision.width / 2)
-        + Math.abs(endpoint.y - decision.y) / (decision.height / 2);
-      expect(boundary).toBeCloseTo(1);
-    }
-  });
+      for (const edge of layout.edges) {
+        const definition = spec.edges.find(({ id }) => id === edge.id)!;
+        const endpoint = definition.from === decision.id ? edge.points[0]! : edge.points.at(-1)!;
+        const boundary =
+          Math.abs(endpoint.x - decision.x) / (decision.width / 2) +
+          Math.abs(endpoint.y - decision.y) / (decision.height / 2);
+        expect(boundary).toBeCloseTo(1);
+      }
+    },
+  );
 
   it("uses measured label dimensions to reserve room between linked cards", () => {
     const spec = branchingDiagram("TB");
@@ -106,9 +112,33 @@ function branchingDiagram(direction: "LR" | "TB"): DiagramLayoutSpec {
       { id: "declined", kind: "outcome", width: 320, height: 128 },
     ],
     edges: [
-      { id: "entry-choice", from: "entry", to: "choice", width: 0, height: 0, minlen: 1, weight: 3 },
-      { id: "choice-accepted", from: "choice", to: "accepted", width: 110, height: 24, minlen: 1, weight: 3 },
-      { id: "choice-declined", from: "choice", to: "declined", width: 110, height: 24, minlen: 1, weight: 3 },
+      {
+        id: "entry-choice",
+        from: "entry",
+        to: "choice",
+        width: 0,
+        height: 0,
+        minlen: 1,
+        weight: 3,
+      },
+      {
+        id: "choice-accepted",
+        from: "choice",
+        to: "accepted",
+        width: 110,
+        height: 24,
+        minlen: 1,
+        weight: 3,
+      },
+      {
+        id: "choice-declined",
+        from: "choice",
+        to: "declined",
+        width: 110,
+        height: 24,
+        minlen: 1,
+        weight: 3,
+      },
     ],
   };
 }

@@ -16,8 +16,12 @@ const resources = {
 
 /** System locale for CLI use; SEMANTIC_ATLAS_LANG is a debug/test override. */
 export function getLocale(environment: NodeJS.ProcessEnv = process.env): Locale {
-  const selected = [environment.SEMANTIC_ATLAS_LANG, environment.LC_ALL,
-    environment.LC_MESSAGES, environment.LANG].find((value) => value?.trim());
+  const selected = [
+    environment.SEMANTIC_ATLAS_LANG,
+    environment.LC_ALL,
+    environment.LC_MESSAGES,
+    environment.LANG,
+  ].find((value) => value?.trim());
   return normalizeLocale(selected ?? "") ?? "en";
 }
 
@@ -27,7 +31,9 @@ export function getResources(): typeof resources {
 
 const instances = new Map<Locale, i18n>();
 
-export function getTranslator(locale: Locale): (key: string, values?: Record<string, unknown>) => string {
+export function getTranslator(
+  locale: Locale,
+): (key: string, values?: Record<string, unknown>) => string {
   let instance = instances.get(locale);
   if (!instance) {
     instance = createInstance();

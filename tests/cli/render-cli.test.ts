@@ -27,11 +27,13 @@ describe("semantic-atlas render", () => {
         [
           node("commerce", "domain", "Commerce"),
           node("commerce.orders", "capability", "Orders", {
-            anchors: [{
-              kind: "directory",
-              value: "src/orders",
-              description: "Likely source area for order behavior.",
-            }],
+            anchors: [
+              {
+                kind: "directory",
+                value: "src/orders",
+                description: "Likely source area for order behavior.",
+              },
+            ],
           }),
           node("commerce.orders.place-order", "scenario", "Place order"),
           node("commerce.orders.create-order", "operation", "Create order"),
@@ -45,22 +47,24 @@ describe("semantic-atlas render", () => {
           relation("commerce.orders.place-order", "invokes", "commerce.orders.create-order"),
           relation("commerce.orders.create-order", "writes", "commerce.orders.order"),
         ],
-        [flow(
-          "commerce.orders.place-order-flow",
-          "commerce.orders.place-order",
-          "check-inventory",
-          [
-            flowStep("check-inventory", "decision", "Is inventory available?"),
-            flowStep("create-order", "action", "Create order", "commerce.orders.create-order"),
-            flowStep("order-created", "outcome", "Order created", "commerce.orders.order"),
-            flowStep("order-not-created", "outcome", "Order not created"),
-          ],
-          [
-            transition("check-inventory", "create-order", "available"),
-            transition("check-inventory", "order-not-created", "unavailable"),
-            transition("create-order", "order-created"),
-          ],
-        )],
+        [
+          flow(
+            "commerce.orders.place-order-flow",
+            "commerce.orders.place-order",
+            "check-inventory",
+            [
+              flowStep("check-inventory", "decision", "Is inventory available?"),
+              flowStep("create-order", "action", "Create order", "commerce.orders.create-order"),
+              flowStep("order-created", "outcome", "Order created", "commerce.orders.order"),
+              flowStep("order-not-created", "outcome", "Order not created"),
+            ],
+            [
+              transition("check-inventory", "create-order", "available"),
+              transition("check-inventory", "order-not-created", "unavailable"),
+              transition("create-order", "order-created"),
+            ],
+          ),
+        ],
       ),
     });
     const firstOutput = path.join(repositoryRoot, "artifacts", "first.html");
@@ -118,49 +122,39 @@ describe("semantic-atlas render", () => {
     const repositoryRoot = await trackedRepository({
       "commerce.yaml": mapDocument(
         "commerce",
-        [node(nodeId, "capability", "跨境订单履约协作与售后退款处理业务能力中心平台服务", {
-          summary: "协调跨境订单履约协作与售后退款处理业务能力中心平台服务的完整业务结果。",
-        })],
+        [
+          node(nodeId, "capability", "跨境订单履约协作与售后退款处理业务能力中心平台服务", {
+            summary: "协调跨境订单履约协作与售后退款处理业务能力中心平台服务的完整业务结果。",
+          }),
+        ],
         [],
       ),
     });
     const outputPath = path.join(repositoryRoot, "artifacts", "wide-character.html");
 
-    const result = await runCli([
-      "render",
-      "--repo",
-      repositoryRoot,
-      "--output",
-      outputPath,
-    ]);
+    const result = await runCli(["render", "--repo", repositoryRoot, "--output", outputPath]);
 
     expect(result.exitCode).toBe(0);
     const projection = await readFile(outputPath, "utf8");
     const nodeMarkup = extractNodeMarkup(projection, nodeId);
     const cardHeight = extractCardHeight(nodeMarkup);
 
-    expect(projection).toContain('<h3 class="node-card__title">跨境订单履约协作与售后退款处理业务能力中心平台服务</h3>');
-    expect(projection).toContain('<p class="node-card__summary">协调跨境订单履约协作与售后退款处理业务能力中心平台服务的完整业务结果。</p>');
+    expect(projection).toContain(
+      '<h3 class="node-card__title">跨境订单履约协作与售后退款处理业务能力中心平台服务</h3>',
+    );
+    expect(projection).toContain(
+      '<p class="node-card__summary">协调跨境订单履约协作与售后退款处理业务能力中心平台服务的完整业务结果。</p>',
+    );
     expect(nodeMarkup).not.toContain("<text");
     expect(cardHeight).toBeGreaterThan(124);
   });
 
   it("reports an actionable output failure after successfully loading the graph", async () => {
     const repositoryRoot = await trackedRepository({
-      "commerce.yaml": mapDocument(
-        "commerce",
-        [node("commerce", "domain", "Commerce")],
-        [],
-      ),
+      "commerce.yaml": mapDocument("commerce", [node("commerce", "domain", "Commerce")], []),
     });
 
-    const result = await runCli([
-      "render",
-      "--repo",
-      repositoryRoot,
-      "--output",
-      repositoryRoot,
-    ]);
+    const result = await runCli(["render", "--repo", repositoryRoot, "--output", repositoryRoot]);
 
     expect(result.exitCode).toBe(1);
     expect(JSON.parse(result.stdout)).toMatchObject({
@@ -184,13 +178,7 @@ describe("semantic-atlas render", () => {
     });
     const outputPath = path.join(repositoryRoot, "semantic-atlas.html");
 
-    const result = await runCli([
-      "render",
-      "--repo",
-      repositoryRoot,
-      "--output",
-      outputPath,
-    ]);
+    const result = await runCli(["render", "--repo", repositoryRoot, "--output", outputPath]);
 
     expect(result.exitCode).toBe(1);
     expect(JSON.parse(result.stdout)).toMatchObject({
@@ -235,10 +223,9 @@ function mapDocument(
 
 function extractNodeMarkup(projection: string, nodeId: string): string {
   const escapedNodeId = nodeId.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  const match = projection.match(new RegExp(
-    `<g class="node-card[^>]*data-node-id="${escapedNodeId}"[\\s\\S]*?</g>`,
-    "u",
-  ));
+  const match = projection.match(
+    new RegExp(`<g class="node-card[^>]*data-node-id="${escapedNodeId}"[\\s\\S]*?</g>`, "u"),
+  );
   expect(match, `Expected rendered node ${nodeId}`).not.toBeNull();
   return match?.[0] ?? "";
 }

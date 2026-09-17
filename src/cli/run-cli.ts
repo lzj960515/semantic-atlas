@@ -41,10 +41,7 @@ import {
   SemanticAtlasPackageUpgrader,
   type PackageUpgradeResult,
 } from "../setup/package-upgrader.js";
-import {
-  readPackageIdentity,
-  type PackageIdentity,
-} from "../setup/package-identity.js";
+import { readPackageIdentity, type PackageIdentity } from "../setup/package-identity.js";
 import {
   type ObservationCliRuntime,
   runInsightsSummaryCommand,
@@ -83,7 +80,7 @@ export async function runCli(
   arguments_: readonly string[],
   runtime?: CliRuntime,
 ): Promise<CliRunResult> {
-  const resolvedRuntime = runtime ?? await createCliRuntime();
+  const resolvedRuntime = runtime ?? (await createCliRuntime());
   const application = resolvedRuntime.mapApplication;
   let commandEnvelope:
     | ValidateEnvelope
@@ -148,19 +145,14 @@ export async function runCli(
       commandEnvelope = await runRenderCommand(application, options);
     });
 
-  const project = program
-    .command("project")
-    .description(t("cli.project"));
+  const project = program.command("project").description(t("cli.project"));
 
   project
     .command("add")
     .description(t("cli.projectAdd"))
     .argument("[path]", t("cli.repo"), process.cwd())
     .action(async (repositoryPath: string) => {
-      commandEnvelope = await runProjectAddCommand(
-        resolvedRuntime,
-        path.resolve(repositoryPath),
-      );
+      commandEnvelope = await runProjectAddCommand(resolvedRuntime, path.resolve(repositoryPath));
     });
 
   program
@@ -169,19 +161,23 @@ export async function runCli(
     .option("--repo <paths...>", t("cli.repos"))
     .option("--port <port>", t("cli.port"), parsePort, 4310)
     .option("--no-open", t("cli.noOpen"))
-    .action(async (options: {
-      readonly repo?: readonly string[];
-      readonly port: number;
-      readonly open: boolean;
-    }) => {
-      commandEnvelope = await runWebCommand(resolvedRuntime, {
-        ...(options.repo
-          ? { repositoryPaths: options.repo.map((repositoryPath) => path.resolve(repositoryPath)) }
-          : {}),
-        port: options.port,
-        openBrowser: options.open,
-      });
-    });
+    .action(
+      async (options: {
+        readonly repo?: readonly string[];
+        readonly port: number;
+        readonly open: boolean;
+      }) => {
+        commandEnvelope = await runWebCommand(resolvedRuntime, {
+          ...(options.repo
+            ? {
+                repositoryPaths: options.repo.map((repositoryPath) => path.resolve(repositoryPath)),
+              }
+            : {}),
+          port: options.port,
+          openBrowser: options.open,
+        });
+      },
+    );
 
   program
     .command("context")
@@ -192,9 +188,7 @@ export async function runCli(
       commandEnvelope = await application.context(options.repo, selector);
     });
 
-  const observe = program
-    .command("observe")
-    .description(t("cli.observe"));
+  const observe = program.command("observe").description(t("cli.observe"));
 
   observe
     .command("task")
@@ -220,10 +214,7 @@ export async function runCli(
     .requiredOption("--stdin", t("cli.stdin"))
     .option("--repo <path>", t("cli.repo"), process.cwd())
     .action(async (options: { readonly repo: string }) => {
-      commandEnvelope = await runObserveMaintenanceCommand(
-        resolvedRuntime,
-        options.repo,
-      );
+      commandEnvelope = await runObserveMaintenanceCommand(resolvedRuntime, options.repo);
     });
 
   program
@@ -237,19 +228,14 @@ export async function runCli(
       commandEnvelope = await runInsightsSummaryCommand(resolvedRuntime, options);
     });
 
-  const reconcile = program
-    .command("reconcile")
-    .description(t("cli.reconcile"));
+  const reconcile = program.command("reconcile").description(t("cli.reconcile"));
 
   reconcile
     .command("candidates")
     .description(t("cli.candidates"))
     .option("--repo <path>", t("cli.repo"), process.cwd())
     .action(async (options: { readonly repo: string }) => {
-      commandEnvelope = await runReconciliationCandidatesCommand(
-        resolvedRuntime,
-        options.repo,
-      );
+      commandEnvelope = await runReconciliationCandidatesCommand(resolvedRuntime, options.repo);
     });
 
   reconcile
@@ -257,10 +243,7 @@ export async function runCli(
     .description(t("cli.status"))
     .option("--repo <path>", t("cli.repo"), process.cwd())
     .action(async (options: { readonly repo: string }) => {
-      commandEnvelope = await runReconciliationStatusCommand(
-        resolvedRuntime,
-        options.repo,
-      );
+      commandEnvelope = await runReconciliationStatusCommand(resolvedRuntime, options.repo);
     });
 
   program.localizeHelpCommands();
@@ -315,9 +298,7 @@ export async function runCli(
   return serialize(commandEnvelope.ok ? 0 : 1, commandEnvelope);
 }
 
-export async function createCliRuntime(
-  options: CliRuntimeOptions = {},
-): Promise<CliRuntime> {
+export async function createCliRuntime(options: CliRuntimeOptions = {}): Promise<CliRuntime> {
   const packageIdentity = await readPackageIdentity();
   const mapApplication = new MapApplication();
   const repositoryResolver = new RepositoryIdentityResolver();
@@ -332,19 +313,14 @@ export async function createCliRuntime(
     packageIdentity,
     mapApplication,
     addProject: (repositoryPath) => projectRegistration.add(repositoryPath),
-    observationApplication: new ObservationApplication(
-      repositoryResolver,
-      observationStore,
-    ),
+    observationApplication: new ObservationApplication(repositoryResolver, observationStore),
     insightService: new InsightService(repositoryResolver, observationStore),
-    reconciliationService: new ReconciliationService(
-      repositoryResolver,
-      observationStore,
-    ),
+    reconciliationService: new ReconciliationService(repositoryResolver, observationStore),
     installSkills: () => new ManagedSkillsInstaller({ packageIdentity }).install(),
-    upgradePackage: () => new SemanticAtlasPackageUpgrader({
-      currentVersion: packageIdentity.version,
-    }).upgrade(),
+    upgradePackage: () =>
+      new SemanticAtlasPackageUpgrader({
+        currentVersion: packageIdentity.version,
+      }).upgrade(),
     startWeb: (webOptions) => new WebCommandService(mapApplication, projectStore).start(webOptions),
     readStandardInput: options.readStandardInput ?? readStandardInput,
     now: options.now ?? (() => new Date()),
@@ -382,10 +358,7 @@ function parsePort(value: string): number {
   return port;
 }
 
-async function runWebCommand(
-  runtime: CliRuntime,
-  options: StartWebOptions,
-): Promise<WebEnvelope> {
+async function runWebCommand(runtime: CliRuntime, options: StartWebOptions): Promise<WebEnvelope> {
   try {
     return {
       schemaVersion: 1,
@@ -457,9 +430,10 @@ async function runUpgradeCommand(runtime: CliRuntime): Promise<UpgradeEnvelope> 
       data: result,
     };
   } catch (error) {
-    const upgradeError = error instanceof PackageUpgradeError
-      ? error
-      : new PackageUpgradeError("check", errorMessage(error));
+    const upgradeError =
+      error instanceof PackageUpgradeError
+        ? error
+        : new PackageUpgradeError("check", errorMessage(error));
     return {
       schemaVersion: 1,
       ok: false,
@@ -481,9 +455,7 @@ function serialize(exitCode: number, envelope: object): CliRunResult {
   };
 }
 
-function renderError(
-  result: Extract<MapProjectionResult, { readonly ok: false }>,
-): RenderEnvelope {
+function renderError(result: Extract<MapProjectionResult, { readonly ok: false }>): RenderEnvelope {
   return {
     schemaVersion: 1,
     ok: false,
@@ -500,13 +472,10 @@ async function runRenderCommand(
   const result = await application.project(options.repo);
   if (!result.ok) return renderError(result);
 
-  const requestedOutputPath = options.output
-    ?? path.join(result.repository.root, "semantic-atlas.html");
+  const requestedOutputPath =
+    options.output ?? path.join(result.repository.root, "semantic-atlas.html");
   try {
-    const outputPath = await writeProjection(
-      requestedOutputPath,
-      result.projection.content,
-    );
+    const outputPath = await writeProjection(requestedOutputPath, result.projection.content);
     return {
       schemaVersion: 1,
       ok: true,

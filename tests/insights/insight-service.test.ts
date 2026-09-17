@@ -14,9 +14,9 @@ import { RepositoryIdentityResolver } from "../../src/observations/repository-id
 const sandboxes: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(sandboxes.splice(0).map((directory) =>
-    rm(directory, { recursive: true, force: true })
-  ));
+  await Promise.all(
+    sandboxes.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
+  );
 });
 
 describe("InsightService", () => {
@@ -32,10 +32,7 @@ describe("InsightService", () => {
     );
     await fixture.application.recordTask(
       fixture.repositoryRoot,
-      taskObservation("failed-task", "2026-08-26T11:00:00.000Z", [
-        "missing",
-        "contradicted",
-      ], true),
+      taskObservation("failed-task", "2026-08-26T11:00:00.000Z", ["missing", "contradicted"], true),
     );
     await fixture.application.recordReview(
       fixture.repositoryRoot,
@@ -70,12 +67,7 @@ describe("InsightService", () => {
     );
     await fixture.application.recordReview(
       fixture.repositoryRoot,
-      reviewObservation(
-        "recent-review",
-        "older-task",
-        "approved",
-        "2026-08-27T10:00:00.000Z",
-      ),
+      reviewObservation("recent-review", "older-task", "approved", "2026-08-27T10:00:00.000Z"),
     );
 
     const result = await fixture.insights.summarize(
@@ -154,26 +146,27 @@ function reviewObservation(
     id,
     recordedAt,
     taskObservationId,
-    review: verdict === "approved"
-      ? {
-          taskId: `${id}-task`,
-          runId: `${id}-run`,
-          verdict,
-          businessBoundary: "correct",
-          upstreamCause: "correct",
-          impactCompleteness: "complete",
-          requiredRework: false,
-          mapCausedRegression: false,
-        }
-      : {
-          taskId: `${id}-task`,
-          runId: `${id}-run`,
-          verdict,
-          businessBoundary: "incorrect",
-          upstreamCause: "incorrect",
-          impactCompleteness: "incomplete",
-          requiredRework: true,
-          mapCausedRegression: true,
-        },
+    review:
+      verdict === "approved"
+        ? {
+            taskId: `${id}-task`,
+            runId: `${id}-run`,
+            verdict,
+            businessBoundary: "correct",
+            upstreamCause: "correct",
+            impactCompleteness: "complete",
+            requiredRework: false,
+            mapCausedRegression: false,
+          }
+        : {
+            taskId: `${id}-task`,
+            runId: `${id}-run`,
+            verdict,
+            businessBoundary: "incorrect",
+            upstreamCause: "incorrect",
+            impactCompleteness: "incomplete",
+            requiredRework: true,
+            mapCausedRegression: true,
+          },
   };
 }
