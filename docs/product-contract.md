@@ -112,22 +112,26 @@ stable.
 Language configuration and translation maintenance are defined in
 [Internationalization](architecture.md#internationalization).
 
-### Explicit map initialization
+### Business-map authoring and maintenance
 
-A user can request a project business/module map or a bounded initial map. The
-maintenance Skill starts from current evidence, identifies the requested
-business boundaries, and creates their owning documents through normal Git
-review. Independent business areas normally have separate YAML files and
-meaningful selectable domain roots; a local task or a single-business project
-can use one file. Shared concepts have one owner, directed relations live with
-their source concept, and flows live with their scenario. All documents validate
-together. The [map format](map-format.md#business-partition-and-initialization)
-owns the partitioning rules.
+Agents organize maps by real business responsibility whenever they create,
+extend, correct or reconcile shared knowledge. Independent business areas have
+meaningful domain roots and owning YAML files. Existing owners are reused while
+their scope remains correct; newly discovered independent responsibilities get
+their own owners rather than accumulating under an unrelated existing domain.
+A local task or single-business project can use one file. Shared concepts remain
+unique and relationships and flows retain their business owners. The
+[map format](map-format.md#business-ownership-and-file-boundaries) owns these
+rules for the complete authoring lifecycle.
 
-Direct initialization works without retained candidate observations. Its
-source evidence, map diff, review and integration state are Git delivery
-evidence. Candidate reconciliation retains its existing exact-origin observation
-contract and remains bounded to one business domain.
+Direct authoring covers a user-requested initial map, incremental update or
+ownership reorganization and works from current evidence without requiring
+retained candidates. Its complete necessary Git diff, independent review and
+actual integration state are delivery evidence. Candidate reconciliation uses
+the same ownership decisions while retaining its one-domain exact-origin
+observation contract. A necessary multi-file reorganization has a complete Git
+review surface and separate accurate candidate accounting; it is not reported
+as an accepted single-path maintenance result.
 
 ### Post-task maintenance decision and reconciliation
 
@@ -393,8 +397,8 @@ review, and earlier unresolved investigation. Accepted, refined, and discarded
 origins are terminal. Unresolved origins wait for a new origin in the same
 candidate group before becoming actionable again. A
 post-integration maintenance task selects one business domain, checks current
-source and durable product meaning, updates one owning YAML map through normal
-Git review, and records the immutable result only after review and integration.
+source and durable product meaning, confirms its real owner and updates that
+owning YAML map through normal Git review, and records the immutable result only after review and integration.
 It leaves unresolved or implementation-local meaning outside the canonical map.
 A mapless repository can create one initial domain-owned YAML
 when current evidence establishes stable identity and bounded meaning. Periodic

@@ -1,4 +1,4 @@
 interface:
   display_name: "Semantic Atlas Maintenance"
-  short_description: "Initialize business maps or reconcile one domain's candidates"
-  default_prompt: "Use $semantic-atlas-maintenance to initialize the requested business map or reconcile retained candidates for one business domain, with source evidence and normal Git review."
+  short_description: "Maintain business maps by evidence-backed ownership"
+  default_prompt: "Use $semantic-atlas-maintenance to create or update the requested business map by real business ownership, or reconcile retained candidates, with current evidence and normal Git review."

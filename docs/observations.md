@@ -33,13 +33,16 @@ references exact task-candidate positions, records the reviewed classification
 and current evidence, and includes the owning YAML plus real merged commit when
 the canonical map changed. Work-stage proposals are not observations.
 
-Direct project or local map initialization is authoring work whose evidence is
-its source-supported Git diff, independent review and actual integration state.
-It has no retained candidate origins to consume and does not manufacture task
-observations or maintenance results to satisfy the candidate schema. Existing
-candidates remain available for separate domain-scoped reconciliation. The
-single `businessDomainId` and `owningMapPath` describe a candidate maintenance
-result; they do not constrain the number of files in a project initialization.
+Direct map authoring uses its source-supported Git diff, independent review and
+actual integration state as delivery evidence. Without retained origins, it has
+no candidates to consume and does not manufacture task observations or
+maintenance results. The single `businessDomainId` and `owningMapPath` describe
+a candidate maintenance result; they do not determine business ownership or
+force independent business areas into one map file. A necessary multi-file
+ownership reorganization uses its complete normal Git review surface, with
+retained origins reported separately until their results truthfully satisfy
+the unchanged observation contract. Original observation identities stay
+immutable, including a domain assignment that later evidence corrects.
 
 ## Versioned Schemas
 

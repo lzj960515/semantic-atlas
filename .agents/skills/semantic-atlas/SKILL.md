@@ -17,12 +17,11 @@ investigation leads.
 
 ## Choose The Workflow From The Task
 
-For an explicit request to initialize a project or local business map, use
-`semantic-atlas-maintenance`'s initialization path. Project initialization first
-identifies the real business areas and normally writes one owning YAML per
-independent area; a bounded request or a single-business project can use one.
-That authoring request proceeds from current evidence without retained candidates.
-The engineering workflow below keeps ordinary feature and bug tasks bounded.
+For an explicit request to create, extend, correct or reorganize a business map,
+use `semantic-atlas-maintenance`'s direct-authoring path. Its common business
+ownership rules apply to initial maps and every later update. The engineering
+workflow below keeps ordinary feature and bug tasks bounded and produces
+source-supported candidates for separate canonical maintenance.
 
 Use this workflow when work can change or depend on business behavior,
 ownership, shared data, an invariant, or an interface. This includes feature,
@@ -185,11 +184,19 @@ already represents the durable meaning or the change is implementation-local.
 Add concepts, relations, and flows only when current evidence supports their
 accuracy. When no relevant flow changed, record no flow candidate.
 
-For a repository without a map, use `candidate` only when current evidence
-establishes a stable business domain and a bounded reusable concept, relation,
-or business path. Use `unresolved` when one task cannot support that identity.
-Limit bootstrap knowledge to the stable meaning established by the current
-task.
+For every proposed candidate, identify the actual business responsibility from
+its outcomes, owned data/rules and collaborators. Reuse a mapped domain when
+that meaning matches; an independently meaningful new business area receives
+its own stable `businessDomainId`, even when another domain already has a YAML.
+Use narrower capabilities for behavior belonging inside an existing area.
+The maintenance Skill rechecks this ownership before choosing files. A required
+multi-file ownership correction is explicit authoring/reorganization work,
+while retained candidate origins keep their immutable domain identity.
+
+For mapped and mapless tasks alike, retain only the stable meaning established
+by current evidence. Use `unresolved` when the task cannot establish business
+identity or ownership. A local engineering task does not imply mapping the
+whole repository.
 
 ## Record Accuracy Evidence
 
@@ -227,8 +234,11 @@ evidence from missing accuracy evidence.
 
 Keep canonical map editing in a separate maintenance change after stable reviewed source is available.
 For this candidate-driven handoff, the `semantic-atlas-maintenance` Skill
-rechecks one business domain and edits one owning YAML surface, validates the
-complete graph, renders the changed neighborhood, and submits the Git diff for independent review.
+rechecks real business ownership using its common authoring rules, then handles
+one confirmed domain and owning YAML. Ownership corrections needing multiple
+files follow its ordinary reviewed authoring path with accurate separate origin
+accounting. Both paths validate the complete graph, inspect the affected Viewer
+areas and submit the Git diff for independent review.
 
 A post-integration maintenance run can examine retained candidates from
 business-changing results; an empty or no-change run is successful. Periodic

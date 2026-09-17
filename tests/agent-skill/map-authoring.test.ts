@@ -6,9 +6,9 @@ import { describe, expect, it } from "vitest";
 import { MapApplication } from "../../src/application/map-application.js";
 
 const projectRoot = fileURLToPath(new URL("../..", import.meta.url));
-const fixtureRoot = path.join(projectRoot, "tests/fixtures/map-initialization");
+const fixtureRoot = path.join(projectRoot, "tests/fixtures/map-authoring");
 
-describe("initial map authoring resources", () => {
+describe("business map authoring resources", () => {
   it("provides a complete authoring example that validates and projects a business domain", async () => {
     const reference = await readFile(
       path.join(
@@ -35,7 +35,7 @@ describe("initial map authoring resources", () => {
     }
   });
 
-  it("keeps the fresh-Agent initial states mapless and separate from their evaluation criteria", async () => {
+  it("keeps fresh-Agent fixtures separate from their evaluation criteria", async () => {
     const suite = JSON.parse(await readFile(path.join(fixtureRoot, "evals.json"), "utf8")) as {
       readonly evals: readonly {
         readonly id: number;
@@ -44,17 +44,25 @@ describe("initial map authoring resources", () => {
         readonly expectations: readonly string[];
       }[];
     };
-    expect(suite.evals.map(({ id }) => id)).toEqual([1, 2]);
+    expect(suite.evals.map(({ id }) => id)).toEqual([1, 2, 3]);
     for (const evaluation of suite.evals) {
       const repository = path.join(fixtureRoot, evaluation.fixture);
       await expect(access(path.join(repository, "README.md"))).resolves.toBeUndefined();
       await expect(access(path.join(repository, "src"))).resolves.toBeUndefined();
-      await expect(access(path.join(repository, "docs/business-map"))).rejects.toThrow();
       await expect(access(path.join(repository, "evals.json"))).rejects.toThrow();
       expect(evaluation.prompt).not.toMatch(/YAML|分文件|业务域|domain/u);
       expect(evaluation.expectations.length).toBeGreaterThan(0);
       const probe = await new MapApplication().validate(repository);
-      expect(probe).toMatchObject({ ok: false, error: { code: "MAP_NOT_FOUND" } });
+      if (evaluation.id === 3) {
+        expect(probe).toMatchObject({ ok: true, data: { documentCount: 1, flowCount: 1 } });
+        const projected = await new MapApplication().viewerProject(repository);
+        expect(projected.ok).toBe(true);
+        if (!projected.ok) throw new Error(projected.error.message);
+        expect(projected.viewerProject.views.map(({ id }) => id)).toEqual(["all", "orders"]);
+      } else {
+        await expect(access(path.join(repository, "docs/business-map"))).rejects.toThrow();
+        expect(probe).toMatchObject({ ok: false, error: { code: "MAP_NOT_FOUND" } });
+      }
     }
   });
 });

@@ -21,26 +21,33 @@ The first implementation uses this conventional directory. Every `*.yaml` file
 in the directory participates in one repository-wide graph. File names organize
 ownership but do not become graph nodes.
 
-## Business Partition And Initialization
+## Business Ownership And File Boundaries
 
-Choose file boundaries from stable business responsibilities, owned data and
-rules, and collaborations. Source directories are supporting evidence rather
-than a file-per-directory rule. An explicit project initialization identifies
-these areas before writing the map and normally creates one owning YAML per
-independent business area. A local request or a small project with one business
-responsibility can use one file.
+Every map-writing task chooses ownership from stable business responsibilities,
+owned data/rules, and collaborators. This applies to initial creation, later
+capability additions, drift correction and candidate maintenance. Source
+folders, existing filenames and recorded candidate owners supply evidence;
+current business meaning decides the boundary.
 
-Each independent top-level area has a meaningful `domain` node. Narrower
-responsibilities use `capability` and `part_of` within that area. Viewer domain
-selection comes from those nodes and containment, not YAML filenames; moving
-nodes between files without correcting an oversized project domain leaves the
-business browsing problem unchanged.
+Reuse a domain and owning YAML when their business scope remains correct. Give
+a newly identified independent business area its own meaningful `domain` root
+and owning document. Narrower responsibilities use `capability` and `part_of`
+within an area. A small project or local task with one responsibility can use
+one file. Correct affected containment when an existing umbrella domain is too
+broad, preserving stable concept IDs where identity has not changed. Viewer
+selection follows domain nodes and containment, not filenames.
 
 Define shared concepts once in their owning file. Declare each relation in the
 source concept's file and each flow in its scenario's file. References resolve
 by stable ID across all documents, including flow-step concepts. Validate the
 complete repository graph and inspect each affected domain with its external
 collaborators and relevant flows.
+
+The requested or evidenced change bounds the work. Ordinary candidate
+reconciliation handles one confirmed business domain and its owning YAML.
+Necessary repartitioning across existing files is a complete normal reviewed
+authoring/reorganization change, with accurate separate candidate accounting;
+the observation format does not decide the business model.
 
 ## Document Shape
 
@@ -346,5 +353,5 @@ Post-integration or periodic reconciliation confirms candidates in current
 evidence, updates one bounded neighborhood, validates the complete graph, and
 submits the normal repository change for review. A mapless repository can use
 the same candidate path to establish one evidence-supported initial domain.
-Explicit project initialization uses the business partition above and reviews
-its complete set of owning files together.
+Direct authoring and ownership reorganization use the common business-ownership
+rules above and review their complete necessary set of owning files together.

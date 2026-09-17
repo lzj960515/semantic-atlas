@@ -118,12 +118,14 @@ manufactured business knowledge. These fixtures protect the Skill contract;
 they do not replace the private real-project paired evaluation defined in this
 page.
 
-## Project Initialization Regression
+## Business Ownership Regression
 
-`tests/fixtures/map-initialization/evals.json` retains the natural requests and
+`tests/fixtures/map-authoring/evals.json` retains the natural requests and
 artifact criteria from the repeated issue #8 failure. One fixture has separate
 order, fulfillment and revenue responsibilities within technical source files;
 the control has three technical directories serving one cancellation business.
+A maintenance case starts from a valid order map and asks for the newly
+implemented delivery behavior to be incorporated.
 Execution receives only the request and source fixture, while expected results
 remain with the evaluator. Use the bundled understanding and maintenance Skills
 in fresh contexts, with equivalent baseline and candidate environments.
@@ -131,9 +133,10 @@ in fresh contexts, with equivalent baseline and candidate environments.
 Acceptance checks actual business-owned files, shared concept identity,
 relation/flow ownership, complete-graph validation and selectable Viewer domains.
 A schema-valid oversized project domain fails the multi-business case; artificial
-HTTP/rules/storage domains fail the small-project control. Direct initialization
-must proceed without fabricated retained candidates and report actual Git review
-and integration status. Static Skill contract tests and the runnable authoring
+HTTP/rules/storage domains fail the small-project control. A later update must
+preserve the valid order identities while establishing the independent
+fulfillment owner. Direct authoring must proceed without fabricated retained
+candidates and report actual Git review and integration status. Static Skill contract tests and the runnable authoring
 example protect packaging and format coherence; only Fresh Agent execution
 provides evidence about autonomous partitioning behavior.
 

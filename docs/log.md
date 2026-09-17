@@ -2,11 +2,13 @@
 
 ## 2026-09-17
 
-- Separated explicit project/local map initialization from one-domain candidate
-  reconciliation after repeated oversized single-file maps. Initialization now
-  chooses business boundaries before owning files, preserves shared concept and
-  flow ownership, and uses Git review evidence without fabricated candidate
-  observations. Added paired multi-business and single-business Agent fixtures.
+- Applied real business ownership to every map-writing lifecycle: creation,
+  incremental extension, correction and candidate reconciliation. Existing
+  owners are reused only while their meaning matches; new independent business
+  areas get their own domain/file. Necessary cross-file repartitioning uses a
+  complete normal Git review surface with accurate separate origin accounting.
+  Added initial, small-project and existing-map maintenance Agent fixtures.
+
 - Clarified managed Skill ownership conflicts with bilingual CLI recovery
   guidance and README inspection steps. Manual migration preserves the complete
   conflicting directory in a unique backup outside Skill discovery roots, then

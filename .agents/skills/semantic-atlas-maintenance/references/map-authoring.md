@@ -1,8 +1,8 @@
-# Initial Map Authoring
+# Business Map Authoring
 
-Use this reference when creating the first map documents. The Skill owns scope
-selection and business partitioning; this page supplies the version 1 authoring
-shape. The installed package's `docs/map-format.md` defines the complete format,
+Use this reference when creating or updating map documents. The Skill owns the
+common business-ownership decisions for every edit; this page supplies the
+version 1 authoring shape. The installed package's `docs/map-format.md` defines the complete format,
 and `semantic-atlas validate` checks all documents together.
 
 ## Document And Concept Shape

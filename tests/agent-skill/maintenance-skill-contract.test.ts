@@ -77,16 +77,12 @@ describe("bundled Semantic Atlas maintenance Skill", () => {
     const frontmatter = parseFrontmatter(skillDocument);
 
     expect(frontmatter.description).toContain("with or without an existing business map");
-    expect(skillDocument).toContain(
-      "one initial business-domain YAML for the selected candidate scope",
-    );
-    expect(skillDocument).toContain(
-      "initial map to stable meaning supported by the selected candidates and current",
-    );
+    expect(skillDocument).toContain("one initial business-domain YAML for its supported scope");
+    expect(skillDocument).toContain("A mapless candidate run can");
     expect(skillDocument).toContain("MAP_NOT_FOUND");
   });
 
-  it("separates requested initialization from candidate reconciliation", async () => {
+  it("applies business ownership to every authoring and candidate-maintenance path", async () => {
     const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
     const reference = await readFile(
       path.join(skillDirectory, "references/reconciliation.md"),
@@ -97,26 +93,31 @@ describe("bundled Semantic Atlas maintenance Skill", () => {
       "utf8",
     );
 
-    expect(skillDocument).toContain("Project initialization");
-    expect(skillDocument).toContain("Bounded initialization");
-    expect(skillDocument).toContain("Candidate reconciliation");
-    expect(skillDocument).toContain("candidate report is empty");
-    expect(skillDocument).toContain("multiple domain-owned YAML files");
+    expect(skillDocument).toContain("Establish Business Ownership Before Every Map Edit");
+    expect(skillDocument).toContain("adding later business capabilities");
+    expect(skillDocument).toContain(
+      "Reuse an existing domain and owning file when their business meaning matches",
+    );
+    expect(skillDocument).toContain("including during incremental");
     expect(skillDocument).toContain("File count follows business boundaries");
     expect(skillDocument).toContain("Define each shared concept once");
     expect(skillDocument).toContain("Declare each directed relation in its source concept's file");
-    expect(skillDocument).toContain("Domain roots drive Viewer selection");
-    expect(skillDocument).toContain("Direct initialization has no candidate-origin observation");
-    expect(reference).toContain("not a general map-authoring");
-    expect(understanding).toContain("initialization path");
+    expect(skillDocument).toContain("domain roots drive Viewer selection");
+    expect(skillDocument).toContain("normal reviewed authoring");
+    expect(reference).toContain("one `owningMapPath` must not stand for a multi-file result");
+    expect(understanding).toContain(
+      "For every proposed candidate, identify the actual business responsibility",
+    );
   });
 
   it("reconciles flow candidates as stable business paths instead of copied control flow", async () => {
     const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
 
     expect(skillDocument).toContain('kind: "flow"');
-    expect(skillDocument).toContain("business-relevant actions, decisions, branches, and outcomes");
-    expect(skillDocument).toContain("Keep flow steps at business granularity");
+    expect(skillDocument).toMatch(
+      /business-relevant actions, decisions,\s+branches, and outcomes/u,
+    );
+    expect(skillDocument).toMatch(/Keep flow steps at\s+business granularity/u);
     expect(skillDocument).toContain("Treat a source diff as evidence to investigate");
     expect(skillDocument).toContain("accepted");
     expect(skillDocument).toContain("refined");

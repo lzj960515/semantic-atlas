@@ -300,33 +300,32 @@ contract when another installed product uses the same executable name.
 
 ### Maintenance Agent Skill
 
-Owns explicit map initialization and candidate-driven maintenance as separate
-entry paths. Initialization discovers the requested project's or local area's
-business boundaries from current evidence, assigns meaningful domain roots and
-owning YAML files, and validates their complete graph before normal review.
-An empty candidate report does not block this authoring request. Direct
-initialization records Git review/integration evidence without inventing
-candidate origins or maintenance observations. The
-[map format](map-format.md#business-partition-and-initialization) owns shared
-concept, relation, flow and file partition rules.
+Owns business-map authoring and candidate-driven maintenance. Both paths use
+the same evidence-based ownership sequence before every edit: confirm affected
+responsibilities, reuse still-correct owners, create owners for new independent
+business areas, and preserve shared identities and relation/flow ownership.
+These decisions apply equally to the first map and later maintenance. The
+[map format](map-format.md#business-ownership-and-file-boundaries) owns the
+common model.
 
-For post-integration and periodic candidate triage,
-`ReconciliationService` supplies one read-only report. The Skill selects one
-business domain, confirms proposed corrections against current source and
-tracked product meaning, reconstructs `flow` candidates at business granularity,
-resolves an existing or initial domain-owned YAML surface, leaves unresolved
-and implementation-local observations outside the canonical map, and submits
-any accepted correction as one normal reviewed YAML change. A `MAP_NOT_FOUND`
-repository can bootstrap one bounded domain when current evidence establishes
-its stable identity. Source confirmation, map editing, validation, rendering,
-Git diff, and independent review remain Agent and repository responsibilities
-rather than CLI side effects.
+Direct authoring handles requested creation, extension, correction or ownership
+reorganization from current evidence even when no retained candidates exist.
+Its complete necessary map change follows normal Git validation, rendering,
+review and integration. Candidate reconciliation instead begins with
+`ReconciliationService`'s report, confirms the selected domain's real ownership,
+and edits or creates its owning YAML. A mapless candidate run can seed one
+bounded domain. Current evidence may show that repartitioning existing files is
+necessary; that correction uses the complete ordinary authoring review surface
+and reports retained origins separately rather than encoding a multi-file result
+as one `owningMapPath`.
 
-For candidate reconciliation, the Skill keeps Work, Review, and Integration as
-separate evidence stages. Work prepares classifications and an observation document without consuming any
-candidate. Integration adds the actual merged commit when a map changed and
-records the reviewed result through `observe maintenance`. A no-map-change
-discarded or unresolved result follows the same independent-review boundary.
+For candidate reconciliation, Work, Review and Integration remain separate
+evidence stages. Work prepares classifications and an observation document
+without consuming any candidate. Integration adds the actual merged commit when
+the single-domain map changed and records the reviewed result through
+`observe maintenance`. Discarded or unresolved conclusions follow the same
+review boundary. Direct authoring without origins records its Git delivery
+state; retained observations stay immutable and origin accounting stays accurate.
 
 ### ManagedSkillsInstaller
 
@@ -632,9 +631,9 @@ disposition. Candidate-producing results can enter post-integration maintenance
 as soon as stable reviewed source is available. Periodic reconciliation uses the
 same deterministic report to recover accumulated drift and missed work. Each
 candidate reconciliation run updates one owning YAML surface for one business
-domain. Explicit initialization reviews the owning files for the requested
-business scope together. A no-candidate or no-change run is a valid outcome and
-does not
+domain after confirming its ownership. Direct authoring and necessary ownership
+reorganization review the affected owning files together. A no-candidate or
+no-change run is a valid outcome and does not
 affect an engineering task already completed against current evidence.
 
 The understanding and maintenance Skills operate independently of task

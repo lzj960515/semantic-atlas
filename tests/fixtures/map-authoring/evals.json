@@ -1,6 +1,6 @@
 {
   "skill_name": "semantic-atlas-maintenance",
-  "source": "GitHub issue #8: three independent project initialization tasks needed a human request to split one oversized YAML.",
+  "source": "GitHub issue #8 and user clarification: business ownership must guide every map-writing and maintenance task; initialization only exposed the failure.",
   "evals": [
     {
       "id": 1,
@@ -28,6 +28,21 @@
         "Represents the cancellation deadline, durable appointment state, and accepted/refused outcomes in a source-supported scenario flow.",
         "Complete graph validation passes and the Viewer presents the one meaningful domain with its flow.",
         "Does not manufacture candidate origins or post-integration observation results; reports the actual review and integration boundary."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "配送功能已经接入，请根据当前代码和产品说明补全已有业务图谱，并核对原有关系是否仍然成立。",
+      "fixture": "existing-orders",
+      "sandbox": "workspace-write",
+      "expected_output": "A maintained business map preserves the valid order domain and shared identities while adding the independent warehouse fulfillment responsibility in its own domain-owned document.",
+      "expectations": [
+        "Uses the existing map as evidence rather than its sole ownership boundary: adds a meaningful independently selectable fulfillment business domain and owning YAML without receiving a file-splitting instruction.",
+        "Preserves valid orders/place/cancel behavior and the stable orders.record, orders.placed and orders.place.flow identities; no duplicated Order or Order placed concept is introduced.",
+        "Records shipment request consumption of orders.placed and shared order reads/writes with relations declared in the source concept document. Existing order publication remains represented.",
+        "Models the supported dispatch decision and success/refusal outcomes in the fulfillment scenario document, rather than treating receipt of an event as successful delivery.",
+        "All documents validate together; the Viewer has order and fulfillment scopes with relevant external boundary concepts and related flows.",
+        "Keeps the change within order/fulfillment evidence, reports real Git review/integration state, and does not invent retained origins or claim a multi-file maintenance observation."
       ]
     }
   ]
