@@ -6,6 +6,10 @@
   diagrams, with connected routes, measured-text reflow, and full PNG bounds.
 - Limited text hit areas to inline content, preserving native copying while
   allowing card whitespace to drag without a forced text cursor.
+- Added a shared bilingual Viewer legend with relationship examples, explicit
+  containment and consumer direction, concept boundary styles, and flow shapes
+  and branches. The guide remains keyboard-accessible and scrollable on narrow
+  screens in both Web sessions and offline exports.
 
 - Added i18next catalogs for English and Simplified Chinese: the CLI follows
   system locale variables and the shared offline/Web Viewer follows browser

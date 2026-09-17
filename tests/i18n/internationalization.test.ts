@@ -200,6 +200,20 @@ describe("internationalized public surfaces", () => {
       }
     }
   });
+
+  it.each(["en", "zh-CN"])("explains relationship direction and flow branches in the %s browser", async (language) => {
+    const repository = await trackedRepository(mapDocument());
+    const exported = await renderRepository(repository, "en");
+    for (const html of [exported, renderWebViewerPage([])]) {
+      const browser = openViewer(html, { language });
+      expect(browser.translatedText("viewer.legendHelp.relations.consumes"))
+        .toContain(language === "en" ? "consumer to interface" : "消费者指向接口");
+      expect(browser.translatedText("viewer.legendHelp.relations.part_of"))
+        .toContain(language === "en" ? "parent to child, without an arrow" : "父概念连接到子概念，不带箭头");
+      expect(browser.translatedText("viewer.legendHelp.flowDirection"))
+        .toContain(language === "en" ? "branch condition" : "分支条件");
+    }
+  });
 });
 
 function flatten(value: Record<string, unknown>, prefix = ""): Record<string, string> {

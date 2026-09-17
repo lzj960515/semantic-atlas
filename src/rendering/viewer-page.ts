@@ -1,6 +1,7 @@
 import { getTranslator, getResources } from "../i18n/index.js";
 import { escapeHtml } from "./html.js";
 import { renderViewerBrowserScript } from "./viewer-browser.js";
+import { renderViewerLegend, viewerLegendStyles } from "./viewer-legend.js";
 import type { BusinessFlowStepDefinition } from "../contracts/map.js";
 import type { DiagramLayoutSpec } from "./viewer-layout.js";
 
@@ -157,15 +158,7 @@ function renderViewerShell(
       </div>
       <div class="viewer-toolbar__meta">
         <span id="map-statistics" class="statistics" aria-live="polite"></span>
-        <details class="legend">
-          <summary data-i18n="viewer.legend">${escapeHtml(t("viewer.legend"))}</summary>
-          <div class="legend__panel">
-            <span class="legend__line legend__line--containment"></span>
-            <span data-i18n="viewer.containmentRelationships">${escapeHtml(t("viewer.containmentRelationships"))}</span>
-            <span class="legend__line legend__line--relation"></span>
-            <span data-i18n="viewer.directedRelationships">${escapeHtml(t("viewer.directedRelationships"))}</span>
-          </div>
-        </details>
+        ${renderViewerLegend()}
         <div class="camera-controls" aria-label="${escapeHtml(t("viewer.mapControls"))}" data-i18n-aria-label="viewer.mapControls">
           <button type="button" data-action="zoom-out" aria-label="${escapeHtml(t("viewer.zoomOut"))}" data-i18n-aria-label="viewer.zoomOut">-</button>
           <button type="button" data-action="fit" aria-label="${escapeHtml(t("viewer.fitLabel"))}" data-i18n-aria-label="viewer.fitLabel" data-i18n="viewer.fit">${escapeHtml(t("viewer.fit"))}</button>
@@ -367,45 +360,7 @@ function viewerStyles(): string {
     .view-switch button[aria-pressed="true"] { color: #fffdf7; background: var(--ink); }
     .view-switch button:disabled { cursor: default; opacity: 0.42; }
     .statistics { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-    .legend { position: relative; }
-    .legend summary {
-      cursor: pointer;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      list-style: none;
-    }
-    .legend summary::-webkit-details-marker { display: none; }
-    .legend__panel {
-      position: absolute;
-      top: calc(100% + 16px);
-      right: 0;
-      display: grid;
-      grid-template-columns: 48px max-content;
-      align-items: center;
-      gap: 12px 10px;
-      padding: 16px;
-      border: 1px solid rgba(56, 89, 103, 0.24);
-      border-radius: 10px;
-      background: var(--surface-strong);
-      box-shadow: 0 18px 44px rgba(29, 42, 43, 0.16);
-      color: var(--muted);
-      font-size: 12px;
-    }
-    .legend__line { display: block; height: 0; border-top: 2px solid; }
-    .legend__line--containment { border-color: var(--containment); border-top-style: dashed; }
-    .legend__line--relation { position: relative; border-color: var(--relation); }
-    .legend__line--relation::after {
-      position: absolute;
-      top: -5px;
-      right: -1px;
-      width: 7px;
-      height: 7px;
-      content: "";
-      border-top: 2px solid var(--relation);
-      border-right: 2px solid var(--relation);
-      transform: rotate(45deg);
-    }
+    ${viewerLegendStyles()}
     .camera-controls { overflow: hidden; border: 1px solid rgba(56, 89, 103, 0.28); border-radius: 7px; }
     .camera-controls button {
       height: 34px;
@@ -732,8 +687,8 @@ function viewerStyles(): string {
       .viewer-toolbar { display: flex; flex-wrap: wrap; padding: 9px 10px; }
       .brand__name { font-size: 17px; }
       .viewer-toolbar__selectors { order: 3; width: 100%; }
-      .viewer-toolbar__meta { margin-left: auto; }
-      .statistics, .legend { display: none; }
+      .viewer-toolbar__meta { margin-left: auto; max-width: 100%; flex-wrap: wrap; gap: 6px; }
+      .statistics { display: none; }
       .field { flex: 1; }
       .field > span { display: none; }
       select { width: 100%; min-width: 0; max-width: none; }

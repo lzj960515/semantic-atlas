@@ -11,6 +11,31 @@ export default {
   "flow": "Flow",
   "businessFlow": "Business flow",
   "legend": "Legend",
+  "legendHelp": {
+    "relationships": "Read a relationship",
+    "direction": "Read each solid arrow as: source → relationship → target. These links describe business collaboration, not the order of execution.",
+    "relations": {
+      "part_of": "Dashed line: parent to child, without an arrow. Commerce contains Orders. The stored part_of relation reads the other way: Orders is part of Commerce.",
+      "invokes": "One business action calls another. Place order → Authorize payment.",
+      "reads": "An action uses data. Check inventory → Stock.",
+      "writes": "An action creates or changes data. Place order → Order.",
+      "publishes": "An action or capability emits an event or other interface. Place order → Order placed event.",
+      "consumes": "An action or capability receives an event or other interface. Send receipt → Order placed event. The arrow goes from consumer to interface; it describes who consumes what, rather than event delivery direction.",
+      "constrained_by": "A business concept follows a rule. Place order → Available stock rule."
+    },
+    "nodes": "Read a concept card",
+    "concept": "Business concept",
+    "conceptDescription": "A solid card represents a concept in this view. Its label identifies a domain, capability, scenario, operation, data, invariant, or interface; its name and summary explain its business role.",
+    "boundary": "Related boundary concept",
+    "boundaryDescription": "A shaded card with a dashed border is outside the selected business domain, retained to show a direct relationship across that boundary.",
+    "flows": "Read a business flow",
+    "flowDirection": "Flow arrows lead from one step to the next. A label states the branch condition, such as Payment approved or Payment declined. Follow it to the resulting action or outcome.",
+    "steps": {
+      "action": "Rounded rectangle with a gold border: a business action, such as Authorize payment.",
+      "decision": "Diamond: a business choice with labeled branches, such as Payment accepted?",
+      "outcome": "Green card with deeply rounded corners: the end of this path, such as Order confirmed or Order rejected."
+    }
+  },
   "containmentRelationships": "Containment relationships",
   "directedRelationships": "Directed business relationships",
   "mapControls": "Map controls",

@@ -181,6 +181,13 @@ camera follows content reflow; an explicitly zoomed or panned camera keeps its
 current view. Its browser interaction state is disposable and never
 enters tracked map data.
 
+`ViewerLegend` supplies one keyboard-accessible, scrollable reading guide in the
+shared toolbar, including narrow screens. Its bilingual examples explain all
+relationship kinds, concept and external-boundary styling, and flow shapes and
+branches. Relationship arrows read from source to target, including consumer to
+interface for `consumes`; dashed containment is displayed as parent contains
+child without an arrow. Flow arrows separately express step progression.
+
 `renderDiagramImage` snapshots the selected diagram after text layout settles,
 resets the snapshot to full layout bounds, and rasterizes its SVG geometry and
 current HTML text through bundled `html-to-image`. SVG paint styles are captured
