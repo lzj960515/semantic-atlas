@@ -19,6 +19,7 @@ import { createLatestProjectLoader } from "./latest-project-loader.js";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { layoutDiagram, type DiagramLayoutSpec } from "./viewer-layout.js";
+import { repositionDiagram } from "./manual-layout.js";
 import { createDiagramLayoutController } from "./viewer-diagram.js";
 import type dagre from "@dagrejs/dagre";
 import type * as htmlToImage from "html-to-image";
@@ -127,6 +128,7 @@ export function renderViewerBrowserScript(): string {
     createLatestProjectLoader.toString(),
     layoutDiagram.toString(),
     createDiagramLayoutController.toString(),
+    repositionDiagram.toString(),
     "const defaultTranslate = globalThis.i18next.t.bind(globalThis.i18next);",
     planDiagramImage.toString(),
     renderDiagramImage.toString(),
@@ -135,6 +137,7 @@ export function renderViewerBrowserScript(): string {
     "globalThis.__semanticAtlasCreateLatestProjectLoader = createLatestProjectLoader;",
     "globalThis.__semanticAtlasLayoutDiagram = layoutDiagram;",
     "globalThis.__semanticAtlasCreateDiagramLayoutController = createDiagramLayoutController;",
+    "globalThis.__semanticAtlasRepositionDiagram = repositionDiagram;",
     `(${viewerBrowserEntry.toString()})(normalizeLocale);`,
   ].join("\n");
 }
@@ -180,6 +183,7 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
       renderDiagramImage: typeof renderDiagramImage;
     };
     readonly __semanticAtlasLayoutDiagram: typeof layoutDiagram;
+    readonly __semanticAtlasRepositionDiagram: typeof repositionDiagram;
     readonly __semanticAtlasCreateDiagramLayoutController: typeof createDiagramLayoutController;
     readonly __semanticAtlasCamera: BrowserCameraApi;
     readonly __semanticAtlasCreateLatestProjectLoader: typeof createLatestProjectLoader;
@@ -224,7 +228,7 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     || !relationshipSelector
     || !flowSelector
     || viewTypeButtons.length !== 2
-    || cameraButtons.length !== 3
+    || cameraButtons.length !== 4
     || !statistics
     || !viewport
     || !projectViewHost
@@ -336,12 +340,17 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
   const diagramLayout = browserGlobal.__semanticAtlasCreateDiagramLayoutController(
     browserGlobal.dagre,
     browserGlobal.__semanticAtlasLayoutDiagram,
-    (svg, previousBounds) => {
+    (svg, previousBounds, originDelta) => {
       const current = cameras.get(cameraKey());
+      if (originDelta && current) {
+        applyCamera(svg, { ...current, x: current.x + originDelta.x, y: current.y + originDelta.y });
+        return;
+      }
       const wasFitted = !current || (current.x === 0 && current.y === 0
         && current.width === previousBounds.width && current.height === previousBounds.height);
       applyCamera(svg, wasFitted ? cameraApi.fitViewBox(mapBounds(svg)) : current);
     },
+    browserGlobal.__semanticAtlasRepositionDiagram,
   );
 
   const closeNodeDetails = (restoreFocus = false): void => {
@@ -617,6 +626,11 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     if (svg) applyCamera(svg, cameraApi.fitViewBox(mapBounds(svg)));
   };
 
+  const resetLayout = (): void => {
+    diagramLayout.reset();
+    fit();
+  };
+
   const exportImage = async (): Promise<void> => {
     const svg = activeSvg();
     const view = svg?.parentElement;
@@ -683,6 +697,8 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     ?.addEventListener("click", () => zoom(1 / 1.3));
   document.querySelector<HTMLElement>('[data-action="fit"]')
     ?.addEventListener("click", fit);
+  document.querySelector<HTMLElement>('[data-action="reset-layout"]')
+    ?.addEventListener("click", resetLayout);
 
   viewport.addEventListener("wheel", (event) => {
     const svg = activeSvg();
@@ -702,14 +718,14 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
 
   const nodeElementFromTarget = (target: EventTarget | null): SVGGElement | undefined =>
     target instanceof Element
-      ? target.closest<SVGGElement>(".node-card") ?? undefined
+      ? target.closest<SVGGElement>(".node-card, .flow-step") ?? undefined
       : undefined;
 
   viewport.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || !activeSvg()) return;
-    // 文字使用浏览器原生选区；只有图形和空白处接管为画布拖动。
+    // 文字保留原生选区；卡片空白处移动节点，画布空白处平移视图。
     if (event.target instanceof Element
-      && event.target.closest(".diagram-card-text, .diagram-label")) return;
+      && event.target.closest("[data-selectable-text], .diagram-label")) return;
     event.preventDefault();
     document.getSelection()?.removeAllRanges();
     const nodeElement = nodeElementFromTarget(event.target);
@@ -745,10 +761,14 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
       y: event.clientY,
       moved: true,
     };
-    applyCamera(svg, cameraApi.panViewBox(current, pointerDelta, {
-      width: viewportBounds.width,
-      height: viewportBounds.height,
-    }));
+    const mapViewport = { width: viewportBounds.width, height: viewportBounds.height };
+    const nodeId = dragState.nodeElement?.dataset.layoutNode;
+    if (nodeId) {
+      const scale = cameraApi.viewportScale(current, mapViewport);
+      diagramLayout.moveNode(nodeId, { x: pointerDelta.x / scale, y: pointerDelta.y / scale });
+    } else {
+      applyCamera(svg, cameraApi.panViewBox(current, pointerDelta, mapViewport));
+    }
   });
 
   const finishDrag = (event: PointerEvent, openDetails: boolean): void => {
@@ -756,12 +776,14 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     const completed = dragState;
     dragState = undefined;
     delete viewport.dataset.dragging;
+    if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
     if (openDetails && !completed.moved && completed.nodeElement) {
       openNodeDetails(completed.nodeElement);
     }
   };
   viewport.addEventListener("pointerup", (event) => finishDrag(event, true));
   viewport.addEventListener("pointercancel", (event) => finishDrag(event, false));
+  viewport.addEventListener("lostpointercapture", (event) => finishDrag(event, false));
   viewport.addEventListener("click", (event) => {
     if (document.getSelection()?.isCollapsed === false) return;
     const text = event.target instanceof Element

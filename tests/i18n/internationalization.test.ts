@@ -341,7 +341,7 @@ function parseElements(html: string): BrowserElement[] {
 function findElements(elements: readonly BrowserElement[], selector: string): BrowserElement[] {
   if (selector.startsWith("#")) return elements.filter((element) => element.getAttribute("id") === selector.slice(1));
   if (selector === "[data-project-view]") return []; // Geometry is outside this DOM port.
-  if (selector === ".camera-controls button") return elements.filter((element) => ["zoom-in", "zoom-out", "fit"].includes(element.getAttribute("data-action") ?? ""));
+  if (selector === ".camera-controls button") return elements.filter((element) => ["zoom-in", "zoom-out", "fit", "reset-layout"].includes(element.getAttribute("data-action") ?? ""));
   const selectors = selector.split(",").map((item) => item.trim());
   return elements.filter((element) => selectors.some((item) => {
     const attribute = item.match(/^(?:([a-z]+))?\[([\w-]+)(?:="([^"]*)")?\]$/u);

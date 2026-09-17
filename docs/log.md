@@ -2,6 +2,11 @@
 
 ## 2026-09-17
 
+- Added view-local node dragging and layout reset for relationship and flow
+  diagrams, with connected routes, measured-text reflow, and full PNG bounds.
+- Limited text hit areas to inline content, preserving native copying while
+  allowing card whitespace to drag without a forced text cursor.
+
 - Added i18next catalogs for English and Simplified Chinese: the CLI follows
   system locale variables and the shared offline/Web Viewer follows browser
   language preferences through the i18next browser detector.

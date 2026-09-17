@@ -169,6 +169,7 @@ function renderViewerShell(
         <div class="camera-controls" aria-label="${escapeHtml(t("viewer.mapControls"))}" data-i18n-aria-label="viewer.mapControls">
           <button type="button" data-action="zoom-out" aria-label="${escapeHtml(t("viewer.zoomOut"))}" data-i18n-aria-label="viewer.zoomOut">-</button>
           <button type="button" data-action="fit" aria-label="${escapeHtml(t("viewer.fitLabel"))}" data-i18n-aria-label="viewer.fitLabel" data-i18n="viewer.fit">${escapeHtml(t("viewer.fit"))}</button>
+          <button type="button" data-action="reset-layout" title="${escapeHtml(t("viewer.resetLayoutTitle"))}" data-i18n-title="viewer.resetLayoutTitle" data-i18n="viewer.resetLayout">${escapeHtml(t("viewer.resetLayout"))}</button>
           <button type="button" data-action="zoom-in" aria-label="${escapeHtml(t("viewer.zoomIn"))}" data-i18n-aria-label="viewer.zoomIn">+</button>
         </div>
         <button type="button" class="export-image" data-action="export-image" title="${escapeHtml(t("viewer.exportTitle"))}" data-i18n-title="viewer.exportTitle" disabled>
@@ -465,10 +466,8 @@ function viewerStyles(): string {
       position: relative;
       min-height: 0;
       overflow: hidden;
-      cursor: grab;
       touch-action: none;
     }
-    .map-viewport[data-dragging="true"] { cursor: grabbing; }
     .project-view-host { position: absolute; inset: 0; }
     .project-view { position: absolute; inset: 0; }
     .project-view[hidden] { display: none; }
@@ -520,11 +519,12 @@ function viewerStyles(): string {
     }
     .diagram-card-text, .diagram-label {
       position: absolute;
+      overflow-wrap: anywhere;
+    }
+    [data-selectable-text], .diagram-label {
       pointer-events: auto;
       user-select: text;
       -webkit-user-select: text;
-      cursor: text;
-      overflow-wrap: anywhere;
     }
     .diagram-card-text {
       padding: 18px;
@@ -567,7 +567,6 @@ function viewerStyles(): string {
     .edge--containment .edge__path { stroke: var(--containment); stroke-width: 2.2; stroke-dasharray: 9 7; }
     .edge--directed-relation .edge__path { stroke: var(--relation); stroke-width: 2.4; }
     .edge__label { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; }
-    .node-card { cursor: pointer; }
     .node-card:focus { outline: none; }
     .node-card__surface {
       fill: var(--surface-strong);

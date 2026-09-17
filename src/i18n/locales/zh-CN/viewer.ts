@@ -1,4 +1,6 @@
 export default {
+  "resetLayout": "还原布局",
+  "resetLayoutTitle": "还原自动排列的位置；拖动卡片空白处可移动节点，选中文字可复制。",
   "title": "Semantic Atlas 业务地图",
   "project": "项目",
   "viewType": "视图类型",

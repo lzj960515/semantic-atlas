@@ -84,6 +84,15 @@ When a translator appends Chinese alongside English, cards grow to show the
 complete content and the diagram rearranges nodes, labels, and connecting lines.
 The original tracked map remains the single business-knowledge source.
 
+In both relationship and flow views, dragging a card's non-text space moves
+that node and its connected lines. Only actual text accepts native selection
+and copying; the Viewer does not force a text cursor over the entire card.
+Dragging empty canvas still pans the view. `Reset layout` restores the current
+diagram's automatic arrangement using the current displayed text, then fits it
+to the window. Manual positions belong only to the current browser view; they
+are not saved into tracked maps or shared with other viewers.
+
+
 `Export PNG` saves the entire selected relationship diagram or flow, including
 its currently displayed translations. Image bounds come from the complete
 layout rather than the visible viewport or zoom. Generation stays in the

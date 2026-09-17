@@ -1,4 +1,6 @@
 export default {
+  "resetLayout": "Reset layout",
+  "resetLayoutTitle": "Restore automatic node positions; drag card space to move a node, or select text to copy.",
   "title": "Semantic Atlas business map",
   "project": "Project",
   "viewType": "View type",
