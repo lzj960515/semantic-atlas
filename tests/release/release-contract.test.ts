@@ -14,7 +14,7 @@ describe("public release candidate", () => {
 
     expect(packageDocument).toMatchObject({
       name: "semantic-atlas",
-      version: "2.4.0",
+      version: "2.5.0",
       license: "MIT",
       homepage: `${publicRepository}#readme`,
       bugs: { url: `${publicRepository}/issues` },
