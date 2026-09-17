@@ -112,6 +112,27 @@ stable.
 Language configuration and translation maintenance are defined in
 [Internationalization](architecture.md#internationalization).
 
+### Business-map authoring and maintenance
+
+Agents organize maps by real business responsibility whenever they create,
+extend, correct or reconcile shared knowledge. Independent business areas have
+meaningful domain roots and owning YAML files. Existing owners are reused while
+their scope remains correct; newly discovered independent responsibilities get
+their own owners rather than accumulating under an unrelated existing domain.
+A local task or single-business project can use one file. Shared concepts remain
+unique and relationships and flows retain their business owners. The
+[map format](map-format.md#business-ownership-and-file-boundaries) owns these
+rules for the complete authoring lifecycle.
+
+Direct authoring covers a user-requested initial map, incremental update or
+ownership reorganization and works from current evidence without requiring
+retained candidates. Its complete necessary Git diff, independent review and
+actual integration state are delivery evidence. Candidate reconciliation uses
+the same ownership decisions while retaining its one-domain exact-origin
+observation contract. A necessary multi-file reorganization has a complete Git
+review surface and separate accurate candidate accounting; it is not reported
+as an accepted single-path maintenance result.
+
 ### Post-task maintenance decision and reconciliation
 
 Every business-changing task records its map outcome and decides whether stable
@@ -376,8 +397,8 @@ review, and earlier unresolved investigation. Accepted, refined, and discarded
 origins are terminal. Unresolved origins wait for a new origin in the same
 candidate group before becoming actionable again. A
 post-integration maintenance task selects one business domain, checks current
-source and durable product meaning, updates one owning YAML map through normal
-Git review, and records the immutable result only after review and integration.
+source and durable product meaning, confirms its real owner and updates that
+owning YAML map through normal Git review, and records the immutable result only after review and integration.
 It leaves unresolved or implementation-local meaning outside the canonical map.
 A mapless repository can create one initial domain-owned YAML
 when current evidence establishes stable identity and bounded meaning. Periodic

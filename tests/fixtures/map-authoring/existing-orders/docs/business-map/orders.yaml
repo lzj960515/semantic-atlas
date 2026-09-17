@@ -1,0 +1,114 @@
+schemaVersion: 1
+map:
+  id: orders
+  title: Customer orders
+  summary: Customers place and cancel orders before shipment.
+nodes:
+  - id: orders
+    kind: domain
+    name: Customer orders
+    summary: Accept customer purchases and own their lifecycle.
+    aliases: []
+    anchors:
+      - kind: document
+        value: README.md
+        description: Product behavior and order lifecycle.
+  - id: orders.place
+    kind: scenario
+    name: Place order
+    summary: A valid purchase creates an order and emits its placement event.
+    aliases: []
+    anchors:
+      - kind: symbol
+        value: placeOrder
+        description: Current order creation action.
+  - id: orders.cancel
+    kind: operation
+    name: Cancel order
+    summary: Cancel only an order that is awaiting shipment.
+    aliases: []
+    anchors:
+      - kind: symbol
+        value: cancelOrder
+        description: Current order cancellation action.
+  - id: orders.record
+    kind: data
+    name: Order
+    summary: The customer's purchase, destination and current state.
+    aliases: []
+    anchors:
+      - kind: file
+        value: src/records.ts
+        description: Shared Order contract.
+  - id: orders.placed
+    kind: interface
+    name: Order placed
+    summary: Announces a newly placed order and its paid total.
+    aliases: []
+    anchors:
+      - kind: file
+        value: src/records.ts
+        description: OrderPlaced event contract.
+relations:
+  - from: orders.place
+    type: part_of
+    to: orders
+    summary: Placing a purchase belongs to customer orders.
+  - from: orders.cancel
+    type: part_of
+    to: orders
+    summary: Cancellation is a customer-order lifecycle action.
+  - from: orders.record
+    type: part_of
+    to: orders
+    summary: Customer orders owns the shared order record.
+  - from: orders.placed
+    type: part_of
+    to: orders
+    summary: Customer orders owns the placement event.
+  - from: orders.place
+    type: writes
+    to: orders.record
+    summary: Placing a purchase creates an order awaiting shipment.
+  - from: orders.place
+    type: publishes
+    to: orders.placed
+    summary: Successful placement publishes the order event.
+  - from: orders.cancel
+    type: writes
+    to: orders.record
+    summary: Cancellation updates the eligible order state.
+flows:
+  - id: orders.place.flow
+    name: Place order
+    summary: A positive purchase becomes an order; invalid totals are refused.
+    scenario: orders.place
+    startsAt: check-total
+    steps:
+      - id: check-total
+        kind: decision
+        name: Is the total positive?
+        summary: Orders require a positive total.
+      - id: create-order
+        kind: action
+        name: Create order
+        summary: Save an order awaiting shipment and emit its placement event.
+        concept: orders.place
+      - id: placed
+        kind: outcome
+        name: Order placed
+        summary: The accepted order is available to downstream collaborators.
+        concept: orders.record
+      - id: refused
+        kind: outcome
+        name: Order refused
+        summary: No order is created for a nonpositive total.
+    transitions:
+      - from: check-total
+        when: positive
+        to: create-order
+      - from: check-total
+        when: nonpositive
+        to: refused
+      - from: create-order
+        to: placed

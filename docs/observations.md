@@ -33,6 +33,17 @@ references exact task-candidate positions, records the reviewed classification
 and current evidence, and includes the owning YAML plus real merged commit when
 the canonical map changed. Work-stage proposals are not observations.
 
+Direct map authoring uses its source-supported Git diff, independent review and
+actual integration state as delivery evidence. Without retained origins, it has
+no candidates to consume and does not manufacture task observations or
+maintenance results. The single `businessDomainId` and `owningMapPath` describe
+a candidate maintenance result; they do not determine business ownership or
+force independent business areas into one map file. A necessary multi-file
+ownership reorganization uses its complete normal Git review surface, with
+retained origins reported separately until their results truthfully satisfy
+the unchanged observation contract. Original observation identities stay
+immutable, including a domain assignment that later evidence corrects.
+
 ## Versioned Schemas
 
 Current task artifacts use `schemaVersion: 2`; review and maintenance artifacts

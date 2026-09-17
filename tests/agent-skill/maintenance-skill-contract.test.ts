@@ -20,7 +20,7 @@ const skillDirectory = path.join(projectRoot, ".agents/skills/semantic-atlas-mai
 const controlledRepository = path.join(projectRoot, "tests/fixtures/agent-skill/repository");
 
 describe("bundled Semantic Atlas maintenance Skill", () => {
-  it("is discoverable with one narrow maintenance identity", async () => {
+  it("is discoverable with one map-authoring and maintenance identity", async () => {
     const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
     const metadataDocument = await readFile(
       path.join(skillDirectory, "agents/openai.yaml"),
@@ -59,7 +59,9 @@ describe("bundled Semantic Atlas maintenance Skill", () => {
     expect(skillDocument).toContain("Review Phase");
     expect(skillDocument).toContain("Integration Phase");
     expect(skillDocument).toContain("semantic-atlas observe maintenance --stdin --repo");
-    expect(skillDocument).toContain("Do not record a terminal maintenance observation");
+    expect(skillDocument).toContain(
+      "Keep this draft unrecorded until independent review and integration finish.",
+    );
     expect(skillDocument).toContain("mergedCommit");
     expect(skillDocument).toContain("idempotent");
     expect(reference).toContain("implementation-local");
@@ -75,21 +77,47 @@ describe("bundled Semantic Atlas maintenance Skill", () => {
     const frontmatter = parseFrontmatter(skillDocument);
 
     expect(frontmatter.description).toContain("with or without an existing business map");
-    expect(skillDocument).toContain(
-      "When no map documents exist, create one initial business-domain YAML",
-    );
-    expect(skillDocument).toContain(
-      "Limit the initial map to stable meaning supported by the selected candidates and current evidence.",
-    );
+    expect(skillDocument).toContain("one initial business-domain YAML for its supported scope");
+    expect(skillDocument).toContain("A mapless candidate run can");
     expect(skillDocument).toContain("MAP_NOT_FOUND");
+  });
+
+  it("applies business ownership to every authoring and candidate-maintenance path", async () => {
+    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
+    const reference = await readFile(
+      path.join(skillDirectory, "references/reconciliation.md"),
+      "utf8",
+    );
+    const understanding = await readFile(
+      path.join(projectRoot, ".agents/skills/semantic-atlas/SKILL.md"),
+      "utf8",
+    );
+
+    expect(skillDocument).toContain("Establish Business Ownership Before Every Map Edit");
+    expect(skillDocument).toContain("adding later business capabilities");
+    expect(skillDocument).toContain(
+      "Reuse an existing domain and owning file when their business meaning matches",
+    );
+    expect(skillDocument).toContain("including during incremental");
+    expect(skillDocument).toContain("File count follows business boundaries");
+    expect(skillDocument).toContain("Define each shared concept once");
+    expect(skillDocument).toContain("Declare each directed relation in its source concept's file");
+    expect(skillDocument).toContain("domain roots drive Viewer selection");
+    expect(skillDocument).toContain("normal reviewed authoring");
+    expect(reference).toContain("one `owningMapPath` must not stand for a multi-file result");
+    expect(understanding).toContain(
+      "For every proposed candidate, identify the actual business responsibility",
+    );
   });
 
   it("reconciles flow candidates as stable business paths instead of copied control flow", async () => {
     const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
 
     expect(skillDocument).toContain('kind: "flow"');
-    expect(skillDocument).toContain("business-relevant actions, decisions, branches, and outcomes");
-    expect(skillDocument).toContain("Keep flow steps at business granularity");
+    expect(skillDocument).toMatch(
+      /business-relevant actions, decisions,\s+branches, and outcomes/u,
+    );
+    expect(skillDocument).toMatch(/Keep flow steps at\s+business granularity/u);
     expect(skillDocument).toContain("Treat a source diff as evidence to investigate");
     expect(skillDocument).toContain("accepted");
     expect(skillDocument).toContain("refined");

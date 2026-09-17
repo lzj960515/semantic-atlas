@@ -1,7 +1,8 @@
 # Reconciliation Evidence Guide
 
-Use this guide after loading the versioned candidate report and selecting one
-business domain.
+Use this guide for candidate reconciliation after loading the versioned report
+and selecting one business domain. Apply the Skill's common business-ownership
+rules to this domain before selecting files or accepting its recorded ownership.
 
 ## Read Candidate Provenance
 
@@ -37,6 +38,20 @@ tests for implemented collaboration. Use runtime evidence when the conclusion
 depends on deployed state. When these sources disagree, state the disagreement
 and leave the candidate unresolved until the owning authority can decide it.
 
+## Classify Current Evidence
+
+Classify every selected origin against current durable meaning:
+
+- `accepted`: current evidence supports the proposed durable correction;
+- `refined`: current evidence supports a narrower or differently worded durable
+  correction;
+- `discarded`: current evidence shows implementation-local, obsolete, or
+  unsupported meaning that does not belong in the shared map;
+- `unresolved`: available evidence cannot yet establish stable business meaning.
+
+A correct discarded or unresolved conclusion is complete and may have no map
+change. Keep that meaning outside the canonical map.
+
 ## Handle Drift And Duplicates
 
 - A stale anchor can be accepted when the business concept remains durable and
@@ -57,17 +72,30 @@ and leave the candidate unresolved until the owning authority can decide it.
 - A transient or implementation-local observation is discarded with a concise
   evidence-backed reason and produces no map change.
 
-## Keep One Review Surface
+## Keep One Candidate Domain Review Surface
 
 Edit or create one owning `docs/business-map/*.yaml` file for the selected
-domain. An initial map contains only the stable domain and bounded accepted
-meaning supported by current evidence. Validate the complete graph because
+domain when current evidence confirms that ownership. Reuse a file because its
+business meaning matches, and create the owning file for a new independent
+business domain. The Skill's common rules apply equally to an existing or
+initial map. When the evidence requires repartitioning existing files, prepare
+the complete normal authoring/reorganization Git candidate and report retained
+origins separately; one `owningMapPath` must not stand for a multi-file result.
+The original observation stays immutable, and accurate origin reconciliation
+remains separate from that authoring delivery. Validate the complete graph because
 relation endpoints and containment remain repository-wide even when the Git
 diff is local. Render the changed graph and inspect the selected neighborhood.
 The final Git diff is the independent review surface; retained observation
 artifacts stay unchanged.
 
 ## Record The Reviewed Outcome
+
+A maintenance observation settles retained candidates, not a general map-authoring
+run. Direct authoring without retained origins uses Git review and integration
+evidence. Ownership reorganization likewise keeps its complete Git diff distinct
+from the single-domain result contract. Retain exact candidate identities and
+report pending reconciliation when the change cannot truthfully be represented
+by the current result shape.
 
 One maintenance result identifies an exact source with both
 `taskObservationId` and zero-based `candidateIndex`. Repeated summaries do not

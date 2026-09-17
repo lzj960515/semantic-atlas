@@ -220,9 +220,18 @@ that helped locate it.
 - `semantic-atlas` gives every business-changing task a bounded,
   current-evidence understanding workflow, including relevant flow branches,
   with or without an existing map.
-- `semantic-atlas-maintenance` reviews retained candidates for one business
-  domain, including flow corrections, and prepares a normal reviewed YAML
-  update or initial domain map.
+- `semantic-atlas-maintenance` creates, extends, corrects and reconciles maps
+  through one evidence-based business-ownership workflow and normal Git review.
+
+Every map update identifies the affected business responsibilities before
+selecting files. Reuse an existing domain while its scope remains correct;
+give newly discovered independent business areas their own YAML and domain
+roots. Shared concepts are defined once and referenced across files. A bounded
+request or a single-business project can use one file. These rules govern both
+initialization and later maintenance. Ordinary candidate reconciliation remains
+one confirmed domain and its owning file; necessary multi-file ownership
+corrections use a complete reviewed authoring change with accurate separate
+candidate accounting. Direct authoring needs no retained candidate.
 
 Target repositories do not copy these Skills. They share only their business
 maps through Git.
