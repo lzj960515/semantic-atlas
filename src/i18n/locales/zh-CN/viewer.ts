@@ -1,4 +1,6 @@
 export default {
+  resetLayout: "还原布局",
+  resetLayoutTitle: "还原自动排列的位置；拖动卡片空白处可移动节点，选中文字可复制。",
   title: "Semantic Atlas 业务地图",
   project: "项目",
   viewType: "视图类型",
@@ -9,6 +11,36 @@ export default {
   flow: "流程",
   businessFlow: "业务流程",
   legend: "图例",
+  legendHelp: {
+    relationships: "读懂关系连线",
+    direction: "沿实线箭头读作：起点 → 关系 → 终点。这些连线描述业务协作关系，不表示执行先后。",
+    relations: {
+      part_of:
+        "虚线从父概念连接到子概念，不带箭头。例如：商务包含订单业务。地图中的 part_of 关系反过来表达：订单业务属于商务。",
+      invokes: "一个业务动作调用另一个动作。例如：下单 → 授权支付。",
+      reads: "业务动作读取数据。例如：检查库存 → 库存。",
+      writes: "业务动作创建或修改数据。例如：下单 → 订单。",
+      publishes: "业务动作或能力发布事件或其他接口。例如：下单 → 订单已创建事件。",
+      consumes:
+        "业务动作或能力接收事件或其他接口。例如：发送收据 → 订单已创建事件。箭头从消费者指向接口，表示“谁消费什么”，与事件传递方向不同。",
+      constrained_by: "业务概念受某条规则约束。例如：下单 → 可用库存规则。",
+    },
+    nodes: "读懂概念卡片",
+    concept: "业务概念",
+    conceptDescription:
+      "实线卡片表示当前视图中的概念。类型标签区分领域、能力、场景、操作、数据、不变量和接口；名称与摘要说明它在业务中的作用。",
+    boundary: "关联的边界概念",
+    boundaryDescription:
+      "带底色、虚线边框的卡片位于所选业务领域之外，因存在直接关系而保留，帮助理解跨领域协作。",
+    flows: "读懂业务流程",
+    flowDirection:
+      "流程箭头表示从当前步骤走向下一步。连线标签说明分支条件，例如“支付通过”或“支付拒绝”；沿分支可找到对应动作或结果。",
+    steps: {
+      action: "金色边框的圆角矩形：一个业务动作，例如“授权支付”。",
+      decision: "菱形：带有明确分支条件的业务判断，例如“支付是否通过？”。",
+      outcome: "绿色底色、大圆角的卡片：当前路径的结束结果，例如“订单已确认”或“订单被拒绝”。",
+    },
+  },
   containmentRelationships: "包含关系",
   directedRelationships: "有向业务关系",
   mapControls: "地图控制",

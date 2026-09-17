@@ -341,7 +341,10 @@ async function exerciseInstalledWeb(
     const projectEnvelope = await project.json();
     assert.equal(project.status, 200);
     if (environment.LC_ALL === "zh_CN.UTF-8") {
-      assert.match(projectEnvelope.data.markup, />domain<\/p>/u);
+      assert.match(
+        projectEnvelope.data.markup,
+        /data-i18n="viewer\.nodeKinds\.domain">domain<\/span>/u,
+      );
     }
     assert.equal(project.headers.get("cache-control"), "no-store");
     assert.match(projectEnvelope.data.markup, /data-map-view="commerce"/u);

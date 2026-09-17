@@ -209,9 +209,9 @@ function renderStepText(step: PositionedFlowStep, offsetX: number, offsetY: numb
   const left = step.x - width / 2 + offsetX;
   const top = step.y - height / 2 + offsetY;
   return `<div class="diagram-card-text diagram-card-text--flow diagram-card-text--${step.step.kind}" data-flow-step-id="${escapeHtml(step.step.id)}" data-layout-node="${escapeHtml(step.step.id)}" style="left:${formatNumber(left)}px;top:${formatNumber(top)}px;width:${formatNumber(width)}px;min-height:${formatNumber(height)}px">
-              <p class="flow-step__kind" data-i18n="viewer.stepKinds.${step.step.kind}">${escapeHtml(t(`viewer.stepKinds.${step.step.kind}`))}</p>
-              <h3 class="flow-step__title">${escapeHtml(step.step.name)}</h3>
-              <p class="flow-step__summary">${escapeHtml(step.step.summary)}</p>
+              <p class="flow-step__kind"><span data-selectable-text data-i18n="viewer.stepKinds.${step.step.kind}">${escapeHtml(t(`viewer.stepKinds.${step.step.kind}`))}</span></p>
+              <h3 class="flow-step__title"><span data-selectable-text>${escapeHtml(step.step.name)}</span></h3>
+              <p class="flow-step__summary"><span data-selectable-text>${escapeHtml(step.step.summary)}</span></p>
             </div>`;
 }
 
