@@ -623,6 +623,8 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     if (!view || exporting) return;
     const diagram = activeViewType === "relationships" ? currentView() : currentFlow();
     const filename = `${currentProject()?.name ?? "business-map"}-${diagram?.id ?? "all"}`
+      // 文件名清理需要匹配控制字符，避免生成不可用的下载名称。
+      // oxlint-disable-next-line no-control-regex
       .replace(/[<>:"/\\|?*\u0000-\u001f]/gu, "-");
     exporting = true;
     exportButton.disabled = true;

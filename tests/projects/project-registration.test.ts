@@ -12,7 +12,6 @@ import {
   createEmptyRepository,
   createMapRepository,
   node,
-  removeRepository,
 } from "../support/map-repository.js";
 
 const sandboxes: string[] = [];

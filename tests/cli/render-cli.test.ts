@@ -70,6 +70,7 @@ describe("semantic-atlas render", () => {
     const second = await runCli(["render", "--repo", repositoryRoot, "--output", secondOutput]);
 
     expect(first.exitCode).toBe(0);
+    expect(second.exitCode).toBe(0);
     expect(first.stderr).toBe("");
     expect(JSON.parse(first.stdout)).toMatchObject({
       schemaVersion: 1,

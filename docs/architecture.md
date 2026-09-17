@@ -387,7 +387,8 @@ candidate reports are deferred until a maintenance Agent requests them.
 
 ### Release Candidate Verification
 
-The repository-owned release gate composes contract and source tests,
+The repository-owned release gate composes Oxlint correctness checks, Oxfmt
+format checks for code and scripts, contract and source tests,
 typecheck, build, deterministic render checks, packed-tarball privacy, an
 anonymous installed-product flow, package dry-run, and Git diff validation. CI
 invokes the same gate used by a
