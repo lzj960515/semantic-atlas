@@ -5,6 +5,9 @@ It improves the accuracy of engineering work by giving an agent durable
 business context before the agent confirms decisive behavior in current source,
 tests, tracked product documentation, and runtime evidence.
 
+Before contributing or changing the product, read [CONTRIBUTING.md](CONTRIBUTING.md)
+to confirm the canonical upstream repository and the target for fork pull requests.
+
 ## Product Authority
 
 Read these pages before product or implementation work:
@@ -16,8 +19,11 @@ Read these pages before product or implementation work:
 3. `docs/map-format.md` defines the tracked map model and query meaning.
 4. `docs/evaluation.md` defines accuracy and human-intervention evidence.
 
-Keep one conclusion in its owning page and link to it elsewhere. Record durable
-documentation changes in `docs/log.md`.
+Keep one conclusion in its owning page and link to it elsewhere. When stable
+knowledge, ownership boundaries, or navigation changes, update the owning page
+and affected links, then add an independent record in `docs/changes/` following
+the [maintenance record rules](docs/changes/README.md). Apply the same record and
+navigation conventions to Wiki maintenance workflows.
 
 ## Stable Product Model
 

@@ -25,7 +25,7 @@ verified gates.
 
 ## Maintenance
 
-- [Documentation log](log.md): durable changes to product knowledge and their
-  reasons.
+- [Maintenance records](changes/README.md): durable changes to product knowledge,
+  historical records, and the rules for independent documentation updates.
 - [Commerce example](../examples/commerce.yaml): illustrative map data only; it
   does not define the normative schema independently of `map-format.md`.

@@ -303,6 +303,9 @@ registered list or the explicit temporary `--repo` set.
 
 ## Development
 
+For upstream contributions, forks, and pull requests, start with the
+[contribution guide](https://github.com/lzj960515/semantic-atlas/blob/main/CONTRIBUTING.md).
+
 ```bash
 pnpm install --frozen-lockfile
 pnpm lint

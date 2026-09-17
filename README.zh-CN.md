@@ -261,6 +261,9 @@ loopback，只接受 GET 和 HEAD，并且只读取登记清单或显式的临�
 
 ## 开发
 
+参与项目贡献时，请先阅读[贡献指南](https://github.com/lzj960515/semantic-atlas/blob/main/CONTRIBUTING.md)，
+确认上游仓库、分支和 PR 提交位置。
+
 ```bash
 pnpm install --frozen-lockfile
 pnpm lint
