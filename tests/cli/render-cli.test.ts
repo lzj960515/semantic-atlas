@@ -140,10 +140,10 @@ describe("semantic-atlas render", () => {
     const cardHeight = extractCardHeight(nodeMarkup);
 
     expect(projection).toContain(
-      '<h3 class="node-card__title">跨境订单履约协作与售后退款处理业务能力中心平台服务</h3>',
+      '<h3 class="node-card__title"><span data-selectable-text>跨境订单履约协作与售后退款处理业务能力中心平台服务</span></h3>',
     );
     expect(projection).toContain(
-      '<p class="node-card__summary">协调跨境订单履约协作与售后退款处理业务能力中心平台服务的完整业务结果。</p>',
+      '<p class="node-card__summary"><span data-selectable-text>协调跨境订单履约协作与售后退款处理业务能力中心平台服务的完整业务结果。</span></p>',
     );
     expect(nodeMarkup).not.toContain("<text");
     expect(cardHeight).toBeGreaterThan(124);
