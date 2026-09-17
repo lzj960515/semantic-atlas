@@ -2,6 +2,11 @@
 
 ## 2026-09-17
 
+- Clarified managed Skill ownership conflicts with bilingual CLI recovery
+  guidance and README inspection steps. Manual migration preserves the complete
+  conflicting directory in a unique backup outside Skill discovery roots, then
+  retries setup; existing ownership protection and installation behavior remain
+  unchanged.
 - Added view-local node dragging and layout reset for relationship and flow
   diagrams, with connected routes, measured-text reflow, and full PNG bounds.
 - Limited text hit areas to inline content, preserving native copying while
