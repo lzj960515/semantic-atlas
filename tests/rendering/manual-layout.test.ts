@@ -27,12 +27,18 @@ describe("manual diagram layout", () => {
       expect(edge.points).not.toEqual(base.edges[index]!.points);
       const source = moved.nodes[0]!;
       const start = edge.points[0]!;
-      expect(Math.max(Math.abs(start.x - source.x) / (source.width / 2),
-        Math.abs(start.y - source.y) / (source.height / 2))).toBeCloseTo(1);
+      expect(
+        Math.max(
+          Math.abs(start.x - source.x) / (source.width / 2),
+          Math.abs(start.y - source.y) / (source.height / 2),
+        ),
+      ).toBeCloseTo(1);
       const target = moved.nodes[1]!;
       const end = edge.points.at(-1)!;
-      expect(Math.abs(end.x - target.x) / (target.width / 2)
-        + Math.abs(end.y - target.y) / (target.height / 2)).toBeCloseTo(1);
+      expect(
+        Math.abs(end.x - target.x) / (target.width / 2) +
+          Math.abs(end.y - target.y) / (target.height / 2),
+      ).toBeCloseTo(1);
     }
     expect(moved.edges[0]!.points).not.toEqual(moved.edges[1]!.points);
     expect(base.nodes[0]!.x).not.toBe(moved.nodes[0]!.x);
@@ -40,7 +46,10 @@ describe("manual diagram layout", () => {
 
   it("includes nodes dragged beyond every canvas boundary in fit and image bounds", () => {
     const base = layoutDiagram(dagre, spec);
-    const moved = repositionDiagram(base, spec, { source: { x: -2000, y: -1000 }, target: { x: 3000, y: 2000 } });
+    const moved = repositionDiagram(base, spec, {
+      source: { x: -2000, y: -1000 },
+      target: { x: 3000, y: 2000 },
+    });
     for (const node of moved.nodes) {
       expect(node.x - node.width / 2 + moved.offsetX).toBeGreaterThanOrEqual(0);
       expect(node.y - node.height / 2 + moved.offsetY).toBeGreaterThanOrEqual(0);
@@ -51,7 +60,8 @@ describe("manual diagram layout", () => {
 
   it("keeps self-loop routes attached when their node moves", () => {
     const loopSpec: DiagramLayoutSpec = {
-      direction: "LR", nodes: [spec.nodes[0]!],
+      direction: "LR",
+      nodes: [spec.nodes[0]!],
       edges: [{ ...spec.edges[0]!, to: "source" }],
     };
     const base = layoutDiagram(dagre, loopSpec);
@@ -66,7 +76,11 @@ describe("manual diagram layout", () => {
   it("runs in the offline browser without module closures", () => {
     const base = layoutDiagram(dagre, spec);
     const offsets = { source: { x: 50, y: -70 } };
-    const result = runInNewContext(`(${repositionDiagram.toString()})(base, spec, offsets)`, { base, spec, offsets });
+    const result = runInNewContext(`(${repositionDiagram.toString()})(base, spec, offsets)`, {
+      base,
+      spec,
+      offsets,
+    });
     expect(JSON.parse(JSON.stringify(result))).toEqual(repositionDiagram(base, spec, offsets));
   });
 

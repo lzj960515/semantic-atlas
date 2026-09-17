@@ -2,11 +2,7 @@ import { t } from "../i18n/index.js";
 import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { parse } from "yaml";
-import type {
-  LoadedMapDocument,
-  MapIssue,
-  RepositoryMapSource,
-} from "../contracts/map.js";
+import type { LoadedMapDocument, MapIssue, RepositoryMapSource } from "../contracts/map.js";
 
 const mapDirectoryPath = path.join("docs", "business-map");
 const publicMapDirectory = "docs/business-map";
@@ -40,11 +36,9 @@ export class MapDocumentLoader {
         documents: Object.freeze([...fileNames]),
       },
       documents: Object.freeze(
-        loaded.flatMap((result) => result.document ? [result.document] : []),
+        loaded.flatMap((result) => (result.document ? [result.document] : [])),
       ),
-      issues: Object.freeze(
-        loaded.flatMap((result) => result.issue ? [result.issue] : []),
-      ),
+      issues: Object.freeze(loaded.flatMap((result) => (result.issue ? [result.issue] : []))),
     };
   }
 }
@@ -102,8 +96,5 @@ async function loadDocument(
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {
-  return typeof error === "object"
-    && error !== null
-    && "code" in error
-    && error.code === code;
+  return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }

@@ -36,15 +36,18 @@ export class LocalWebApplication {
     private readonly mapApplication: MapApplication,
     repositoryPaths: readonly string[],
   ) {
-    const normalizedPaths = [...new Set(repositoryPaths.map((repositoryPath) =>
-      path.resolve(repositoryPath)))];
-    this.projects = Object.freeze(disambiguateProjectNames(normalizedPaths.map(
-      (repositoryPath) => ({
-        id: projectId(repositoryPath),
-        name: path.basename(repositoryPath),
-        repositoryPath,
-      }),
-    )));
+    const normalizedPaths = [
+      ...new Set(repositoryPaths.map((repositoryPath) => path.resolve(repositoryPath))),
+    ];
+    this.projects = Object.freeze(
+      disambiguateProjectNames(
+        normalizedPaths.map((repositoryPath) => ({
+          id: projectId(repositoryPath),
+          name: path.basename(repositoryPath),
+          repositoryPath,
+        })),
+      ),
+    );
   }
 
   public get repositoryCount(): number {

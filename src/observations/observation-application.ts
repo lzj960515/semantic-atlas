@@ -56,20 +56,20 @@ export class ObservationApplication {
     private readonly store: ObservationStore,
   ) {}
 
-  public async recordTask(
-    repositoryPath: string,
-    input: unknown,
-  ): Promise<ObservationWriteResult> {
+  public async recordTask(repositoryPath: string, input: unknown): Promise<ObservationWriteResult> {
     const parsedInput = taskObservationInputSchema.safeParse(input, validationOptions());
     if (!parsedInput.success) {
       throw inputError(t("errors.invalidTask"), parsedInput.error.issues);
     }
 
     const repository = (await this.repositoryResolver.resolve(repositoryPath)).identity;
-    const observation = taskObservationSchema.parse({
-      ...parsedInput.data,
-      repository,
-    }, validationOptions()) satisfies TaskObservation;
+    const observation = taskObservationSchema.parse(
+      {
+        ...parsedInput.data,
+        repository,
+      },
+      validationOptions(),
+    ) satisfies TaskObservation;
     return this.store.writeTask(observation);
   }
 
@@ -91,10 +91,13 @@ export class ObservationApplication {
       throw new TaskObservationNotFoundError(parsedInput.data.taskObservationId);
     }
 
-    const observation = reviewObservationSchema.parse({
-      ...parsedInput.data,
-      repository,
-    }, validationOptions()) satisfies ReviewObservation;
+    const observation = reviewObservationSchema.parse(
+      {
+        ...parsedInput.data,
+        repository,
+      },
+      validationOptions(),
+    ) satisfies ReviewObservation;
     return this.store.writeReview(observation);
   }
 
@@ -121,17 +124,24 @@ export class ObservationApplication {
       }
       if (candidate.businessDomainId !== parsedInput.data.businessDomainId) {
         throw new MaintenanceCandidateError(
-          t("errors.candidateDomain", { taskObservationId, candidateIndex, businessDomainId: candidate.businessDomainId }),
+          t("errors.candidateDomain", {
+            taskObservationId,
+            candidateIndex,
+            businessDomainId: candidate.businessDomainId,
+          }),
           taskObservationId,
           candidateIndex,
         );
       }
     }
 
-    const observation = maintenanceObservationSchema.parse({
-      ...parsedInput.data,
-      repository,
-    }, validationOptions()) satisfies MaintenanceObservation;
+    const observation = maintenanceObservationSchema.parse(
+      {
+        ...parsedInput.data,
+        repository,
+      },
+      validationOptions(),
+    ) satisfies MaintenanceObservation;
     return this.store.writeMaintenance(observation);
   }
 }

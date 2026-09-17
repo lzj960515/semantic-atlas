@@ -16,16 +16,9 @@ export interface LocalWebServer {
   close(): Promise<void>;
 }
 
-export async function startLocalWebServer(
-  options: LocalWebServerOptions,
-): Promise<LocalWebServer> {
+export async function startLocalWebServer(options: LocalWebServerOptions): Promise<LocalWebServer> {
   const server = createServer((request, response) => {
-    void routeRequest(
-      options.application,
-      request.method ?? "GET",
-      request.url ?? "/",
-      response,
-    );
+    void routeRequest(options.application, request.method ?? "GET", request.url ?? "/", response);
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -100,12 +93,7 @@ async function routeRequest(
   sendResponse(response, method, 200, "text/html; charset=utf-8", application.render());
 }
 
-function sendJson(
-  response: ServerResponse,
-  method: string,
-  status: number,
-  value: object,
-): void {
+function sendJson(response: ServerResponse, method: string, status: number, value: object): void {
   sendResponse(
     response,
     method,
@@ -127,7 +115,11 @@ async function sendProject(
     sendJson(response, method, 404, {
       schemaVersion: 1,
       ok: false,
-      error: { code: "PROJECT_NOT_FOUND", message: t("errors.projectNotFound"), messageKey: "errors.projectNotFound" },
+      error: {
+        code: "PROJECT_NOT_FOUND",
+        message: t("errors.projectNotFound"),
+        messageKey: "errors.projectNotFound",
+      },
     });
     return;
   }
@@ -135,7 +127,11 @@ async function sendProject(
     sendJson(response, method, 422, {
       schemaVersion: 1,
       ok: false,
-      error: { code: "PROJECT_UNAVAILABLE", message: result.message, messageKey: result.messageKey },
+      error: {
+        code: "PROJECT_UNAVAILABLE",
+        message: result.message,
+        messageKey: result.messageKey,
+      },
     });
     return;
   }
@@ -163,6 +159,6 @@ function sendResponse(
 async function closeServer(server: ReturnType<typeof createServer>): Promise<void> {
   if (!server.listening) return;
   await new Promise<void>((resolve, reject) => {
-    server.close((error) => error ? reject(error) : resolve());
+    server.close((error) => (error ? reject(error) : resolve()));
   });
 }

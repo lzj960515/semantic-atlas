@@ -96,20 +96,13 @@ export class SemanticAtlasPackageUpgrader {
       );
     }
     if (typeof parsed !== "string" || !stableVersionPattern.test(parsed)) {
-      throw new PackageUpgradeError(
-        "check",
-        t("errors.stableVersion"),
-      );
+      throw new PackageUpgradeError("check", t("errors.stableVersion"));
     }
     return parsed;
   }
 
   private async install(targetVersion: string): Promise<void> {
-    await this.runNpmChecked("install", [
-      "install",
-      "--global",
-      `${packageName}@${targetVersion}`,
-    ]);
+    await this.runNpmChecked("install", ["install", "--global", `${packageName}@${targetVersion}`]);
   }
 
   private async installedCliPath(): Promise<string> {
@@ -121,15 +114,11 @@ export class SemanticAtlasPackageUpgrader {
     return path.join(globalRoot, packageName, "dist", "cli", "bin.js");
   }
 
-  private async verifyInstalledVersion(
-    installedCli: string,
-    targetVersion: string,
-  ): Promise<void> {
-    const result = await this.runChecked(
-      "verify",
-      this.nodeExecutable,
-      [installedCli, "--version"],
-    );
+  private async verifyInstalledVersion(installedCli: string, targetVersion: string): Promise<void> {
+    const result = await this.runChecked("verify", this.nodeExecutable, [
+      installedCli,
+      "--version",
+    ]);
     const installedVersion = result.stdout.trim();
     if (installedVersion !== targetVersion) {
       throw new PackageUpgradeError(
@@ -226,7 +215,8 @@ function appendCapturedOutput(current: string, chunk: string): string {
 }
 
 function commandDiagnostic(result: PackageCommandResult): string {
-  const diagnostic = [result.error?.message, result.stderr, result.stdout]
-    .find((value) => value !== undefined && value.trim().length > 0);
+  const diagnostic = [result.error?.message, result.stderr, result.stdout].find(
+    (value) => value !== undefined && value.trim().length > 0,
+  );
   return diagnostic?.trim().slice(-2_000) ?? "";
 }

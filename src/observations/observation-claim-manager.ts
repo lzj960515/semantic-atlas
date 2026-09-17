@@ -1,13 +1,6 @@
 import { t } from "../i18n/index.js";
 import { randomUUID } from "node:crypto";
-import {
-  link,
-  lstat,
-  open,
-  readFile,
-  rename,
-  rm,
-} from "node:fs/promises";
+import { link, lstat, open, readFile, rename, rm } from "node:fs/promises";
 import path from "node:path";
 
 const processInstanceId = randomUUID();
@@ -30,7 +23,7 @@ export class UnsupportedObservationClaimError extends Error {
 export class ObservationClaimManager {
   public async acquire(claimPath: string): Promise<ObservationClaim | undefined> {
     const claim = createObservationClaim();
-    return await publishClaim(claimPath, claim) ? claim : undefined;
+    return (await publishClaim(claimPath, claim)) ? claim : undefined;
   }
 
   public async recoverAbandoned(claimPath: string): Promise<boolean> {
@@ -54,19 +47,13 @@ export class ObservationClaimManager {
     return quarantineAbandonedFileClaim(claimPath, owner);
   }
 
-  public async assertOwnership(
-    claimPath: string,
-    expectedOwner: ObservationClaim,
-  ): Promise<void> {
+  public async assertOwnership(claimPath: string, expectedOwner: ObservationClaim): Promise<void> {
     const currentOwner = await readClaim(claimPath);
     if (sameClaimOwner(currentOwner, expectedOwner)) return;
     throw new Error(t("errors.claimOwnership"));
   }
 
-  public async release(
-    claimPath: string,
-    expectedOwner: ObservationClaim,
-  ): Promise<void> {
+  public async release(claimPath: string, expectedOwner: ObservationClaim): Promise<void> {
     const currentOwner = await readClaim(claimPath);
     if (!sameClaimOwner(currentOwner, expectedOwner)) return;
     await rm(claimPath, { force: true });
@@ -82,10 +69,7 @@ function createObservationClaim(): ObservationClaim {
   };
 }
 
-async function publishClaim(
-  claimPath: string,
-  owner: ObservationClaim,
-): Promise<boolean> {
+async function publishClaim(claimPath: string, owner: ObservationClaim): Promise<boolean> {
   const stagedClaimPath = path.join(
     path.dirname(claimPath),
     `.${path.basename(claimPath)}.${owner.claimId}.tmp`,
@@ -125,9 +109,10 @@ async function quarantineAbandonedFileClaim(
 
   // A competing recovery may have moved a replacement claim, so verify it again.
   const quarantinedOwner = await readClaim(quarantinePath);
-  const movedExpectedClaim = expectedOwner === undefined
-    ? quarantinedOwner === undefined
-    : sameClaimOwner(quarantinedOwner, expectedOwner);
+  const movedExpectedClaim =
+    expectedOwner === undefined
+      ? quarantinedOwner === undefined
+      : sameClaimOwner(quarantinedOwner, expectedOwner);
   if (movedExpectedClaim && !isClaimOwnerRunning(quarantinedOwner)) {
     await rm(quarantinePath, { force: true });
     return true;
@@ -137,10 +122,7 @@ async function quarantineAbandonedFileClaim(
   return false;
 }
 
-async function restoreQuarantinedClaim(
-  quarantinePath: string,
-  claimPath: string,
-): Promise<void> {
+async function restoreQuarantinedClaim(quarantinePath: string, claimPath: string): Promise<void> {
   try {
     await link(quarantinePath, claimPath);
   } catch (error) {
@@ -154,9 +136,7 @@ function claimIsWithinRecoveryGrace(modifiedAt: number): boolean {
   return Date.now() - modifiedAt < incompleteClaimRecoveryGraceMs;
 }
 
-async function readClaim(
-  claimPath: string,
-): Promise<ObservationClaim | undefined> {
+async function readClaim(claimPath: string): Promise<ObservationClaim | undefined> {
   let document: string;
   try {
     document = await readFile(claimPath, "utf8");
@@ -170,13 +150,13 @@ async function readClaim(
 function parseObservationClaim(document: string): ObservationClaim | undefined {
   const owner = parseClaimDocument(document);
   if (
-    !isRecord(owner)
-    || owner.schemaVersion !== 1
-    || !isProcessId(owner.pid)
-    || typeof owner.processInstanceId !== "string"
-    || owner.processInstanceId.length === 0
-    || typeof owner.claimId !== "string"
-    || owner.claimId.length === 0
+    !isRecord(owner) ||
+    owner.schemaVersion !== 1 ||
+    !isProcessId(owner.pid) ||
+    typeof owner.processInstanceId !== "string" ||
+    owner.processInstanceId.length === 0 ||
+    typeof owner.claimId !== "string" ||
+    owner.claimId.length === 0
   ) {
     return undefined;
   }
@@ -204,13 +184,12 @@ function isClaimOwnerRunning(owner: ObservationClaim | undefined): boolean {
   return isProcessRunning(owner.pid);
 }
 
-function sameClaimOwner(
-  left: ObservationClaim | undefined,
-  right: ObservationClaim,
-): boolean {
-  return left?.claimId === right.claimId
-    && left.processInstanceId === right.processInstanceId
-    && left.pid === right.pid;
+function sameClaimOwner(left: ObservationClaim | undefined, right: ObservationClaim): boolean {
+  return (
+    left?.claimId === right.claimId &&
+    left.processInstanceId === right.processInstanceId &&
+    left.pid === right.pid
+  );
 }
 
 function isProcessId(value: unknown): value is number {
@@ -231,8 +210,5 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {
-  return typeof error === "object"
-    && error !== null
-    && "code" in error
-    && error.code === code;
+  return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }

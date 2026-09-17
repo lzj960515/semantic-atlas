@@ -23,11 +23,14 @@ export function repositionDiagram(
     const dy = adjacent.y - node.y;
     const horizontal = Math.abs(dx) / (node.width / 2);
     const vertical = Math.abs(dy) / (node.height / 2);
-    const distance = definitionById.get(id)!.kind === "decision"
-      ? horizontal + vertical : Math.max(horizontal, vertical);
-    points[start ? 0 : points.length - 1] = distance === 0
-      ? { x: node.x + node.width / 2, y: node.y }
-      : { x: node.x + dx / distance, y: node.y + dy / distance };
+    const distance =
+      definitionById.get(id)!.kind === "decision"
+        ? horizontal + vertical
+        : Math.max(horizontal, vertical);
+    points[start ? 0 : points.length - 1] =
+      distance === 0
+        ? { x: node.x + node.width / 2, y: node.y }
+        : { x: node.x + dx / distance, y: node.y + dy / distance };
   }
 
   const edges = base.edges.map((edge) => {
@@ -54,16 +57,21 @@ export function repositionDiagram(
     ]),
     ...edges.flatMap((edge) => {
       const label = edgeById.get(edge.id)!;
-      return [...edge.points,
+      return [
+        ...edge.points,
         { x: edge.x - label.width / 2, y: edge.y - label.height / 2 },
-        { x: edge.x + label.width / 2, y: edge.y + label.height / 2 }];
+        { x: edge.x + label.width / 2, y: edge.y + label.height / 2 },
+      ];
     }),
   ];
   const margin = 28;
   const offsetX = Math.max(base.offsetX, margin - Math.min(...extents.map(({ x }) => x)));
   const offsetY = Math.max(base.offsetY, margin - Math.min(...extents.map(({ y }) => y)));
   return {
-    nodes, edges, offsetX, offsetY,
+    nodes,
+    edges,
+    offsetX,
+    offsetY,
     width: Math.max(base.width, Math.max(...extents.map(({ x }) => x)) + offsetX + margin),
     height: Math.max(base.height, Math.max(...extents.map(({ y }) => y)) + offsetY + margin),
   };

@@ -71,8 +71,9 @@ describe("Semantic Atlas local Web server", () => {
     expect(head.status).toBe(200);
     expect(await head.text()).toBe("");
     expect((await fetch(`${server.url}/unknown`)).status).toBe(404);
-    expect((await fetch(`${server.url}/api/projects/${encodeURIComponent(repositoryRoot)}`)).status)
-      .toBe(404);
+    expect(
+      (await fetch(`${server.url}/api/projects/${encodeURIComponent(repositoryRoot)}`)).status,
+    ).toBe(404);
   });
 
   it("starts with an empty catalog and guides the user to register a project", async () => {
@@ -96,10 +97,9 @@ describe("Semantic Atlas local Web server", () => {
     const invalidRoot = await createMapRepository({ "invalid.yaml": "map: [" });
     repositories.push(invalidRoot);
     const availableRoot = await trackedRepository();
-    const server = await startServer(new LocalWebApplication(
-      new MapApplication(),
-      [missingRoot, invalidRoot, availableRoot],
-    ));
+    const server = await startServer(
+      new LocalWebApplication(new MapApplication(), [missingRoot, invalidRoot, availableRoot]),
+    );
     const index = await (await fetch(server.url)).text();
     const projects = viewerModel(index).projects;
     const missing = projects[0];
@@ -140,10 +140,9 @@ describe("Semantic Atlas local Web server", () => {
 
   it("keeps the complete loopback surface read-only", async () => {
     const repositoryRoot = await trackedRepository();
-    const server = await startServer(new LocalWebApplication(
-      new MapApplication(),
-      [repositoryRoot],
-    ));
+    const server = await startServer(
+      new LocalWebApplication(new MapApplication(), [repositoryRoot]),
+    );
 
     for (const target of [server.url, `${server.url}/api/projects/not-a-project`]) {
       for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
@@ -186,13 +185,15 @@ async function trackedRepository(): Promise<string> {
       relation("commerce.orders", "part_of", "commerce"),
       relation("commerce.orders.checkout", "part_of", "commerce.orders"),
     ],
-    flows: [flow(
-      "commerce.orders.checkout-flow",
-      "commerce.orders.checkout",
-      "receive-checkout",
-      [flowStep("receive-checkout", "outcome", "Checkout received")],
-      [],
-    )],
+    flows: [
+      flow(
+        "commerce.orders.checkout-flow",
+        "commerce.orders.checkout",
+        "receive-checkout",
+        [flowStep("receive-checkout", "outcome", "Checkout received")],
+        [],
+      ),
+    ],
   };
   const repositoryRoot = await createMapRepository({ "commerce.yaml": document });
   repositories.push(repositoryRoot);

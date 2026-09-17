@@ -84,17 +84,21 @@ function presentStep(step: BusinessFlowStepDefinition): FlowStepPresentation {
   const summaryWidth = step.kind === "decision" ? 38 : 40;
   const titleLines = wrapText(step.name, titleWidth);
   const summaryLines = wrapText(step.summary, summaryWidth);
-  const contentHeight = 54
-    + titleLines.length * TITLE_LINE_HEIGHT
-    + summaryLines.length * SUMMARY_LINE_HEIGHT
-    + CARD_PADDING;
+  const contentHeight =
+    54 +
+    titleLines.length * TITLE_LINE_HEIGHT +
+    summaryLines.length * SUMMARY_LINE_HEIGHT +
+    CARD_PADDING;
   const minimumHeight = 128;
   const textHeight = Math.max(minimumHeight, contentHeight);
   return {
     step,
-    width: step.kind === "decision"
-      ? DECISION_WIDTH
-      : step.kind === "outcome" ? OUTCOME_WIDTH : ACTION_WIDTH,
+    width:
+      step.kind === "decision"
+        ? DECISION_WIDTH
+        : step.kind === "outcome"
+          ? OUTCOME_WIDTH
+          : ACTION_WIDTH,
     // 菱形的中央半宽、半高矩形完整容纳可翻译正文。
     height: step.kind === "decision" ? textHeight * 2 : textHeight,
   };
@@ -176,9 +180,10 @@ function renderTransition(transition: RoutedFlowTransition, markerId: string): s
 function renderStep(step: PositionedFlowStep): string {
   const left = step.x - step.width / 2;
   const top = step.y - step.height / 2;
-  const surface = step.step.kind === "decision"
-    ? `<path class="flow-step__surface" d="M ${formatNumber(step.x)} ${formatNumber(top)} L ${formatNumber(left + step.width)} ${formatNumber(step.y)} L ${formatNumber(step.x)} ${formatNumber(top + step.height)} L ${formatNumber(left)} ${formatNumber(step.y)} Z" />`
-    : `<rect class="flow-step__surface" x="${formatNumber(left)}" y="${formatNumber(top)}" width="${formatNumber(step.width)}" height="${formatNumber(step.height)}" rx="${step.step.kind === "outcome" ? "32" : "14"}" />`;
+  const surface =
+    step.step.kind === "decision"
+      ? `<path class="flow-step__surface" d="M ${formatNumber(step.x)} ${formatNumber(top)} L ${formatNumber(left + step.width)} ${formatNumber(step.y)} L ${formatNumber(step.x)} ${formatNumber(top + step.height)} L ${formatNumber(left)} ${formatNumber(step.y)} Z" />`
+      : `<rect class="flow-step__surface" x="${formatNumber(left)}" y="${formatNumber(top)}" width="${formatNumber(step.width)}" height="${formatNumber(step.height)}" rx="${step.step.kind === "outcome" ? "32" : "14"}" />`;
   return `<g class="flow-step flow-step--${escapeHtml(step.step.kind)}" data-flow-step-id="${escapeHtml(step.step.id)}" data-layout-node="${escapeHtml(step.step.id)}"${step.step.concept ? ` data-concept-id="${escapeHtml(step.step.concept)}"` : ""} role="group" aria-label="${escapeHtml(`${step.step.name}: ${step.step.summary}`)}">
             <title>${escapeHtml(`${step.step.name}: ${step.step.summary}`)}</title>
             ${surface}
@@ -190,8 +195,10 @@ function renderFlowTextLayer(layout: FlowLayout): string {
   const cards = layout.steps.map((step) => renderStepText(step, offsetX, offsetY));
   const labels = layout.transitions
     .filter(({ transition }) => transition.when)
-    .map((transition) =>
-      `<span class="diagram-label flow-transition__label" data-layout-edge="${escapeHtml(transition.id)}" style="left:${formatNumber(transition.labelX + offsetX)}px;top:${formatNumber(transition.labelY + offsetY)}px">${escapeHtml(transition.transition.when!)}</span>`);
+    .map(
+      (transition) =>
+        `<span class="diagram-label flow-transition__label" data-layout-edge="${escapeHtml(transition.id)}" style="left:${formatNumber(transition.labelX + offsetX)}px;top:${formatNumber(transition.labelY + offsetY)}px">${escapeHtml(transition.transition.when!)}</span>`,
+    );
   return [...cards, ...labels].join("\n");
 }
 
@@ -248,8 +255,11 @@ function chunkWord(word: string, maximumDisplayWidth: number): readonly string[]
 }
 
 function routePath(points: readonly dagre.GraphEdge["points"][number][]): string {
-  return points.map((point, index) =>
-    `${index === 0 ? "M" : "L"} ${formatNumber(point.x)} ${formatNumber(point.y)}`)
+  return points
+    .map(
+      (point, index) =>
+        `${index === 0 ? "M" : "L"} ${formatNumber(point.x)} ${formatNumber(point.y)}`,
+    )
     .join(" ");
 }
 

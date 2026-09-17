@@ -4,8 +4,9 @@ import { renderViewerPage, renderWebViewerPage } from "../../src/rendering/viewe
 
 describe("Viewer legend", () => {
   it("explains every relationship and flow shape in the same offline and Web surface", () => {
-    const legends = [renderViewerPage([]), renderWebViewerPage([])].map((html) =>
-      html.match(/<details class="legend">([\s\S]*?)<\/details>/u)?.[1] ?? "");
+    const legends = [renderViewerPage([]), renderWebViewerPage([])].map(
+      (html) => html.match(/<details class="legend">([\s\S]*?)<\/details>/u)?.[1] ?? "",
+    );
     expect(legends[0]).toBe(legends[1]);
     for (const legend of legends) {
       for (const relation of businessRelationKinds) {

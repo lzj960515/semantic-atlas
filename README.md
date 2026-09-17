@@ -257,10 +257,22 @@ registered list or the explicit temporary `--repo` set.
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm lint
+pnpm format:check
 pnpm release:verify
 ```
 
-The release-candidate gate runs contract and source tests, typecheck, build,
+`pnpm lint` runs Oxlint correctness rules and fails on errors or warnings.
+`pnpm lint:fix` applies safe lint fixes; `pnpm format` writes Oxfmt formatting,
+and `pnpm format:check` checks formatting without changing files. These commands
+cover TypeScript source, tests, release and smoke scripts, the bundled Skill
+script, and Vitest configuration. Map YAML and Markdown stay outside automatic
+formatting. The shared formatter uses two-space indentation, double quotes,
+semicolons, trailing commas, and a 100-column print width, while preserving
+import order and embedded language content.
+
+The release-candidate gate runs lint and formatting checks, contract and source
+tests, typecheck, build,
 rendering checks, packed-tarball privacy checks, an anonymous installed-product
 flow, package dry-run, and Git diff validation.
 

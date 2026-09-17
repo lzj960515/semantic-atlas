@@ -30,15 +30,20 @@ describe("map camera", () => {
     const zoomed = zoomViewBoxAt(bounds, bounds, 2, point);
     const panned = panViewBox(zoomed, { x: 90, y: -30 }, { width: 900, height: 700 });
     for (const camera of [bounds, zoomed, panned]) {
-      for (const viewport of [{ width: 900, height: 700 }, { width: 500, height: 900 }]) {
+      for (const viewport of [
+        { width: 900, height: 700 },
+        { width: 500, height: 900 },
+      ]) {
         const screen = mapPointToViewport(point, camera, viewport);
         const restored = mapPointFromViewport(screen, camera, viewport);
         expect(restored.x).toBeCloseTo(point.x);
         expect(restored.y).toBeCloseTo(point.y);
       }
     }
-    expect(mapPointToViewport({ x: 0, y: 0 }, bounds, { width: 1200, height: 1000 }))
-      .toEqual({ x: 0, y: 100 });
+    expect(mapPointToViewport({ x: 0, y: 0 }, bounds, { width: 1200, height: 1000 })).toEqual({
+      x: 0,
+      y: 100,
+    });
   });
   it("zooms around the pointer while respecting the supported scale range", () => {
     const zoomed = zoomViewBoxAt(bounds, bounds, 2, { x: 300, y: 200 });
@@ -54,8 +59,12 @@ describe("map camera", () => {
   it("pans in world coordinates and restores the complete graph", () => {
     const current = { x: 150, y: 100, width: 600, height: 400 };
 
-    expect(panViewBox(current, { x: 120, y: -80 }, { width: 1_200, height: 800 }))
-      .toEqual({ x: 90, y: 140, width: 600, height: 400 });
+    expect(panViewBox(current, { x: 120, y: -80 }, { width: 1_200, height: 800 })).toEqual({
+      x: 90,
+      y: 140,
+      width: 600,
+      height: 400,
+    });
     expect(fitViewBox(bounds)).toEqual(bounds);
     expect(fitViewBox(bounds)).not.toBe(bounds);
   });
@@ -63,20 +72,15 @@ describe("map camera", () => {
   it("maps the pointer through SVG aspect-ratio letterboxing", () => {
     const portraitMap = { x: 0, y: 0, width: 2_944.8, height: 3_643.75 };
 
-    const point = mapPointFromViewport(
-      { x: 896, y: 326 },
-      portraitMap,
-      { width: 1_280, height: 652 },
-    );
+    const point = mapPointFromViewport({ x: 896, y: 326 }, portraitMap, {
+      width: 1_280,
+      height: 652,
+    });
 
     expect(point.x).toBeCloseTo(2_903.0748466257673);
     expect(point.y).toBeCloseTo(1_821.875);
 
-    const panned = panViewBox(
-      portraitMap,
-      { x: 100, y: 0 },
-      { width: 1_280, height: 652 },
-    );
+    const panned = panViewBox(portraitMap, { x: 100, y: 0 }, { width: 1_280, height: 652 });
     expect(panned.x).toBeCloseTo(-558.8573619631902);
   });
 });

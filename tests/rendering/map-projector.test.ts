@@ -45,13 +45,21 @@ describe("MapProjector", () => {
 
     expect(view.svg).not.toContain("<text");
     expect(flow.svg).not.toContain("<text");
-    expect(view.textLayer).toContain('<h3 class="node-card__title"><span data-selectable-text>Orders &amp; returns</span></h3>');
-    expect(view.textLayer).toContain('<p class="node-card__summary"><span data-selectable-text>Keeps orders &lt;reliable&gt;.</span></p>');
+    expect(view.textLayer).toContain(
+      '<h3 class="node-card__title"><span data-selectable-text>Orders &amp; returns</span></h3>',
+    );
+    expect(view.textLayer).toContain(
+      '<p class="node-card__summary"><span data-selectable-text>Keeps orders &lt;reliable&gt;.</span></p>',
+    );
     expect(view.textLayer).toContain('data-node-id="commerce.orders"');
-    expect(view.textLayer).toContain('>contains</span>');
-    expect(flow.textLayer).toContain('<h3 class="flow-step__title"><span data-selectable-text>Is payment authorized?</span></h3>');
-    expect(flow.textLayer).toContain('<p class="flow-step__summary"><span data-selectable-text>Only authorized payment may create an order.</span></p>');
-    expect(flow.textLayer).toContain('>authorized</span>');
+    expect(view.textLayer).toContain(">contains</span>");
+    expect(flow.textLayer).toContain(
+      '<h3 class="flow-step__title"><span data-selectable-text>Is payment authorized?</span></h3>',
+    );
+    expect(flow.textLayer).toContain(
+      '<p class="flow-step__summary"><span data-selectable-text>Only authorized payment may create an order.</span></p>',
+    );
+    expect(flow.textLayer).toContain(">authorized</span>");
     expect(flow.textLayer).not.toContain("<svg");
     expect(view.textLayer).not.toContain("<svg");
     expect(view.textLayer).not.toContain("<script>alert");
@@ -67,15 +75,17 @@ describe("MapProjector", () => {
     const checkout = project.views[0]?.nodes.find(({ id }) => id === "commerce.orders.checkout");
 
     expect(checkout?.relatedFlowIds).toEqual(["commerce.orders.checkout-flow"]);
-    expect(project.flows).toMatchObject([{
-      id: "commerce.orders.checkout-flow",
-      scenario: {
-        id: "commerce.orders.checkout",
-        name: "Checkout",
+    expect(project.flows).toMatchObject([
+      {
+        id: "commerce.orders.checkout-flow",
+        scenario: {
+          id: "commerce.orders.checkout",
+          name: "Checkout",
+        },
+        stepCount: 4,
+        transitionCount: 3,
       },
-      stepCount: 4,
-      transitionCount: 3,
-    }]);
+    ]);
     expect(project.flows[0]?.svg).toContain('class="flow-step flow-step--decision"');
   });
 
@@ -152,11 +162,13 @@ function validatedMap(): ValidatedBusinessMap {
         "capability",
         "Orders & returns",
         "Keeps orders <reliable>.",
-        [{
-          kind: "directory",
-          value: "src/orders",
-          description: "Current order implementation.",
-        }],
+        [
+          {
+            kind: "directory",
+            value: "src/orders",
+            description: "Current order implementation.",
+          },
+        ],
       ),
       businessNode(
         "commerce.orders.checkout",
@@ -194,10 +206,9 @@ function businessNode(
 
 function extractNodeMarkup(projection: string, nodeId: string): string {
   const escapedNodeId = nodeId.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  const match = projection.match(new RegExp(
-    `<g class="node-card[^>]*data-node-id="${escapedNodeId}"[\\s\\S]*?</g>`,
-    "u",
-  ));
+  const match = projection.match(
+    new RegExp(`<g class="node-card[^>]*data-node-id="${escapedNodeId}"[\\s\\S]*?</g>`, "u"),
+  );
   expect(match, `Expected rendered node ${nodeId}`).not.toBeNull();
   return match?.[0] ?? "";
 }

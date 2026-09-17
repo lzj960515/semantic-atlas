@@ -9,20 +9,27 @@ import {
 
 describe("ViewerPage", () => {
   it("embeds the PNG exporter in both offline and Web Viewers without a network loader", () => {
-    for (const html of [renderViewerPage([viewerProject("project", "repository")]), renderWebViewerPage([])]) {
+    for (const html of [
+      renderViewerPage([viewerProject("project", "repository")]),
+      renderWebViewerPage([]),
+    ]) {
       expect(html).toContain('data-action="export-image"');
       expect(html).toContain('id="export-status"');
     }
     const runtime = {
       document: { querySelector: () => null, querySelectorAll: () => [] },
     };
-    const result = runInNewContext(`${renderViewerBrowserScript()}\n({
+    const result = runInNewContext(
+      `${renderViewerBrowserScript()}\n({
       rasterizer: typeof globalThis.htmlToImage.toBlob,
       renderer: typeof globalThis.__semanticAtlasDiagramImage.renderDiagramImage,
       plan: globalThis.__semanticAtlasDiagramImage.planDiagramImage({width: 960, height: 1504})
-    })`, runtime);
+    })`,
+      runtime,
+    );
     expect(JSON.parse(JSON.stringify(result))).toEqual({
-      rasterizer: "function", renderer: "function",
+      rasterizer: "function",
+      renderer: "function",
       plan: { width: 960, height: 1504, pixelWidth: 1920, pixelHeight: 3008 },
     });
   });
@@ -43,7 +50,7 @@ describe("ViewerPage", () => {
     expect(html).not.toMatch(/\.map-viewport\s*\{[^}]*user-select:\s*none/gu);
     expect(html).toContain("-webkit-user-select: text");
     expect(html).toContain('</svg>\n        <div class="diagram-text-layer">');
-    expect(html).toContain('<p>Selectable business text</p>');
+    expect(html).toContain("<p>Selectable business text</p>");
     expect(html).toContain('id="node-details"');
     expect(html).toContain('aria-label="Close concept details"');
     expect(html).toContain('id="node-details-flows"');
@@ -51,24 +58,28 @@ describe("ViewerPage", () => {
   });
 
   it("renders relationship and flow surfaces in one shared Viewer", () => {
-    const html = renderViewerPage([{
-      ...viewerProject("project", "repository"),
-      flows: [{
-        id: "commerce.checkout-flow",
-        name: "Checkout flow",
-        summary: "Creates an order after payment authorization.",
-        scenario: {
-          id: "commerce.checkout",
-          name: "Checkout",
-        },
-        stepCount: 1,
-        transitionCount: 0,
-        steps: [],
-        svg: '<svg class="map-svg"></svg>',
-        textLayer: "",
-        layout: { direction: "TB", nodes: [], edges: [] },
-      }],
-    }]);
+    const html = renderViewerPage([
+      {
+        ...viewerProject("project", "repository"),
+        flows: [
+          {
+            id: "commerce.checkout-flow",
+            name: "Checkout flow",
+            summary: "Creates an order after payment authorization.",
+            scenario: {
+              id: "commerce.checkout",
+              name: "Checkout",
+            },
+            stepCount: 1,
+            transitionCount: 0,
+            steps: [],
+            svg: '<svg class="map-svg"></svg>',
+            textLayer: "",
+            layout: { direction: "TB", nodes: [], edges: [] },
+          },
+        ],
+      },
+    ]);
 
     expect(html).toContain('data-view-type="relationships"');
     expect(html).toContain('data-view-type="flows"');
@@ -107,16 +118,18 @@ function viewerProject(id: string, name: string): ViewerProject {
   return {
     id,
     name,
-    views: [{
-      id: "all",
-      name: "All business",
-      nodeCount: 0,
-      relationCount: 0,
-      nodes: [],
-      svg: '<svg class="map-svg"></svg>',
-      textLayer: "<p>Selectable business text</p>",
-      layout: { direction: "LR", nodes: [], edges: [] },
-    }],
+    views: [
+      {
+        id: "all",
+        name: "All business",
+        nodeCount: 0,
+        relationCount: 0,
+        nodes: [],
+        svg: '<svg class="map-svg"></svg>',
+        textLayer: "<p>Selectable business text</p>",
+        layout: { direction: "LR", nodes: [], edges: [] },
+      },
+    ],
     flows: [],
   };
 }

@@ -34,7 +34,7 @@ export function renderViewerLegend(): string {
   </details>`;
 }
 
-function renderRelation(kind: typeof businessRelationKinds[number]): string {
+function renderRelation(kind: (typeof businessRelationKinds)[number]): string {
   const containment = kind === "part_of";
   const labelKey = `viewer.relationKinds.${containment ? "contains" : kind}`;
   return `<div class="legend__entry" data-legend-relation="${kind}">
@@ -43,7 +43,7 @@ function renderRelation(kind: typeof businessRelationKinds[number]): string {
   </div>`;
 }
 
-function renderFlowStep(kind: typeof businessFlowStepKinds[number]): string {
+function renderFlowStep(kind: (typeof businessFlowStepKinds)[number]): string {
   const labelKey = `viewer.stepKinds.${kind}`;
   return `<div class="legend__entry" data-legend-step="${kind}">
     <dt>${sample(kind)}<span data-i18n="${labelKey}">${escapeHtml(t(labelKey))}</span></dt>

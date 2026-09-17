@@ -27,16 +27,22 @@ import { planDiagramImage, renderDiagramImage } from "./diagram-image.js";
 
 const require = createRequire(import.meta.url);
 const i18nextRoot = dirname(require.resolve("i18next/package.json"));
-const i18nextBrowserScript = `/*! i18next (MIT)\n${readFileSync(join(i18nextRoot, "LICENSE"), "utf8")}*/\n`
-  + readFileSync(join(i18nextRoot, "dist/umd/i18next.min.js"), "utf8");
-const languageDetectorRoot = dirname(require.resolve("i18next-browser-languagedetector/package.json"));
-const languageDetectorBrowserScript = `/*! i18next-browser-languagedetector (MIT)\n${readFileSync(join(languageDetectorRoot, "LICENSE"), "utf8")}*/\n`
-  + readFileSync(join(languageDetectorRoot, "i18nextBrowserLanguageDetector.min.js"), "utf8");
+const i18nextBrowserScript =
+  `/*! i18next (MIT)\n${readFileSync(join(i18nextRoot, "LICENSE"), "utf8")}*/\n` +
+  readFileSync(join(i18nextRoot, "dist/umd/i18next.min.js"), "utf8");
+const languageDetectorRoot = dirname(
+  require.resolve("i18next-browser-languagedetector/package.json"),
+);
+const languageDetectorBrowserScript =
+  `/*! i18next-browser-languagedetector (MIT)\n${readFileSync(join(languageDetectorRoot, "LICENSE"), "utf8")}*/\n` +
+  readFileSync(join(languageDetectorRoot, "i18nextBrowserLanguageDetector.min.js"), "utf8");
 const dagreLicense = readFileSync(require.resolve("@dagrejs/dagre/LICENSE"), "utf8");
-const dagreBrowserScript = `/*! @dagrejs/dagre and @dagrejs/graphlib (MIT)\n${dagreLicense}*/\n`
-  + readFileSync(require.resolve("@dagrejs/dagre/dist/dagre.min.js"), "utf8");
-const imageBrowserScript = `/*! html-to-image (MIT)\n${readFileSync(require.resolve("html-to-image/LICENSE"), "utf8")}*/\n`
-  + readFileSync(require.resolve("html-to-image/dist/html-to-image.js"), "utf8");
+const dagreBrowserScript =
+  `/*! @dagrejs/dagre and @dagrejs/graphlib (MIT)\n${dagreLicense}*/\n` +
+  readFileSync(require.resolve("@dagrejs/dagre/dist/dagre.min.js"), "utf8");
+const imageBrowserScript =
+  `/*! html-to-image (MIT)\n${readFileSync(require.resolve("html-to-image/LICENSE"), "utf8")}*/\n` +
+  readFileSync(require.resolve("html-to-image/dist/html-to-image.js"), "utf8");
 
 interface ViewerNavigationAnchorModel {
   readonly kind: string;
@@ -221,33 +227,34 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
   const exportButton = document.querySelector<HTMLButtonElement>('[data-action="export-image"]');
   const exportStatus = document.querySelector<HTMLElement>("#export-status");
   if (
-    !modelElement
-    || !projectSelect
-    || !domainSelect
-    || !flowSelect
-    || !relationshipSelector
-    || !flowSelector
-    || viewTypeButtons.length !== 2
-    || cameraButtons.length !== 4
-    || !statistics
-    || !viewport
-    || !projectViewHost
-    || !viewerStatus
-    || !statusEyebrow
-    || !statusTitle
-    || !statusMessage
-    || !nodeDetails
-    || !detailsKind
-    || !detailsTitle
-    || !detailsSummary
-    || !detailsFlows
-    || !detailsFlowList
-    || !detailsAnchors
-    || !detailsAnchorList
-    || !detailsClose
-    || !exportButton
-    || !exportStatus
-  ) return;
+    !modelElement ||
+    !projectSelect ||
+    !domainSelect ||
+    !flowSelect ||
+    !relationshipSelector ||
+    !flowSelector ||
+    viewTypeButtons.length !== 2 ||
+    cameraButtons.length !== 4 ||
+    !statistics ||
+    !viewport ||
+    !projectViewHost ||
+    !viewerStatus ||
+    !statusEyebrow ||
+    !statusTitle ||
+    !statusMessage ||
+    !nodeDetails ||
+    !detailsKind ||
+    !detailsTitle ||
+    !detailsSummary ||
+    !detailsFlows ||
+    !detailsFlowList ||
+    !detailsAnchors ||
+    !detailsAnchorList ||
+    !detailsClose ||
+    !exportButton ||
+    !exportStatus
+  )
+    return;
 
   const model = JSON.parse(modelElement.textContent ?? "{}") as ViewerModel;
   const translator = browserGlobal.i18next;
@@ -264,12 +271,18 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     },
     interpolation: { escapeValue: false },
   });
-  const t = (key: string, values?: Record<string, unknown>): string => translator.t(key, values ?? {});
+  const t = (key: string, values?: Record<string, unknown>): string =>
+    translator.t(key, values ?? {});
   document.documentElement.lang = translator.resolvedLanguage ?? "en";
   const translateMarkup = (root: Document | HTMLElement): void => {
-    const elements = root.querySelectorAll<HTMLElement>("[data-i18n], [data-i18n-aria-label], [data-i18n-title]");
+    const elements = root.querySelectorAll<HTMLElement>(
+      "[data-i18n], [data-i18n-aria-label], [data-i18n-title]",
+    );
     for (const element of Array.from(elements)) {
-      const values = JSON.parse(element.getAttribute("data-i18n-options") ?? "{}") as Record<string, unknown>;
+      const values = JSON.parse(element.getAttribute("data-i18n-options") ?? "{}") as Record<
+        string,
+        unknown
+      >;
       const relationKind = element.getAttribute("data-i18n-relation-kind");
       if (relationKind) values.relation = t(`viewer.relationKinds.${relationKind}`);
       const textKey = element.getAttribute("data-i18n");
@@ -301,16 +314,18 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     activeViewType === "relationships" ? activeViewId : activeFlowId;
   const cameraKey = (): string =>
     `${activeProjectId ?? ""}:${activeViewType}:${activeDiagramId() ?? ""}`;
-  const mapViews = (): readonly HTMLElement[] => Array.from(
-    projectViewHost.querySelectorAll<HTMLElement>("[data-project-view]"),
-  );
+  const mapViews = (): readonly HTMLElement[] =>
+    Array.from(projectViewHost.querySelectorAll<HTMLElement>("[data-project-view]"));
   const activeSvg = (): SVGSVGElement | undefined =>
-    mapViews().find((element) =>
-      element.dataset.projectId === activeProjectId
-      && element.dataset.viewType === activeViewType
-      && (activeViewType === "relationships"
-        ? element.dataset.mapView === activeViewId
-        : element.dataset.flowView === activeFlowId))
+    mapViews()
+      .find(
+        (element) =>
+          element.dataset.projectId === activeProjectId &&
+          element.dataset.viewType === activeViewType &&
+          (activeViewType === "relationships"
+            ? element.dataset.mapView === activeViewId
+            : element.dataset.flowView === activeFlowId),
+      )
       ?.querySelector<SVGSVGElement>("svg") ?? undefined;
   const mapBounds = (svg: SVGSVGElement): MapViewBox => ({
     x: 0,
@@ -343,11 +358,19 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     (svg, previousBounds, originDelta) => {
       const current = cameras.get(cameraKey());
       if (originDelta && current) {
-        applyCamera(svg, { ...current, x: current.x + originDelta.x, y: current.y + originDelta.y });
+        applyCamera(svg, {
+          ...current,
+          x: current.x + originDelta.x,
+          y: current.y + originDelta.y,
+        });
         return;
       }
-      const wasFitted = !current || (current.x === 0 && current.y === 0
-        && current.width === previousBounds.width && current.height === previousBounds.height);
+      const wasFitted =
+        !current ||
+        (current.x === 0 &&
+          current.y === 0 &&
+          current.width === previousBounds.width &&
+          current.height === previousBounds.height);
       applyCamera(svg, wasFitted ? cameraApi.fitViewBox(mapBounds(svg)) : current);
     },
     browserGlobal.__semanticAtlasRepositionDiagram,
@@ -399,7 +422,9 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     const reference = model.projects.find(({ id }) => id === projectId);
     const option = Array.from(projectSelect.options).find(({ value }) => value === projectId);
     if (!reference || !option) return;
-    option.textContent = unavailable ? t("viewer.unavailableProject", { name: reference.name }) : reference.name;
+    option.textContent = unavailable
+      ? t("viewer.unavailableProject", { name: reference.name })
+      : reference.name;
   };
 
   const enterLoading = (projectId: string): void => {
@@ -418,9 +443,7 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     if (projectId !== activeProjectId) return;
     viewport.setAttribute("aria-busy", "false");
     markProjectAvailability(projectId, true);
-    const message = error instanceof Error
-      ? error.message
-      : t("viewer.loadFailed");
+    const message = error instanceof Error ? error.message : t("viewer.loadFailed");
     showStatus(t("viewer.unavailable"), t("viewer.projectUnavailable"), message);
   };
 
@@ -481,12 +504,14 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
 
   const populateDomains = (): void => {
     const project = currentProject();
-    domainSelect.replaceChildren(...(project?.views ?? []).map((view) => {
-      const option = document.createElement("option");
-      option.value = view.id;
-      option.textContent = view.id === "all" ? t("viewer.allBusiness") : view.name;
-      return option;
-    }));
+    domainSelect.replaceChildren(
+      ...(project?.views ?? []).map((view) => {
+        const option = document.createElement("option");
+        option.value = view.id;
+        option.textContent = view.id === "all" ? t("viewer.allBusiness") : view.name;
+        return option;
+      }),
+    );
     if (!project?.views.some(({ id }) => id === activeViewId)) {
       activeViewId = project?.views[0]?.id;
     }
@@ -496,12 +521,14 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
 
   const populateFlowSelector = (): void => {
     const project = currentProject();
-    flowSelect.replaceChildren(...(project?.flows ?? []).map((flow) => {
-      const option = document.createElement("option");
-      option.value = flow.id;
-      option.textContent = flow.name;
-      return option;
-    }));
+    flowSelect.replaceChildren(
+      ...(project?.flows ?? []).map((flow) => {
+        const option = document.createElement("option");
+        option.value = flow.id;
+        option.textContent = flow.name;
+        return option;
+      }),
+    );
     if (!project?.flows.some(({ id }) => id === activeFlowId)) {
       activeFlowId = project?.flows[0]?.id;
     }
@@ -512,9 +539,10 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
   const activateView = (): void => {
     if (!exporting) exportStatus.hidden = true;
     for (const view of mapViews()) {
-      const active = view.dataset.projectId === activeProjectId
-        && view.dataset.viewType === activeViewType
-        && (activeViewType === "relationships"
+      const active =
+        view.dataset.projectId === activeProjectId &&
+        view.dataset.viewType === activeViewType &&
+        (activeViewType === "relationships"
           ? view.dataset.mapView === activeViewId
           : view.dataset.flowView === activeFlowId);
       view.hidden = !active;
@@ -528,13 +556,18 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     }
     const view = currentView();
     const flow = currentFlow();
-    statistics.textContent = activeViewType === "relationships"
-      ? view
-        ? t("viewer.mapStatistics", { nodes: view.nodeCount, relations: view.relationCount })
-        : t("viewer.noMap")
-      : flow
-        ? t("viewer.flowStatistics", { steps: flow.stepCount, transitions: flow.transitionCount, scenario: flow.scenario.name })
-        : t("viewer.noFlows");
+    statistics.textContent =
+      activeViewType === "relationships"
+        ? view
+          ? t("viewer.mapStatistics", { nodes: view.nodeCount, relations: view.relationCount })
+          : t("viewer.noMap")
+        : flow
+          ? t("viewer.flowStatistics", {
+              steps: flow.stepCount,
+              transitions: flow.transitionCount,
+              scenario: flow.scenario.name,
+            })
+          : t("viewer.noFlows");
     const svg = activeSvg();
     exportButton.disabled = !svg || exporting;
     const definition = activeViewType === "relationships" ? view : flow;
@@ -572,14 +605,19 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
       cache: "no-store",
       signal,
     });
-    const envelope = await response.json() as WebProjectEnvelope;
+    const envelope = (await response.json()) as WebProjectEnvelope;
     if (!response.ok || !envelope.ok || !envelope.data) {
       throw new Error(
-        envelope.error?.messageKey && [
-          "errors.projectMapMissing", "errors.projectMapInvalid", "errors.projectPathUnavailable",
-          "errors.projectMapUnavailable", "errors.projectNotFound",
-        ].includes(envelope.error.messageKey)
-          ? t(envelope.error.messageKey) : t("viewer.loadFailed"),
+        envelope.error?.messageKey &&
+          [
+            "errors.projectMapMissing",
+            "errors.projectMapInvalid",
+            "errors.projectPathUnavailable",
+            "errors.projectMapUnavailable",
+            "errors.projectNotFound",
+          ].includes(envelope.error.messageKey)
+          ? t(envelope.error.messageKey)
+          : t("viewer.loadFailed"),
       );
     }
     if (envelope.data.project.id !== projectId) {
@@ -588,11 +626,7 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     return envelope.data;
   };
 
-  const loadLatestProject = latestProjectLoader(
-    fetchProject,
-    enterReady,
-    enterUnavailable,
-  );
+  const loadLatestProject = latestProjectLoader(fetchProject, enterReady, enterUnavailable);
 
   const activateProject = (): void => {
     const projectId = projectSelect.value;
@@ -637,6 +671,8 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     if (!view || exporting) return;
     const diagram = activeViewType === "relationships" ? currentView() : currentFlow();
     const filename = `${currentProject()?.name ?? "business-map"}-${diagram?.id ?? "all"}`
+      // 文件名清理需要匹配控制字符，避免生成不可用的下载名称。
+      // oxlint-disable-next-line no-control-regex
       .replace(/[<>:"/\\|?*\u0000-\u001f]/gu, "-");
     exporting = true;
     exportButton.disabled = true;
@@ -645,7 +681,12 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     exportStatus.textContent = t("viewer.preparingPng");
     try {
       const imageApi = browserGlobal.__semanticAtlasDiagramImage;
-      const image = await imageApi.renderDiagramImage(view, browserGlobal.htmlToImage.toBlob, imageApi.planDiagramImage, t);
+      const image = await imageApi.renderDiagramImage(
+        view,
+        browserGlobal.htmlToImage.toBlob,
+        imageApi.planDiagramImage,
+        t,
+      );
       const url = URL.createObjectURL(image.blob);
       const link = document.createElement("a");
       link.href = url;
@@ -662,7 +703,9 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
       exportButton.disabled = !activeSvg();
     }
   };
-  exportButton.addEventListener("click", () => { void exportImage(); });
+  exportButton.addEventListener("click", () => {
+    void exportImage();
+  });
 
   new ResizeObserver(() => {
     const svg = activeSvg();
@@ -691,41 +734,54 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
   }
   detailsClose.addEventListener("click", () => closeNodeDetails(true));
 
-  document.querySelector<HTMLElement>('[data-action="zoom-in"]')
+  document
+    .querySelector<HTMLElement>('[data-action="zoom-in"]')
     ?.addEventListener("click", () => zoom(1.3));
-  document.querySelector<HTMLElement>('[data-action="zoom-out"]')
+  document
+    .querySelector<HTMLElement>('[data-action="zoom-out"]')
     ?.addEventListener("click", () => zoom(1 / 1.3));
-  document.querySelector<HTMLElement>('[data-action="fit"]')
-    ?.addEventListener("click", fit);
-  document.querySelector<HTMLElement>('[data-action="reset-layout"]')
+  document.querySelector<HTMLElement>('[data-action="fit"]')?.addEventListener("click", fit);
+  document
+    .querySelector<HTMLElement>('[data-action="reset-layout"]')
     ?.addEventListener("click", resetLayout);
 
-  viewport.addEventListener("wheel", (event) => {
-    const svg = activeSvg();
-    if (!svg) return;
-    event.preventDefault();
-    const bounds = svg.getBoundingClientRect();
-    const camera = ensureCamera(svg);
-    const pointer = cameraApi.mapPointFromViewport({
-      x: event.clientX - bounds.left,
-      y: event.clientY - bounds.top,
-    }, camera, {
-      width: bounds.width,
-      height: bounds.height,
-    });
-    zoom(Math.exp(-event.deltaY * 0.0015), pointer);
-  }, { passive: false });
+  viewport.addEventListener(
+    "wheel",
+    (event) => {
+      const svg = activeSvg();
+      if (!svg) return;
+      event.preventDefault();
+      const bounds = svg.getBoundingClientRect();
+      const camera = ensureCamera(svg);
+      const pointer = cameraApi.mapPointFromViewport(
+        {
+          x: event.clientX - bounds.left,
+          y: event.clientY - bounds.top,
+        },
+        camera,
+        {
+          width: bounds.width,
+          height: bounds.height,
+        },
+      );
+      zoom(Math.exp(-event.deltaY * 0.0015), pointer);
+    },
+    { passive: false },
+  );
 
   const nodeElementFromTarget = (target: EventTarget | null): SVGGElement | undefined =>
     target instanceof Element
-      ? target.closest<SVGGElement>(".node-card, .flow-step") ?? undefined
+      ? (target.closest<SVGGElement>(".node-card, .flow-step") ?? undefined)
       : undefined;
 
   viewport.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || !activeSvg()) return;
     // 文字保留原生选区；卡片空白处移动节点，画布空白处平移视图。
-    if (event.target instanceof Element
-      && event.target.closest("[data-selectable-text], .diagram-label")) return;
+    if (
+      event.target instanceof Element &&
+      event.target.closest("[data-selectable-text], .diagram-label")
+    )
+      return;
     event.preventDefault();
     document.getSelection()?.removeAllRanges();
     const nodeElement = nodeElementFromTarget(event.target);
@@ -745,8 +801,9 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
   viewport.addEventListener("pointermove", (event) => {
     const svg = activeSvg();
     if (!svg || !dragState || dragState.pointerId !== event.pointerId) return;
-    const moved = dragState.moved
-      || Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY) >= 4;
+    const moved =
+      dragState.moved ||
+      Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY) >= 4;
     if (!moved) return;
 
     const current = ensureCamera(svg);
@@ -776,7 +833,8 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     const completed = dragState;
     dragState = undefined;
     delete viewport.dataset.dragging;
-    if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
+    if (viewport.hasPointerCapture(event.pointerId))
+      viewport.releasePointerCapture(event.pointerId);
     if (openDetails && !completed.moved && completed.nodeElement) {
       openNodeDetails(completed.nodeElement);
     }
@@ -786,12 +844,14 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
   viewport.addEventListener("lostpointercapture", (event) => finishDrag(event, false));
   viewport.addEventListener("click", (event) => {
     if (document.getSelection()?.isCollapsed === false) return;
-    const text = event.target instanceof Element
-      ? event.target.closest<HTMLElement>(".diagram-card-text[data-node-id]")
-      : null;
+    const text =
+      event.target instanceof Element
+        ? event.target.closest<HTMLElement>(".diagram-card-text[data-node-id]")
+        : null;
     if (!text) return;
-    const nodeElement = Array.from(activeSvg()?.querySelectorAll<SVGGElement>(".node-card") ?? [])
-      .find((node) => node.dataset.nodeId === text.dataset.nodeId);
+    const nodeElement = Array.from(
+      activeSvg()?.querySelectorAll<SVGGElement>(".node-card") ?? [],
+    ).find((node) => node.dataset.nodeId === text.dataset.nodeId);
     if (nodeElement) openNodeDetails(nodeElement, false);
   });
   viewport.addEventListener("keydown", (event) => {
@@ -808,10 +868,11 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
       return;
     }
     if (
-      event.target instanceof HTMLInputElement
-      || event.target instanceof HTMLSelectElement
-      || event.target instanceof HTMLButtonElement
-    ) return;
+      event.target instanceof HTMLInputElement ||
+      event.target instanceof HTMLSelectElement ||
+      event.target instanceof HTMLButtonElement
+    )
+      return;
     if (event.key === "+" || event.key === "=") zoom(1.3);
     if (event.key === "-") zoom(1 / 1.3);
     if (event.key === "0") fit();
@@ -824,10 +885,6 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     clearProject();
     projectSelect.disabled = true;
     viewport.setAttribute("aria-busy", "false");
-    showStatus(
-      t("viewer.projectCatalog"),
-      t("viewer.noProjects"),
-      t("viewer.registerProject"),
-    );
+    showStatus(t("viewer.projectCatalog"), t("viewer.noProjects"), t("viewer.registerProject"));
   }
 }

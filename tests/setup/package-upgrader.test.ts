@@ -16,12 +16,15 @@ describe("SemanticAtlasPackageUpgrader", () => {
       success("1.0.0\n"),
       success('{"ok":true,"command":"setup"}\n'),
     ]);
-    const upgrader = new SemanticAtlasPackageUpgrader({
-      currentVersion: "0.4.0",
-      nodeExecutable: "/runtime/node",
-      npmExecutable: "/runtime/npm",
-      userHome: "/isolated/home",
-    }, runner);
+    const upgrader = new SemanticAtlasPackageUpgrader(
+      {
+        currentVersion: "0.4.0",
+        nodeExecutable: "/runtime/node",
+        npmExecutable: "/runtime/npm",
+        userHome: "/isolated/home",
+      },
+      runner,
+    );
 
     await expect(upgrader.upgrade()).resolves.toEqual({
       outcome: "upgraded",
@@ -29,26 +32,15 @@ describe("SemanticAtlasPackageUpgrader", () => {
       targetVersion: "1.0.0",
       skillDirectories: [
         path.join("/isolated/home", ".agents", "skills", "semantic-atlas"),
-        path.join(
-          "/isolated/home",
-          ".agents",
-          "skills",
-          "semantic-atlas-maintenance",
-        ),
+        path.join("/isolated/home", ".agents", "skills", "semantic-atlas-maintenance"),
       ],
     });
     expect(runner.invocations).toEqual([
       ["/runtime/npm", ["view", "semantic-atlas", "dist-tags.latest", "--json"]],
       ["/runtime/npm", ["install", "--global", "semantic-atlas@1.0.0"]],
       ["/runtime/npm", ["root", "--global"]],
-      [
-        "/runtime/node",
-        ["/global/lib/node_modules/semantic-atlas/dist/cli/bin.js", "--version"],
-      ],
-      [
-        "/runtime/node",
-        ["/global/lib/node_modules/semantic-atlas/dist/cli/bin.js", "setup"],
-      ],
+      ["/runtime/node", ["/global/lib/node_modules/semantic-atlas/dist/cli/bin.js", "--version"]],
+      ["/runtime/node", ["/global/lib/node_modules/semantic-atlas/dist/cli/bin.js", "setup"]],
     ]);
   });
 
@@ -59,12 +51,15 @@ describe("SemanticAtlasPackageUpgrader", () => {
       success("1.0.0\n"),
       success('{"ok":true,"command":"setup"}\n'),
     ]);
-    const upgrader = new SemanticAtlasPackageUpgrader({
-      currentVersion: "1.0.0",
-      nodeExecutable: "/runtime/node",
-      npmExecutable: "/runtime/npm",
-      userHome: "/isolated/home",
-    }, runner);
+    const upgrader = new SemanticAtlasPackageUpgrader(
+      {
+        currentVersion: "1.0.0",
+        nodeExecutable: "/runtime/node",
+        npmExecutable: "/runtime/npm",
+        userHome: "/isolated/home",
+      },
+      runner,
+    );
 
     await expect(upgrader.upgrade()).resolves.toMatchObject({
       outcome: "current",
@@ -82,10 +77,13 @@ describe("SemanticAtlasPackageUpgrader", () => {
 
   it("rejects a non-stable registry version before changing the installation", async () => {
     const runner = new ScriptedRunner([success('"1.0.0-rc.1"\n')]);
-    const upgrader = new SemanticAtlasPackageUpgrader({
-      currentVersion: "0.4.0",
-      npmExecutable: "/runtime/npm",
-    }, runner);
+    const upgrader = new SemanticAtlasPackageUpgrader(
+      {
+        currentVersion: "0.4.0",
+        npmExecutable: "/runtime/npm",
+      },
+      runner,
+    );
 
     await expect(upgrader.upgrade()).rejects.toMatchObject({
       step: "check",
@@ -100,11 +98,14 @@ describe("SemanticAtlasPackageUpgrader", () => {
       success("/global/lib/node_modules\n"),
       success("0.4.0\n"),
     ]);
-    const upgrader = new SemanticAtlasPackageUpgrader({
-      currentVersion: "0.4.0",
-      nodeExecutable: "/runtime/node",
-      npmExecutable: "/runtime/npm",
-    }, runner);
+    const upgrader = new SemanticAtlasPackageUpgrader(
+      {
+        currentVersion: "0.4.0",
+        nodeExecutable: "/runtime/node",
+        npmExecutable: "/runtime/npm",
+      },
+      runner,
+    );
 
     await expect(upgrader.upgrade()).rejects.toMatchObject({
       step: "verify",

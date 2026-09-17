@@ -1,24 +1,14 @@
 import { t } from "../i18n/index.js";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import type {
-  CliError,
-  ContextEnvelope,
-  ValidateEnvelope,
-} from "../contracts/cli.js";
+import type { CliError, ContextEnvelope, ValidateEnvelope } from "../contracts/cli.js";
 import type { MapProjection } from "../contracts/projection.js";
-import type {
-  RepositoryMapSource,
-  ValidatedBusinessMap,
-} from "../contracts/map.js";
+import type { RepositoryMapSource, ValidatedBusinessMap } from "../contracts/map.js";
 import { MapDocumentLoader, RepositoryResolutionError } from "../map/map-document-loader.js";
 import { BusinessGraph } from "../map/business-graph.js";
 import { MapValidator } from "../map/map-validator.js";
 import { ContextQueryService } from "../query/context-query-service.js";
-import {
-  MapProjector,
-  type ViewerProjectMetadata,
-} from "../rendering/map-projector.js";
+import { MapProjector, type ViewerProjectMetadata } from "../rendering/map-projector.js";
 import type { ViewerProject } from "../rendering/viewer-page.js";
 
 type ValidatedMapResult =
@@ -141,8 +131,9 @@ export class MapApplication {
     return {
       ok: true,
       repository: result.map.source,
-      viewerProject: new MapProjector(graph)
-        .viewerProject(metadata ?? viewerProjectMetadata(result.map.source.root)),
+      viewerProject: new MapProjector(graph).viewerProject(
+        metadata ?? viewerProjectMetadata(result.map.source.root),
+      ),
     };
   }
 
@@ -177,9 +168,8 @@ export class MapApplication {
       return {
         ok: false,
         error: {
-          code: error instanceof RepositoryResolutionError
-            ? "REPOSITORY_INVALID"
-            : "INTERNAL_ERROR",
+          code:
+            error instanceof RepositoryResolutionError ? "REPOSITORY_INVALID" : "INTERNAL_ERROR",
           message: error instanceof Error ? error.message : t("errors.mapFailure"),
         },
       };
@@ -187,16 +177,19 @@ export class MapApplication {
   }
 }
 
-function viewerProjectMetadata(
-  repositoryRoot: string,
-): { readonly id: string; readonly name: string } {
+function viewerProjectMetadata(repositoryRoot: string): {
+  readonly id: string;
+  readonly name: string;
+} {
   return {
     id: createHash("sha256").update(repositoryRoot).digest("hex").slice(0, 16),
     name: path.basename(repositoryRoot),
   };
 }
 
-function validateError(result: Extract<ValidatedMapResult, { readonly ok: false }>): ValidateEnvelope {
+function validateError(
+  result: Extract<ValidatedMapResult, { readonly ok: false }>,
+): ValidateEnvelope {
   return {
     schemaVersion: 1,
     ok: false,
@@ -206,7 +199,9 @@ function validateError(result: Extract<ValidatedMapResult, { readonly ok: false 
   };
 }
 
-function contextError(result: Extract<ValidatedMapResult, { readonly ok: false }>): ContextEnvelope {
+function contextError(
+  result: Extract<ValidatedMapResult, { readonly ok: false }>,
+): ContextEnvelope {
   return {
     schemaVersion: 1,
     ok: false,

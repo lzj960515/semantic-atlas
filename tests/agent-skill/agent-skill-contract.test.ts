@@ -57,17 +57,11 @@ interface EvaluationSuite {
 
 const projectRoot = fileURLToPath(new URL("../..", import.meta.url));
 const skillDirectory = path.join(projectRoot, ".agents/skills/semantic-atlas");
-const fixtureRepository = path.join(
-  projectRoot,
-  "tests/fixtures/agent-skill/repository",
-);
+const fixtureRepository = path.join(projectRoot, "tests/fixtures/agent-skill/repository");
 
 describe("business-understanding Agent Skill", () => {
   it("has one discoverable identity in both the repository and package", async () => {
-    const skillDocument = await readFile(
-      path.join(skillDirectory, "SKILL.md"),
-      "utf8",
-    );
+    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
     const metadataDocument = await readFile(
       path.join(skillDirectory, "agents/openai.yaml"),
       "utf8",
@@ -88,10 +82,7 @@ describe("business-understanding Agent Skill", () => {
   });
 
   it("defines advisory evidence routing for every bounded map outcome", async () => {
-    const skillDocument = await readFile(
-      path.join(skillDirectory, "SKILL.md"),
-      "utf8",
-    );
+    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
 
     expect(skillDocument).toContain("CONCEPT_NOT_FOUND");
     expect(skillDocument).toContain("CONCEPT_AMBIGUOUS");
@@ -101,10 +92,7 @@ describe("business-understanding Agent Skill", () => {
   });
 
   it("activates from business-changing work with or without an existing map", async () => {
-    const skillDocument = await readFile(
-      path.join(skillDirectory, "SKILL.md"),
-      "utf8",
-    );
+    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
     const metadataDocument = await readFile(
       path.join(skillDirectory, "agents/openai.yaml"),
       "utf8",
@@ -119,9 +107,7 @@ describe("business-understanding Agent Skill", () => {
     expect(frontmatter.description).not.toContain(
       "Use in repositories with docs/business-map files",
     );
-    expect(metadata.interface.default_prompt).toContain(
-      "with or without an existing business map",
-    );
+    expect(metadata.interface.default_prompt).toContain("with or without an existing business map");
     expect(skillDocument).toContain(
       "When the map is absent, build the smallest source-supported business model needed for the task.",
     );
@@ -129,10 +115,7 @@ describe("business-understanding Agent Skill", () => {
   });
 
   it("makes a post-task maintenance decision without forcing a map edit", async () => {
-    const skillDocument = await readFile(
-      path.join(skillDirectory, "SKILL.md"),
-      "utf8",
-    );
+    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
 
     expect(skillDocument).toContain("maintenance disposition");
     expect(skillDocument).toContain("candidate");
@@ -147,10 +130,7 @@ describe("business-understanding Agent Skill", () => {
   });
 
   it("uses related business flows to check stable branches without treating them as source truth", async () => {
-    const skillDocument = await readFile(
-      path.join(skillDirectory, "SKILL.md"),
-      "utf8",
-    );
+    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
 
     expect(skillDocument).toContain("context.data.flows");
     expect(skillDocument).toContain("actions, decisions, branches, and outcomes");
@@ -161,10 +141,7 @@ describe("business-understanding Agent Skill", () => {
   });
 
   it("records task evidence without moving accuracy authority into the task Agent", async () => {
-    const skillDocument = await readFile(
-      path.join(skillDirectory, "SKILL.md"),
-      "utf8",
-    );
+    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
     const observationReference = await readFile(
       path.join(skillDirectory, "references/observations.md"),
       "utf8",
@@ -173,9 +150,7 @@ describe("business-understanding Agent Skill", () => {
     expect(skillDocument).toContain("references/observations.md");
     expect(skillDocument).toContain("semantic-atlas observe task --stdin");
     expect(skillDocument).toContain("semantic-atlas observe review --stdin");
-    expect(skillDocument).toContain(
-      "For independent review, record one review observation",
-    );
+    expect(skillDocument).toContain("For independent review, record one review observation");
     expect(skillDocument).toContain("engineering result remains unchanged");
     expect(skillDocument).toContain("Independent review owns accuracy judgments");
     expect(observationReference).toContain('"schemaVersion": 1');
@@ -191,15 +166,17 @@ describe("business-understanding Agent Skill", () => {
     const suite = await readEvaluationSuite();
 
     expect(suite.schemaVersion).toBe(1);
-    expect(suite.cases.map(({ id }) => id)).toEqual(expect.arrayContaining([
-      "upstream-root-cause",
-      "downstream-consumer",
-      "missing-map-knowledge",
-      "ambiguous-term",
-      "missing-anchor",
-      "stale-anchor",
-      "contradicted-relation",
-    ]));
+    expect(suite.cases.map(({ id }) => id)).toEqual(
+      expect.arrayContaining([
+        "upstream-root-cause",
+        "downstream-consumer",
+        "missing-map-knowledge",
+        "ambiguous-term",
+        "missing-anchor",
+        "stale-anchor",
+        "contradicted-relation",
+      ]),
+    );
 
     for (const evaluationCase of suite.cases) {
       expect(evaluationCase.task.trim()).not.toBe("");
@@ -242,19 +219,13 @@ describe("business-understanding Agent Skill", () => {
 });
 
 async function readEvaluationSuite(): Promise<EvaluationSuite> {
-  const casesPath = path.join(
-    projectRoot,
-    "tests/fixtures/agent-skill/cases.json",
-  );
+  const casesPath = path.join(projectRoot, "tests/fixtures/agent-skill/cases.json");
   return JSON.parse(await readFile(casesPath, "utf8")) as EvaluationSuite;
 }
 
 async function assertExpectedContext(
   envelope: ContextEnvelopeView,
-  expectation: Extract<
-    EvaluationCase["mapExpectation"],
-    { readonly outcome: "context" }
-  >,
+  expectation: Extract<EvaluationCase["mapExpectation"], { readonly outcome: "context" }>,
   caseId: string,
 ): Promise<void> {
   if (expectation.anchorValues) {
@@ -277,13 +248,14 @@ async function assertExpectedContext(
   }
 
   if (expectation.flowIds) {
-    expect(envelope.data.flows.map(({ id }) => id), caseId)
-      .toEqual(expectation.flowIds);
+    expect(
+      envelope.data.flows.map(({ id }) => id),
+      caseId,
+    ).toEqual(expectation.flowIds);
   }
 
   for (const anchorPath of expectation.absentAnchorPaths ?? []) {
-    await expect(access(path.join(fixtureRepository, anchorPath)), caseId)
-      .rejects.toThrow();
+    await expect(access(path.join(fixtureRepository, anchorPath)), caseId).rejects.toThrow();
   }
 }
 

@@ -1,0 +1,47 @@
+name: Bug report ｜ 问题报告
+description: Report unexpected behavior with a reproducible example. ｜ 提供可复现的示例，报告异常行为。
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues before submitting. English and Chinese are welcome. ｜ 提交前请搜索已有 Issue，可使用英语或中文填写。
+        Use minimal, sanitized examples; remove credentials and private repository or business data. ｜ 请使用最小化、已脱敏的示例，移除凭据及私有仓库或业务数据。
+  - type: textarea
+    id: problem
+    attributes:
+      label: What went wrong? ｜ 遇到了什么问题？
+      description: Describe the affected workflow and its impact. ｜ 描述受影响的工作流程及其影响。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce ｜ 复现步骤
+      description: Include exact commands or UI actions and minimal map YAML when relevant. For Skill issues, include the task prompt and relevant agent behavior. ｜ 提供具体命令或界面操作，必要时附上最小地图 YAML。涉及 Skill 的问题，请附上任务提示词及相关 Agent 行为。
+      placeholder: |
+        1.
+        2.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior ｜ 预期行为
+      description: What should happen for the same input? ｜ 相同输入下，预期应发生什么？
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and evidence ｜ 实际行为与证据
+      description: Include error output, relevant logs, or screenshots. Preserve error codes and use fenced code blocks for output. ｜ 提供错误输出、相关日志或截图；保留错误码，并使用围栏代码块展示输出。
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment ｜ 运行环境
+      description: Include the package version (semantic-atlas --version), Node.js version, OS, and installation method. Add browser or agent/version when relevant; for source checkouts, include the commit. ｜ 提供软件包版本（semantic-atlas --version）、Node.js 版本、操作系统和安装方式。必要时补充浏览器或 Agent 及其版本；从源码运行时请附上提交标识。
+    validations:
+      required: true

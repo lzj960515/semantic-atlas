@@ -39,13 +39,12 @@ export class ProjectRegistrationService {
         repository: validation.repository,
       };
     } catch (error) {
-      const projectError = error instanceof ProjectStoreError
-        ? error
-        : new ProjectStoreError(
-          "PROJECT_CONFIG_STORAGE_FAILED",
-          t("errors.projectUpdate"),
-          { cause: error },
-        );
+      const projectError =
+        error instanceof ProjectStoreError
+          ? error
+          : new ProjectStoreError("PROJECT_CONFIG_STORAGE_FAILED", t("errors.projectUpdate"), {
+              cause: error,
+            });
       return {
         ok: false,
         repository: validation.repository,

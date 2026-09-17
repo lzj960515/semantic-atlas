@@ -162,7 +162,8 @@ tracked business-map copy.
 Owns the compact human inspection surface shared by static export and Web. It
 combines project selection, relationship/flow switching, business-domain or
 flow selection, map statistics, a restrained legend, pan, zoom, and fit-to-view
-around shared SVG geometry and selectable HTML text. Inline text boxes accept native selection and copying while card padding and
+around shared SVG geometry and selectable HTML text. Inline text boxes accept
+native selection and copying while card padding and
 blank content space reach the SVG node underneath. Dragging a node updates
 view-local offsets from the measured automatic layout; dragging empty diagram
 space pans the map. `repositionDiagram` moves incident routes and their labels,
@@ -402,7 +403,8 @@ candidate reports are deferred until a maintenance Agent requests them.
 
 ### Release Candidate Verification
 
-The repository-owned release gate composes contract and source tests,
+The repository-owned release gate composes Oxlint correctness checks, Oxfmt
+format checks for code and scripts, contract and source tests,
 typecheck, build, deterministic render checks, packed-tarball privacy, an
 anonymous installed-product flow, package dry-run, and Git diff validation. CI
 invokes the same gate used by a

@@ -27,17 +27,14 @@ interface ControlledSuite {
 }
 
 const projectRoot = fileURLToPath(new URL("../..", import.meta.url));
-const controlledRepository = path.join(
-  projectRoot,
-  "tests/fixtures/agent-skill/repository",
-);
+const controlledRepository = path.join(projectRoot, "tests/fixtures/agent-skill/repository");
 const sandboxes: string[] = [];
 const execFileAsync = promisify(execFile);
 
 afterEach(async () => {
-  await Promise.all(sandboxes.splice(0).map((directory) =>
-    rm(directory, { recursive: true, force: true })
-  ));
+  await Promise.all(
+    sandboxes.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
+  );
 });
 
 describe("ReconciliationService", () => {
@@ -64,7 +61,8 @@ describe("ReconciliationService", () => {
     const anchor = commerce?.candidates.find(({ kind }) => kind === "anchor");
     expect(anchor).toMatchObject({
       kind: "anchor",
-      summary: "Replace the stale inventory reservation anchor with the current fulfillment source.",
+      summary:
+        "Replace the stale inventory reservation anchor with the current fulfillment source.",
       duplicate: true,
     });
     expect(anchor?.origins.map(({ taskObservationId }) => taskObservationId)).toEqual([
@@ -160,10 +158,12 @@ describe("ReconciliationService", () => {
       }),
       expect.objectContaining({
         taskObservationId: "unresolved-task-observation",
-        maintenanceHistory: [expect.objectContaining({
-          maintenanceObservationId: "unresolved-maintenance-observation",
-          status: "unresolved",
-        })],
+        maintenanceHistory: [
+          expect.objectContaining({
+            maintenanceObservationId: "unresolved-maintenance-observation",
+            status: "unresolved",
+          }),
+        ],
       }),
     ]);
   });
@@ -214,10 +214,9 @@ async function createFixture(): Promise<{
 }
 
 async function readControlledSuite(): Promise<ControlledSuite> {
-  return JSON.parse(await readFile(
-    path.join(projectRoot, "tests/fixtures/reconciliation/cases.json"),
-    "utf8",
-  )) as ControlledSuite;
+  return JSON.parse(
+    await readFile(path.join(projectRoot, "tests/fixtures/reconciliation/cases.json"), "utf8"),
+  ) as ControlledSuite;
 }
 
 async function recordControlledObservations(
@@ -239,10 +238,7 @@ async function recordControlledObservations(
   }
 }
 
-function taskObservation(
-  id: string,
-  controlledCase: ControlledCase,
-): TaskObservationInput {
+function taskObservation(id: string, controlledCase: ControlledCase): TaskObservationInput {
   return {
     schemaVersion: 2,
     id,
@@ -253,30 +249,31 @@ function taskObservation(
     },
     map: {
       queries: [{ selector: controlledCase.businessDomainId, outcome: "concept_not_found" }],
-      dispositions: [{
-        status: controlledCase.disposition === "confirmed"
-          ? "confirmed"
-          : controlledCase.disposition,
-        summary: controlledCase.summary,
-        evidence: controlledCase.evidence,
-      }],
-    },
-    mapUpdateCandidates: controlledCase.expectedOutcome === "candidate"
-      ? [{
-          businessDomainId: controlledCase.businessDomainId,
-          kind: controlledCase.kind,
-          disposition: controlledCase.disposition,
+      dispositions: [
+        {
+          status:
+            controlledCase.disposition === "confirmed" ? "confirmed" : controlledCase.disposition,
           summary: controlledCase.summary,
           evidence: controlledCase.evidence,
-        }]
-      : [],
+        },
+      ],
+    },
+    mapUpdateCandidates:
+      controlledCase.expectedOutcome === "candidate"
+        ? [
+            {
+              businessDomainId: controlledCase.businessDomainId,
+              kind: controlledCase.kind,
+              disposition: controlledCase.disposition,
+              summary: controlledCase.summary,
+              evidence: controlledCase.evidence,
+            },
+          ]
+        : [],
   };
 }
 
-function reviewObservation(
-  taskObservationId: string,
-  caseId: string,
-): ReviewObservationInput {
+function reviewObservation(taskObservationId: string, caseId: string): ReviewObservationInput {
   return {
     schemaVersion: 1,
     id: `review-${caseId}`,
@@ -299,13 +296,15 @@ async function directorySnapshot(
   directory: string,
 ): Promise<readonly { readonly path: string; readonly contents?: string }[]> {
   const paths = (await readdir(directory, { recursive: true })).sort();
-  return Promise.all(paths.map(async (relativePath) => {
-    const absolutePath = path.join(directory, relativePath);
-    const status = await stat(absolutePath);
-    return status.isFile()
-      ? { path: relativePath, contents: await readFile(absolutePath, "utf8") }
-      : { path: relativePath };
-  }));
+  return Promise.all(
+    paths.map(async (relativePath) => {
+      const absolutePath = path.join(directory, relativePath);
+      const status = await stat(absolutePath);
+      return status.isFile()
+        ? { path: relativePath, contents: await readFile(absolutePath, "utf8") }
+        : { path: relativePath };
+    }),
+  );
 }
 
 async function gitStatus(repository: string): Promise<string> {
@@ -319,10 +318,12 @@ function controlledCandidate(): ControlledCase {
     kind: "anchor",
     disposition: "confirmed",
     summary: "Replace the stale inventory reservation anchor with the current fulfillment source.",
-    evidence: [{
-      kind: "source",
-      reference: "src/fulfillment/reserve-inventory.ts",
-    }],
+    evidence: [
+      {
+        kind: "source",
+        reference: "src/fulfillment/reserve-inventory.ts",
+      },
+    ],
     expectedOutcome: "candidate",
   };
 }
@@ -341,19 +342,24 @@ function maintenanceObservation(input: {
       runId: `run-${input.id}`,
     },
     businessDomainId: "commerce",
-    results: [{
-      candidate: {
-        taskObservationId: input.taskObservationId,
-        candidateIndex: 0,
+    results: [
+      {
+        candidate: {
+          taskObservationId: input.taskObservationId,
+          candidateIndex: 0,
+        },
+        status: input.status,
+        reason:
+          input.status === "unresolved"
+            ? "Current evidence does not establish a stable replacement yet."
+            : "The candidate describes an implementation-local detail.",
+        evidence: [
+          {
+            kind: "source",
+            reference: "src/fulfillment/reserve-inventory.ts",
+          },
+        ],
       },
-      status: input.status,
-      reason: input.status === "unresolved"
-        ? "Current evidence does not establish a stable replacement yet."
-        : "The candidate describes an implementation-local detail.",
-      evidence: [{
-        kind: "source",
-        reference: "src/fulfillment/reserve-inventory.ts",
-      }],
-    }],
+    ],
   };
 }

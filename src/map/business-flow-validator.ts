@@ -25,12 +25,14 @@ function validateFlowIdentities(flows: readonly BusinessFlow[], issues: MapIssue
   for (const flow of flows) {
     const existing = ownerById.get(flow.id);
     if (existing) {
-      issues.push(flowIssue(
-        flow,
-        "DUPLICATE_FLOW_ID",
-        flow.id,
-        t("errors.duplicateFlow", { flowId: flow.id, documentPath: existing.documentPath }),
-      ));
+      issues.push(
+        flowIssue(
+          flow,
+          "DUPLICATE_FLOW_ID",
+          flow.id,
+          t("errors.duplicateFlow", { flowId: flow.id, documentPath: existing.documentPath }),
+        ),
+      );
       continue;
     }
     ownerById.set(flow.id, flow);
@@ -44,30 +46,36 @@ function validateFlow(
 ): void {
   const scenario = nodeById.get(flow.scenario);
   if (!scenario) {
-    issues.push(flowIssue(
-      flow,
-      "FLOW_SCENARIO_MISSING",
-      flow.scenario,
-      t("errors.missingScenario", { flowId: flow.id, scenario: flow.scenario }),
-    ));
+    issues.push(
+      flowIssue(
+        flow,
+        "FLOW_SCENARIO_MISSING",
+        flow.scenario,
+        t("errors.missingScenario", { flowId: flow.id, scenario: flow.scenario }),
+      ),
+    );
   } else if (scenario.kind !== "scenario") {
-    issues.push(flowIssue(
-      flow,
-      "FLOW_SCENARIO_KIND_MISMATCH",
-      flow.scenario,
-      t("errors.scenarioKind", { flowId: flow.id, kind: scenario.kind, scenario: flow.scenario }),
-    ));
+    issues.push(
+      flowIssue(
+        flow,
+        "FLOW_SCENARIO_KIND_MISMATCH",
+        flow.scenario,
+        t("errors.scenarioKind", { flowId: flow.id, kind: scenario.kind, scenario: flow.scenario }),
+      ),
+    );
   }
 
   const stepById = indexSteps(flow, issues);
   validateStepConcepts(flow, nodeById, issues);
   if (!stepById.has(flow.startsAt)) {
-    issues.push(flowIssue(
-      flow,
-      "FLOW_START_STEP_MISSING",
-      flow.startsAt,
-      t("errors.missingStart", { flowId: flow.id, startsAt: flow.startsAt }),
-    ));
+    issues.push(
+      flowIssue(
+        flow,
+        "FLOW_START_STEP_MISSING",
+        flow.startsAt,
+        t("errors.missingStart", { flowId: flow.id, startsAt: flow.startsAt }),
+      ),
+    );
   }
 
   const validTransitions = validateTransitionEndpoints(flow, stepById, issues);
@@ -76,16 +84,21 @@ function validateFlow(
   validateReachability(flow, validTransitions, stepById, issues);
 }
 
-function indexSteps(flow: BusinessFlow, issues: MapIssue[]): ReadonlyMap<string, BusinessFlow["steps"][number]> {
+function indexSteps(
+  flow: BusinessFlow,
+  issues: MapIssue[],
+): ReadonlyMap<string, BusinessFlow["steps"][number]> {
   const stepById = new Map<string, BusinessFlow["steps"][number]>();
   for (const step of flow.steps) {
     if (stepById.has(step.id)) {
-      issues.push(flowIssue(
-        flow,
-        "DUPLICATE_FLOW_STEP_ID",
-        step.id,
-        t("errors.duplicateStep", { flowId: flow.id, stepId: step.id }),
-      ));
+      issues.push(
+        flowIssue(
+          flow,
+          "DUPLICATE_FLOW_STEP_ID",
+          step.id,
+          t("errors.duplicateStep", { flowId: flow.id, stepId: step.id }),
+        ),
+      );
       continue;
     }
     stepById.set(step.id, step);
@@ -100,12 +113,14 @@ function validateStepConcepts(
 ): void {
   for (const step of flow.steps) {
     if (!step.concept || nodeById.has(step.concept)) continue;
-    issues.push(flowIssue(
-      flow,
-      "FLOW_CONCEPT_MISSING",
-      step.concept,
-      t("errors.missingConcept", { flowId: flow.id, stepId: step.id, concept: step.concept }),
-    ));
+    issues.push(
+      flowIssue(
+        flow,
+        "FLOW_CONCEPT_MISSING",
+        step.concept,
+        t("errors.missingConcept", { flowId: flow.id, stepId: step.id, concept: step.concept }),
+      ),
+    );
   }
 }
 
@@ -116,15 +131,22 @@ function validateTransitionEndpoints(
 ): readonly BusinessFlowTransitionDefinition[] {
   const valid: BusinessFlowTransitionDefinition[] = [];
   for (const transition of flow.transitions) {
-    const missingEndpoints = [transition.from, transition.to]
-      .filter((stepId) => !stepById.has(stepId));
+    const missingEndpoints = [transition.from, transition.to].filter(
+      (stepId) => !stepById.has(stepId),
+    );
     if (missingEndpoints.length > 0) {
-      issues.push(flowIssue(
-        flow,
-        "FLOW_TRANSITION_ENDPOINT_MISSING",
-        transitionIdentity(transition),
-        t("errors.missingTransitionStep", { flowId: flow.id, transition: transitionIdentity(transition), endpoints: missingEndpoints.join("', '") }),
-      ));
+      issues.push(
+        flowIssue(
+          flow,
+          "FLOW_TRANSITION_ENDPOINT_MISSING",
+          transitionIdentity(transition),
+          t("errors.missingTransitionStep", {
+            flowId: flow.id,
+            transition: transitionIdentity(transition),
+            endpoints: missingEndpoints.join("', '"),
+          }),
+        ),
+      );
       continue;
     }
     valid.push(transition);
@@ -141,12 +163,14 @@ function validateTransitionIdentities(
   for (const transition of transitions) {
     const identity = transitionIdentity(transition);
     if (known.has(identity)) {
-      issues.push(flowIssue(
-        flow,
-        "DUPLICATE_FLOW_TRANSITION",
-        identity,
-        t("errors.duplicateTransition", { flowId: flow.id, identity }),
-      ));
+      issues.push(
+        flowIssue(
+          flow,
+          "DUPLICATE_FLOW_TRANSITION",
+          identity,
+          t("errors.duplicateTransition", { flowId: flow.id, identity }),
+        ),
+      );
     }
     known.add(identity);
   }
@@ -163,35 +187,44 @@ function validateStepBranches(
     switch (step.kind) {
       case "action":
         if (outgoing.length > 1 || outgoing.some((transition) => transition.when)) {
-          issues.push(flowIssue(
-            flow,
-            "FLOW_ACTION_BRANCH_INVALID",
-            step.id,
-            t("errors.actionBranch", { flowId: flow.id, stepId: step.id }),
-          ));
+          issues.push(
+            flowIssue(
+              flow,
+              "FLOW_ACTION_BRANCH_INVALID",
+              step.id,
+              t("errors.actionBranch", { flowId: flow.id, stepId: step.id }),
+            ),
+          );
         }
         break;
       case "decision": {
-        const labels = outgoing.flatMap((transition) => transition.when ? [normalizeLabel(transition.when)] : []);
-        const validLabels = labels.length === outgoing.length && new Set(labels).size === labels.length;
+        const labels = outgoing.flatMap((transition) =>
+          transition.when ? [normalizeLabel(transition.when)] : [],
+        );
+        const validLabels =
+          labels.length === outgoing.length && new Set(labels).size === labels.length;
         if (outgoing.length < 2 || !validLabels) {
-          issues.push(flowIssue(
-            flow,
-            "FLOW_DECISION_BRANCH_INVALID",
-            step.id,
-            t("errors.decisionBranch", { flowId: flow.id, stepId: step.id }),
-          ));
+          issues.push(
+            flowIssue(
+              flow,
+              "FLOW_DECISION_BRANCH_INVALID",
+              step.id,
+              t("errors.decisionBranch", { flowId: flow.id, stepId: step.id }),
+            ),
+          );
         }
         break;
       }
       case "outcome":
         if (outgoing.length > 0) {
-          issues.push(flowIssue(
-            flow,
-            "FLOW_OUTCOME_HAS_TRANSITION",
-            step.id,
-            t("errors.outcomeTransition", { flowId: flow.id, stepId: step.id }),
-          ));
+          issues.push(
+            flowIssue(
+              flow,
+              "FLOW_OUTCOME_HAS_TRANSITION",
+              step.id,
+              t("errors.outcomeTransition", { flowId: flow.id, stepId: step.id }),
+            ),
+          );
         }
         break;
     }
@@ -223,12 +256,14 @@ function validateReachability(
 
   for (const step of flow.steps) {
     if (reachable.has(step.id)) continue;
-    issues.push(flowIssue(
-      flow,
-      "FLOW_STEP_UNREACHABLE",
-      step.id,
-      t("errors.unreachableStep", { flowId: flow.id, stepId: step.id, startsAt: flow.startsAt }),
-    ));
+    issues.push(
+      flowIssue(
+        flow,
+        "FLOW_STEP_UNREACHABLE",
+        step.id,
+        t("errors.unreachableStep", { flowId: flow.id, stepId: step.id, startsAt: flow.startsAt }),
+      ),
+    );
   }
 }
 

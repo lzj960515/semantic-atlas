@@ -15,7 +15,7 @@ describe("semantic-atlas project add", () => {
       outcome: "added" as const,
       repository,
     }));
-    const runtime = { ...await createCliRuntime(), addProject };
+    const runtime = { ...(await createCliRuntime()), addProject };
 
     const result = await runCli(["project", "add"], runtime);
 
@@ -35,7 +35,7 @@ describe("semantic-atlas project add", () => {
       repository: { ...repository, documents: [] },
       error: { code: "MAP_NOT_FOUND" as const, message: "No business map was found" },
     }));
-    const runtime = { ...await createCliRuntime(), addProject };
+    const runtime = { ...(await createCliRuntime()), addProject };
 
     const result = await runCli(["project", "add", "./repository"], runtime);
 
@@ -54,25 +54,17 @@ describe("semantic-atlas web", () => {
       url: "http://127.0.0.1:4310",
       repositoryCount: 2,
     }));
-    const runtime = { ...await createCliRuntime(), startWeb };
+    const runtime = { ...(await createCliRuntime()), startWeb };
 
-    const result = await runCli([
-      "web",
-      "--repo",
-      "./apps/ex",
-      "./apps/ai",
-      "--port",
-      "4310",
-      "--no-open",
-    ], runtime);
+    const result = await runCli(
+      ["web", "--repo", "./apps/ex", "./apps/ai", "--port", "4310", "--no-open"],
+      runtime,
+    );
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
     expect(startWeb).toHaveBeenCalledWith({
-      repositoryPaths: [
-        path.resolve("./apps/ex"),
-        path.resolve("./apps/ai"),
-      ],
+      repositoryPaths: [path.resolve("./apps/ex"), path.resolve("./apps/ai")],
       port: 4310,
       openBrowser: false,
     });
@@ -92,7 +84,7 @@ describe("semantic-atlas web", () => {
       url: "http://127.0.0.1:4310",
       repositoryCount: 0,
     }));
-    const runtime = { ...await createCliRuntime(), startWeb };
+    const runtime = { ...(await createCliRuntime()), startWeb };
 
     const result = await runCli(["web", "--no-open"], runtime);
 
@@ -105,7 +97,7 @@ describe("semantic-atlas web", () => {
 
   it("rejects invalid ports before starting a server", async () => {
     const startWeb = vi.fn();
-    const runtime = { ...await createCliRuntime(), startWeb };
+    const runtime = { ...(await createCliRuntime()), startWeb };
 
     const result = await runCli(["web", "--port", "70000"], runtime);
 

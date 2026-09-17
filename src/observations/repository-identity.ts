@@ -35,9 +35,7 @@ export class RepositoryIdentityResolver {
       };
     } catch (error) {
       if (error instanceof RepositoryIdentityError) throw error;
-      throw new RepositoryIdentityError(
-        t("errors.repositoryIdentity", { repositoryPath }),
-      );
+      throw new RepositoryIdentityError(t("errors.repositoryIdentity", { repositoryPath }));
     }
   }
 }
@@ -46,16 +44,12 @@ async function resolveDirectory(repositoryPath: string): Promise<string> {
   try {
     const resolved = await realpath(repositoryPath);
     if (!(await stat(resolved)).isDirectory()) {
-      throw new RepositoryIdentityError(
-        t("errors.repositoryNotDirectory", { repositoryPath }),
-      );
+      throw new RepositoryIdentityError(t("errors.repositoryNotDirectory", { repositoryPath }));
     }
     return resolved;
   } catch (error) {
     if (error instanceof RepositoryIdentityError) throw error;
-    throw new RepositoryIdentityError(
-      t("errors.repositoryUnresolved", { repositoryPath }),
-    );
+    throw new RepositoryIdentityError(t("errors.repositoryUnresolved", { repositoryPath }));
   }
 }
 
@@ -91,10 +85,9 @@ async function readGitDirectory(marker: string): Promise<string | undefined> {
 
 async function resolveCommonGitDirectory(gitDirectory: string): Promise<string> {
   try {
-    const relativeCommonDirectory = (await readFile(
-      path.join(gitDirectory, "commondir"),
-      "utf8",
-    )).trim();
+    const relativeCommonDirectory = (
+      await readFile(path.join(gitDirectory, "commondir"), "utf8")
+    ).trim();
     return realpath(path.resolve(gitDirectory, relativeCommonDirectory));
   } catch (error) {
     if (hasErrorCode(error, "ENOENT")) return gitDirectory;
@@ -118,8 +111,5 @@ function createIdentity(
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {
-  return typeof error === "object"
-    && error !== null
-    && "code" in error
-    && error.code === code;
+  return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }

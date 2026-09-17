@@ -1,0 +1,33 @@
+name: Feature or improvement ｜ 功能或改进建议
+description: Propose a feature, workflow improvement, or documentation change. ｜ 提出新功能、工作流程改进或文档修改建议。
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues before submitting. English and Chinese are welcome. ｜ 提交前请搜索已有 Issue，可使用英语或中文填写。
+        Describe the user need with sanitized examples. ｜ 请通过已脱敏的示例说明用户需求。
+  - type: textarea
+    id: need
+    attributes:
+      label: Problem or user need ｜ 问题或用户需求
+      description: Who is affected, what are they trying to do, and where does the current workflow fall short? ｜ 哪些用户受到影响？他们希望完成什么？当前流程有哪些不足？
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome ｜ 期望结果
+      description: Describe the observable result, with a concrete example or acceptance criteria. ｜ 描述可观察的结果，并提供具体示例或验收标准。
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Suggested approach and alternatives (optional) ｜ 建议方案与替代方案（可选）
+      description: Share a proposed solution, existing workaround, or relevant tradeoffs. ｜ 提供建议方案、现有临时解决办法或相关取舍。
+  - type: textarea
+    id: context
+    attributes:
+      label: Supporting context (optional) ｜ 补充背景（可选）
+      description: Link related issues or documentation and describe constraints that affect the proposal. ｜ 链接相关 Issue 或文档，并说明影响该建议的约束。

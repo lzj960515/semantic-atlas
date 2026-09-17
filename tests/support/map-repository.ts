@@ -48,11 +48,7 @@ export function flowStep(
   };
 }
 
-export function transition(
-  from: string,
-  to: string,
-  when?: string,
-): Record<string, unknown> {
+export function transition(from: string, to: string, when?: string): Record<string, unknown> {
   return {
     from,
     to,
@@ -103,11 +99,7 @@ export function node(
   };
 }
 
-export function relation(
-  from: string,
-  type: string,
-  to: string,
-): Record<string, unknown> {
+export function relation(from: string, type: string, to: string): Record<string, unknown> {
   return {
     from,
     type,

@@ -59,13 +59,17 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "contracts:check": "vitest run tests/release/release-contract.test.ts",
-    "release:verify": "pnpm contracts:check && pnpm test && pnpm typecheck && pnpm build && node tests/smoke/built-render.mjs && node tests/smoke/built-skill.mjs && node tests/smoke/packaged-product.mjs && pnpm pack --dry-run && git diff --check",
+    "release:verify": "pnpm lint && pnpm format:check && pnpm contracts:check && pnpm test && pnpm typecheck && pnpm build && node tests/smoke/built-render.mjs && node tests/smoke/built-skill.mjs && node tests/smoke/packaged-product.mjs && pnpm pack --dry-run && git diff --check",
     "test": "vitest run",
     "test:acceptance": "pnpm release:verify",
     "test:built": "pnpm build && node tests/smoke/built-render.mjs && node tests/smoke/built-skill.mjs",
     "test:package": "node tests/smoke/packaged-product.mjs",
     "typecheck": "tsc -p tsconfig.json",
-    "prepack": "pnpm typecheck && pnpm build"
+    "prepack": "pnpm typecheck && pnpm build",
+    "lint": "oxlint --deny-warnings src tests scripts .agents/skills/semantic-atlas/scripts vitest.config.ts",
+    "lint:fix": "pnpm lint --fix",
+    "format": "oxfmt --write \"src/**/*.ts\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \".agents/skills/*/scripts/*.mjs\" vitest.config.ts",
+    "format:check": "oxfmt --check \"src/**/*.ts\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \".agents/skills/*/scripts/*.mjs\" vitest.config.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.8",
@@ -79,6 +83,8 @@
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.83.0",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   }

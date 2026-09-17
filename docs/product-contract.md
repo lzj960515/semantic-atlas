@@ -92,7 +92,6 @@ diagram's automatic arrangement using the current displayed text, then fits it
 to the window. Manual positions belong only to the current browser view; they
 are not saved into tracked maps or shared with other viewers.
 
-
 `Export PNG` saves the entire selected relationship diagram or flow, including
 its currently displayed translations. Image bounds come from the complete
 layout rather than the visible viewport or zoom. Generation stays in the

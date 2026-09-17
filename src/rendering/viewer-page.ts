@@ -74,9 +74,7 @@ export interface ViewerProjectPayload {
   readonly markup: string;
 }
 
-export function renderViewerPage(
-  projects: readonly ViewerProject[],
-): string {
+export function renderViewerPage(projects: readonly ViewerProject[]): string {
   const displayedProjects = disambiguateProjectNames(projects);
   return renderViewerShell(
     displayedProjects,
@@ -89,9 +87,7 @@ export function renderViewerPage(
   );
 }
 
-export function renderWebViewerPage(
-  projects: readonly ViewerProjectReference[],
-): string {
+export function renderWebViewerPage(projects: readonly ViewerProjectReference[]): string {
   return renderViewerShell(disambiguateProjectNames(projects), "web", [], "");
 }
 
@@ -178,9 +174,11 @@ function renderViewerShell(
         <div class="viewer-status__panel">
           <p id="viewer-status-eyebrow" class="viewer-status__eyebrow" data-i18n="viewer.projectCatalog">${escapeHtml(t("viewer.projectCatalog"))}</p>
           <h1 id="viewer-status-title">${displayedProjects.length > 0 ? escapeHtml(t("viewer.loadingProject")) : escapeHtml(t("viewer.noProjects"))}</h1>
-          <p id="viewer-status-message">${displayedProjects.length > 0
-            ? escapeHtml(t("viewer.readingMap"))
-            : escapeHtml(t("viewer.registerProject"))}</p>
+          <p id="viewer-status-message">${
+            displayedProjects.length > 0
+              ? escapeHtml(t("viewer.readingMap"))
+              : escapeHtml(t("viewer.registerProject"))
+          }</p>
         </div>
       </section>
     </section>
@@ -213,16 +211,20 @@ function renderViewerShell(
 
 function renderProjectMarkup(project: ViewerProject): string {
   return [
-    ...project.views.map((view) => `
+    ...project.views.map(
+      (view) => `
       <div class="project-view" data-project-view data-view-type="relationships" data-project-id="${escapeHtml(project.id)}" data-map-view="${escapeHtml(view.id)}" hidden>
         ${view.svg}
         <div class="diagram-text-layer">${view.textLayer}</div>
-      </div>`),
-    ...project.flows.map((flow) => `
+      </div>`,
+    ),
+    ...project.flows.map(
+      (flow) => `
       <div class="project-view" data-project-view data-view-type="flows" data-project-id="${escapeHtml(project.id)}" data-flow-view="${escapeHtml(flow.id)}" hidden>
         ${flow.svg}
         <div class="diagram-text-layer">${flow.textLayer}</div>
-      </div>`),
+      </div>`,
+    ),
   ].join("");
 }
 

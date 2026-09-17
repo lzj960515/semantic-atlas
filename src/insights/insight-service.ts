@@ -92,12 +92,8 @@ function summarizeObservations(
     taskObservations: tasks.length,
     reviewObservations: reviews.length,
     approvedReviews: approvedReviews.length,
-    businessBoundary: countAccuracyDimension(
-      reviews.map(({ review }) => review.businessBoundary),
-    ),
-    upstreamCause: countUpstreamCause(
-      reviews.map(({ review }) => review.upstreamCause),
-    ),
+    businessBoundary: countAccuracyDimension(reviews.map(({ review }) => review.businessBoundary)),
+    upstreamCause: countUpstreamCause(reviews.map(({ review }) => review.upstreamCause)),
     impactCompleteness: countImpactCompleteness(
       reviews.map(({ review }) => review.impactCompleteness),
     ),
@@ -172,9 +168,9 @@ function addRecovery(
   taskObservationId: string,
 ): void {
   if (
-    disposition.status === "stale"
-    || disposition.status === "missing"
-    || disposition.status === "contradicted"
+    disposition.status === "stale" ||
+    disposition.status === "missing" ||
+    disposition.status === "contradicted"
   ) {
     recovered[disposition.status].add(taskObservationId);
   }

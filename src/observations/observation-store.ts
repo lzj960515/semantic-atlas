@@ -1,13 +1,6 @@
 import { t, validationOptions } from "../i18n/index.js";
 import { randomUUID } from "node:crypto";
-import {
-  mkdir,
-  open,
-  readFile,
-  readdir,
-  rename,
-  rm,
-} from "node:fs/promises";
+import { mkdir, open, readFile, readdir, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import type {
   MaintenanceObservation,
@@ -118,16 +111,12 @@ export class ObservationStore {
       validationOptions(),
     );
     if (!parsed.success || !sameRepository(parsed.data.repository, repository)) {
-      throw new ObservationStorageError(
-        t("errors.storedTaskInvalid", { id }),
-      );
+      throw new ObservationStorageError(t("errors.storedTaskInvalid", { id }));
     }
     return parsed.data;
   }
 
-  public async readAll(
-    repository: RepositoryIdentity,
-  ): Promise<RepositoryObservations> {
+  public async readAll(repository: RepositoryIdentity): Promise<RepositoryObservations> {
     const [tasks, reviews, maintenances] = await Promise.all([
       this.readDirectory(repository, "task"),
       this.readDirectory(repository, "review"),
@@ -158,26 +147,16 @@ export class ObservationStore {
     observation: TaskObservation | ReviewObservation | MaintenanceObservation,
   ): Promise<ObservationWriteResult> {
     const directory = this.observationDirectory(observation.repository, kind);
-    const observationPath = this.observationPath(
-      observation.repository,
-      kind,
-      observation.id,
-    );
+    const observationPath = this.observationPath(observation.repository, kind, observation.id);
     const serialized = `${JSON.stringify(observation, null, 2)}\n`;
     await mkdir(directory, { recursive: true, mode: 0o700 });
 
-    const existing = await this.findExistingObservation(
-      observation.repository,
-      observation.id,
-    );
+    const existing = await this.findExistingObservation(observation.repository, observation.id);
     if (existing) {
       return replayResult(kind, observation.id, existing, serialized);
     }
 
-    const claimRoot = path.join(
-      this.repositoryDirectory(observation.repository),
-      ".claims",
-    );
+    const claimRoot = path.join(this.repositoryDirectory(observation.repository), ".claims");
     await mkdir(claimRoot, { recursive: true, mode: 0o700 });
     const claimPath = path.join(claimRoot, `${observation.id}.lock`);
     const claim = await this.acquireClaim(
@@ -189,15 +168,9 @@ export class ObservationStore {
     );
     if ("outcome" in claim) return claim;
 
-    const stagePath = path.join(
-      directory,
-      `.${observation.id}.${randomUUID()}.tmp`,
-    );
+    const stagePath = path.join(directory, `.${observation.id}.${randomUUID()}.tmp`);
     try {
-      const afterClaim = await this.findExistingObservation(
-        observation.repository,
-        observation.id,
-      );
+      const afterClaim = await this.findExistingObservation(observation.repository, observation.id);
       if (afterClaim) {
         return replayResult(kind, observation.id, afterClaim, serialized);
       }
@@ -220,7 +193,11 @@ export class ObservationStore {
     } catch (error) {
       if (error instanceof ObservationConflictError) throw error;
       throw new ObservationStorageError(
-        t("errors.recordObservation", { kind, observationId: observation.id, error: errorMessage(error) }),
+        t("errors.recordObservation", {
+          kind,
+          observationId: observation.id,
+          error: errorMessage(error),
+        }),
         { cause: error },
       );
     } finally {
@@ -254,9 +231,7 @@ export class ObservationStore {
       }
       await waitForClaim();
     }
-    throw new ObservationStorageError(
-      t("errors.observationBusy", { kind, id }),
-    );
+    throw new ObservationStorageError(t("errors.observationBusy", { kind, id }));
   }
 
   private async findExistingObservation(
@@ -291,34 +266,28 @@ export class ObservationStore {
       );
     }
 
-    return Promise.all(fileNames.map(async (fileName) => {
-      const observationPath = path.join(directory, fileName);
-      const value = parseStoredDocument(
-        await readFile(observationPath, "utf8"),
-        observationPath,
-      );
-      const parsed = kind === "task"
-        ? taskObservationSchema.safeParse(value, validationOptions())
-        : kind === "review"
-        ? reviewObservationSchema.safeParse(value, validationOptions())
-        : maintenanceObservationSchema.safeParse(value, validationOptions());
-      if (!parsed.success || !sameRepository(parsed.data.repository, repository)) {
-        throw new ObservationStorageError(
-          t("errors.storedObservationInvalid", { kind, fileName }),
-        );
-      }
-      return parsed.data;
-    }));
+    return Promise.all(
+      fileNames.map(async (fileName) => {
+        const observationPath = path.join(directory, fileName);
+        const value = parseStoredDocument(await readFile(observationPath, "utf8"), observationPath);
+        const parsed =
+          kind === "task"
+            ? taskObservationSchema.safeParse(value, validationOptions())
+            : kind === "review"
+              ? reviewObservationSchema.safeParse(value, validationOptions())
+              : maintenanceObservationSchema.safeParse(value, validationOptions());
+        if (!parsed.success || !sameRepository(parsed.data.repository, repository)) {
+          throw new ObservationStorageError(
+            t("errors.storedObservationInvalid", { kind, fileName }),
+          );
+        }
+        return parsed.data;
+      }),
+    );
   }
 
-  private observationDirectory(
-    repository: RepositoryIdentity,
-    kind: ObservationKind,
-  ): string {
-    return path.join(
-      this.repositoryDirectory(repository),
-      observationDirectoryNames[kind],
-    );
+  private observationDirectory(repository: RepositoryIdentity, kind: ObservationKind): string {
+    return path.join(this.repositoryDirectory(repository), observationDirectoryNames[kind]);
   }
 
   private repositoryDirectory(repository: RepositoryIdentity): string {
@@ -330,10 +299,7 @@ export class ObservationStore {
     kind: ObservationKind,
     id: string,
   ): string {
-    return path.join(
-      this.observationDirectory(repository, kind),
-      `${id}.json`,
-    );
+    return path.join(this.observationDirectory(repository, kind), `${id}.json`);
   }
 }
 
@@ -368,10 +334,9 @@ function parseStoredDocument(document: string, filePath: string): unknown {
   try {
     return JSON.parse(document) as unknown;
   } catch (error) {
-    throw new ObservationStorageError(
-      t("errors.storedJsonInvalid", { filePath }),
-      { cause: error },
-    );
+    throw new ObservationStorageError(t("errors.storedJsonInvalid", { filePath }), {
+      cause: error,
+    });
   }
 }
 
@@ -380,19 +345,13 @@ async function waitForClaim(): Promise<void> {
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {
-  return typeof error === "object"
-    && error !== null
-    && "code" in error
-    && error.code === code;
+  return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : t("errors.storageFailure");
 }
 
-function sameRepository(
-  left: RepositoryIdentity,
-  right: RepositoryIdentity,
-): boolean {
+function sameRepository(left: RepositoryIdentity, right: RepositoryIdentity): boolean {
   return left.kind === right.kind && left.id === right.id;
 }

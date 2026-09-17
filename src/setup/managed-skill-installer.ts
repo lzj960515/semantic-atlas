@@ -23,14 +23,9 @@ const managerName = "semantic-atlas";
 const installationMarkerName = ".semantic-atlas-managed.json";
 const fingerprintPattern = /^[a-f0-9]{64}$/u;
 
-export type ManagedSkillOutcome =
-  | "installed"
-  | "current"
-  | "repaired"
-  | "upgraded"
-  | "recovered";
+export type ManagedSkillOutcome = "installed" | "current" | "repaired" | "upgraded" | "recovered";
 
-export type ManagedSkillName = typeof managedSkillNames[number];
+export type ManagedSkillName = (typeof managedSkillNames)[number];
 
 export interface ManagedSkillIdentity {
   readonly packageName: string;
@@ -75,9 +70,7 @@ export class ManagedSkillConflictError extends Error {
   public override readonly name = "ManagedSkillConflictError";
 
   public constructor(public readonly directory: string) {
-    super(
-      t("errors.managedSkillConflict", { directory }),
-    );
+    super(t("errors.managedSkillConflict", { directory }));
   }
 }
 
@@ -93,8 +86,7 @@ export class ManagedSkillInstaller {
     dependencies: ManagedSkillInstallerDependencies = {},
   ) {
     this.skillName = options.skillName ?? primarySkillName;
-    this.sourceDirectory = options.sourceDirectory
-      ?? resolveBundledSkillDirectory(this.skillName);
+    this.sourceDirectory = options.sourceDirectory ?? resolveBundledSkillDirectory(this.skillName);
     this.targetDirectory = path.join(
       options.userHome ?? homedir(),
       ".agents",
@@ -106,11 +98,7 @@ export class ManagedSkillInstaller {
   }
 
   public async install(): Promise<ManagedSkillInstallation> {
-    await requireSkillIdentity(
-      this.sourceDirectory,
-      t("errors.bundledSkill"),
-      this.skillName,
-    );
+    await requireSkillIdentity(this.sourceDirectory, t("errors.bundledSkill"), this.skillName);
     const fingerprint = await fingerprintSkill(this.sourceDirectory);
     const marker = this.createMarker(fingerprint);
     const recovered = await this.recoverInterruptedReplacement();
@@ -121,17 +109,19 @@ export class ManagedSkillInstaller {
       return this.result("installed", fingerprint);
     }
 
-    const current = markerMatches(existing, marker)
-      && await fingerprintSkill(this.targetDirectory) === fingerprint;
+    const current =
+      markerMatches(existing, marker) &&
+      (await fingerprintSkill(this.targetDirectory)) === fingerprint;
     if (current) {
       await this.removeRecoveryArtifacts();
       return this.result(recovered ? "recovered" : "current", fingerprint);
     }
 
-    const outcome = existing.packageName !== marker.packageName
-      || existing.packageVersion !== marker.packageVersion
-      ? "upgraded"
-      : "repaired";
+    const outcome =
+      existing.packageName !== marker.packageName ||
+      existing.packageVersion !== marker.packageVersion
+        ? "upgraded"
+        : "repaired";
     await this.removeRecoveryArtifacts();
     await this.replacer.replace(this.sourceDirectory, this.targetDirectory, marker);
     return this.result(outcome, fingerprint);
@@ -150,10 +140,10 @@ export class ManagedSkillInstaller {
 
   private async recoverInterruptedReplacement(): Promise<boolean> {
     const backupDirectory = backupPath(this.targetDirectory);
-    if (!await exists(backupDirectory) || await exists(this.targetDirectory)) {
+    if (!(await exists(backupDirectory)) || (await exists(this.targetDirectory))) {
       return false;
     }
-    if (!await readManagedMarker(backupDirectory, this.skillName)) {
+    if (!(await readManagedMarker(backupDirectory, this.skillName))) {
       throw new ManagedSkillConflictError(backupDirectory);
     }
     await mkdir(path.dirname(this.targetDirectory), { recursive: true });
@@ -162,7 +152,7 @@ export class ManagedSkillInstaller {
   }
 
   private async readExistingManagedSkill(): Promise<ManagedSkillMarker | undefined> {
-    if (!await exists(this.targetDirectory)) return undefined;
+    if (!(await exists(this.targetDirectory))) return undefined;
     const marker = await readManagedMarker(this.targetDirectory, this.skillName);
     if (!marker) throw new ManagedSkillConflictError(this.targetDirectory);
     return marker;
@@ -173,12 +163,12 @@ export class ManagedSkillInstaller {
     const targetName = path.basename(this.targetDirectory);
     const backupDirectory = backupPath(this.targetDirectory);
     if (await exists(backupDirectory)) {
-      if (!await readManagedMarker(backupDirectory, this.skillName)) {
+      if (!(await readManagedMarker(backupDirectory, this.skillName))) {
         throw new ManagedSkillConflictError(backupDirectory);
       }
       await rm(backupDirectory, { recursive: true, force: true });
     }
-    if (!await exists(parentDirectory)) return;
+    if (!(await exists(parentDirectory))) return;
     const entries = await readdir(parentDirectory, { withFileTypes: true });
     const ownedStages: string[] = [];
     for (const entry of entries) {
@@ -188,18 +178,15 @@ export class ManagedSkillInstaller {
         ownedStages.push(stageDirectory);
       }
     }
-    await Promise.all(ownedStages.map((directory) =>
-      rm(directory, { recursive: true, force: true })
-    ));
-    if (!await exists(this.targetDirectory)) {
+    await Promise.all(
+      ownedStages.map((directory) => rm(directory, { recursive: true, force: true })),
+    );
+    if (!(await exists(this.targetDirectory))) {
       throw new Error(t("errors.skillRecoveryLost", { targetDirectory: this.targetDirectory }));
     }
   }
 
-  private result(
-    outcome: ManagedSkillOutcome,
-    fingerprint: string,
-  ): ManagedSkillInstallation {
+  private result(outcome: ManagedSkillOutcome, fingerprint: string): ManagedSkillInstallation {
     return {
       outcome,
       targetDirectory: this.targetDirectory,
@@ -220,12 +207,14 @@ export class ManagedSkillsInstaller {
     const sourceRoot = this.options.sourceRoot ?? resolveBundledSkillsRoot();
     const skills: ManagedSkillInstallation[] = [];
     for (const skillName of managedSkillNames) {
-      skills.push(await new ManagedSkillInstaller({
-        packageIdentity: this.options.packageIdentity,
-        sourceDirectory: path.join(sourceRoot, skillName),
-        ...(this.options.userHome ? { userHome: this.options.userHome } : {}),
-        skillName,
-      }).install());
+      skills.push(
+        await new ManagedSkillInstaller({
+          packageIdentity: this.options.packageIdentity,
+          sourceDirectory: path.join(sourceRoot, skillName),
+          ...(this.options.userHome ? { userHome: this.options.userHome } : {}),
+          skillName,
+        }).install(),
+      );
     }
     return { skills };
   }
@@ -262,7 +251,7 @@ class AtomicDirectoryReplacer {
       try {
         await this.moveDirectory(stageDirectory, targetDirectory);
       } catch (error) {
-        if (!await exists(targetDirectory) && await exists(backupDirectory)) {
+        if (!(await exists(targetDirectory)) && (await exists(backupDirectory))) {
           await this.moveDirectory(backupDirectory, targetDirectory);
         }
         throw error;
@@ -315,15 +304,15 @@ async function readManagedMarker(
       await readFile(path.join(directory, installationMarkerName), "utf8"),
     ) as Record<string, unknown>;
     if (
-      parsed.schemaVersion === 1
-      && parsed.managedBy === managerName
-      && typeof parsed.packageName === "string"
-      && parsed.packageName.length > 0
-      && typeof parsed.packageVersion === "string"
-      && parsed.packageVersion.length > 0
-      && parsed.skillName === skillName
-      && typeof parsed.fingerprint === "string"
-      && fingerprintPattern.test(parsed.fingerprint)
+      parsed.schemaVersion === 1 &&
+      parsed.managedBy === managerName &&
+      typeof parsed.packageName === "string" &&
+      parsed.packageName.length > 0 &&
+      typeof parsed.packageVersion === "string" &&
+      parsed.packageVersion.length > 0 &&
+      parsed.skillName === skillName &&
+      typeof parsed.fingerprint === "string" &&
+      fingerprintPattern.test(parsed.fingerprint)
     ) {
       return {
         schemaVersion: 1,
@@ -341,10 +330,12 @@ async function readManagedMarker(
 }
 
 function markerMatches(current: ManagedSkillMarker, expected: ManagedSkillMarker): boolean {
-  return current.packageName === expected.packageName
-    && current.packageVersion === expected.packageVersion
-    && current.skillName === expected.skillName
-    && current.fingerprint === expected.fingerprint;
+  return (
+    current.packageName === expected.packageName &&
+    current.packageVersion === expected.packageVersion &&
+    current.skillName === expected.skillName &&
+    current.fingerprint === expected.fingerprint
+  );
 }
 
 async function fingerprintSkill(directory: string): Promise<string> {
@@ -378,7 +369,7 @@ async function listFingerprintEntries(
     const relativePath = path.relative(rootDirectory, entryPath).split(path.sep).join("/");
     if (relativePath === installationMarkerName) continue;
     if (directoryEntry.isDirectory()) {
-      result.push(...await listFingerprintEntries(rootDirectory, entryPath));
+      result.push(...(await listFingerprintEntries(rootDirectory, entryPath)));
       continue;
     }
     const status = await lstat(entryPath);

@@ -27,16 +27,18 @@ describe("public release candidate", () => {
     });
     expect(packageDocument).not.toHaveProperty("private");
     expect(packageDocument.files).not.toContain("docs");
-    expect(packageDocument.files).toEqual(expect.arrayContaining([
-      ".agents",
-      "dist",
-      "docs/map-format.md",
-      "docs/observations.md",
-      "examples",
-      "LICENSE",
-      "README.md",
-      "README.zh-CN.md",
-    ]));
+    expect(packageDocument.files).toEqual(
+      expect.arrayContaining([
+        ".agents",
+        "dist",
+        "docs/map-format.md",
+        "docs/observations.md",
+        "examples",
+        "LICENSE",
+        "README.md",
+        "README.zh-CN.md",
+      ]),
+    );
     await expect(read("LICENSE")).resolves.toContain("MIT License");
   });
 
@@ -50,16 +52,18 @@ describe("public release candidate", () => {
     expect(quality).toBeDefined();
     if (!quality) throw new Error("CI quality job is missing");
     expect(quality["runs-on"]).toBe("ubuntu-latest");
-    expect(quality.steps).toEqual(expect.arrayContaining([
-      expect.objectContaining({ uses: "actions/checkout@v4" }),
-      expect.objectContaining({ uses: "pnpm/action-setup@v4" }),
-      expect.objectContaining({
-        uses: "actions/setup-node@v4",
-        with: expect.objectContaining({ "node-version": 24 }),
-      }),
-      expect.objectContaining({ run: "pnpm install --frozen-lockfile" }),
-      expect.objectContaining({ run: "pnpm release:verify" }),
-    ]));
+    expect(quality.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ uses: "actions/checkout@v4" }),
+        expect.objectContaining({ uses: "pnpm/action-setup@v4" }),
+        expect.objectContaining({
+          uses: "actions/setup-node@v4",
+          with: expect.objectContaining({ "node-version": 24 }),
+        }),
+        expect.objectContaining({ run: "pnpm install --frozen-lockfile" }),
+        expect.objectContaining({ run: "pnpm release:verify" }),
+      ]),
+    );
   });
 
   it("publishes only a matching immutable GitHub Release tag through npm provenance", async () => {
@@ -74,21 +78,25 @@ describe("public release candidate", () => {
     expect(releaseGate.environment).toBeUndefined();
     expect(releaseGate.permissions).toEqual({ contents: "read" });
     expect(releaseGate.steps).toHaveLength(1);
-    expect(releaseGate.steps).not.toEqual(expect.arrayContaining([
-      expect.objectContaining({ uses: "actions/checkout@v4" }),
-    ]));
-    expect(releaseGate.steps).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        name: "Verify immutable GitHub Release before checkout",
-        run: expect.stringContaining("jq --exit-status"),
-        env: {
-          GH_TOKEN: "${{ github.token }}",
-          RELEASE_TAG: "${{ github.event.release.tag_name }}",
-        },
-      }),
-    ]));
+    expect(releaseGate.steps).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ uses: "actions/checkout@v4" })]),
+    );
+    expect(releaseGate.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "Verify immutable GitHub Release before checkout",
+          run: expect.stringContaining("jq --exit-status"),
+          env: {
+            GH_TOKEN: "${{ github.token }}",
+            RELEASE_TAG: "${{ github.event.release.tag_name }}",
+          },
+        }),
+      ]),
+    );
     const gateCommand = String(
-      releaseGate.steps.find((step) => step.name === "Verify immutable GitHub Release before checkout")?.run,
+      releaseGate.steps.find(
+        (step) => step.name === "Verify immutable GitHub Release before checkout",
+      )?.run,
     );
     for (const immutableCondition of [
       ".tag_name == $release_tag",
@@ -109,41 +117,41 @@ describe("public release candidate", () => {
     const immutableReleaseStepIndex = publish.steps.findIndex(
       (step) => step.name === "Verify immutable GitHub Release",
     );
-    const publishStepIndex = publish.steps.findIndex(
-      (step) => step.name === "Publish npm package",
-    );
+    const publishStepIndex = publish.steps.findIndex((step) => step.name === "Publish npm package");
     expect(immutableReleaseStepIndex).toBeGreaterThan(-1);
     expect(immutableReleaseStepIndex).toBeLessThan(publishStepIndex);
-    expect(publish.steps).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        uses: "actions/checkout@v4",
-        with: expect.objectContaining({
-          ref: "refs/tags/${{ github.event.release.tag_name }}",
+    expect(publish.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          uses: "actions/checkout@v4",
+          with: expect.objectContaining({
+            ref: "refs/tags/${{ github.event.release.tag_name }}",
+          }),
         }),
-      }),
-      expect.objectContaining({
-        name: "Verify immutable GitHub Release",
-        run: "gh api \"repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}\" | node scripts/verify-github-release.mjs",
-        env: {
-          GH_TOKEN: "${{ github.token }}",
-          RELEASE_TAG: "${{ github.event.release.tag_name }}",
-        },
-      }),
-      expect.objectContaining({
-        name: "Verify release identity",
-        run: "node scripts/verify-release-tag.mjs",
-      }),
-      expect.objectContaining({ run: "pnpm release:verify" }),
-      expect.objectContaining({
-        name: "Publish npm package",
-        run: "pnpm publish --no-git-checks --access public --provenance",
-        env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" },
-      }),
-      expect.objectContaining({
-        name: "Verify public package",
-        run: "node scripts/verify-published-package.mjs",
-      }),
-    ]));
+        expect.objectContaining({
+          name: "Verify immutable GitHub Release",
+          run: 'gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" | node scripts/verify-github-release.mjs',
+          env: {
+            GH_TOKEN: "${{ github.token }}",
+            RELEASE_TAG: "${{ github.event.release.tag_name }}",
+          },
+        }),
+        expect.objectContaining({
+          name: "Verify release identity",
+          run: "node scripts/verify-release-tag.mjs",
+        }),
+        expect.objectContaining({ run: "pnpm release:verify" }),
+        expect.objectContaining({
+          name: "Publish npm package",
+          run: "pnpm publish --no-git-checks --access public --provenance",
+          env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" },
+        }),
+        expect.objectContaining({
+          name: "Verify public package",
+          run: "node scripts/verify-published-package.mjs",
+        }),
+      ]),
+    );
   });
 
   it("rejects a mutable or mismatched GitHub Release", () => {
@@ -167,15 +175,16 @@ describe("public release candidate", () => {
   });
 
   it("documents the complete public user and release-owner journeys", async () => {
-    const [readme, readmeZh, agents, release, productContract, architecture, deliveryPlan] = await Promise.all([
-      read("README.md"),
-      read("README.zh-CN.md"),
-      read("AGENTS.md"),
-      read(".claude/commands/release.md"),
-      read("docs/product-contract.md"),
-      read("docs/architecture.md"),
-      read("docs/delivery-plan.md"),
-    ]);
+    const [readme, readmeZh, agents, release, productContract, architecture, deliveryPlan] =
+      await Promise.all([
+        read("README.md"),
+        read("README.zh-CN.md"),
+        read("AGENTS.md"),
+        read(".claude/commands/release.md"),
+        read("docs/product-contract.md"),
+        read("docs/architecture.md"),
+        read("docs/delivery-plan.md"),
+      ]);
 
     for (const section of [
       "## Install",
@@ -283,9 +292,13 @@ async function read(relativePath: string): Promise<string> {
 }
 
 function verifyGitHubRelease(release: Record<string, unknown>, releaseTag: string) {
-  return spawnSync(process.execPath, [path.join(projectRoot, "scripts/verify-github-release.mjs")], {
-    encoding: "utf8",
-    env: { ...process.env, RELEASE_TAG: releaseTag },
-    input: JSON.stringify(release),
-  });
+  return spawnSync(
+    process.execPath,
+    [path.join(projectRoot, "scripts/verify-github-release.mjs")],
+    {
+      encoding: "utf8",
+      env: { ...process.env, RELEASE_TAG: releaseTag },
+      input: JSON.stringify(release),
+    },
+  );
 }

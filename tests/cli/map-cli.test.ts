@@ -104,39 +104,44 @@ describe("semantic-atlas validate", () => {
           node("commerce.orders.place-order", "scenario", "Place order"),
         ],
         [],
-        [flow(
-          "commerce.orders.broken-flow",
-          "commerce.orders.missing-scenario",
-          "start",
-          [
-            flowStep("start", "action", "Start"),
-            flowStep("decision", "decision", "Should continue?", "commerce.missing-rule"),
-            flowStep("done", "outcome", "Done"),
-            flowStep("orphan", "action", "Unreachable action"),
-          ],
-          [
-            transition("start", "decision"),
-            transition("decision", "done"),
-            transition("decision", "missing-step", "yes"),
-            transition("done", "start"),
-          ],
-        )],
+        [
+          flow(
+            "commerce.orders.broken-flow",
+            "commerce.orders.missing-scenario",
+            "start",
+            [
+              flowStep("start", "action", "Start"),
+              flowStep("decision", "decision", "Should continue?", "commerce.missing-rule"),
+              flowStep("done", "outcome", "Done"),
+              flowStep("orphan", "action", "Unreachable action"),
+            ],
+            [
+              transition("start", "decision"),
+              transition("decision", "done"),
+              transition("decision", "missing-step", "yes"),
+              transition("done", "start"),
+            ],
+          ),
+        ],
       ),
     });
 
     const result = await runCli(["validate", "--repo", repositoryRoot]);
-    const codes = JSON.parse(result.stdout).error.issues
-      .map((issue: { code: string }) => issue.code);
+    const codes = JSON.parse(result.stdout).error.issues.map(
+      (issue: { code: string }) => issue.code,
+    );
 
     expect(result.exitCode).toBe(1);
-    expect(codes).toEqual(expect.arrayContaining([
-      "FLOW_SCENARIO_MISSING",
-      "FLOW_CONCEPT_MISSING",
-      "FLOW_TRANSITION_ENDPOINT_MISSING",
-      "FLOW_DECISION_BRANCH_INVALID",
-      "FLOW_OUTCOME_HAS_TRANSITION",
-      "FLOW_STEP_UNREACHABLE",
-    ]));
+    expect(codes).toEqual(
+      expect.arrayContaining([
+        "FLOW_SCENARIO_MISSING",
+        "FLOW_CONCEPT_MISSING",
+        "FLOW_TRANSITION_ENDPOINT_MISSING",
+        "FLOW_DECISION_BRANCH_INVALID",
+        "FLOW_OUTCOME_HAS_TRANSITION",
+        "FLOW_STEP_UNREACHABLE",
+      ]),
+    );
   });
 
   it("returns every safely collectable graph issue in one invalid result", async () => {
@@ -180,13 +185,15 @@ describe("semantic-atlas validate", () => {
         code: "MAP_DOCUMENT_INVALID",
       },
     });
-    expect(codes).toEqual(expect.arrayContaining([
-      "ANCHOR_PATH_INVALID",
-      "RELATION_ENDPOINT_MISSING",
-      "MULTIPLE_CONTAINMENT_PARENTS",
-      "CONTAINMENT_CYCLE",
-      "RELATION_KIND_MISMATCH",
-    ]));
+    expect(codes).toEqual(
+      expect.arrayContaining([
+        "ANCHOR_PATH_INVALID",
+        "RELATION_ENDPOINT_MISSING",
+        "MULTIPLE_CONTAINMENT_PARENTS",
+        "CONTAINMENT_CYCLE",
+        "RELATION_KIND_MISMATCH",
+      ]),
+    );
   });
 
   it("reports duplicate document, node, alias, relation, and domain-parent identities", async () => {
@@ -208,17 +215,20 @@ describe("semantic-atlas validate", () => {
     });
 
     const result = await runCli(["validate", "--repo", repositoryRoot]);
-    const codes = JSON.parse(result.stdout).error.issues
-      .map((issue: { code: string }) => issue.code);
+    const codes = JSON.parse(result.stdout).error.issues.map(
+      (issue: { code: string }) => issue.code,
+    );
 
     expect(result.exitCode).toBe(1);
-    expect(codes).toEqual(expect.arrayContaining([
-      "DUPLICATE_DOCUMENT_ID",
-      "DUPLICATE_NODE_ID",
-      "DUPLICATE_NODE_ALIAS",
-      "DUPLICATE_RELATION",
-      "DOMAIN_HAS_PARENT",
-    ]));
+    expect(codes).toEqual(
+      expect.arrayContaining([
+        "DUPLICATE_DOCUMENT_ID",
+        "DUPLICATE_NODE_ID",
+        "DUPLICATE_NODE_ALIAS",
+        "DUPLICATE_RELATION",
+        "DOMAIN_HAS_PARENT",
+      ]),
+    );
   });
 
   it("reports YAML and strict document-shape errors without successful empty results", async () => {
@@ -231,14 +241,14 @@ describe("semantic-atlas validate", () => {
     });
 
     const result = await runCli(["validate", "--repo", repositoryRoot]);
-    const codes = JSON.parse(result.stdout).error.issues
-      .map((issue: { code: string }) => issue.code);
+    const codes = JSON.parse(result.stdout).error.issues.map(
+      (issue: { code: string }) => issue.code,
+    );
 
     expect(result.exitCode).toBe(1);
-    expect(codes).toEqual(expect.arrayContaining([
-      "DOCUMENT_PARSE_FAILED",
-      "DOCUMENT_SCHEMA_INVALID",
-    ]));
+    expect(codes).toEqual(
+      expect.arrayContaining(["DOCUMENT_PARSE_FAILED", "DOCUMENT_SCHEMA_INVALID"]),
+    );
   });
 
   it("distinguishes a repository with no map documents", async () => {
@@ -315,9 +325,7 @@ describe("semantic-atlas context", () => {
           { id: "commerce", name: "Commerce" },
           { id: "commerce.orders", name: "Orders" },
         ],
-        children: [
-          { id: "commerce.orders.create-order", name: "Create order" },
-        ],
+        children: [{ id: "commerce.orders.create-order", name: "Create order" }],
         incoming: [],
         outgoing: [
           {
@@ -391,22 +399,24 @@ describe("semantic-atlas context", () => {
     expect(JSON.parse(scenarioResult.stdout)).toMatchObject({
       ok: true,
       data: {
-        flows: [{
-          id: "commerce.orders.place-order-flow",
-          scenario: "commerce.orders.place-order",
-          startsAt: "receive-order",
-          steps: [
-            { id: "create-order", concept: "commerce.orders.create-order" },
-            { id: "order-created", kind: "outcome" },
-            { id: "payment-authorized", kind: "decision" },
-            { id: "payment-declined", kind: "outcome" },
-            { id: "receive-order", kind: "action" },
-          ],
-          transitions: expect.arrayContaining([
-            { from: "payment-authorized", when: "authorized", to: "create-order" },
-            { from: "payment-authorized", when: "declined", to: "payment-declined" },
-          ]),
-        }],
+        flows: [
+          {
+            id: "commerce.orders.place-order-flow",
+            scenario: "commerce.orders.place-order",
+            startsAt: "receive-order",
+            steps: [
+              { id: "create-order", concept: "commerce.orders.create-order" },
+              { id: "order-created", kind: "outcome" },
+              { id: "payment-authorized", kind: "decision" },
+              { id: "payment-declined", kind: "outcome" },
+              { id: "receive-order", kind: "action" },
+            ],
+            transitions: expect.arrayContaining([
+              { from: "payment-authorized", when: "authorized", to: "create-order" },
+              { from: "payment-authorized", when: "declined", to: "payment-declined" },
+            ]),
+          },
+        ],
       },
     });
     expect(JSON.parse(operationResult.stdout)).toMatchObject({
@@ -448,11 +458,7 @@ describe("semantic-atlas context", () => {
 
   it("returns a bounded not-found result for ordinary source discovery", async () => {
     const repositoryRoot = await trackedRepository({
-      "commerce.yaml": mapDocument(
-        "commerce",
-        [node("commerce", "domain", "Commerce")],
-        [],
-      ),
+      "commerce.yaml": mapDocument("commerce", [node("commerce", "domain", "Commerce")], []),
     });
 
     const result = await runCli(["context", "refund", "--repo", repositoryRoot]);

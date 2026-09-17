@@ -219,10 +219,18 @@ loopback，只接受 GET 和 HEAD，并且只读取登记清单或显式的临�
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm lint
+pnpm format:check
 pnpm release:verify
 ```
 
-候选版本验收会运行契约和源码测试、类型检查、构建、渲染检查、打包隐私检查、
+`pnpm lint` 运行 Oxlint 正确性规则，遇到错误或警告会失败；`pnpm lint:fix`
+应用安全的自动修复。`pnpm format` 使用 Oxfmt 整理代码，`pnpm format:check`
+只检查格式。检查覆盖 TypeScript 源码、测试、发布与冒烟脚本、随包提供的 Skill
+脚本和 Vitest 配置，地图 YAML 与 Markdown 保持人工维护。格式统一为两个空格缩进、
+双引号、分号、尾随逗号和 100 列换行宽度，并保留 import 顺序与内嵌语言内容。
+
+候选版本验收会运行静态检查、格式检查、契约和源码测试、类型检查、构建、渲染检查、打包隐私检查、
 匿名安装后的完整产品流程、package dry-run 和 Git 差异检查。
 
 发布是独立操作。仓库启用不可变 Release 后，带 annotated version tag 的正式

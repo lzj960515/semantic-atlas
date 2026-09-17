@@ -7,9 +7,7 @@ if (arguments_.length === 0) {
   fail("Usage: query-context.mjs <business-term> --repo <repository-root>");
 }
 
-const bundledCli = fileURLToPath(
-  new URL("../../../../dist/cli/bin.js", import.meta.url),
-);
+const bundledCli = fileURLToPath(new URL("../../../../dist/cli/bin.js", import.meta.url));
 const command = await resolveCliCommand();
 const result = spawnSync(command.executable, command.arguments, {
   encoding: "utf8",
@@ -23,15 +21,11 @@ let envelope;
 try {
   envelope = JSON.parse(result.stdout);
 } catch {
-  fail(
-    "The available semantic-atlas command does not implement the v1 context contract.",
-  );
+  fail("The available semantic-atlas command does not implement the v1 context contract.");
 }
 
 if (envelope?.schemaVersion !== 1 || envelope?.command !== "context") {
-  fail(
-    "The available semantic-atlas command returned an incompatible context envelope.",
-  );
+  fail("The available semantic-atlas command returned an incompatible context envelope.");
 }
 
 process.stdout.write(result.stdout);
@@ -75,16 +69,13 @@ async function resolveCliCommand() {
 async function readManagedIdentity() {
   try {
     const marker = JSON.parse(
-      await readFile(
-        new URL("../.semantic-atlas-managed.json", import.meta.url),
-        "utf8",
-      ),
+      await readFile(new URL("../.semantic-atlas-managed.json", import.meta.url), "utf8"),
     );
     if (
-      marker?.schemaVersion === 1
-      && marker?.managedBy === "semantic-atlas"
-      && marker?.skillName === "semantic-atlas"
-      && typeof marker?.packageVersion === "string"
+      marker?.schemaVersion === 1 &&
+      marker?.managedBy === "semantic-atlas" &&
+      marker?.skillName === "semantic-atlas" &&
+      typeof marker?.packageVersion === "string"
     ) {
       return { packageVersion: marker.packageVersion };
     }

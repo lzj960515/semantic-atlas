@@ -76,13 +76,18 @@ export function layoutDiagram(
     });
   }
   for (const edge of spec.edges) {
-    layoutGraph.setEdge(edge.from, edge.to, {
-      width: edge.width,
-      height: edge.height,
-      minlen: edge.minlen,
-      weight: edge.weight,
-      labelpos: "c",
-    }, edge.id);
+    layoutGraph.setEdge(
+      edge.from,
+      edge.to,
+      {
+        width: edge.width,
+        height: edge.height,
+        minlen: edge.minlen,
+        weight: edge.weight,
+        labelpos: "c",
+      },
+      edge.id,
+    );
   }
 
   dagreApi.layout(layoutGraph);
@@ -93,9 +98,11 @@ export function layoutDiagram(
     const node = layoutGraph.node(id);
     return { id, x: node.x, y: node.y, width: node.width, height: node.height };
   });
-  const decisionNodes = new Map(spec.nodes
-    .filter(({ kind }) => kind === "decision")
-    .map(({ id }) => [id, layoutGraph.node(id)]));
+  const decisionNodes = new Map(
+    spec.nodes
+      .filter(({ kind }) => kind === "decision")
+      .map(({ id }) => [id, layoutGraph.node(id)]),
+  );
 
   function connectDecisionBoundary(points: DiagramPoint[], nodeId: string, atStart: boolean): void {
     const node = decisionNodes.get(nodeId);

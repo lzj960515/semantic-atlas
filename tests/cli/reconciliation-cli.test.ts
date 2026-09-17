@@ -11,9 +11,9 @@ const sandboxes: string[] = [];
 const fixtureRoot = fileURLToPath(new URL("../fixtures", import.meta.url));
 
 afterEach(async () => {
-  await Promise.all(sandboxes.splice(0).map((directory) =>
-    rm(directory, { recursive: true, force: true })
-  ));
+  await Promise.all(
+    sandboxes.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
+  );
 });
 
 describe("semantic-atlas reconcile candidates", () => {
@@ -24,18 +24,14 @@ describe("semantic-atlas reconcile candidates", () => {
       taskObservation(),
     );
 
-    const first = await runCli([
-      "reconcile",
-      "candidates",
-      "--repo",
-      fixture.repositoryRoot,
-    ], fixture.runtime);
-    const second = await runCli([
-      "reconcile",
-      "candidates",
-      "--repo",
-      fixture.repositoryRoot,
-    ], fixture.runtime);
+    const first = await runCli(
+      ["reconcile", "candidates", "--repo", fixture.repositoryRoot],
+      fixture.runtime,
+    );
+    const second = await runCli(
+      ["reconcile", "candidates", "--repo", fixture.repositoryRoot],
+      fixture.runtime,
+    );
 
     expect(first).toEqual(second);
     expect(first.exitCode).toBe(0);
@@ -50,17 +46,23 @@ describe("semantic-atlas reconcile candidates", () => {
           candidateOccurrences: 1,
           duplicateGroups: 0,
         },
-        domains: [{
-          businessDomainId: "commerce",
-          candidates: [{
-            kind: "node",
-            duplicate: false,
-            origins: [{
-              taskObservationId: "task-observation-reconcile-cli",
-              disposition: "confirmed",
-            }],
-          }],
-        }],
+        domains: [
+          {
+            businessDomainId: "commerce",
+            candidates: [
+              {
+                kind: "node",
+                duplicate: false,
+                origins: [
+                  {
+                    taskObservationId: "task-observation-reconcile-cli",
+                    disposition: "confirmed",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
       },
     });
   });
@@ -69,12 +71,10 @@ describe("semantic-atlas reconcile candidates", () => {
     const fixture = await createFixture();
     const missingRepository = path.join(fixture.repositoryRoot, "missing");
 
-    const result = await runCli([
-      "reconcile",
-      "candidates",
-      "--repo",
-      missingRepository,
-    ], fixture.runtime);
+    const result = await runCli(
+      ["reconcile", "candidates", "--repo", missingRepository],
+      fixture.runtime,
+    );
 
     expect(result.exitCode).toBe(1);
     expect(JSON.parse(result.stdout)).toMatchObject({
@@ -87,13 +87,11 @@ describe("semantic-atlas reconcile candidates", () => {
 
   it("rejects obsolete task evidence instead of silently summarizing it", async () => {
     const fixture = await createFixture();
-    const repository = (await new RepositoryIdentityResolver().resolve(
-      fixture.repositoryRoot,
-    )).identity;
-    const legacyFixture = JSON.parse(await readFile(
-      path.join(fixtureRoot, "observations/task-observation-v1.json"),
-      "utf8",
-    )) as Record<string, unknown>;
+    const repository = (await new RepositoryIdentityResolver().resolve(fixture.repositoryRoot))
+      .identity;
+    const legacyFixture = JSON.parse(
+      await readFile(path.join(fixtureRoot, "observations/task-observation-v1.json"), "utf8"),
+    ) as Record<string, unknown>;
     const legacyObservation = {
       ...legacyFixture,
       repository,
@@ -108,18 +106,14 @@ describe("semantic-atlas reconcile candidates", () => {
     const storedDocument = `${JSON.stringify(legacyObservation, null, 2)}\n`;
     await mkdir(taskDirectory, { recursive: true });
     await writeFile(observationPath, storedDocument, "utf8");
-    const reconciliation = await runCli([
-      "reconcile",
-      "candidates",
-      "--repo",
-      fixture.repositoryRoot,
-    ], fixture.runtime);
-    const insights = await runCli([
-      "insights",
-      "summary",
-      "--repo",
-      fixture.repositoryRoot,
-    ], fixture.runtime);
+    const reconciliation = await runCli(
+      ["reconcile", "candidates", "--repo", fixture.repositoryRoot],
+      fixture.runtime,
+    );
+    const insights = await runCli(
+      ["insights", "summary", "--repo", fixture.repositoryRoot],
+      fixture.runtime,
+    );
 
     expect(reconciliation.exitCode).toBe(1);
     expect(JSON.parse(reconciliation.stdout)).toMatchObject({
@@ -160,18 +154,22 @@ function taskObservation(): TaskObservationInput {
     task: { taskId: "task-reconcile-cli", runId: "run-reconcile-cli" },
     map: {
       queries: [{ selector: "Refund eligibility", outcome: "concept_not_found" }],
-      dispositions: [{
-        status: "missing",
-        summary: "The map is missing a durable refund eligibility operation.",
-        evidence: [{ kind: "source", reference: "src/refunds.ts" }],
-      }],
+      dispositions: [
+        {
+          status: "missing",
+          summary: "The map is missing a durable refund eligibility operation.",
+          evidence: [{ kind: "source", reference: "src/refunds.ts" }],
+        },
+      ],
     },
-    mapUpdateCandidates: [{
-      businessDomainId: "commerce",
-      kind: "node",
-      disposition: "confirmed",
-      summary: "Add refund eligibility as a durable Commerce operation.",
-      evidence: [{ kind: "source", reference: "src/refunds.ts" }],
-    }],
+    mapUpdateCandidates: [
+      {
+        businessDomainId: "commerce",
+        kind: "node",
+        disposition: "confirmed",
+        summary: "Add refund eligibility as a durable Commerce operation.",
+        evidence: [{ kind: "source", reference: "src/refunds.ts" }],
+      },
+    ],
   };
 }

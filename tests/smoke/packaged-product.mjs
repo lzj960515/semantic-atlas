@@ -21,27 +21,16 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const packageRoot = fileURLToPath(new URL("../../", import.meta.url));
-const packageIdentity = JSON.parse(
-  await readFile(path.join(packageRoot, "package.json"), "utf8"),
-);
+const packageIdentity = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
 const sandbox = await mkdtemp(path.join(os.tmpdir(), "semantic-atlas-package-"));
 const archiveDirectory = path.join(sandbox, "archive");
 const consumerDirectory = path.join(sandbox, "consumer");
 const repositoryRoot = path.join(sandbox, "repository");
 const userHome = path.join(sandbox, "home");
 const renderedOutputPath = path.join(sandbox, "business-map.html");
-const installedPackageRoot = path.join(
-  consumerDirectory,
-  "node_modules",
-  packageIdentity.name,
-);
+const installedPackageRoot = path.join(consumerDirectory, "node_modules", packageIdentity.name);
 const installedCli = path.join(installedPackageRoot, "dist", "cli", "bin.js");
-const managedSkillDirectory = path.join(
-  userHome,
-  ".agents",
-  "skills",
-  "semantic-atlas",
-);
+const managedSkillDirectory = path.join(userHome, ".agents", "skills", "semantic-atlas");
 const maintenanceSkillDirectory = path.join(
   userHome,
   ".agents",
@@ -71,15 +60,13 @@ try {
 
 async function packProduct(directory) {
   run("pnpm", ["pack", "--pack-destination", directory], packageRoot);
-  const archiveName = (await readdir(directory))
-    .find((name) => name.endsWith(".tgz"));
+  const archiveName = (await readdir(directory)).find((name) => name.endsWith(".tgz"));
   assert.ok(archiveName, "pnpm pack did not create an archive");
   return path.join(directory, archiveName);
 }
 
 async function assertPublicArchive(archivePath) {
-  const entries = run("tar", ["-tzf", archivePath], packageRoot)
-    .stdout.trim().split("\n");
+  const entries = run("tar", ["-tzf", archivePath], packageRoot).stdout.trim().split("\n");
   const requiredEntries = [
     "package/.agents/skills/semantic-atlas/SKILL.md",
     "package/.agents/skills/semantic-atlas/agents/openai.yaml",
@@ -128,12 +115,7 @@ async function installPackedProduct(archivePath) {
     path.join(consumerDirectory, "package.json"),
     `${JSON.stringify({ name: "semantic-atlas-consumer", private: true }, null, 2)}\n`,
   );
-  run(
-    "pnpm",
-    ["add", "--ignore-scripts", archivePath],
-    consumerDirectory,
-    cliEnvironment,
-  );
+  run("pnpm", ["add", "--ignore-scripts", archivePath], consumerDirectory, cliEnvironment);
 }
 
 async function exerciseInstalledProduct() {
@@ -161,9 +143,8 @@ async function exerciseInstalledProduct() {
     true,
   );
   assert.equal(
-    publicModule.reviewObservationInputSchema.safeParse(
-      reviewObservation("public-schema-task"),
-    ).success,
+    publicModule.reviewObservationInputSchema.safeParse(reviewObservation("public-schema-task"))
+      .success,
     true,
   );
 
@@ -187,12 +168,7 @@ async function exerciseInstalledProduct() {
     },
   });
 
-  const context = runInstalledCli([
-    "context",
-    "Checkout",
-    "--repo",
-    repositoryRoot,
-  ]);
+  const context = runInstalledCli(["context", "Checkout", "--repo", repositoryRoot]);
   assert.equal(context.stderr, "");
   const contextData = JSON.parse(context.stdout).data;
   assert.equal(contextData.selected.id, "commerce.orders.place-order");
@@ -224,12 +200,27 @@ async function exerciseInstalledProduct() {
   assert.doesNotMatch(projection, /class="node-card__anchor/u);
 
   const chineseEnvironment = { ...cliEnvironment, SEMANTIC_ATLAS_LANG: "", LC_ALL: "zh_CN.UTF-8" };
-  const chineseHelp = run(process.execPath, [installedCli, "--help"], consumerDirectory, chineseEnvironment);
+  const chineseHelp = run(
+    process.execPath,
+    [installedCli, "--help"],
+    consumerDirectory,
+    chineseEnvironment,
+  );
   assert.match(chineseHelp.stdout, /用法/u);
-  const chineseContext = run(process.execPath, [installedCli, "context", "Checkout", "--repo", repositoryRoot], consumerDirectory, chineseEnvironment);
+  const chineseContext = run(
+    process.execPath,
+    [installedCli, "context", "Checkout", "--repo", repositoryRoot],
+    consumerDirectory,
+    chineseEnvironment,
+  );
   assert.deepEqual(JSON.parse(chineseContext.stdout), JSON.parse(context.stdout));
   const chineseOutputPath = path.join(sandbox, "business-map.zh-CN.html");
-  run(process.execPath, [installedCli, "render", "--repo", repositoryRoot, "--output", chineseOutputPath], consumerDirectory, chineseEnvironment);
+  run(
+    process.execPath,
+    [installedCli, "render", "--repo", repositoryRoot, "--output", chineseOutputPath],
+    consumerDirectory,
+    chineseEnvironment,
+  );
   const chineseProjection = await readFile(chineseOutputPath, "utf8");
   assert.equal(chineseProjection, projection, "HTML must not inherit the terminal locale");
   assert.match(chineseProjection, /<html lang="en">/u);
@@ -237,17 +228,12 @@ async function exerciseInstalledProduct() {
   assert.match(chineseProjection, /i18next/u);
   assert.doesNotMatch(chineseProjection, /<script[^>]+src=/u);
 
-  const firstRegistration = JSON.parse(runInstalledCli(
-    ["project", "add"],
-    repositoryRoot,
-  ).stdout);
+  const firstRegistration = JSON.parse(runInstalledCli(["project", "add"], repositoryRoot).stdout);
   assert.equal(firstRegistration.command, "project add");
   assert.equal(firstRegistration.data.outcome, "added");
-  const repeatedRegistration = JSON.parse(runInstalledCli([
-    "project",
-    "add",
-    repositoryRoot,
-  ]).stdout);
+  const repeatedRegistration = JSON.parse(
+    runInstalledCli(["project", "add", repositoryRoot]).stdout,
+  );
   assert.equal(repeatedRegistration.data.outcome, "already_exists");
   assert.deepEqual(
     JSON.parse(await readFile(path.join(userHome, ".semantic-atlas", "projects.json"), "utf8")),
@@ -291,20 +277,21 @@ async function exerciseInstalledProduct() {
   );
 }
 
-async function exerciseInstalledWeb(repositoryArguments, selectedRepositoryRoot, environment = cliEnvironment) {
+async function exerciseInstalledWeb(
+  repositoryArguments,
+  selectedRepositoryRoot,
+  environment = cliEnvironment,
+) {
   const port = await reserveLoopbackPort();
-  const child = spawn(process.execPath, [
-    installedCli,
-    "web",
-    ...repositoryArguments,
-    "--port",
-    String(port),
-    "--no-open",
-  ], {
-    cwd: consumerDirectory,
-    env: environment,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const child = spawn(
+    process.execPath,
+    [installedCli, "web", ...repositoryArguments, "--port", String(port), "--no-open"],
+    {
+      cwd: consumerDirectory,
+      env: environment,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
   let stdout = "";
   let stderr = "";
   child.stdout.setEncoding("utf8");
@@ -317,7 +304,11 @@ async function exerciseInstalledWeb(repositoryArguments, selectedRepositoryRoot,
   });
 
   try {
-    const envelope = await waitForWebEnvelope(() => stdout, () => stderr, child);
+    const envelope = await waitForWebEnvelope(
+      () => stdout,
+      () => stderr,
+      child,
+    );
     assert.deepEqual(envelope, {
       schemaVersion: 1,
       ok: true,
@@ -330,8 +321,8 @@ async function exerciseInstalledWeb(repositoryArguments, selectedRepositoryRoot,
     const page = await fetch(envelope.data.url);
     const html = await page.text();
     const model = JSON.parse(
-      /<script id="viewer-model" type="application\/json">([^<]+)<\/script>/u.exec(html)?.[1]
-        ?? "{}",
+      /<script id="viewer-model" type="application\/json">([^<]+)<\/script>/u.exec(html)?.[1] ??
+        "{}",
     );
     assert.equal(page.status, 200);
     if (environment.LC_ALL === "zh_CN.UTF-8") {
@@ -350,19 +341,28 @@ async function exerciseInstalledWeb(repositoryArguments, selectedRepositoryRoot,
     const projectEnvelope = await project.json();
     assert.equal(project.status, 200);
     if (environment.LC_ALL === "zh_CN.UTF-8") {
-      assert.match(projectEnvelope.data.markup, />domain<\/p>/u);
+      assert.match(
+        projectEnvelope.data.markup,
+        /data-i18n="viewer\.nodeKinds\.domain">domain<\/span>/u,
+      );
     }
     assert.equal(project.headers.get("cache-control"), "no-store");
     assert.match(projectEnvelope.data.markup, /data-map-view="commerce"/u);
-    assert.match(projectEnvelope.data.markup, /data-flow-view="commerce\.orders\.place-order-flow"/u);
+    assert.match(
+      projectEnvelope.data.markup,
+      /data-flow-view="commerce\.orders\.place-order-flow"/u,
+    );
     assert.match(projectEnvelope.data.markup, /preserveAspectRatio="xMidYMid meet"/u);
-    assert.equal(projectEnvelope.data.project.views[0].nodes.some((node) =>
-      node.anchors.some((anchor) => anchor.value === "src/catalog")
-    ), true);
-    assert.doesNotMatch(JSON.stringify(projectEnvelope), new RegExp(
-      escapeRegularExpression(selectedRepositoryRoot),
-      "u",
-    ));
+    assert.equal(
+      projectEnvelope.data.project.views[0].nodes.some((node) =>
+        node.anchors.some((anchor) => anchor.value === "src/catalog"),
+      ),
+      true,
+    );
+    assert.doesNotMatch(
+      JSON.stringify(projectEnvelope),
+      new RegExp(escapeRegularExpression(selectedRepositoryRoot), "u"),
+    );
 
     const mutation = await fetch(envelope.data.url, { method: "POST" });
     assert.equal(mutation.status, 405);
@@ -370,7 +370,10 @@ async function exerciseInstalledWeb(repositoryArguments, selectedRepositoryRoot,
   } finally {
     child.kill("SIGTERM");
     await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("installed Web server did not stop")), 5_000);
+      const timeout = setTimeout(
+        () => reject(new Error("installed Web server did not stop")),
+        5_000,
+      );
       child.once("close", () => {
         clearTimeout(timeout);
         resolve();
@@ -405,7 +408,7 @@ async function reserveLoopbackPort() {
   assert.ok(address && typeof address !== "string");
   const port = address.port;
   await new Promise((resolve, reject) => {
-    server.close((error) => error ? reject(error) : resolve());
+    server.close((error) => (error ? reject(error) : resolve()));
   });
   return port;
 }
@@ -419,17 +422,16 @@ async function exerciseInstalledObservations() {
   run("git", ["worktree", "add", "--detach", observationWorktree, "HEAD"], repositoryRoot);
 
   const concurrentInputs = Array.from({ length: 12 }, (_, index) =>
-    taskObservation(`installed-task-${index}`, `engineering-task-${index}`)
+    taskObservation(`installed-task-${index}`, `engineering-task-${index}`),
   );
-  const concurrentResults = await Promise.all(concurrentInputs.map((input) =>
-    runInstalledCliAsync([
-      "observe",
-      "task",
-      "--stdin",
-      "--repo",
-      repositoryRoot,
-    ], JSON.stringify(input))
-  ));
+  const concurrentResults = await Promise.all(
+    concurrentInputs.map((input) =>
+      runInstalledCliAsync(
+        ["observe", "task", "--stdin", "--repo", repositoryRoot],
+        JSON.stringify(input),
+      ),
+    ),
+  );
   for (const result of concurrentResults) {
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.equal(JSON.parse(result.stdout).data.outcome, "recorded");
@@ -445,15 +447,14 @@ async function exerciseInstalledObservations() {
   const [repositoryPartition] = await readdir(observationRoot);
   assert.ok(repositoryPartition, "installed observation repository partition is missing");
   const replayInput = taskObservation("installed-shared-task", "shared-task");
-  const replayResults = await Promise.all(Array.from({ length: 6 }, () =>
-    runInstalledCliAsync([
-      "observe",
-      "task",
-      "--stdin",
-      "--repo",
-      repositoryRoot,
-    ], JSON.stringify(replayInput))
-  ));
+  const replayResults = await Promise.all(
+    Array.from({ length: 6 }, () =>
+      runInstalledCliAsync(
+        ["observe", "task", "--stdin", "--repo", repositoryRoot],
+        JSON.stringify(replayInput),
+      ),
+    ),
+  );
   assert.equal(
     replayResults.filter(({ stdout }) => JSON.parse(stdout).data.outcome === "recorded").length,
     1,
@@ -463,48 +464,36 @@ async function exerciseInstalledObservations() {
     5,
   );
 
-  const conflictingReplay = runInstalledCliWithInput([
-    "observe",
-    "task",
-    "--stdin",
-    "--repo",
-    repositoryRoot,
-  ], JSON.stringify({
-    ...replayInput,
-    humanCorrection: {
-      summary: "A person corrected the business boundary.",
-      dimensions: ["business_boundary"],
-    },
-  }));
+  const conflictingReplay = runInstalledCliWithInput(
+    ["observe", "task", "--stdin", "--repo", repositoryRoot],
+    JSON.stringify({
+      ...replayInput,
+      humanCorrection: {
+        summary: "A person corrected the business boundary.",
+        dimensions: ["business_boundary"],
+      },
+    }),
+  );
   assert.equal(conflictingReplay.status, 1);
   assert.equal(JSON.parse(conflictingReplay.stdout).error.code, "OBSERVATION_CONFLICT");
 
-  const malformed = runInstalledCliWithInput([
-    "observe",
-    "task",
-    "--stdin",
-    "--repo",
-    repositoryRoot,
-  ], "{ incomplete");
+  const malformed = runInstalledCliWithInput(
+    ["observe", "task", "--stdin", "--repo", repositoryRoot],
+    "{ incomplete",
+  );
   assert.equal(malformed.status, 1);
   assert.equal(JSON.parse(malformed.stdout).error.code, "OBSERVATION_INPUT_INVALID");
 
   const review = reviewObservation("installed-task-0");
-  const reviewResult = runInstalledCliWithInput([
-    "observe",
-    "review",
-    "--stdin",
-    "--repo",
-    observationWorktree,
-  ], JSON.stringify(review));
+  const reviewResult = runInstalledCliWithInput(
+    ["observe", "review", "--stdin", "--repo", observationWorktree],
+    JSON.stringify(review),
+  );
   assert.equal(reviewResult.status, 0, reviewResult.stderr || reviewResult.stdout);
 
-  const summary = JSON.parse(runInstalledCli([
-    "insights",
-    "summary",
-    "--repo",
-    repositoryRoot,
-  ]).stdout);
+  const summary = JSON.parse(
+    runInstalledCli(["insights", "summary", "--repo", repositoryRoot]).stdout,
+  );
   assert.deepEqual(summary.data.summary, {
     taskObservations: 13,
     reviewObservations: 1,
@@ -518,12 +507,9 @@ async function exerciseInstalledObservations() {
     recoveries: { stale: 1, missing: 0, contradicted: 0 },
   });
 
-  const candidates = JSON.parse(runInstalledCli([
-    "reconcile",
-    "candidates",
-    "--repo",
-    observationWorktree,
-  ]).stdout);
+  const candidates = JSON.parse(
+    runInstalledCli(["reconcile", "candidates", "--repo", observationWorktree]).stdout,
+  );
   assert.equal(candidates.schemaVersion, 1);
   assert.equal(candidates.command, "reconcile candidates");
   assert.deepEqual(candidates.data.summary, {
@@ -538,28 +524,18 @@ async function exerciseInstalledObservations() {
     candidates.data.domains[0].candidates[0].origins[0].reviews[0].review.verdict,
     "approved",
   );
-  const required = JSON.parse(runInstalledCli([
-    "reconcile",
-    "status",
-    "--repo",
-    observationWorktree,
-  ]).stdout);
+  const required = JSON.parse(
+    runInstalledCli(["reconcile", "status", "--repo", observationWorktree]).stdout,
+  );
   assert.equal(required.command, "reconcile status");
   assert.deepEqual(required.data, { required: true });
 
   const maintenance = maintenanceObservation("installed-task-0");
-  const maintenanceResult = runInstalledCliWithInput([
-    "observe",
-    "maintenance",
-    "--stdin",
-    "--repo",
-    observationWorktree,
-  ], JSON.stringify(maintenance));
-  assert.equal(
-    maintenanceResult.status,
-    0,
-    maintenanceResult.stderr || maintenanceResult.stdout,
+  const maintenanceResult = runInstalledCliWithInput(
+    ["observe", "maintenance", "--stdin", "--repo", observationWorktree],
+    JSON.stringify(maintenance),
   );
+  assert.equal(maintenanceResult.status, 0, maintenanceResult.stderr || maintenanceResult.stdout);
   const maintenanceReceipt = JSON.parse(maintenanceResult.stdout).data;
   assert.equal(maintenanceReceipt.outcome, "recorded");
   assert.equal(maintenanceReceipt.kind, "maintenance");
@@ -569,12 +545,9 @@ async function exerciseInstalledObservations() {
     true,
   );
 
-  const reconciled = JSON.parse(runInstalledCli([
-    "reconcile",
-    "candidates",
-    "--repo",
-    observationWorktree,
-  ]).stdout);
+  const reconciled = JSON.parse(
+    runInstalledCli(["reconcile", "candidates", "--repo", observationWorktree]).stdout,
+  );
   assert.deepEqual(reconciled.data.summary, {
     businessDomains: 0,
     candidateGroups: 0,
@@ -583,17 +556,13 @@ async function exerciseInstalledObservations() {
     waitingForEvidenceOccurrences: 0,
   });
   assert.deepEqual(reconciled.data.domains, []);
-  const current = JSON.parse(runInstalledCli([
-    "reconcile",
-    "status",
-    "--repo",
-    observationWorktree,
-  ]).stdout);
+  const current = JSON.parse(
+    runInstalledCli(["reconcile", "status", "--repo", observationWorktree]).stdout,
+  );
   assert.deepEqual(current.data, { required: false });
 
   const observationEntries = await readdir(observationRoot, { recursive: true });
-  const observationFiles = observationEntries
-    .filter((entry) => entry.endsWith(".json"));
+  const observationFiles = observationEntries.filter((entry) => entry.endsWith(".json"));
   assert.equal(observationFiles.length, 15);
   assert.equal(
     observationEntries.some((entry) => entry.endsWith(".tmp") || entry.endsWith(".lock")),
@@ -614,26 +583,33 @@ function taskObservation(id, taskId) {
     recordedAt: "2026-08-27T04:00:00.000Z",
     task: { taskId, runId: `${taskId}-run` },
     map: {
-      queries: [{
-        selector: "Checkout",
-        outcome: "context",
-        selectedConceptIds: ["commerce.orders.place-order"],
-      }],
-      dispositions: [{
-        status: "stale",
-        summary: "Current source confirmed the operation at a replacement anchor.",
-        evidence: [{ kind: "source", reference: "src/orders/place-order.ts" }],
-      }],
-    },
-    mapUpdateCandidates: id === "installed-task-0"
-      ? [{
-          businessDomainId: "commerce",
-          kind: "anchor",
-          disposition: "confirmed",
-          summary: "Replace the stale checkout source anchor.",
+      queries: [
+        {
+          selector: "Checkout",
+          outcome: "context",
+          selectedConceptIds: ["commerce.orders.place-order"],
+        },
+      ],
+      dispositions: [
+        {
+          status: "stale",
+          summary: "Current source confirmed the operation at a replacement anchor.",
           evidence: [{ kind: "source", reference: "src/orders/place-order.ts" }],
-        }]
-      : [],
+        },
+      ],
+    },
+    mapUpdateCandidates:
+      id === "installed-task-0"
+        ? [
+            {
+              businessDomainId: "commerce",
+              kind: "anchor",
+              disposition: "confirmed",
+              summary: "Replace the stale checkout source anchor.",
+              evidence: [{ kind: "source", reference: "src/orders/place-order.ts" }],
+            },
+          ]
+        : [],
   };
 }
 
@@ -666,12 +642,14 @@ function maintenanceObservation(taskObservationId) {
       runId: "installed-maintenance-run",
     },
     businessDomainId: "commerce",
-    results: [{
-      candidate: { taskObservationId, candidateIndex: 0 },
-      status: "discarded",
-      reason: "Current evidence shows this anchor is an implementation detail.",
-      evidence: [{ kind: "source", reference: "src/orders/place-order.ts" }],
-    }],
+    results: [
+      {
+        candidate: { taskObservationId, candidateIndex: 0 },
+        status: "discarded",
+        reason: "Current evidence shows this anchor is an implementation detail.",
+        evidence: [{ kind: "source", reference: "src/orders/place-order.ts" }],
+      },
+    ],
   };
 }
 
@@ -703,10 +681,7 @@ async function exerciseManagedSkillLifecycle() {
   assert.match(maintenanceSetup.identity.fingerprint, /^[a-f0-9]{64}$/u);
 
   const marker = JSON.parse(
-    await readFile(
-      path.join(managedSkillDirectory, ".semantic-atlas-managed.json"),
-      "utf8",
-    ),
+    await readFile(path.join(managedSkillDirectory, ".semantic-atlas-managed.json"), "utf8"),
   );
   assert.deepEqual(marker, {
     schemaVersion: 1,
@@ -718,10 +693,7 @@ async function exerciseManagedSkillLifecycle() {
   });
 
   const maintenanceMarker = JSON.parse(
-    await readFile(
-      path.join(maintenanceSkillDirectory, ".semantic-atlas-managed.json"),
-      "utf8",
-    ),
+    await readFile(path.join(maintenanceSkillDirectory, ".semantic-atlas-managed.json"), "utf8"),
   );
   assert.equal(maintenanceMarker.skillName, "semantic-atlas-maintenance");
   assert.equal(maintenanceMarker.packageVersion, packageIdentity.version);
@@ -736,10 +708,7 @@ async function exerciseManagedSkillLifecycle() {
   await appendFile(installedSkillDocument, "\nmodified managed copy\n");
   const repairedSetup = JSON.parse(runInstalledCli(["setup"]).stdout);
   assert.equal(setupSkill(repairedSetup, "semantic-atlas").outcome, "current");
-  assert.equal(
-    setupSkill(repairedSetup, "semantic-atlas-maintenance").outcome,
-    "repaired",
-  );
+  assert.equal(setupSkill(repairedSetup, "semantic-atlas-maintenance").outcome, "repaired");
   assert.equal(
     await readFile(installedSkillDocument, "utf8"),
     await readFile(
@@ -768,11 +737,7 @@ async function exerciseManagedSkillLifecycle() {
   await assertMissing(backupDirectory);
   await assertMissing(orphanStage);
 
-  const managedAdapter = path.join(
-    managedSkillDirectory,
-    "scripts",
-    "query-context.mjs",
-  );
+  const managedAdapter = path.join(managedSkillDirectory, "scripts", "query-context.mjs");
   const managedContext = run(
     process.execPath,
     [managedAdapter, "Checkout", "--repo", repositoryRoot],
@@ -786,10 +751,7 @@ async function exerciseManagedSkillLifecycle() {
   const misleadingHomeCli = path.join(userHome, "dist", "cli", "bin.js");
   await mkdir(fakeBin, { recursive: true });
   await mkdir(path.dirname(misleadingHomeCli), { recursive: true });
-  await writeFile(
-    fakeCli,
-    "#!/usr/bin/env node\nprocess.stdout.write('0.4.0\\n');\n",
-  );
+  await writeFile(fakeCli, "#!/usr/bin/env node\nprocess.stdout.write('0.4.0\\n');\n");
   await writeFile(
     misleadingHomeCli,
     "process.stdout.write(JSON.stringify({ schemaVersion: 1, ok: true, command: 'context' }) + '\\n');\n",
@@ -943,7 +905,9 @@ function runCommand(command, arguments_, cwd, environment = process.env, input) 
 }
 
 function withoutRegistryCredentials(environment) {
-  return Object.fromEntries(Object.entries(environment).filter(([name]) =>
-    !/(?:AUTH|TOKEN|NPM_CONFIG_USERCONFIG)/iu.test(name)
-  ));
+  return Object.fromEntries(
+    Object.entries(environment).filter(
+      ([name]) => !/(?:AUTH|TOKEN|NPM_CONFIG_USERCONFIG)/iu.test(name),
+    ),
+  );
 }

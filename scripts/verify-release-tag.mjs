@@ -5,7 +5,11 @@ import { readFile } from "node:fs/promises";
 const packageDocument = JSON.parse(await readFile(new URL("../package.json", import.meta.url)));
 const releaseTag = process.env.RELEASE_TAG;
 
-assert.match(releaseTag ?? "", /^v\d+\.\d+\.\d+$/u, "Release tag must be a stable v-prefixed version");
+assert.match(
+  releaseTag ?? "",
+  /^v\d+\.\d+\.\d+$/u,
+  "Release tag must be a stable v-prefixed version",
+);
 assert.equal(releaseTag, `v${packageDocument.version}`, "Release tag must match package version");
 assert.equal(
   runGit(["cat-file", "-t", `refs/tags/${releaseTag}`]),

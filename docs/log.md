@@ -18,6 +18,13 @@
 - Defined locale precedence, English fallback, stable machine-readable values,
   and the independently maintained translation extension point.
 
+- Added bilingual English/Chinese GitHub Issue forms for bug reports and
+  improvement proposals, and a concise bilingual pull request template covering
+  outcomes, related issues, validation, and applicable impact or maintenance
+  follow-up. Issue forms apply the existing `bug` and `enhancement` labels.
+- Added shared Oxlint and Oxfmt development commands and required their read-only
+  checks in release-candidate verification, with code-only formatting scope.
+
 - Prepared `semantic-atlas@2.4.0` with complete-diagram image export.
 - Added complete-diagram PNG export to the shared Web and offline Viewer,
   preserving translated text and full layout independently of the camera.
