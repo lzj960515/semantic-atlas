@@ -162,8 +162,17 @@ tracked business-map copy.
 Owns the compact human inspection surface shared by static export and Web. It
 combines project selection, relationship/flow switching, business-domain or
 flow selection, map statistics, a restrained legend, pan, zoom, and fit-to-view
-around shared SVG geometry and selectable HTML text. Dragging text uses native
-selection and copying; dragging diagram space pans the map. Cards render stable
+around shared SVG geometry and selectable HTML text. Inline text boxes accept
+native selection and copying while card padding and
+blank content space reach the SVG node underneath. Dragging a node updates
+view-local offsets from the measured automatic layout; dragging empty diagram
+space pans the map. `repositionDiagram` moves incident routes and their labels,
+clips endpoints to card or diamond boundaries, and expands the complete image
+bounds. When a drag extends the canvas origin, the camera compensates so the
+node stays under the pointer. Offsets survive text reflow and view switching
+within the current model; reset clears the current view's offsets and fits its
+automatic arrangement. Replacing a Web project model discards that model's
+manual positions. Cards render stable
 business meaning only. Clicking a node or activating it with the keyboard opens its navigation anchors and
 derived related-flow links in an overlaid desktop side panel or narrow-screen
 bottom panel. Selecting a related flow switches to its projected path. Camera
@@ -172,6 +181,13 @@ pointer zoom, pan, and HTML placement, including viewport resizing. A fitted
 camera follows content reflow; an explicitly zoomed or panned camera keeps its
 current view. Its browser interaction state is disposable and never
 enters tracked map data.
+
+`ViewerLegend` supplies one keyboard-accessible, scrollable reading guide in the
+shared toolbar, including narrow screens. Its bilingual examples explain all
+relationship kinds, concept and external-boundary styling, and flow shapes and
+branches. Relationship arrows read from source to target, including consumer to
+interface for `consumes`; dashed containment is displayed as parent contains
+child without an arrow. Flow arrows separately express step progression.
 
 `renderDiagramImage` snapshots the selected diagram after text layout settles,
 resets the snapshot to full layout bounds, and rasterizes its SVG geometry and

@@ -7,6 +7,19 @@
   chooses business boundaries before owning files, preserves shared concept and
   flow ownership, and uses Git review evidence without fabricated candidate
   observations. Added paired multi-business and single-business Agent fixtures.
+- Clarified managed Skill ownership conflicts with bilingual CLI recovery
+  guidance and README inspection steps. Manual migration preserves the complete
+  conflicting directory in a unique backup outside Skill discovery roots, then
+  retries setup; existing ownership protection and installation behavior remain
+  unchanged.
+- Added view-local node dragging and layout reset for relationship and flow
+  diagrams, with connected routes, measured-text reflow, and full PNG bounds.
+- Limited text hit areas to inline content, preserving native copying while
+  allowing card whitespace to drag without a forced text cursor.
+- Added a shared bilingual Viewer legend with relationship examples, explicit
+  containment and consumer direction, concept boundary styles, and flow shapes
+  and branches. The guide remains keyboard-accessible and scrollable on narrow
+  screens in both Web sessions and offline exports.
 
 - Added i18next catalogs for English and Simplified Chinese: the CLI follows
   system locale variables and the shared offline/Web Viewer follows browser

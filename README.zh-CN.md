@@ -51,6 +51,50 @@ semantic-atlas upgrade
 身份，然后让新 CLI 同步两个受管 Skill。因此，可执行程序和 Skill 始终作为
 同一个有版本的产品一起升级。
 
+<a id="skill-conflicts"></a>
+
+### Skill 目录冲突
+
+`MANAGED_SKILL_CONFLICT` 表示现有目录的管理身份无法确认，因此受到保护。
+仅有相同目录名或 `SKILL.md` 不足以证明身份。`setup` 要求可读取的
+`.semantic-atlas-managed.json` 是有效 JSON，并包含 `schemaVersion: 1`、
+`managedBy: "semantic-atlas"`、与目标一致的 `skillName`、非空的
+`packageName` 和 `packageVersion`，以及 64 位小写十六进制 `fingerprint`。
+包名和版本可以属于先前安装；识别管理身份后，setup 才会修复或升级其中的内容。
+标识缺失、不可读、损坏、格式过时或字段不匹配时，目录都会受到保护。
+
+如果 `upgrade` 返回 `UPGRADE_FAILED` 且 `step` 为 `setup`，说明目标 CLI 已通过
+版本验证，但 Skill 同步尚未完成。内层错误的 `directory` 指明冲突位置。
+两个 Skill 按顺序同步，第二个发生冲突时，第一个可能已经完成同步。
+处理报错目录后，使用原来同一套 Node/npm 安装执行 `semantic-atlas setup` 即可
+重试这个阶段，无需为了恢复而再次升级包。
+
+先检查错误中列出的确切目录。下面的 Linux/macOS 示例以工程 Skill 为例；
+如果错误指向维护 Skill 或 `.backup` 目录，请把变量改为错误中的对应路径：
+
+```bash
+skill_dir="$HOME/.agents/skills/semantic-atlas"
+ls -ld "$skill_dir"
+ls -l "$skill_dir/.semantic-atlas-managed.json"
+cat "$skill_dir/.semantic-atlas-managed.json"
+```
+
+对于来源明确的受管安装，可以从该安装的可信备份恢复管理标识，或恢复读取权限，
+再运行 setup。自定义或其他来源的 Skill 继续由其原来的管理者维护。
+如果决定在此位置改用包内 Skill，先把完整冲突目录移到所有 Skill 发现目录之外，
+保留原内容，再安装新的受管副本：
+
+```bash
+backup_root="$(mktemp -d "$HOME/semantic-atlas-skill-backup.XXXXXX")" &&
+  mv -- "$skill_dir" "$backup_root/" &&
+  semantic-atlas setup
+```
+
+独立生成的备份目录可以避免覆盖已有备份。在新 Skill 验证完成、自定义内容
+确认处理完毕之前保留备份。仅在 `~/.agents/skills/` 内重命名旧目录，仍可能被
+Agent 当作 Skill 发现，因此示例把备份放在该目录之外。新的管理标识由 setup
+根据包内内容生成。
+
 ## 添加业务地图
 
 目标仓库只需要维护自己纳入 Git 管理的地图文档：

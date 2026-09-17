@@ -341,7 +341,10 @@ async function exerciseInstalledWeb(
     const projectEnvelope = await project.json();
     assert.equal(project.status, 200);
     if (environment.LC_ALL === "zh_CN.UTF-8") {
-      assert.match(projectEnvelope.data.markup, />domain<\/p>/u);
+      assert.match(
+        projectEnvelope.data.markup,
+        /data-i18n="viewer\.nodeKinds\.domain">domain<\/span>/u,
+      );
     }
     assert.equal(project.headers.get("cache-control"), "no-store");
     assert.match(projectEnvelope.data.markup, /data-map-view="commerce"/u);
@@ -772,16 +775,23 @@ async function exerciseManagedSkillLifecycle() {
   await writeFile(path.join(managedSkillDirectory, "SKILL.md"), unrelatedDocument);
   const conflict = runInstalledCliAllowFailure(["setup"]);
   assert.equal(conflict.status, 1);
-  assert.deepEqual(JSON.parse(conflict.stdout), {
-    schemaVersion: 1,
-    ok: false,
-    command: "setup",
-    error: {
-      code: "MANAGED_SKILL_CONFLICT",
-      message: `Refusing to replace '${managedSkillDirectory}' because it is not a recognized managed Semantic Atlas Skill`,
-      directory: managedSkillDirectory,
+  const conflictEnvelope = JSON.parse(conflict.stdout);
+  const { message: conflictMessage, ...conflictError } = conflictEnvelope.error;
+  assert.deepEqual(
+    { ...conflictEnvelope, error: conflictError },
+    {
+      schemaVersion: 1,
+      ok: false,
+      command: "setup",
+      error: {
+        code: "MANAGED_SKILL_CONFLICT",
+        directory: managedSkillDirectory,
+      },
     },
-  });
+  );
+  assert.match(conflictMessage, /\.semantic-atlas-managed\.json/u);
+  assert.match(conflictMessage, /outside the Skills directory/u);
+  assert.match(conflictMessage, /semantic-atlas setup/u);
   assert.equal(
     await readFile(path.join(managedSkillDirectory, "SKILL.md"), "utf8"),
     unrelatedDocument,

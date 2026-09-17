@@ -46,6 +46,54 @@ verifies the installed CLI identity, and asks the new CLI to synchronize both
 managed Skills. The executable and Skills therefore move as one versioned
 product.
 
+### Skill conflicts
+
+`MANAGED_SKILL_CONFLICT` protects an existing directory whose ownership cannot
+be established. A matching directory name or `SKILL.md` alone is insufficient.
+`setup` requires a readable `.semantic-atlas-managed.json` containing valid JSON
+with `schemaVersion: 1`, `managedBy: "semantic-atlas"`, the matching `skillName`,
+nonempty `packageName` and `packageVersion`, and a 64-character lowercase
+hexadecimal `fingerprint`. The package identity may describe an earlier
+installation; an accepted marker allows setup to repair or upgrade its payload.
+Missing, unreadable, malformed, obsolete, or mismatched markers remain protected.
+
+When `upgrade` reports `UPGRADE_FAILED` with `step: "setup"`, the target CLI has
+already passed version verification, but Skill synchronization is incomplete.
+The nested setup error identifies the conflicting `directory`. The two Skills
+are synchronized in order, so the first may already be current when the second
+conflicts. Resolve the named directory, then retry `semantic-atlas setup` using
+the same Node/npm installation; another package upgrade is not needed for this
+recovery.
+
+Inspect the exact directory named in the error. This Linux/macOS example uses
+the primary Skill; substitute the maintenance or `.backup` path when that is
+the reported conflict:
+
+```bash
+skill_dir="$HOME/.agents/skills/semantic-atlas"
+ls -ld "$skill_dir"
+ls -l "$skill_dir/.semantic-atlas-managed.json"
+cat "$skill_dir/.semantic-atlas-managed.json"
+```
+
+For a known managed installation, restore the marker only from a trusted backup
+of that installation, or restore its read access, then retry setup. Keep custom
+or unrelated Skills under their owner's control. To switch this location to the
+bundled Skill, preserve the complete conflicting directory outside all Skill
+discovery roots before installing a fresh managed copy:
+
+```bash
+backup_root="$(mktemp -d "$HOME/semantic-atlas-skill-backup.XXXXXX")" &&
+  mv -- "$skill_dir" "$backup_root/" &&
+  semantic-atlas setup
+```
+
+The unique backup directory prevents an existing backup from being overwritten.
+Keep it until the new Skills have been verified and any custom work has been
+reviewed. A renamed copy inside `~/.agents/skills/` may still be discovered by
+agents, so this example places the backup outside that directory. Let `setup`
+create the new ownership marker from its bundled payload.
+
 ## Add A Business Map
 
 A target repository owns only its Git-tracked map documents:

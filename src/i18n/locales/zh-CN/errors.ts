@@ -62,7 +62,8 @@ export default {
   projectMapMissing: "此项目尚未配置业务地图。",
   projectMapInvalid: "此项目的业务地图无效。",
   projectPathUnavailable: "已注册的项目路径不可用。",
-  managedSkillConflict: "拒绝替换“{{directory}}”，因为它不是可识别的托管 Semantic Atlas Skill",
+  managedSkillConflict:
+    "拒绝替换“{{directory}}”，因为它不是可识别的托管 Semantic Atlas Skill。识别身份需要可读取且符合当前格式的 .semantic-atlas-managed.json 管理标识。若要改用包内 Skill，请将此目录完整移到 Skills 目录之外的独立备份位置，再运行 semantic-atlas setup。检查与恢复步骤：https://github.com/lzj960515/semantic-atlas/blob/main/README.zh-CN.md#skill-conflicts",
   skillRecoveryLost: "托管 Skill 恢复过程中丢失了“{{targetDirectory}}”",
   skillBackupExists: "托管 Skill 的恢复备份仍存在于“{{backupDirectory}}”",
   skillDocumentMissing: "位于“{{directory}}”的{{description}}没有 SKILL.md",

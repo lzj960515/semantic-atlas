@@ -1,5 +1,10 @@
 import type dagre from "@dagrejs/dagre";
-import type { DiagramLayout, DiagramLayoutSpec, DiagramSize } from "./viewer-layout.js";
+import type {
+  DiagramLayout,
+  DiagramLayoutSpec,
+  DiagramSize,
+  DiagramPoint,
+} from "./viewer-layout.js";
 
 /** 浏览器直接序列化此入口；所有运行时协作都通过参数传入。 */
 export function createDiagramLayoutController(
@@ -9,16 +14,31 @@ export function createDiagramLayoutController(
     spec: DiagramLayoutSpec,
     sizes: Readonly<Record<string, DiagramSize>>,
   ) => DiagramLayout,
-  onLayout: (svg: SVGSVGElement, previousBounds: DiagramSize) => void,
-): { observe(view: HTMLElement, spec: DiagramLayoutSpec): void; disconnect(): void } {
+  onLayout: (svg: SVGSVGElement, previousBounds: DiagramSize, originDelta?: DiagramPoint) => void,
+  reposition: (
+    base: DiagramLayout,
+    spec: DiagramLayoutSpec,
+    offsets: Readonly<Record<string, DiagramPoint>>,
+  ) => DiagramLayout,
+): {
+  observe(view: HTMLElement, spec: DiagramLayoutSpec): void;
+  disconnect(): void;
+  moveNode(id: string, delta: DiagramPoint): void;
+  reset(): void;
+} {
   let observer: ResizeObserver | undefined;
   let frame: number | undefined;
+  const offsetsByView = new WeakMap<HTMLElement, Record<string, DiagramPoint>>();
+  let moveNode = (_id: string, _delta: DiagramPoint): void => {};
+  let reset = (): void => {};
 
   const disconnect = (): void => {
     observer?.disconnect();
     observer = undefined;
     if (frame !== undefined) cancelAnimationFrame(frame);
     frame = undefined;
+    moveNode = () => {};
+    reset = () => {};
   };
 
   const observe = (view: HTMLElement, spec: DiagramLayoutSpec): void => {
@@ -48,6 +68,11 @@ export function createDiagramLayoutController(
     );
     const definitionById = new Map(spec.nodes.map((node) => [node.id, node]));
     let previousMeasurements = "";
+    const offsets = offsetsByView.get(view) ?? {};
+    offsetsByView.set(view, offsets);
+    let automaticLayout: DiagramLayout;
+    let currentLayout: DiagramLayout | undefined;
+    let measuredSpec = spec;
 
     const update = (): void => {
       frame = undefined;
@@ -65,6 +90,12 @@ export function createDiagramLayoutController(
       if (measurements === previousMeasurements) return;
       previousMeasurements = measurements;
       const layout = arrange(dagreApi, { ...spec, edges }, sizes);
+      automaticLayout = layout;
+      measuredSpec = { ...spec, edges };
+      paint(reposition(layout, measuredSpec, offsets), false);
+    };
+
+    const paint = (layout: DiagramLayout, manual: boolean): void => {
       const previousBounds = {
         width: Number(svg.dataset.canvasWidth),
         height: Number(svg.dataset.canvasHeight),
@@ -116,7 +147,23 @@ export function createDiagramLayoutController(
           label.style.top = `${edge.y + layout.offsetY}px`;
         }
       }
-      onLayout(svg, previousBounds);
+      const originDelta =
+        manual && currentLayout
+          ? { x: layout.offsetX - currentLayout.offsetX, y: layout.offsetY - currentLayout.offsetY }
+          : undefined;
+      currentLayout = layout;
+      onLayout(svg, previousBounds, originDelta);
+    };
+
+    moveNode = (id, delta): void => {
+      if (!automaticLayout || !definitionById.has(id)) return;
+      const previous = offsets[id] ?? { x: 0, y: 0 };
+      offsets[id] = { x: previous.x + delta.x, y: previous.y + delta.y };
+      paint(reposition(automaticLayout, measuredSpec, offsets), true);
+    };
+    reset = (): void => {
+      for (const id of Object.keys(offsets)) delete offsets[id];
+      if (automaticLayout) paint(automaticLayout, false);
     };
 
     observer = new ResizeObserver(() => {
@@ -126,5 +173,10 @@ export function createDiagramLayoutController(
     update();
   };
 
-  return { observe, disconnect };
+  return {
+    observe,
+    disconnect,
+    moveNode: (id, delta) => moveNode(id, delta),
+    reset: () => reset(),
+  };
 }

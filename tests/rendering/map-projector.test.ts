@@ -45,15 +45,19 @@ describe("MapProjector", () => {
 
     expect(view.svg).not.toContain("<text");
     expect(flow.svg).not.toContain("<text");
-    expect(view.textLayer).toContain('<h3 class="node-card__title">Orders &amp; returns</h3>');
     expect(view.textLayer).toContain(
-      '<p class="node-card__summary">Keeps orders &lt;reliable&gt;.</p>',
+      '<h3 class="node-card__title"><span data-selectable-text>Orders &amp; returns</span></h3>',
+    );
+    expect(view.textLayer).toContain(
+      '<p class="node-card__summary"><span data-selectable-text>Keeps orders &lt;reliable&gt;.</span></p>',
     );
     expect(view.textLayer).toContain('data-node-id="commerce.orders"');
     expect(view.textLayer).toContain(">contains</span>");
-    expect(flow.textLayer).toContain('<h3 class="flow-step__title">Is payment authorized?</h3>');
     expect(flow.textLayer).toContain(
-      '<p class="flow-step__summary">Only authorized payment may create an order.</p>',
+      '<h3 class="flow-step__title"><span data-selectable-text>Is payment authorized?</span></h3>',
+    );
+    expect(flow.textLayer).toContain(
+      '<p class="flow-step__summary"><span data-selectable-text>Only authorized payment may create an order.</span></p>',
     );
     expect(flow.textLayer).toContain(">authorized</span>");
     expect(flow.textLayer).not.toContain("<svg");

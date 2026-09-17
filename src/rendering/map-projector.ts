@@ -351,9 +351,9 @@ function renderNodeText(node: PositionedNode, offsetX: number, offsetY: number):
   const left = node.x - node.width / 2 + offsetX;
   const top = node.y - node.height / 2 + offsetY;
   return `<div class="diagram-card-text diagram-card-text--relationship" data-node-id="${escapeHtml(node.node.id)}" data-layout-node="${escapeHtml(node.node.id)}" style="left:${formatNumber(left)}px;top:${formatNumber(top)}px;width:${formatNumber(node.width)}px;min-height:${formatNumber(node.height)}px">
-              <p class="node-card__kind" data-i18n="viewer.nodeKinds.${node.node.kind}">${escapeHtml(t(`viewer.nodeKinds.${node.node.kind}`))}</p>
-              <h3 class="node-card__title">${escapeHtml(node.node.name)}</h3>
-              <p class="node-card__summary">${escapeHtml(node.node.summary)}</p>
+              <p class="node-card__kind"><span data-selectable-text data-i18n="viewer.nodeKinds.${node.node.kind}">${escapeHtml(t(`viewer.nodeKinds.${node.node.kind}`))}</span></p>
+              <h3 class="node-card__title"><span data-selectable-text>${escapeHtml(node.node.name)}</span></h3>
+              <p class="node-card__summary"><span data-selectable-text>${escapeHtml(node.node.summary)}</span></p>
             </div>`;
 }
 

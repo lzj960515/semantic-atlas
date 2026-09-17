@@ -43,7 +43,7 @@ describe("Semantic Atlas local Web server", () => {
       projectPayloads: [],
     });
     expect(project).toBeDefined();
-    expect(html).not.toContain("Commerce");
+    expect(html).not.toContain('"name":"Commerce"');
     expect(html).not.toContain('<svg class="map-svg"');
     expect(html).not.toContain(repositoryRoot);
     expect(projectMap).not.toHaveBeenCalled();
