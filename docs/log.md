@@ -2,6 +2,12 @@
 
 ## 2026-09-17
 
+- Clarified managed Skill ownership conflicts with bilingual CLI recovery
+  guidance and README inspection steps. Manual migration preserves the complete
+  conflicting directory in a unique backup outside Skill discovery roots, then
+  retries setup; existing ownership protection and installation behavior remain
+  unchanged.
+
 - Added i18next catalogs for English and Simplified Chinese: the CLI follows
   system locale variables and the shared offline/Web Viewer follows browser
   language preferences through the i18next browser detector.
