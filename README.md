@@ -341,7 +341,8 @@ setting is enabled, a non-prerelease GitHub Release for an annotated version tag
 triggers the protected npm workflow. The workflow verifies the specific Release
 is immutable in a read-only job before any tag checkout or npm credential
 boundary. Only then does the protected publish job repeat the candidate gate
-and publish with npm provenance.
+and publish with npm provenance. A separate read-only job verifies public npm
+visibility within five minutes and can be rerun without publishing again.
 
 ## Documentation
 

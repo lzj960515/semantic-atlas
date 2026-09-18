@@ -14,8 +14,10 @@ tag or Release is created, the repository is configured for immutable releases
 and that setting is read back. The release-published workflow verifies the
 specific Release in a read-only gate before any tag checkout or npm credential
 boundary. A dependent protected job repeats `pnpm release:verify`, checks the
-tag against `package.json`, publishes with npm provenance, and performs public
-read-back.
+tag against `package.json`, and publishes with npm provenance. A separate
+read-only `verify_publication` job then performs anonymous public read-back
+within a five-minute deadline, without npm credentials or the protected
+environment.
 
 ## 1. Confirm Repository Identity
 
@@ -149,8 +151,28 @@ clean.
 - A tag push failure reuses the same verified commit and annotated tag.
 - A GitHub workflow failure is inspected with
   `gh run view "$run_id" --log-failed`; check npm before choosing recovery.
-- A transient workflow failure can rerun against the same immutable Release only
-  while npm confirms that version is absent.
+- A transient failure before successful publication can rerun against the same
+  immutable Release while npm confirms that version is absent.
+- When `publish` succeeded and `verify_publication` failed, inspect its registry
+  diagnostics and rerun only the verification job. Read the numeric job ID from
+  the exact run:
+
+  ```bash
+  gh run view "$run_id" --json jobs
+  verification_job_id="$(gh run view "$run_id" --json jobs \
+    --jq '.jobs[] | select(.name == "verify_publication") | .databaseId')"
+  gh run rerun "$run_id" --job "$verification_job_id"
+  gh run watch "$run_id" --exit-status
+  ```
+
+  If verification is the only failed job, `gh run rerun "$run_id" --failed`
+  also keeps the successful publication intact. Repeat the public read-back
+  after the rerun succeeds.
+- Historical runs retain their original workflow definition. In particular,
+  `v2.5.0` combined publishing and verification in one job. For an already
+  published version from that workflow, perform the public read-back directly
+  and report the original failed run separately; rerunning it would repeat
+  publication. Workflow changes on `main` apply to future releases.
 - A source correction after tag or npm publication uses a new patch version.
 - Existing Git tags, GitHub Releases, and npm versions are preserved and
   reconciled.

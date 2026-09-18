@@ -146,12 +146,39 @@ describe("public release candidate", () => {
           run: "pnpm publish --no-git-checks --access public --provenance",
           env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" },
         }),
-        expect.objectContaining({
-          name: "Verify public package",
-          run: "node scripts/verify-published-package.mjs",
-        }),
       ]),
     );
+  });
+
+  it("verifies publication in an independently rerunnable read-only job", async () => {
+    const workflow = parse(await read(".github/workflows/release.yml")) as Workflow;
+    const publish = workflow.jobs.publish;
+    const verification = workflow.jobs.verify_publication;
+
+    expect(verification).toBeDefined();
+    if (!verification || !publish) throw new Error("Publication jobs are missing");
+    expect(verification.needs).toBe("publish");
+    expect(verification.permissions).toEqual({ contents: "read" });
+    expect(verification.environment).toBeUndefined();
+    expect(verification.steps).toEqual([
+      expect.objectContaining({
+        uses: "actions/checkout@v4",
+        with: expect.objectContaining({
+          ref: "refs/tags/${{ github.event.release.tag_name }}",
+        }),
+      }),
+      {
+        uses: "actions/setup-node@v4",
+        with: { "node-version": 24 },
+      },
+      {
+        name: "Verify public package",
+        run: "node scripts/verify-published-package.mjs",
+        env: { RELEASE_VERSION: "${{ github.event.release.tag_name }}" },
+      },
+    ]);
+    expect(publish.steps.some((step) => step.name === "Verify public package")).toBe(false);
+    expect(JSON.stringify(verification)).not.toMatch(/secrets\.|NODE_AUTH_TOKEN|pnpm|npm publish/u);
   });
 
   it("rejects a mutable or mismatched GitHub Release", () => {

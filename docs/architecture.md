@@ -70,7 +70,10 @@ verified source candidate -> annotated release tag -> published GitHub Release
                                              protected npm environment
                                                       |
                                                       v
-                                        provenance publication + public read-back
+                                             provenance publication
+                                                      |
+                                                      v
+                                      independent read-only public verification
 
 project add [path] -> complete map validation -> user-local ProjectStore
                                                     |
@@ -429,9 +432,16 @@ is available. The gate fails unless the Release tag matches and immutable
 protection is active. A dependent publish job then enters the protected `npm`
 environment, checks out the annotated tag, proves that the tag, commit, and
 stable package version agree, repeats the Release check as defense in depth,
-runs release-candidate verification, and publishes with provenance. Finally, it
-reads the exact version, latest tag, shasum, and integrity back from the public
-registry. The fast-forward `main` push, repository setting changes, tag creation,
+runs release-candidate verification, and publishes with provenance. A separate
+`verify_publication` job depends on successful publication and checks out the
+same exact tag with Node 24 and read-only repository permission. It needs no npm
+credentials, protected environment, or dependency installation. The verifier
+reads the exact version, latest tag, shasum, and integrity from the public
+registry within a five-minute deadline, logging each attempt and bounding npm
+requests by the remaining time. A failed verification can be rerun independently
+without repeating a successful publication; recovery commands live in the
+[release command](../.claude/commands/release.md#failure-semantics).
+The fast-forward `main` push, repository setting changes, tag creation,
 GitHub Release publication, and npm publication remain explicit operations
 rather than local build effects.
 
