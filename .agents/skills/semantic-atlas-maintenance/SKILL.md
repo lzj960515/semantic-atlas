@@ -7,6 +7,8 @@ compatibility: Requires Node.js 24+, Git, the current semantic-atlas CLI, and re
 # Semantic Atlas Maintenance
 
 Create or maintain a source-supported business map through ordinary Git review.
+Design a coherent, sufficiently complete responsibility before choosing its
+map nodes and files; a plausible diagram can still omit or misplace business.
 Current source, tests, tracked product documents, and required runtime evidence
 decide business meaning; retained candidates supply investigation leads.
 
@@ -60,17 +62,19 @@ evidence. For candidate reconciliation, start from the selected origins and
 confirm their current evidence. Apply this sequence when creating the first map,
 adding later business capabilities, correcting meaning, or reconciling drift:
 
-1. Inspect the affected map, tracked product documents, current source and tests.
-   Follow callers and collaborators needed to confirm both endpoints of a
-   relationship. Use runtime evidence when deployed state owns the conclusion.
-   Preserve `MAP_NOT_FOUND` as the result when no map exists.
-2. Identify the affected business responsibilities, owned data and rules,
-   collaborators, and decisive evidence before selecting a YAML file. Independent
-   responsibilities with their own business outcomes and rules get distinct
-   business areas. Source directories and existing filenames are evidence, not
-   the decision about ownership.
+1. Read [references/boundary-design.md](references/boundary-design.md). Establish
+   result promises, owned decisions/state, supported lifecycles and collaborator
+   limits from current source, tests and tracked product documents. Use runtime
+   evidence when deployed state owns the conclusion. Preserve `MAP_NOT_FOUND`
+   when no map exists.
+2. Build a source-to-map coverage account from independently discovered business
+   entries and state/rule owners. Challenge the proposed partition for overly
+   broad areas, fragmented lifecycles, omissions and misplaced concepts using
+   the reference. Record unresolved boundaries and the supported stopping point.
+   Complete this reasoning before choosing YAML files; for a local request,
+   keep the account limited to the requested neighborhood and its contracts.
 3. Reuse an existing domain and owning file when their business meaning matches
-   the change. Give newly identified independent business areas their own
+   the confirmed partition. Give newly identified independent business areas
    meaningful `domain` roots and owning YAML files, including during incremental
    maintenance. Use `capability` and `part_of` for narrower responsibilities within
    an area. A single-business project or local task can still use one file.
@@ -129,8 +133,9 @@ git diff --check
 git diff -- docs/business-map/
 ```
 
-Inspect every changed business area in the Viewer. Confirm that domain
-selection matches the evidenced boundaries, cross-file relationships retain
+Recheck source-to-map coverage against the final partition, including supported
+lifecycle responsibilities missing from the old map. Inspect every changed
+business area in the Viewer. Confirm that domain selection matches the evidenced boundaries, cross-file relationships retain
 external neighboring concepts, and scenario flows preserve their branches,
 outcomes and relationship-to-flow links. Moving YAML alone does not establish
 correct business containment. Check the complete graph together, including
@@ -153,15 +158,17 @@ a candidate-origin observation. A reorganization records its complete Git diff
 and integration state; retained origins stay available for accurate separate
 reconciliation instead of being consumed by a fabricated single-file result.
 
-Report the requested scope, boundaries, evidence, owning files, validation and
-render results, Git candidate, and actual review/integration state. Include
+Report the requested scope, boundaries, source-to-map coverage and unresolved
+ownership, evidence, owning files, validation and render results, Git candidate, and actual review/integration state. Include
 origins, classifications and the observation draft for candidate reconciliation.
 
 ## Review Phase
 
-Use the host workflow's ordinary independent review. Review durable business
-meaning, relation direction, flow branch meaning, evidence support,
-complete-graph validity, and whether the domain/file partition matches the
+Use the host workflow's ordinary independent review. Start from current source
+entry points and the requested outcomes, and challenge ownership and lifecycle
+coverage independently of the map's own node list using the boundary-design
+reference. Review durable business meaning, relation direction, flow branch
+meaning, evidence support, complete-graph validity, and whether the domain/file partition matches the
 requested business scope. For candidate reconciliation, also check exact origin
 coverage, one-domain ownership, and whether discarded or unresolved conclusions
 correctly avoid a map edit.

@@ -29,3 +29,14 @@ The fixture has known business branches so the evaluator can judge completeness;
 no specific flow count is prescribed. Independent review and integration may
 remain pending in the isolated run. Report that boundary rather than inventing
 approval, merged commits, task origins, or maintenance observations.
+
+Case 4 captures a different failure: a map created from a chat journey includes
+only retrieval and puts it under the caller. Current source has note/file intake,
+revision and asynchronous extraction, withdrawal/removal, and multiple consumer
+entries. Grade coverage from these source responsibilities, allowing aggregated
+scenarios and multiple anchors. The local request must also stop at assistant
+and extraction contracts, leaving unrelated subscription/digest behavior alone.
+A map that merely adds more files, enumerates CRUD methods, or claims the remote
+parser as library-owned fails its boundary criteria. Schema validation alone
+cannot evaluate these results. Preserve the valid assistant identities and
+shared retrieval identity during correction.

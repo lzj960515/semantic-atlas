@@ -101,6 +101,14 @@ For a mapless task, the observation query records the bounded outcome:
 
 ## Confirm The Current-Evidence Model
 
+Identify who promises the task's outcome and controls its rules/state, then
+separate that owner from callers, consumers and infrastructure collaborators.
+When ownership or lifecycle coverage is uncertain, read the shared
+[boundary-design reference](../semantic-atlas-maintenance/references/boundary-design.md)
+and apply its source-to-map coverage and cohesion questions to this task only.
+An ordinary engineering task needs a sufficient local model, not a complete
+project partition or a map-authoring artifact.
+
 For every statement that could control the change:
 
 1. Open current source or tests that implement or exercise the behavior.
@@ -185,8 +193,9 @@ Add concepts, relations, and flows only when current evidence supports their
 accuracy. When no relevant flow changed, record no flow candidate.
 
 For every proposed candidate, identify the actual business responsibility from
-its outcomes, owned data/rules and collaborators. Reuse a mapped domain when
-that meaning matches; an independently meaningful new business area receives
+its outcomes, owned data/rules, lifecycle and collaborators using the same
+boundary-design reference when that ownership needs investigation. Reuse a mapped
+domain when that meaning matches; an independently meaningful new business area receives
 its own stable `businessDomainId`, even when another domain already has a YAML.
 Use narrower capabilities for behavior belonging inside an existing area.
 The maintenance Skill rechecks this ownership before choosing files. A required
