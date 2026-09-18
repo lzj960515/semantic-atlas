@@ -292,7 +292,8 @@ pnpm release:verify
 发布是独立操作。仓库启用不可变 Release 后，带 annotated version tag 的正式
 GitHub Release 会触发受保护的 npm 工作流。工作流先在只读任务中确认这个精确
 Release 不可变，然后才允许检出 tag、进入 npm 凭证边界、重新运行候选验收，
-并通过 npm provenance 发布。
+并通过 npm provenance 发布。发布成功后，独立的只读任务会在五分钟内核验 npm
+公共可见性；核验失败时可以单独重跑，无需重复发布。
 
 ## 文档
 
