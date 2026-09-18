@@ -1,0 +1,47 @@
+schemaVersion: 1
+map:
+  id: assistant
+  title: Assistant
+  summary: Answer workspace questions.
+nodes:
+  - id: assistant
+    kind: domain
+    name: Assistant
+    summary: Answer workspace questions.
+    aliases: []
+    anchors:
+      - kind: file
+        value: src/assistant.ts
+        description: Conversation and digest entry points.
+  - id: assistant.answer
+    kind: scenario
+    name: Answer question
+    summary: Answer a workspace member from matching material.
+    aliases: []
+    anchors:
+      - kind: symbol
+        value: answerQuestion
+        description: Current question entry point.
+  - id: knowledge.lookup
+    kind: operation
+    name: Search reference material
+    summary: Search ready material in the member's workspace.
+    aliases: [资料库, reference library]
+    anchors:
+      - kind: file
+        value: src/library.ts
+        description: Material search implementation.
+relations:
+  - from: assistant.answer
+    type: part_of
+    to: assistant
+    summary: Question answering is the assistant's responsibility.
+  - from: knowledge.lookup
+    type: part_of
+    to: assistant
+    summary: The assistant looks up reference material.
+  - from: assistant.answer
+    type: invokes
+    to: knowledge.lookup
+    summary: Answers use matching reference material.
+flows: []

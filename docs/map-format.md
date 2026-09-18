@@ -27,7 +27,11 @@ Every map-writing task chooses ownership from stable business responsibilities,
 owned data/rules, and collaborators. This applies to initial creation, later
 capability additions, drift correction and candidate maintenance. Source
 folders, existing filenames and recorded candidate owners supply evidence;
-current business meaning decides the boundary.
+current business meaning decides the boundary. Before encoding, use the Skills'
+[boundary-design method](../.agents/skills/semantic-atlas-maintenance/references/boundary-design.md)
+to establish cohesive responsibilities, supported lifecycle coverage and
+collaborator limits. That reference owns the judgment method; this page owns
+its representation in the tracked model.
 
 Reuse a domain and owning YAML when their business scope remains correct. Give
 a newly identified independent business area its own meaningful `domain` root

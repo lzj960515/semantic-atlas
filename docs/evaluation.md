@@ -30,7 +30,12 @@ correctness.
 
 The answer identifies the capability, scenario, operation, data, invariant, and
 interface boundaries required by the task. Repository folders or framework
-components do not replace business ownership.
+components do not replace business ownership. Evaluate cohesion, lifecycle
+coverage and external responsibility limits against independently discovered
+source entry points and state/rule owners. A partition fails when it absorbs a
+collaborator, splits one responsibility into technical pieces, omits supported
+business behavior or places it under another owner, even when graph validation
+passes.
 
 ### Root-cause accuracy
 
@@ -126,6 +131,11 @@ order, fulfillment and revenue responsibilities within technical source files;
 the control has three technical directories serving one cancellation business.
 A maintenance case starts from a valid order map and asks for the newly
 implemented delivery behavior to be incorporated.
+A local library correction case starts with retrieval misplaced under its chat
+consumer. Source independently exposes material intake, revision, asynchronous
+extraction, withdrawal and removal, plus unrelated neighboring features. It
+checks complete responsibility coverage, correct external ownership and a
+clean stop at the requested business boundary rather than a node or file count.
 Execution receives only the request and source fixture, while expected results
 remain with the evaluator. Use the bundled understanding and maintenance Skills
 in fresh contexts, with equivalent baseline and candidate environments.

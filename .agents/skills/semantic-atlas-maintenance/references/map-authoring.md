@@ -1,9 +1,10 @@
 # Business Map Authoring
 
-Use this reference when creating or updating map documents. The Skill owns the
-common business-ownership decisions for every edit; this page supplies the
-version 1 authoring shape. The installed package's `docs/map-format.md` defines the complete format,
-and `semantic-atlas validate` checks all documents together.
+Use this reference when encoding a confirmed business partition. The Skill owns
+the workflow; [boundary-design.md](boundary-design.md) supplies boundary judgment.
+This page supplies the version 1 authoring shape. The installed package's
+`docs/map-format.md` defines the complete format, and `semantic-atlas validate`
+checks all documents together.
 
 ## Document And Concept Shape
 

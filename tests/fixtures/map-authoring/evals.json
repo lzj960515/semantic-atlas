@@ -44,6 +44,22 @@
         "All documents validate together; the Viewer has order and fulfillment scopes with relevant external boundary concepts and related flows.",
         "Keeps the change within order/fulfillment evidence, reports real Git review/integration state, and does not invent retained origins or claim a multi-file maintenance observation."
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "资料库这块的业务图感觉不完整，帮我按当前实现整理好，其他功能先不展开。",
+      "fixture": "library-boundary",
+      "sandbox": "workspace-write",
+      "expected_output": "A coherent reference-library map covering its supported material lifecycle and retrieval, with correct assistant/extraction boundaries and a bounded local correction.",
+      "expectations": [
+        "The library owns creating notes and file material, revising material, withdrawal/deletion, and making eligible material available. These form one coherent business responsibility rather than separate CRUD, HTTP, callback or search domains; equivalent API/tool entries may share concepts.",
+        "The retained knowledge.lookup identity moves to the library owner while assistant.answer and assistant keep their valid identities and invocation; ownership is not assigned to the chat caller just because it consumes the material.",
+        "Extraction success/failure and readiness affect material availability. Missing records, mismatched job identifiers and non-processing records ignore callbacks; withdrawn/deleted material is not searchable. These outcomes are intelligible from concepts, rules and relevant flows without a one-method-one-node requirement. Claims about stale callbacks follow the actual job/state checks, including their limits when replacement submission fails and retains the old job identifier.",
+        "The local extraction request/callback is distinguished from externally owned text extraction; assistant question answering remains a collaborator. No external parser implementation or unsupported library product capability is invented.",
+        "Workspace isolation and owner-only modification are represented at the appropriate library boundary with current source evidence.",
+        "The local task stops at its required contracts: subscription renewal and digest/execution internals receive no expanded maps, and application source files remain unchanged. Any necessary assistant map edit preserves its valid identity and responsibility.",
+        "Generated documents validate together, cross-owner relations remain declared with their source nodes, and direct authoring reports real review/integration status without manufactured origins or observations."
+      ]
     }
   ]
 }
