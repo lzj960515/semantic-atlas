@@ -219,6 +219,8 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
   const detailsKind = document.querySelector<HTMLElement>("#node-details-kind");
   const detailsTitle = document.querySelector<HTMLElement>("#node-details-title");
   const detailsSummary = document.querySelector<HTMLElement>("#node-details-summary");
+  const detailsDomain = document.querySelector<HTMLElement>("#node-details-domain");
+  const detailsDomainLink = document.querySelector<HTMLButtonElement>("#node-details-domain-link");
   const detailsFlows = document.querySelector<HTMLElement>("#node-details-flows");
   const detailsFlowList = document.querySelector<HTMLElement>("#node-details-flow-list");
   const detailsAnchors = document.querySelector<HTMLElement>("#node-details-anchors");
@@ -246,6 +248,8 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     !detailsKind ||
     !detailsTitle ||
     !detailsSummary ||
+    !detailsDomain ||
+    !detailsDomainLink ||
     !detailsFlows ||
     !detailsFlowList ||
     !detailsAnchors ||
@@ -482,8 +486,13 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
   };
 
   const openNodeDetails = (nodeElement: SVGGElement, focusDetails = true): void => {
-    const nodeId = nodeElement.dataset.nodeId;
-    const node = currentView()?.nodes.find(({ id }) => id === nodeId);
+    const nodeId = nodeElement.dataset.nodeId ?? nodeElement.dataset.conceptId;
+    const project = currentProject();
+    const sourceView =
+      activeViewType === "relationships"
+        ? currentView()
+        : project?.views.find(({ id }) => id === "all");
+    const node = sourceView?.nodes.find(({ id }) => id === nodeId);
     if (!node) return;
 
     activeNodeElement?.setAttribute("aria-expanded", "false");
@@ -494,12 +503,41 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
       : t(`viewer.nodeKinds.${node.kind}`);
     detailsTitle.textContent = node.name;
     detailsSummary.textContent = node.summary;
-    detailsFlowList.replaceChildren(...node.relatedFlowIds.map(createFlowLink));
-    detailsFlows.hidden = node.relatedFlowIds.length === 0;
+    const owningView = project?.views.find(
+      (view) =>
+        view.id !== "all" &&
+        view.nodes.some((candidate) => candidate.id === node.id && !candidate.boundary),
+    );
+    const canOpenDomain =
+      owningView && (activeViewType === "flows" || owningView.id !== activeViewId);
+    detailsDomain.hidden = !canOpenDomain;
+    detailsDomainLink.onclick = null;
+    if (canOpenDomain) {
+      detailsDomainLink.textContent = t("viewer.openBusinessDomain", { name: owningView.name });
+      detailsDomainLink.onclick = () => activateConceptDomain(owningView.id, node.id);
+    }
+    const relatedFlowIds = node.relatedFlowIds.filter(
+      (flowId) => activeViewType !== "flows" || flowId !== activeFlowId,
+    );
+    detailsFlowList.replaceChildren(...relatedFlowIds.map(createFlowLink));
+    detailsFlows.hidden = relatedFlowIds.length === 0;
     detailsAnchorList.replaceChildren(...node.anchors.map(createAnchorElement));
     detailsAnchors.hidden = node.anchors.length === 0;
     nodeDetails.hidden = false;
     if (focusDetails) detailsClose.focus({ preventScroll: true });
+  };
+
+  const activateConceptDomain = (domainId: string, nodeId: string): void => {
+    closeNodeDetails();
+    activeViewType = "relationships";
+    activeViewId = domainId;
+    populateDomains();
+    activateView();
+    fit();
+    const target = Array.from(activeSvg()?.querySelectorAll<SVGGElement>(".node-card") ?? []).find(
+      (element) => element.dataset.nodeId === nodeId,
+    );
+    if (target) openNodeDetails(target);
   };
 
   const populateDomains = (): void => {
@@ -846,12 +884,12 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     if (document.getSelection()?.isCollapsed === false) return;
     const text =
       event.target instanceof Element
-        ? event.target.closest<HTMLElement>(".diagram-card-text[data-node-id]")
+        ? event.target.closest<HTMLElement>(".diagram-card-text[data-layout-node]")
         : null;
     if (!text) return;
     const nodeElement = Array.from(
-      activeSvg()?.querySelectorAll<SVGGElement>(".node-card") ?? [],
-    ).find((node) => node.dataset.nodeId === text.dataset.nodeId);
+      activeSvg()?.querySelectorAll<SVGGElement>(".node-card, .flow-step") ?? [],
+    ).find((node) => node.dataset.layoutNode === text.dataset.layoutNode);
     if (nodeElement) openNodeDetails(nodeElement, false);
   });
   viewport.addEventListener("keydown", (event) => {

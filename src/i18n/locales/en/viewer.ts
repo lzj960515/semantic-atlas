@@ -62,6 +62,7 @@ export default {
   registerProject: "Run semantic-atlas project add [path], then restart semantic-atlas web.",
   conceptDetails: "Concept details",
   closeDetails: "Close concept details",
+  openBusinessDomain: "Open business domain: {{name}}",
   relatedFlows: "Related business flows",
   navigationAnchors: "Navigation anchors",
   businessMap: "Business map",

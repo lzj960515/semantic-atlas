@@ -192,6 +192,9 @@ function renderViewerShell(
       </header>
       <h2 id="node-details-title" class="node-details__title"></h2>
       <p id="node-details-summary" class="node-details__summary"></p>
+      <section id="node-details-domain" class="node-details__related" hidden>
+        <button id="node-details-domain-link" type="button" class="node-details__flow-link"></button>
+      </section>
       <section id="node-details-flows" class="node-details__related" aria-labelledby="node-details-flows-title" hidden>
         <h3 id="node-details-flows-title" data-i18n="viewer.relatedFlows">${escapeHtml(t("viewer.relatedFlows"))}</h3>
         <div id="node-details-flow-list" class="node-details__flow-list"></div>
@@ -480,6 +483,7 @@ function viewerStyles(): string {
     }
     [data-selectable-text], .diagram-label {
       pointer-events: auto;
+      cursor: text;
       user-select: text;
       -webkit-user-select: text;
     }
@@ -524,6 +528,8 @@ function viewerStyles(): string {
     .edge--containment .edge__path { stroke: var(--containment); stroke-width: 2.2; stroke-dasharray: 9 7; }
     .edge--directed-relation .edge__path { stroke: var(--relation); stroke-width: 2.4; }
     .edge__label { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; }
+    .node-card, .flow-step { cursor: grab; }
+    .map-viewport[data-dragging="true"], .map-viewport[data-dragging="true"] * { cursor: grabbing; }
     .node-card:focus { outline: none; }
     .node-card__surface {
       fill: var(--surface-strong);

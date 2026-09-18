@@ -184,7 +184,7 @@ function renderStep(step: PositionedFlowStep): string {
     step.step.kind === "decision"
       ? `<path class="flow-step__surface" d="M ${formatNumber(step.x)} ${formatNumber(top)} L ${formatNumber(left + step.width)} ${formatNumber(step.y)} L ${formatNumber(step.x)} ${formatNumber(top + step.height)} L ${formatNumber(left)} ${formatNumber(step.y)} Z" />`
       : `<rect class="flow-step__surface" x="${formatNumber(left)}" y="${formatNumber(top)}" width="${formatNumber(step.width)}" height="${formatNumber(step.height)}" rx="${step.step.kind === "outcome" ? "32" : "14"}" />`;
-  return `<g class="flow-step flow-step--${escapeHtml(step.step.kind)}" data-flow-step-id="${escapeHtml(step.step.id)}" data-layout-node="${escapeHtml(step.step.id)}"${step.step.concept ? ` data-concept-id="${escapeHtml(step.step.concept)}"` : ""} role="group" aria-label="${escapeHtml(`${step.step.name}: ${step.step.summary}`)}">
+  return `<g class="flow-step flow-step--${escapeHtml(step.step.kind)}" data-flow-step-id="${escapeHtml(step.step.id)}" data-layout-node="${escapeHtml(step.step.id)}"${step.step.concept ? ` data-concept-id="${escapeHtml(step.step.concept)}" role="button" tabindex="0" aria-controls="node-details" aria-expanded="false"` : ' role="group"'} aria-label="${escapeHtml(`${step.step.name}: ${step.step.summary}`)}">
             <title>${escapeHtml(`${step.step.name}: ${step.step.summary}`)}</title>
             ${surface}
           </g>`;
