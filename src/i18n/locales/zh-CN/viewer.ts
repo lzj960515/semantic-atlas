@@ -58,6 +58,7 @@ export default {
   registerProject: "运行 semantic-atlas project add [path]，然后重新启动 semantic-atlas web。",
   conceptDetails: "概念详情",
   closeDetails: "关闭概念详情",
+  openBusinessDomain: "打开所属业务域：{{name}}",
   relatedFlows: "相关业务流程",
   navigationAnchors: "导航锚点",
   businessMap: "业务地图",

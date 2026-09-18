@@ -131,6 +131,27 @@ describe("MapProjector", () => {
     expect(projection.content).toContain("src/orders");
   });
 
+  it("makes only concept-linked flow steps keyboard-accessible navigation targets", () => {
+    const project = new MapProjector(new BusinessGraph(validatedMap())).viewerProject({
+      id: "repository",
+      name: "Repository",
+    });
+    const svg = project.flows[0]!.svg;
+    const linkedStep = svg.match(
+      /<g class="flow-step[^>]*data-flow-step-id="receive-order"[^>]*>/u,
+    )?.[0];
+    const ordinaryStep = svg.match(
+      /<g class="flow-step[^>]*data-flow-step-id="order-created"[^>]*>/u,
+    )?.[0];
+
+    expect(linkedStep).toContain('data-concept-id="commerce.orders.checkout"');
+    expect(linkedStep).toContain('role="button"');
+    expect(linkedStep).toContain('tabindex="0"');
+    expect(linkedStep).toContain('aria-controls="node-details"');
+    expect(ordinaryStep).toContain('role="group"');
+    expect(ordinaryStep).not.toContain("tabindex");
+  });
+
   it("keeps directly connected external concepts visible in a domain view", () => {
     const graph = new BusinessGraph(crossDomainMap());
 

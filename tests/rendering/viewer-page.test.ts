@@ -54,6 +54,7 @@ describe("ViewerPage", () => {
     expect(html).toContain('id="node-details"');
     expect(html).toContain('aria-label="Close concept details"');
     expect(html).toContain('id="node-details-flows"');
+    expect(html).toContain('id="node-details-domain-link"');
     expect(html).toContain('aria-label="View type"');
   });
 

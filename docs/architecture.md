@@ -176,9 +176,19 @@ node stays under the pointer. Offsets survive text reflow and view switching
 within the current model; reset clears the current view's offsets and fits its
 automatic arrangement. Replacing a Web project model discards that model's
 manual positions. Cards render stable
-business meaning only. Clicking a node or activating it with the keyboard opens its navigation anchors and
+business meaning only. Card surfaces use a grab cursor, selected-text surfaces
+retain the text cursor, and active diagram dragging uses a grabbing cursor.
+Clicking a node or activating it with the keyboard opens its navigation anchors and
 derived related-flow links in an overlaid desktop side panel or narrow-screen
-bottom panel. Selecting a related flow switches to its projected path. Camera
+bottom panel. Flow steps with a concept reference open that concept's same
+panel; steps without a reference remain ordinary flow content. From a boundary
+concept, the complete-map view, or a concept-linked flow step, the panel can open
+the concept's owning business-domain view and select the same concept there.
+The target domain is derived from the existing non-boundary domain projection,
+so cross-file navigation adds no tracked link format or cross-project resolver.
+Related-flow links omit the currently displayed flow in flow view, and the panel
+hides the section when no other related flows remain. Relationship view retains
+all related-flow links. Selecting a related flow switches to its projected path. Camera
 coordinates use the SVG `xMidYMid meet` scale and letterbox offsets for both
 pointer zoom, pan, and HTML placement, including viewport resizing. A fitted
 camera follows content reflow; an explicitly zoomed or panned camera keeps its
