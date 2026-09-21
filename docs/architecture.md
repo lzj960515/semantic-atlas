@@ -20,7 +20,7 @@ MapDocumentLoader -> MapValidator -> BusinessFlowValidator -> BusinessGraph
                                   +---------------------------+-------------------+
                                   |                                               |
                                   v                                               v
-                           ContextQueryService                       MapProjector + FlowProjector
+                    ConceptSearchService + ContextQueryService       MapProjector + FlowProjector
                                   |                                               |
                                   v                                               v
                  relationship + flow JSON                         shared relationship / flow Viewer
@@ -128,6 +128,16 @@ business neighborhood: ancestors, direct children, incoming and outgoing
 relations, referenced concepts, summaries, navigation anchors, and complete
 related flows. It reports ambiguity explicitly rather than selecting a hidden
 match.
+
+### ConceptSearchService
+
+Ranks every normalized business node against one natural-language query and
+returns at most five deterministic candidates. It compares names, aliases,
+stable IDs, and summaries through local lexical similarity, keeps scores within
+`0–1`, and uses stable IDs to break ties. The score expresses relevance within
+that query rather than truth or selection confidence. Candidate retrieval owns
+no graph expansion or source-evidence judgment; callers pass the selected stable
+ID to `ContextQueryService`.
 
 ### MapProjector
 
@@ -306,10 +316,12 @@ source/flow discrepancy before proposing either a code repair or a `flow`
 maintenance candidate. Source editing and engineering judgment remain with the
 calling Agent.
 
-The Skill invokes `context` through a small contract-checking adapter. The
-adapter prefers the CLI distributed with the Skill and accepts a PATH command
-only when it returns the current versioned envelope. This preserves one query
-contract when another installed product uses the same executable name.
+The Skill invokes the public `semantic-atlas search` command, chooses a
+candidate from its business meaning and score ordering, and then invokes the
+public `semantic-atlas context` command with that candidate's stable ID. The
+managed setup and upgrade lifecycle owns package and Skill version identity, so
+the task workflow does not add a second command-resolution or envelope-checking
+adapter.
 
 ### Maintenance Agent Skill
 
@@ -513,6 +525,7 @@ lifecycle commands:
 
 ```text
 semantic-atlas validate [--repo <path>]
+semantic-atlas search <query> [--repo <path>]
 semantic-atlas context <id-or-term> [--repo <path>]
 semantic-atlas render [--repo <path>] [--output <path>]
 semantic-atlas project add [path]
@@ -537,11 +550,17 @@ browser. Observation commands report the derived repository identity, while
 package lifecycle commands remain repository-independent. Machine output uses
 a versioned envelope with a stable success or error discriminant.
 
-`context` returns ambiguity when multiple concepts match the term. Callers can
-then use a stable ID. A missing concept is a bounded map result and routes the
-Agent to a bounded current-evidence business model; it is not a repository
-failure. A successful result includes every flow related through scenario
-containment or direct step concept references.
+`search` returns at most five ranked nodes from every business-node kind. A
+successful empty result means the map has no sufficiently related vocabulary;
+it is not a repository failure. Each candidate includes `rank`, a `0–1`
+query-relative `score`, stable identity, node kind, supplying document, and
+`matchedFields`. Exact ID, name, or alias matches score `1`; ties use stable ID.
+
+`context` returns ambiguity when multiple concepts match a compatibility
+selector. Callers can then use a stable ID. A missing concept is a bounded map
+result and routes the Agent to a bounded current-evidence business model; it is
+not a repository failure. A successful result includes every flow related
+through scenario containment or direct step concept references.
 
 `setup`, `upgrade`, and `--version` do not discover a repository or load a
 business map. Their results expose the package version and managed Skill paths

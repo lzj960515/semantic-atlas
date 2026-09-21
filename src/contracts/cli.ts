@@ -156,6 +156,19 @@ export interface ConceptCandidate {
   readonly documentId: string;
 }
 
+export type ConceptSearchField = "id" | "name" | "alias" | "summary";
+
+export interface ConceptSearchResult extends ConceptCandidate {
+  readonly rank: number;
+  readonly score: number;
+  readonly matchedFields: readonly ConceptSearchField[];
+}
+
+export interface SearchData {
+  readonly query: string;
+  readonly results: readonly ConceptSearchResult[];
+}
+
 export interface ContextRelation {
   readonly type: BusinessRelation["type"];
   readonly summary: string;
@@ -231,6 +244,8 @@ export type ValidateEnvelope =
 export type ContextEnvelope =
   | CliSuccessEnvelope<"context", ContextData>
   | CliErrorEnvelope<"context">;
+
+export type SearchEnvelope = CliSuccessEnvelope<"search", SearchData> | CliErrorEnvelope<"search">;
 
 export type RenderEnvelope = CliSuccessEnvelope<"render", RenderData> | CliErrorEnvelope<"render">;
 

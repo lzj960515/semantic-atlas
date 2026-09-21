@@ -81,14 +81,30 @@ describe("business-understanding Agent Skill", () => {
     expect(packageDocument.files).toContain(".agents");
   });
 
-  it("defines advisory evidence routing for every bounded map outcome", async () => {
+  it("defines advisory evidence routing for every bounded search outcome", async () => {
     const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
 
-    expect(skillDocument).toContain("CONCEPT_NOT_FOUND");
-    expect(skillDocument).toContain("CONCEPT_AMBIGUOUS");
+    expect(skillDocument).toContain("concept_not_found");
+    expect(skillDocument).toContain("concept_ambiguous");
     expect(skillDocument).toContain("MAP_NOT_FOUND");
     expect(skillDocument).toContain("investigation leads");
     expect(skillDocument).toContain("map-update candidate");
+  });
+
+  it("searches ranked concepts before querying one stable business neighborhood", async () => {
+    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
+
+    const searchStep = skillDocument.indexOf('semantic-atlas search "<business-query>"');
+    const contextStep = skillDocument.indexOf('semantic-atlas context "<stable-concept-id>"');
+
+    expect(searchStep).toBeGreaterThan(-1);
+    expect(contextStep).toBeGreaterThan(searchStep);
+    expect(skillDocument).not.toContain("/scripts/");
+    await expect(access(path.join(skillDirectory, "scripts"))).rejects.toThrow();
+    expect(skillDocument).toContain("rank");
+    expect(skillDocument).toContain("score");
+    expect(skillDocument).toContain("stable ID");
+    expect(skillDocument).toContain("Scores express relative relevance within one query");
   });
 
   it("activates from business-changing work with or without an existing map", async () => {
@@ -186,33 +202,47 @@ describe("business-understanding Agent Skill", () => {
         await access(path.join(fixtureRepository, evidencePath));
       }
 
-      const result = await runCli([
-        "context",
+      const searchResult = await runCli([
+        "search",
         evaluationCase.selector,
         "--repo",
         fixtureRepository,
       ]);
-      const envelope = JSON.parse(result.stdout) as Record<string, unknown>;
+      const searchEnvelope = JSON.parse(searchResult.stdout) as {
+        readonly data: { readonly results: readonly { readonly id: string }[] };
+      };
 
       if (evaluationCase.mapExpectation.outcome === "context") {
-        expect(result.exitCode, evaluationCase.id).toBe(0);
-        expect(envelope, evaluationCase.id).toMatchObject({
+        expect(searchResult.exitCode, evaluationCase.id).toBe(0);
+        expect(searchEnvelope.data.results[0], evaluationCase.id).toMatchObject({
+          id: evaluationCase.mapExpectation.selectedId,
+        });
+
+        const contextResult = await runCli([
+          "context",
+          evaluationCase.mapExpectation.selectedId,
+          "--repo",
+          fixtureRepository,
+        ]);
+        const contextEnvelope = JSON.parse(contextResult.stdout) as Record<string, unknown>;
+        expect(contextResult.exitCode, evaluationCase.id).toBe(0);
+        expect(contextEnvelope, evaluationCase.id).toMatchObject({
           ok: true,
           data: {
             selected: { id: evaluationCase.mapExpectation.selectedId },
           },
         });
         await assertExpectedContext(
-          envelope as unknown as ContextEnvelopeView,
+          contextEnvelope as unknown as ContextEnvelopeView,
           evaluationCase.mapExpectation,
           evaluationCase.id,
         );
+      } else if (evaluationCase.mapExpectation.code === "CONCEPT_NOT_FOUND") {
+        expect(searchResult.exitCode, evaluationCase.id).toBe(0);
+        expect(searchEnvelope.data.results, evaluationCase.id).toEqual([]);
       } else {
-        expect(result.exitCode, evaluationCase.id).toBe(1);
-        expect(envelope, evaluationCase.id).toMatchObject({
-          ok: false,
-          error: { code: evaluationCase.mapExpectation.code },
-        });
+        expect(searchResult.exitCode, evaluationCase.id).toBe(0);
+        expect(searchEnvelope.data.results.length, evaluationCase.id).toBeGreaterThan(1);
       }
     }
   });

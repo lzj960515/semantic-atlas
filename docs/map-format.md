@@ -307,22 +307,42 @@ The first version does not require every node to have a parent or horizontal
 relation. Incompleteness is valid advisory knowledge and remains visible to the
 caller.
 
-## Lookup Semantics
+## Ranked Search And Lookup Semantics
 
-A selector resolves in this order:
+`search <query>` compares one natural-language business query with every node,
+including domains, capabilities, scenarios, operations, data, invariants, and
+interfaces. It returns at most five candidates ordered by descending score and
+stable ID for ties. Each candidate contains:
+
+- `rank` within the returned list;
+- a `0–1` score that compares relevance only within the current query;
+- stable ID, name, kind, and supplying document ID;
+- `matchedFields` drawn from `name`, `alias`, `id`, and `summary`.
+
+The deterministic local matcher applies Unicode NFKC and lowercase
+normalization, then combines character-bigram similarity with query-token
+coverage. Names have full weight, followed by aliases, IDs, and summaries.
+Exact ID, name, or alias matches score `1`. Candidates below the retrieval
+threshold are omitted, so no sufficiently related vocabulary produces a
+successful empty result rather than a concept error. Scores are ranking signals,
+not correctness probabilities or map truth scores.
+
+After choosing a candidate, callers use its stable ID with `context` to obtain
+the local business neighborhood. The earlier compatibility selector remains
+available and resolves in this order:
 
 1. exact stable ID;
 2. case-insensitive exact node name;
 3. case-insensitive exact alias;
 4. normalized partial name or alias match.
 
-One match returns a context projection. Multiple matches return ambiguity with
-stable IDs and names. Zero matches returns `CONCEPT_NOT_FOUND` and leaves
-bounded current-evidence business discovery available.
+One compatibility match returns a context projection. Multiple matches return
+ambiguity with stable IDs and names. Zero matches returns `CONCEPT_NOT_FOUND`
+and leaves bounded current-evidence business discovery available.
 
-The initial lookup is deterministic and vocabulary-based. Natural-language
-inference belongs to the calling agent, which can issue another bounded term or
-continue with current source.
+Both paths are deterministic and vocabulary-based. The calling agent owns the
+business choice among ranked candidates and continues with current evidence
+when no candidate is sufficient.
 
 ## Context Projection
 

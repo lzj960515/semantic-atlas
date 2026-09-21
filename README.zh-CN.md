@@ -134,15 +134,19 @@ flows: []
 
 ```bash
 semantic-atlas validate --repo /path/to/repository
-semantic-atlas context "Checkout" --repo /path/to/repository
+semantic-atlas search "订单确认通知" --repo /path/to/repository
+semantic-atlas context "engagement.notifications.send-order-confirmation" --repo /path/to/repository
 semantic-atlas render --repo /path/to/repository --output ./business-map.html
 semantic-atlas project add /path/to/repository
 semantic-atlas web
 ```
 
-`validate` 把所有地图文档作为一张完整图进行检查。`context` 使用带版本的 JSON
-结果返回选中的概念、所属层级、直接输入和输出关系、相关概念、源码导航锚点及
-完整相关流程。`render` 从同一个标准化地图生成确定性的单文件交互 Viewer。
+`validate` 把所有地图文档作为一张完整图进行检查。`search` 根据自然语言查询，
+从所有类型的业务节点中返回最多五个排序结果；每个结果包含查询内的相对相关度、
+稳定 ID、节点类型和命中字段。选定候选后，把稳定 ID 交给 `context`，即可通过
+带版本的 JSON 结果取得该概念的所属层级、直接输入和输出关系、相关概念、源码
+导航锚点及完整相关流程。原有的 `context` 精确和部分选择器继续兼容。`render`
+从同一个标准化地图生成确定性的单文件交互 Viewer。
 顶部工具栏先在“关系”和“流程”之间切换，再选择业务域或场景流程；拖动可以
 平移，鼠标滚轮和按钮可以缩放，`Fit` 会恢复当前完整视图。卡片默认只显示业务
 类型、标题和描述，不会让代码路径挤占地图空间。点击卡片，或聚焦后按 `Enter`，

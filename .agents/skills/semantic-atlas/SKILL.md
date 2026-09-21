@@ -1,7 +1,7 @@
 ---
 name: semantic-atlas
 description: Build source-supported business understanding and make maintenance decisions for business-changing engineering tasks, with or without an existing business map. Use for features, bugs, refactors, reviews, and impact analysis to find or establish business boundaries, collaborators, data, invariants, interfaces, business flows, and source entry points before broad discovery, then decide whether stable shared knowledge needs maintenance.
-compatibility: Requires Node.js 24+, a bundled or PATH-compatible semantic-atlas CLI, and repository source access.
+compatibility: Requires Node.js 24+, the semantic-atlas CLI on PATH, and repository source access.
 ---
 
 # Semantic Atlas
@@ -37,28 +37,39 @@ produces no shared business-knowledge maintenance work.
 
 1. Read the task contract and repository instructions. Resolve the repository
    root and keep all commands in the task's assigned worktree.
-2. Choose one distinctive business term from the user-visible behavior. Prefer
-   an exact business name or stable task vocabulary over a framework, folder,
-   class, or method name.
-3. Before broad source discovery, run the Skill's identity- and
-   contract-checking adapter whether or not map documents are present:
+2. Form one concise business query from the user-visible behavior. Use the
+   user's natural business language rather than guessing an exact map name.
+3. Before broad source discovery, run the public ranked-search command whether
+   or not map documents are present:
 
    ```bash
-   node "<skill-directory>/scripts/query-context.mjs" \
-     "<business-term>" --repo "<absolute-repository-root>"
+   semantic-atlas search "<business-query>" \
+     --repo "<absolute-repository-root>"
+   ```
+4. Read the ordered `data.results`. Every result can represent any mapped node
+   kind and includes its `rank`, `score`, stable ID, name, kind, and matched
+   fields. Scores express relative relevance within one query, not correctness
+   probabilities. Choose the candidate whose business meaning fits the task;
+   use score and the gap between nearby results as ranking evidence rather than
+   as a substitute for task meaning.
+5. Query the chosen candidate's stable ID through the public context command:
+
+   ```bash
+   semantic-atlas context "<stable-concept-id>" \
+     --repo "<absolute-repository-root>"
    ```
 
-   A package-bundled adapter invokes that package's CLI directly. A managed
-   user Skill first requires the PATH CLI version recorded by `setup`, then
-   verifies the v1 `context` envelope. This prevents an older command with the
-   same executable name from being interpreted as the current product.
-
-4. Preserve the selector and bounded outcome for the task observation. When a
-   context is returned, record the selected stable IDs as hypotheses.
+   A clear leading candidate proceeds directly. When nearby candidates express
+   materially different business scopes, compare their names, kinds, and task
+   meaning before choosing. Ask for clarification only when current task
+   evidence cannot distinguish a choice that would change the engineering
+   boundary.
+6. Preserve the original business query, bounded outcome, and selected stable
+   IDs for the task observation.
 
 ## Build The Business Model With Or Without A Map
 
-Route the probe result into one current-evidence investigation:
+Route the search and context result into one current-evidence investigation:
 
 - A successful context result supplies likely business scope and source entry
   points. It can also return related business flows in `context.data.flows`.
@@ -66,12 +77,13 @@ Route the probe result into one current-evidence investigation:
   when an owner, upstream action, downstream consumer, shared data concept,
   invariant, interface, or business-relevant path could change the
   implementation scope.
-- `CONCEPT_AMBIGUOUS` supplies explicit candidates. Compare their stable IDs,
-  names, kinds, and task meaning, then query the matching ID. Use bounded source
-  evidence when current behavior is needed to choose.
-- `CONCEPT_NOT_FOUND` means the repository has a map without this vocabulary.
-  Search current product documents and source using the task term, likely
-  business synonyms, and directly observed collaborators.
+- An empty search result means the repository has a map without sufficiently
+  related vocabulary. Search current product documents and source using the
+  original query, likely business synonyms, and directly observed
+  collaborators.
+- Ranked candidates that remain indistinguishable after task-specific
+  comparison form a bounded ambiguous result. Continue with current evidence
+  when it can identify the owner; otherwise preserve the unresolved choice.
 - `MAP_NOT_FOUND` means the repository has no configured shared business map.
   When the map is absent, build the smallest source-supported business model needed for the task.
   Start from the user-visible outcome, identify only the owning business scope,
@@ -89,6 +101,11 @@ Route the probe result into one current-evidence investigation:
 - A missing or stale anchor weakens only that navigation hint. Use current
   evidence to find the replacement location without discarding unrelated
   stable business meaning.
+
+Record a successful selection as `context` with the original business query
+and selected stable ID. Record an empty result as `concept_not_found`, an
+unresolved candidate choice as `concept_ambiguous`, and an unavailable search
+contract as `unavailable`.
 
 For a mapless task, the observation query records the bounded outcome:
 

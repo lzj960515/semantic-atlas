@@ -48,10 +48,12 @@ uses current evidence and is held to a higher accuracy standard than the map.
 
 ### Coding agent orientation
 
-An agent receives a feature, bug, refactor, or impact question. It queries a
-compact business neighborhood even when no map documents exist. It follows map
-leads when available, otherwise establishes the smallest source-supported
-business boundary, then opens decisive current evidence before editing.
+An agent receives a feature, bug, refactor, or impact question. It first ranks
+mapped concepts from the task's natural business language, selects a stable ID,
+and then queries that concept's compact business neighborhood. This probe still
+runs when no map documents exist. The agent follows map leads when available,
+otherwise establishes the smallest source-supported business boundary, then
+opens decisive current evidence before editing.
 
 ### Root-cause and impact discovery
 
@@ -229,17 +231,21 @@ The initial product delivers one coherent path:
 1. Load tracked map documents from a repository.
 2. Validate document shape and graph integrity.
 3. Normalize the complete map in memory.
-4. Find a business concept by stable ID, name, or alias.
-5. Return its containment, direct business relations, related concepts, and
+4. Rank up to five concepts of any node kind for a natural-language business
+   query, with a deterministic query-relative score and stable IDs.
+5. Select a concept by stable ID, while retaining the existing exact and partial
+   selector behavior for compatibility.
+6. Return its containment, direct business relations, related concepts, and
    navigation anchors as structured JSON, together with complete related
    business flows.
-6. Render deterministic interactive human-readable projections from the same
+7. Render deterministic interactive human-readable projections from the same
    graph as a portable HTML artifact or loopback Web session, with linked
    relationship and flow views.
-7. Package an Agent Skill that activates from business task meaning, routes map
-   context or `MAP_NOT_FOUND` into current-source confirmation, and makes an
-   explicit post-task maintenance decision.
-8. Exercise the workflow against real engineering tasks, including stale and
+8. Package an Agent Skill that activates from business task meaning, runs the
+   ranked-search and stable-ID context sequence, routes map context or
+   `MAP_NOT_FOUND` into current-source confirmation, and makes an explicit
+   post-task maintenance decision.
+9. Exercise the workflow against real engineering tasks, including stale and
    incomplete map cases.
 
 Map loading, validation, querying, and rendering remain stateless between
@@ -278,8 +284,9 @@ the following:
 
 - tracked example and real-project map files load and validate through the
   public CLI;
-- context queries return the expected business owner, containment, incoming and
-  outgoing relationships, navigation anchors, and related flows;
+- ranked search returns the expected node-level candidates and stable IDs, then
+  context queries return the expected business owner, containment, incoming
+  and outgoing relationships, navigation anchors, and related flows;
 - the renderer produces readable relationship and flow projections from the
   same normalized map and links shared business concepts between them;
 - a package-managed Agent Skill activates for business-changing work with or

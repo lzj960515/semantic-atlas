@@ -4,7 +4,6 @@ import { createServer as createNetServer } from "node:net";
 import {
   access,
   appendFile,
-  chmod,
   copyFile,
   mkdir,
   mkdtemp,
@@ -71,7 +70,6 @@ async function assertPublicArchive(archivePath) {
     "package/.agents/skills/semantic-atlas/SKILL.md",
     "package/.agents/skills/semantic-atlas/agents/openai.yaml",
     "package/.agents/skills/semantic-atlas/references/observations.md",
-    "package/.agents/skills/semantic-atlas/scripts/query-context.mjs",
     "package/.agents/skills/semantic-atlas-maintenance/SKILL.md",
     "package/.agents/skills/semantic-atlas-maintenance/agents/openai.yaml",
     "package/.agents/skills/semantic-atlas-maintenance/references/reconciliation.md",
@@ -96,6 +94,11 @@ async function assertPublicArchive(archivePath) {
   for (const requiredEntry of requiredEntries) {
     assert.ok(entries.includes(requiredEntry), `packed archive is missing ${requiredEntry}`);
   }
+  assert.equal(
+    entries.some((entry) => entry.startsWith("package/.agents/skills/semantic-atlas/scripts/")),
+    false,
+    "packed Skill should invoke the public CLI directly",
+  );
   for (const entry of entries) {
     assert.ok(
       publicRoots.some((root) => entry === root || entry.startsWith(root)),
@@ -256,17 +259,18 @@ async function exerciseInstalledProduct() {
     { schemaVersion: 1, paths: [resolvedRepositoryRoot] },
   );
 
-  const packagedSkillAdapter = path.join(
-    installedPackageRoot,
-    ".agents",
-    "skills",
+  const packagedSkillSearch = run(
     "semantic-atlas",
-    "scripts",
-    "query-context.mjs",
+    ["search", "Checkout", "--repo", repositoryRoot],
+    consumerDirectory,
+    cliEnvironment,
   );
+  assert.equal(packagedSkillSearch.stderr, "");
+  const packagedSearchData = JSON.parse(packagedSkillSearch.stdout).data;
+  assert.equal(packagedSearchData.results[0].id, "commerce.orders.place-order");
   const packagedSkillContext = run(
-    process.execPath,
-    [packagedSkillAdapter, "Checkout", "--repo", repositoryRoot],
+    "semantic-atlas",
+    ["context", packagedSearchData.results[0].id, "--repo", repositoryRoot],
     consumerDirectory,
     cliEnvironment,
   );
@@ -737,37 +741,25 @@ async function exerciseManagedSkillLifecycle() {
   await assertMissing(backupDirectory);
   await assertMissing(orphanStage);
 
-  const managedAdapter = path.join(managedSkillDirectory, "scripts", "query-context.mjs");
+  const managedSkillDocument = await readFile(path.join(managedSkillDirectory, "SKILL.md"), "utf8");
+  assert.match(managedSkillDocument, /semantic-atlas search/u);
+  assert.match(managedSkillDocument, /semantic-atlas context/u);
+  await assertMissing(path.join(managedSkillDirectory, "scripts"));
+
+  const managedSearch = run(
+    "semantic-atlas",
+    ["search", "Checkout", "--repo", repositoryRoot],
+    consumerDirectory,
+    cliEnvironment,
+  );
+  const selectedId = JSON.parse(managedSearch.stdout).data.results[0].id;
   const managedContext = run(
-    process.execPath,
-    [managedAdapter, "Checkout", "--repo", repositoryRoot],
+    "semantic-atlas",
+    ["context", selectedId, "--repo", repositoryRoot],
     consumerDirectory,
     cliEnvironment,
   );
   assert.equal(JSON.parse(managedContext.stdout).data.selected.id, "commerce.orders.place-order");
-
-  const fakeBin = path.join(sandbox, "incompatible-bin");
-  const fakeCli = path.join(fakeBin, "semantic-atlas");
-  const misleadingHomeCli = path.join(userHome, "dist", "cli", "bin.js");
-  await mkdir(fakeBin, { recursive: true });
-  await mkdir(path.dirname(misleadingHomeCli), { recursive: true });
-  await writeFile(fakeCli, "#!/usr/bin/env node\nprocess.stdout.write('0.4.0\\n');\n");
-  await writeFile(
-    misleadingHomeCli,
-    "process.stdout.write(JSON.stringify({ schemaVersion: 1, ok: true, command: 'context' }) + '\\n');\n",
-  );
-  await chmod(fakeCli, 0o755);
-  const incompatible = runCommand(
-    process.execPath,
-    [managedAdapter, "Checkout", "--repo", repositoryRoot],
-    consumerDirectory,
-    {
-      ...cliEnvironment,
-      PATH: `${fakeBin}${path.delimiter}${cliEnvironment.PATH}`,
-    },
-  );
-  assert.equal(incompatible.status, 2);
-  assert.match(incompatible.stderr, /requires CLI .* but 0\.4\.0 is available/u);
 
   await rm(managedSkillDirectory, { recursive: true });
   await mkdir(managedSkillDirectory, { recursive: true });

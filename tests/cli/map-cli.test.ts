@@ -273,6 +273,296 @@ describe("semantic-atlas validate", () => {
   });
 });
 
+describe("semantic-atlas search", () => {
+  it("ranks mixed node kinds for a natural mixed-language query", async () => {
+    const repositoryRoot = await trackedRepository({
+      "relay.yaml": mapDocument(
+        "relay",
+        [
+          node("engagement.relay-notifications", "domain", "Relay 订单与发货提醒交接", {
+            aliases: ["Relay"],
+          }),
+          node(
+            "engagement.relay-notifications.publish-shipment-updates",
+            "scenario",
+            "投递新增承运商发货提醒",
+          ),
+          node(
+            "engagement.relay-notifications.notification-boundary",
+            "interface",
+            "AI Relay 消息入口",
+          ),
+          node(
+            "engagement.relay-notifications.delivery-semantics",
+            "invariant",
+            "订单提醒失败传播，入队与卡片完成分开",
+          ),
+          node("shipment-intelligence", "domain", "承运商发货情报"),
+        ],
+        [
+          relation(
+            "engagement.relay-notifications.publish-shipment-updates",
+            "part_of",
+            "engagement.relay-notifications",
+          ),
+          relation(
+            "engagement.relay-notifications.notification-boundary",
+            "part_of",
+            "engagement.relay-notifications",
+          ),
+          relation(
+            "engagement.relay-notifications.delivery-semantics",
+            "part_of",
+            "engagement.relay-notifications",
+          ),
+          relation(
+            "engagement.relay-notifications.publish-shipment-updates",
+            "publishes",
+            "engagement.relay-notifications.notification-boundary",
+          ),
+          relation(
+            "engagement.relay-notifications.publish-shipment-updates",
+            "constrained_by",
+            "engagement.relay-notifications.delivery-semantics",
+          ),
+        ],
+      ),
+    });
+
+    const first = await runCli(["search", "Relay订单通知", "--repo", repositoryRoot]);
+    const second = await runCli(["search", "Relay订单通知", "--repo", repositoryRoot]);
+    const envelope = JSON.parse(first.stdout);
+
+    expect(first.exitCode).toBe(0);
+    expect(first.stderr).toBe("");
+    expect(first.stdout).toBe(second.stdout);
+    expect(envelope).toMatchObject({
+      schemaVersion: 1,
+      ok: true,
+      command: "search",
+      data: {
+        query: "Relay订单通知",
+      },
+    });
+    expect(envelope.data.results[0]).toMatchObject({
+      rank: 1,
+      id: "engagement.relay-notifications",
+      name: "Relay 订单与发货提醒交接",
+      kind: "domain",
+      documentId: "relay",
+      matchedFields: expect.arrayContaining(["name"]),
+    });
+    expect(envelope.data.results.length).toBeLessThanOrEqual(5);
+    expect(envelope.data.results[0].score).toBeGreaterThan(envelope.data.results[1].score);
+    expect(
+      envelope.data.results.every(({ score }: { score: number }) => score > 0 && score <= 1),
+    ).toBe(true);
+  });
+
+  it("ranks a specific scenario above a related top-level domain", async () => {
+    const repositoryRoot = await trackedRepository({
+      "relay.yaml": mapDocument(
+        "relay",
+        [
+          node("engagement.relay-notifications", "domain", "Relay 订单与发货提醒交接"),
+          node(
+            "engagement.relay-notifications.publish-shipment-updates",
+            "scenario",
+            "投递新增承运商发货提醒",
+          ),
+          node("shipment-intelligence", "domain", "承运商发货情报"),
+        ],
+        [
+          relation(
+            "engagement.relay-notifications.publish-shipment-updates",
+            "part_of",
+            "engagement.relay-notifications",
+          ),
+        ],
+      ),
+    });
+
+    const result = await runCli(["search", "承运商发货提醒", "--repo", repositoryRoot]);
+
+    expect(result.exitCode).toBe(0);
+    const envelope = JSON.parse(result.stdout);
+    expect(envelope).toMatchObject({
+      ok: true,
+      command: "search",
+    });
+    expect(envelope.data.results[0]).toMatchObject({
+      rank: 1,
+      id: "engagement.relay-notifications.publish-shipment-updates",
+      kind: "scenario",
+    });
+  });
+
+  it("searches every business-node kind", async () => {
+    const nodeKinds = [
+      "domain",
+      "capability",
+      "scenario",
+      "operation",
+      "data",
+      "invariant",
+      "interface",
+    ] as const;
+    const repositoryRoot = await trackedRepository({
+      "concepts.yaml": mapDocument(
+        "concepts",
+        nodeKinds.map((kind) =>
+          node(`concepts.${kind}`, kind, `${kind} concept`, {
+            aliases: [`${kind} lookup target`],
+          }),
+        ),
+        [],
+      ),
+    });
+
+    for (const kind of nodeKinds) {
+      const result = await runCli(["search", `${kind} lookup target`, "--repo", repositoryRoot]);
+      const envelope = JSON.parse(result.stdout);
+
+      expect(result.exitCode, `${kind}: ${result.stdout}`).toBe(0);
+      expect(envelope.data.results[0], kind).toMatchObject({
+        rank: 1,
+        score: 1,
+        id: `concepts.${kind}`,
+        kind,
+        matchedFields: expect.arrayContaining(["alias"]),
+      });
+    }
+  });
+
+  it("breaks equal-score ties by stable ID", async () => {
+    const repositoryRoot = await trackedRepository({
+      "concepts.yaml": mapDocument(
+        "concepts",
+        [
+          node("concepts.zeta", "domain", "Zeta", { aliases: ["Shared target"] }),
+          node("concepts.alpha", "domain", "Alpha", { aliases: ["Shared target"] }),
+          node("concepts.middle", "domain", "Middle", { aliases: ["Shared target"] }),
+        ],
+        [],
+      ),
+    });
+
+    const result = await runCli(["search", "Shared target", "--repo", repositoryRoot]);
+    const envelope = JSON.parse(result.stdout);
+
+    expect(result.exitCode, result.stdout).toBe(0);
+    expect(
+      envelope.data.results.map(({ id, score }: { id: string; score: number }) => ({ id, score })),
+    ).toEqual([
+      { id: "concepts.alpha", score: 1 },
+      { id: "concepts.middle", score: 1 },
+      { id: "concepts.zeta", score: 1 },
+    ]);
+  });
+
+  it("breaks publicly rounded score ties by stable ID", async () => {
+    const repositoryRoot = await trackedRepository({
+      "concepts.yaml": mapDocument(
+        "concepts",
+        [
+          node("concepts.alpha", "domain", "home base message order"),
+          node(
+            "concepts.zeta",
+            "domain",
+            "order publish process product analysis rule external advertising",
+          ),
+        ],
+        [],
+      ),
+    });
+
+    const result = await runCli(["search", "order social notification", "--repo", repositoryRoot]);
+    const envelope = JSON.parse(result.stdout);
+
+    expect(result.exitCode, result.stdout).toBe(0);
+    expect(
+      envelope.data.results.map(({ id, score }: { id: string; score: number }) => ({ id, score })),
+    ).toEqual([
+      { id: "concepts.alpha", score: 0.25 },
+      { id: "concepts.zeta", score: 0.25 },
+    ]);
+  });
+
+  it("uses the public score threshold consistently for candidates and matched fields", async () => {
+    const repositoryRoot = await trackedRepository({
+      "concepts.yaml": mapDocument(
+        "concepts",
+        [
+          node(
+            "concepts.threshold",
+            "domain",
+            "advertising-collect-advertising-interface-competitor-product-advertising-order-delivery-customer-home-advertising-base",
+          ),
+        ],
+        [],
+      ),
+    });
+
+    const result = await runCli(["search", "order social notification", "--repo", repositoryRoot]);
+    const envelope = JSON.parse(result.stdout);
+
+    expect(result.exitCode, result.stdout).toBe(0);
+    expect(envelope.data.results[0]).toMatchObject({
+      score: 0.2,
+      id: "concepts.threshold",
+      matchedFields: ["name"],
+    });
+  });
+
+  it("gives exact lookup vocabulary the maximum score and returns no irrelevant candidates", async () => {
+    const repositoryRoot = await trackedRepository({
+      "commerce.yaml": mapDocument(
+        "commerce",
+        [
+          node("commerce", "domain", "Commerce"),
+          node("commerce.orders.place-order", "scenario", "Place order", {
+            aliases: ["Checkout"],
+          }),
+        ],
+        [relation("commerce.orders.place-order", "part_of", "commerce")],
+      ),
+    });
+
+    const exact = await runCli(["search", "Checkout", "--repo", repositoryRoot]);
+    const missing = await runCli(["search", "unrelated xyz", "--repo", repositoryRoot]);
+
+    const exactEnvelope = JSON.parse(exact.stdout);
+    expect(exactEnvelope).toMatchObject({
+      ok: true,
+    });
+    expect(exactEnvelope.data.results[0]).toMatchObject({
+      rank: 1,
+      score: 1,
+      id: "commerce.orders.place-order",
+      matchedFields: expect.arrayContaining(["alias"]),
+    });
+    expect(JSON.parse(missing.stdout)).toMatchObject({
+      ok: true,
+      command: "search",
+      data: { query: "unrelated xyz", results: [] },
+    });
+  });
+
+  it("preserves map-loading failures under the search command", async () => {
+    const repositoryRoot = await createEmptyRepository();
+    repositories.push(repositoryRoot);
+
+    const result = await runCli(["search", "Checkout", "--repo", repositoryRoot]);
+
+    expect(result.exitCode).toBe(1);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      ok: false,
+      command: "search",
+      error: { code: "MAP_NOT_FOUND" },
+    });
+  });
+});
+
 describe("semantic-atlas context", () => {
   it("returns containment, horizontal relations, endpoint summaries, and anchors", async () => {
     const repositoryRoot = await trackedRepository({

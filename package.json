@@ -1,6 +1,6 @@
 {
   "name": "semantic-atlas",
-  "version": "2.6.1",
+  "version": "2.7.0",
   "description": "A Git-native advisory business map for coding agents.",
   "keywords": [
     "ai-agents",
@@ -66,10 +66,10 @@
     "test:package": "node tests/smoke/packaged-product.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "prepack": "pnpm typecheck && pnpm build",
-    "lint": "oxlint --deny-warnings src tests scripts .agents/skills/semantic-atlas/scripts vitest.config.ts",
+    "lint": "oxlint --deny-warnings src tests scripts vitest.config.ts",
     "lint:fix": "pnpm lint --fix",
-    "format": "oxfmt --write \"src/**/*.ts\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \".agents/skills/*/scripts/*.mjs\" vitest.config.ts",
-    "format:check": "oxfmt --check \"src/**/*.ts\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \".agents/skills/*/scripts/*.mjs\" vitest.config.ts"
+    "format": "oxfmt --write \"src/**/*.ts\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" vitest.config.ts",
+    "format:check": "oxfmt --check \"src/**/*.ts\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" vitest.config.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.8",

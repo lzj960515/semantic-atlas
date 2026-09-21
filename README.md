@@ -133,16 +133,20 @@ business flows, anchors, validation rules, and lookup behavior.
 
 ```bash
 semantic-atlas validate --repo /path/to/repository
-semantic-atlas context "Checkout" --repo /path/to/repository
+semantic-atlas search "order confirmation notification" --repo /path/to/repository
+semantic-atlas context "engagement.notifications.send-order-confirmation" --repo /path/to/repository
 semantic-atlas render --repo /path/to/repository --output ./business-map.html
 semantic-atlas project add /path/to/repository
 semantic-atlas web
 ```
 
-`validate` checks every map document as one graph. `context` returns the
-selected concept, containment, direct incoming and outgoing relationships,
-related concepts, source-navigation anchors, and complete related flows in a
-versioned JSON envelope.
+`validate` checks every map document as one graph. `search` ranks up to five
+concepts of any business-node kind for a natural-language query. Each result
+includes a query-relative score, stable ID, node kind, and the fields that
+matched. Use the selected stable ID with `context` to return that concept's
+containment, direct incoming and outgoing relationships, related concepts,
+source-navigation anchors, and complete related flows in a versioned JSON
+envelope. Existing exact and partial `context` selectors remain supported.
 `render` produces a deterministic, self-contained interactive HTML Viewer from
 that same normalized map. Its compact toolbar switches between Relationships
 and Flows; each view then selects a business domain or scenario flow. Drag to pan,

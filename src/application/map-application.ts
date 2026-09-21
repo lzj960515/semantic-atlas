@@ -1,13 +1,19 @@
 import { t } from "../i18n/index.js";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import type { CliError, ContextEnvelope, ValidateEnvelope } from "../contracts/cli.js";
+import type {
+  CliError,
+  ContextEnvelope,
+  SearchEnvelope,
+  ValidateEnvelope,
+} from "../contracts/cli.js";
 import type { MapProjection } from "../contracts/projection.js";
 import type { RepositoryMapSource, ValidatedBusinessMap } from "../contracts/map.js";
 import { MapDocumentLoader, RepositoryResolutionError } from "../map/map-document-loader.js";
 import { BusinessGraph } from "../map/business-graph.js";
 import { MapValidator } from "../map/map-validator.js";
 import { ContextQueryService } from "../query/context-query-service.js";
+import { ConceptSearchService } from "../query/concept-search-service.js";
 import { MapProjector, type ViewerProjectMetadata } from "../rendering/map-projector.js";
 import type { ViewerProject } from "../rendering/viewer-page.js";
 
@@ -105,6 +111,22 @@ export class MapApplication {
       command: "context",
       repository: result.map.source,
       data: query.data,
+    };
+  }
+
+  public async search(repositoryPath: string, query: string): Promise<SearchEnvelope> {
+    const result = await this.loadValidatedMap(repositoryPath);
+    if (!result.ok) return searchError(result);
+
+    return {
+      schemaVersion: 1,
+      ok: true,
+      command: "search",
+      repository: result.map.source,
+      data: {
+        query,
+        results: new ConceptSearchService(result.map.nodes).search(query),
+      },
     };
   }
 
@@ -206,6 +228,16 @@ function contextError(
     schemaVersion: 1,
     ok: false,
     command: "context",
+    ...(result.repository ? { repository: result.repository } : {}),
+    error: result.error,
+  };
+}
+
+function searchError(result: Extract<ValidatedMapResult, { readonly ok: false }>): SearchEnvelope {
+  return {
+    schemaVersion: 1,
+    ok: false,
+    command: "search",
     ...(result.repository ? { repository: result.repository } : {}),
     error: result.error,
   };

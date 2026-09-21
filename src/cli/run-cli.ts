@@ -16,6 +16,7 @@ import type {
   ReconciliationCandidatesEnvelope,
   ReconciliationStatusEnvelope,
   RenderEnvelope,
+  SearchEnvelope,
   SetupEnvelope,
   UpgradeEnvelope,
   ValidateEnvelope,
@@ -85,6 +86,7 @@ export async function runCli(
   let commandEnvelope:
     | ValidateEnvelope
     | ContextEnvelope
+    | SearchEnvelope
     | RenderEnvelope
     | SetupEnvelope
     | UpgradeEnvelope
@@ -178,6 +180,15 @@ export async function runCli(
         });
       },
     );
+
+  program
+    .command("search")
+    .description(t("cli.search"))
+    .argument("<query>", t("cli.query"))
+    .option("--repo <path>", t("cli.repo"), process.cwd())
+    .action(async (query: string, options: { readonly repo: string }) => {
+      commandEnvelope = await application.search(options.repo, query);
+    });
 
   program
     .command("context")

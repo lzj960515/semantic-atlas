@@ -45,6 +45,9 @@ Acceptance:
   child, incoming relation, outgoing relation, endpoint, and anchor indexes;
 - `semantic-atlas validate` reports all safely collectable map issues through a
   stable machine envelope and meaningful exit status;
+- `semantic-atlas search <query>` ranks up to five candidates across every
+  business-node kind and returns stable IDs, query-relative scores, and matched
+  fields;
 - `semantic-atlas context <selector>` returns the defined local projection and
   distinguishes not-found from ambiguity;
 - public-flow tests cover multiple domain files, cross-file relations, invalid

@@ -263,15 +263,12 @@ async function createFixture(): Promise<{
   const sourceDirectory = path.join(sandbox, "package-skill");
   const userHome = path.join(sandbox, "home");
   const targetDirectory = path.join(userHome, ".agents", "skills", "semantic-atlas");
-  await mkdir(path.join(sourceDirectory, "scripts"), { recursive: true });
+  await mkdir(path.join(sourceDirectory, "references"), { recursive: true });
   await writeFile(
     path.join(sourceDirectory, "SKILL.md"),
     skillDocument("current bundled workflow"),
   );
-  await writeFile(
-    path.join(sourceDirectory, "scripts", "query-context.mjs"),
-    "process.stdout.write('context');\n",
-  );
+  await writeFile(path.join(sourceDirectory, "references", "workflow.md"), "# Current workflow\n");
   return { sourceDirectory, userHome, targetDirectory };
 }
 
