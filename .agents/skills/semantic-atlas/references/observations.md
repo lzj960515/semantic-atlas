@@ -106,7 +106,7 @@ accuracy assessment:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "review-observation-unique-id",
   "recordedAt": "2026-08-27T03:30:00.000Z",
   "taskObservationId": "task-observation-unique-id",
@@ -118,7 +118,12 @@ accuracy assessment:
     "upstreamCause": "correct",
     "impactCompleteness": "complete",
     "requiredRework": false,
-    "mapCausedRegression": false
+    "mapCausedRegression": false,
+    "mapContribution": {
+      "status": "not_established",
+      "summary": "The reviewed trace does not show a decisive map lead followed into current evidence.",
+      "evidence": []
+    }
   }
 }
 ```
@@ -132,3 +137,14 @@ semantic-atlas observe review --stdin --repo <repository-root>
 An approved review cannot contain an incorrect assessed dimension, required
 rework, or a map-caused regression. A `changes_requested` review sets
 `requiredRework` to `true` and can record the failed accuracy dimensions.
+
+For `confirmed_lead`, name the selected map statement and the investigation
+step it changed in `summary`, and include at least one current-evidence
+reference. The linked task observation must contain a `context` query. Use
+`not_established` when inspection found no verifiable positive contribution and
+`not_assessed` when the available trace does not permit assessment; both retain
+a brief reason and may have an empty `evidence` array. An approved result, a
+map query, or the reviewer's own later map lookup does not establish a task-time
+lead. `mapCausedRegression` separately records a harmful map influence.
+Existing version 1 review observations remain readable and can be replayed
+unchanged.

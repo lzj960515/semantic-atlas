@@ -38,6 +38,8 @@ export default {
   taskNotFound: "Task observation '{{taskObservationId}}' does not exist in this repository",
   invalidTask: "Task observation input is invalid",
   invalidReview: "Review observation input is invalid",
+  confirmedLeadNeedsEvidence: "A confirmed map lead requires current evidence",
+  confirmedLeadNeedsContext: "A confirmed map lead requires context in the linked task run",
   invalidMaintenance: "Maintenance observation input is invalid",
   candidateNotFound:
     "Candidate '{{taskObservationId}}:{{candidateIndex}}' does not exist in this repository",

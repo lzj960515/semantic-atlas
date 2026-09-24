@@ -536,6 +536,7 @@ semantic-atlas observe task --stdin [--repo <path>]
 semantic-atlas observe review --stdin [--repo <path>]
 semantic-atlas observe maintenance --stdin [--repo <path>]
 semantic-atlas insights summary [--repo <path>] [--period <duration>]
+semantic-atlas insights tasks [--repo <path>] [--period <duration>]
 semantic-atlas reconcile status [--repo <path>]
 semantic-atlas reconcile candidates [--repo <path>]
 semantic-atlas --version
@@ -571,8 +572,10 @@ The three `observe` commands read one complete JSON object from standard input.
 They derive a private repository identity, validate before publication, and
 return recorded, idempotent, or explicit conflict results. Maintenance input
 also verifies every candidate source and its business-domain ownership.
-`insights summary` reads retained task and review files without changing them or
-the business map. `reconcile status` reads only retained task and maintenance
+`insights summary` and `insights tasks` read retained task and review files
+without changing them or the business map. The task report groups engineering
+task runs while preserving each review's exact task-observation link.
+`reconcile status` reads only retained task and maintenance
 files and returns whether any origin is actionable. `reconcile candidates`
 derives actionable candidates and
 unresolved waiting counts without changing observations, source, maps, rendered

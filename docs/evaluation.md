@@ -24,6 +24,25 @@ not the Skill's activation boundary.
 The evaluation observes investigation cost, but cost does not substitute for
 correctness.
 
+## Natural-Task Follow-Up
+
+After installation, evaluate naturally occurring engineering tasks from their
+task observations, work traces, independent reviews, and maintenance results.
+Group by engineering `taskId`, then inspect each run's map query and the review
+linked to that exact task observation. A reviewer's `confirmed_lead` requires a
+specific map statement that led the investigation to a business boundary,
+owner, or path, plus current source, test, document, or runtime evidence that
+confirmed it. An approved result or a context query by itself shows neither
+product benefit nor improvement over a counterfactual run.
+
+Review every rework and human intervention in sequence. Distinguish a missing
+map, a relevant map that did not prevent an omission, a map-caused mistake, and
+a user decision about scope. Check whether accepted maintenance closes the
+same gap when a later natural task reaches it. Report tasks without linked review
+or assessable work traces as unknown. Trends in independently reviewed outcomes
+and concrete confirmed leads support iteration decisions without a second run
+of each production task.
+
 ## Accuracy Dimensions
 
 ### Business-boundary accuracy

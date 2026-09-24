@@ -223,13 +223,16 @@ semantic-atlas observe task --stdin --repo /path/to/repository
 semantic-atlas observe review --stdin --repo /path/to/repository
 semantic-atlas observe maintenance --stdin --repo /path/to/repository
 semantic-atlas insights summary --repo /path/to/repository --period 4w
+semantic-atlas insights tasks --repo /path/to/repository --period 4w
 ```
 
 任务观测记录包括 `map_not_found` 在内的查询结果、当前证据分类、地图修正候选
 和明确的人类纠正；候选可以针对节点、关系、导航锚点或流程。业务知识已经覆盖、
 改动只涉及实现细节或稳定含义尚不明确时，
 候选列表可以为空。任务不会给自己的准确性打分；独立审查观测负责记录正确性、
-影响完整性、是否需要返工，以及地图是否导致了错误结论。维护观测只在审查和
+影响完整性、是否需要返工、地图是否导致了错误结论，以及是否有经当前证据证实的
+地图线索。`insights tasks` 把每条审查关联到准确的任务轮次，并按独立工程任务计数。
+维护观测只在审查和
 合入完成后记录 `accepted`、`refined`、`discarded` 或 `unresolved`。观测 ID
 不可变：完全相同的重放是幂等的，内容发生变化则会报告冲突。
 

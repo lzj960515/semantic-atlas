@@ -36,6 +36,8 @@ export default {
   taskNotFound: "此仓库中不存在任务观测“{{taskObservationId}}”",
   invalidTask: "任务观测输入无效",
   invalidReview: "评审观测输入无效",
+  confirmedLeadNeedsEvidence: "确认地图提供线索时需要当前证据",
+  confirmedLeadNeedsContext: "确认地图提供线索时，关联任务轮次必须取得地图内容",
   invalidMaintenance: "维护观测输入无效",
   candidateNotFound: "此仓库中不存在候选项“{{taskObservationId}}:{{candidateIndex}}”",
   candidateDomain:

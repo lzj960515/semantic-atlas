@@ -19,8 +19,9 @@ or accuracy fields.
 An independent-review run produces one `ReviewObservation` that references an
 existing task observation in the same repository partition. It records
 business-boundary correctness, upstream-cause correctness, impact completeness,
-required rework, and whether the map caused a wrong conclusion. Explicit human
-corrections can be retained by either observation while remaining visibly
+required rework, whether the map caused a wrong conclusion, and the reviewer's
+assessment of a source-confirmed map lead. Explicit human corrections can be
+retained by either observation while remaining visibly
 attributed as corrections.
 
 An approved review expresses an accepted result: assessed dimensions are
@@ -46,8 +47,10 @@ immutable, including a domain assignment that later evidence corrects.
 
 ## Versioned Schemas
 
-Current task artifacts use `schemaVersion: 2`; review and maintenance artifacts
-use `schemaVersion: 1`. All use an Agent-supplied immutable `id` and an RFC 3339
+Current task and review artifacts use `schemaVersion: 2`; maintenance artifacts
+use `schemaVersion: 1`. Review version 1 remains readable and writable for
+compatibility; the bundled Skill writes version 2. All use an Agent-supplied
+immutable `id` and an RFC 3339
 `recordedAt` value. The caller creates the ID and timestamp once and reuses the
 complete document for an uncertain retry.
 
@@ -82,6 +85,15 @@ Runtime references use concise environment-independent evidence labels.
 Review identity also contains `taskId` and `runId`, plus the referenced
 `taskObservationId`. Review accuracy values explicitly distinguish correct,
 incorrect, complete, incomplete, not applicable, and not assessed outcomes.
+Version 2 reviews include `mapContribution`: `confirmed_lead` means the reviewer
+found that a selected map statement led the task to a relevant business boundary,
+path, or owner and current evidence confirmed it; the review records the specific
+lead, its effect on the investigation, and at least one current-evidence reference.
+The linked task run must have obtained `context`. `not_established` means the
+review found no verifiable positive contribution; it does not prove that the map
+had no effect. `not_assessed` means the available task trace cannot support that
+judgment. An approved result alone is never a `confirmed_lead`.
+`mapCausedRegression` remains a separate judgment about harmful map influence.
 
 Maintenance identity contains its task and run ID plus one `businessDomainId`.
 Each result references `taskObservationId` and zero-based `candidateIndex`, then
@@ -152,10 +164,11 @@ are removed by the failing invocation.
 
 ## Derived Insights
 
-The read-only summary command is:
+The read-only insight commands are:
 
 ```text
 semantic-atlas insights summary [--repo <path>] [--period <duration>]
+semantic-atlas insights tasks [--repo <path>] [--period <duration>]
 ```
 
 Durations use a positive integer followed by `h`, `d`, or `w`. The command
@@ -173,6 +186,28 @@ derives these counts from retained artifacts:
 A recovery count joins the task's current-evidence disposition to an approved
 review. The task Agent's own evidence never becomes an accuracy verdict merely
 because it was retained.
+
+`insights summary` counts observation and review records, so repeated runs and
+reviews of one engineering task may appear more than once. Its recovery counts
+mean that an approved task classified map evidence as missing, stale, or
+contradicted; they do not establish that the map caused the recovery.
+
+`insights tasks` groups records by `TaskObservation.task.taskId` and orders the
+runs by `recordedAt`. Each review stays attached to its exact
+`taskObservationId`, even if its own `review.taskId` names a separate review task.
+The report shows run IDs, query outcomes, current-evidence dispositions,
+explicit human corrections with their original summaries, review verdicts,
+rework, map regressions, and version 2 map-contribution assessments for each
+run. Its summary counts distinct
+engineering tasks. `tasksWithReviewedContext` requires a review linked to a run
+that obtained context; a later context run cannot retroactively explain an
+earlier rework. `tasksWithAssessedContext` counts only those with a version 2
+review that assessed contribution, so legacy reviews do not silently become
+negative evidence. With `--period`, any task with an observation in the period
+enters the report, then all retained runs and linked reviews for that task are shown to
+preserve its chronology. These counts cover retained observations, not all
+engineering work. Human-correction presence includes user scope decisions as
+well as corrections, so it is a review lead rather than an error rate.
 
 ## Read-Only Reconciliation Candidates
 

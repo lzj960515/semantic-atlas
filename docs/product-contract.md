@@ -361,7 +361,8 @@ authority. The product records three immutable, versioned local artifacts:
   artifact v2;
 - `ReviewObservation`: the independent review verdict, correctness of the
   business boundary and upstream cause, impact completeness, required rework,
-  and whether the map caused a wrong conclusion;
+  whether the map caused a wrong conclusion, and whether the reviewer can verify
+  a specific source-confirmed map lead;
 - `MaintenanceObservation`: a reviewed post-integration result for exact
   `taskObservationId + candidateIndex` sources, their `accepted`, `refined`,
   `discarded`, or `unresolved` classification, current evidence, and the owning
@@ -380,6 +381,7 @@ semantic-atlas observe task --stdin
 semantic-atlas observe review --stdin
 semantic-atlas observe maintenance --stdin
 semantic-atlas insights summary [--repo <path>] [--period <duration>]
+semantic-atlas insights tasks [--repo <path>] [--period <duration>]
 semantic-atlas reconcile status --repo <path>
 semantic-atlas reconcile candidates --repo <path>
 ```
@@ -423,9 +425,10 @@ evidence, and remains independent of orchestration.
 
 Longitudinal acceptance requires at least 20 natural business-changing tasks
 with independent review, at least one period of real code drift, and two
-domain-scoped reconciliations. Every fifth suitable task adds an ordinary
-analysis-only shadow for bounded comparison without duplicating production
-writes. Natural use is not replaced with manufactured jobs or provider activity.
+domain-scoped reconciliations. Review the actual task chronology, source-confirmed
+map leads, missed boundaries, rework, human intervention, and whether maintenance
+closes a repeated gap. Natural use supplies this evidence without rerunning the
+same task in a second mode or manufacturing jobs and provider activity.
 
 Any map-caused wrong conclusion, Store/authorization/data-boundary regression,
 or installed CLI/Skill version mismatch blocks acceptance. The final stage also

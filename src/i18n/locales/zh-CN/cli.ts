@@ -15,6 +15,7 @@ export default {
   observeMaintenance: "记录经评审的集成后候选维护结果",
   insights: "汇总已保留的准确性证据",
   summary: "生成只读的仓库准确性摘要",
+  tasks: "按真实工程任务查看地图查询和关联审查",
   reconcile: "准备业务地图维护评审",
   candidates: "对已保留的地图更新候选项分组，不修改仓库",
   status: "报告仓库是否有可执行的维护项",

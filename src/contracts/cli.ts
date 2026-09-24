@@ -5,7 +5,7 @@ import type {
   MapIssue,
   RepositoryMapSource,
 } from "./map.js";
-import type { InsightSummaryResult } from "./insights.js";
+import type { InsightSummaryResult, TaskInsightReport } from "./insights.js";
 import type { ObservationKind } from "./observation.js";
 import type { ReconciliationCandidateReport } from "./reconciliation.js";
 
@@ -278,6 +278,10 @@ export type ObserveMaintenanceEnvelope =
 export type InsightsSummaryEnvelope =
   | StandaloneCliSuccessEnvelope<"insights summary", InsightSummaryResult>
   | CliErrorEnvelope<"insights summary">;
+
+export type InsightsTasksEnvelope =
+  | StandaloneCliSuccessEnvelope<"insights tasks", TaskInsightReport>
+  | CliErrorEnvelope<"insights tasks">;
 
 export type ReconciliationCandidatesEnvelope =
   | StandaloneCliSuccessEnvelope<"reconcile candidates", ReconciliationCandidateReport>

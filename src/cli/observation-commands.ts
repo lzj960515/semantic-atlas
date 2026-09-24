@@ -3,6 +3,7 @@ import type {
   CliError,
   CliErrorEnvelope,
   InsightsSummaryEnvelope,
+  InsightsTasksEnvelope,
   ObservationRecordedData,
   ObserveMaintenanceEnvelope,
   ObserveReviewEnvelope,
@@ -97,6 +98,40 @@ export async function runInsightsSummaryCommand(
       schemaVersion: 1,
       ok: false,
       command: "insights summary",
+      error: cliError,
+    };
+  }
+}
+
+export async function runInsightsTasksCommand(
+  runtime: ObservationCliRuntime,
+  options: { readonly repo: string; readonly period?: string },
+): Promise<InsightsTasksEnvelope> {
+  try {
+    const result = await runtime.insightService.reportTasks(
+      options.repo,
+      options.period,
+      runtime.now(),
+    );
+    return {
+      schemaVersion: 1,
+      ok: true,
+      command: "insights tasks",
+      data: result,
+    };
+  } catch (error) {
+    const cliError =
+      error instanceof InvalidInsightPeriodError
+        ? {
+            code: "INSIGHTS_PERIOD_INVALID" as const,
+            message: error.message,
+            period: error.period,
+          }
+        : repositoryOrStorageError(error, "INSIGHTS_READ_FAILED");
+    return {
+      schemaVersion: 1,
+      ok: false,
+      command: "insights tasks",
       error: cliError,
     };
   }

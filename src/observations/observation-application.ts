@@ -90,6 +90,13 @@ export class ObservationApplication {
     if (!taskObservation) {
       throw new TaskObservationNotFoundError(parsedInput.data.taskObservationId);
     }
+    if (
+      parsedInput.data.schemaVersion === 2 &&
+      parsedInput.data.review.mapContribution.status === "confirmed_lead" &&
+      !taskObservation.map.queries.some((query) => query.outcome === "context")
+    ) {
+      throw new ObservationInputError(t("errors.confirmedLeadNeedsContext"));
+    }
 
     const observation = reviewObservationSchema.parse(
       {

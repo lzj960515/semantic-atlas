@@ -70,6 +70,20 @@ describe("semantic-atlas observation commands", () => {
         },
       },
     });
+
+    const taskReport = await runCli(
+      ["insights", "tasks", "--repo", fixture.repositoryRoot, "--period", "7d"],
+      fixture.runtime,
+    );
+    expect(taskReport.exitCode).toBe(0);
+    expect(JSON.parse(taskReport.stdout)).toMatchObject({
+      ok: true,
+      command: "insights tasks",
+      data: {
+        summary: { tasks: 1, tasksWithReview: 1 },
+        tasks: [{ taskId: task.task.taskId, runs: [{ observationId: task.id }] }],
+      },
+    });
   });
 
   it("returns actionable malformed-input and period errors without a partial success", async () => {

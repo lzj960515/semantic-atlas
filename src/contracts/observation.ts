@@ -132,21 +132,62 @@ const changesRequestedReviewSchema = z
   })
   .strict();
 
-export const reviewAssessmentSchema = z.discriminatedUnion("verdict", [
+const reviewAssessmentV1Schema = z.discriminatedUnion("verdict", [
   approvedReviewSchema,
   changesRequestedReviewSchema,
 ]);
 
-export const reviewObservationInputSchema = z
+export const mapContributionSchema = z
+  .object({
+    status: z.enum(["confirmed_lead", "not_established", "not_assessed"]),
+    summary: nonEmptyStringSchema,
+    evidence: z.array(evidenceReferenceSchema),
+  })
+  .strict()
+  .superRefine((contribution, context) => {
+    if (contribution.status === "confirmed_lead" && contribution.evidence.length === 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["evidence"],
+        message: t("errors.confirmedLeadNeedsEvidence"),
+      });
+    }
+  });
+
+const reviewAssessmentV2Schema = z.discriminatedUnion("verdict", [
+  approvedReviewSchema.extend({ mapContribution: mapContributionSchema }),
+  changesRequestedReviewSchema.extend({ mapContribution: mapContributionSchema }),
+]);
+
+export const reviewAssessmentSchema = z.union([reviewAssessmentV1Schema, reviewAssessmentV2Schema]);
+
+const reviewObservationFields = {
+  id: observationIdSchema,
+  recordedAt: timestampSchema,
+  taskObservationId: observationIdSchema,
+  humanCorrection: humanCorrectionSchema.optional(),
+};
+
+const reviewObservationV1InputSchema = z
   .object({
     schemaVersion: z.literal(1),
-    id: observationIdSchema,
-    recordedAt: timestampSchema,
-    taskObservationId: observationIdSchema,
-    review: reviewAssessmentSchema,
-    humanCorrection: humanCorrectionSchema.optional(),
+    ...reviewObservationFields,
+    review: reviewAssessmentV1Schema,
   })
   .strict();
+
+const reviewObservationV2InputSchema = z
+  .object({
+    schemaVersion: z.literal(2),
+    ...reviewObservationFields,
+    review: reviewAssessmentV2Schema,
+  })
+  .strict();
+
+export const reviewObservationInputSchema = z.discriminatedUnion("schemaVersion", [
+  reviewObservationV1InputSchema,
+  reviewObservationV2InputSchema,
+]);
 
 export const maintenanceCandidateReferenceSchema = z
   .object({
@@ -211,11 +252,10 @@ export const taskObservationSchema = taskObservationInputSchema
   })
   .strict();
 
-export const reviewObservationSchema = reviewObservationInputSchema
-  .extend({
-    repository: repositoryIdentitySchema,
-  })
-  .strict();
+export const reviewObservationSchema = z.discriminatedUnion("schemaVersion", [
+  reviewObservationV1InputSchema.extend({ repository: repositoryIdentitySchema }).strict(),
+  reviewObservationV2InputSchema.extend({ repository: repositoryIdentitySchema }).strict(),
+]);
 
 export const maintenanceObservationSchema = maintenanceObservationDocumentSchema
   .extend({
@@ -231,6 +271,7 @@ export type EvidenceDisposition = z.infer<typeof evidenceDispositionSchema>;
 export type MapUpdateCandidate = z.infer<typeof mapUpdateCandidateSchema>;
 export type HumanCorrection = z.infer<typeof humanCorrectionSchema>;
 export type ReviewAssessment = z.infer<typeof reviewAssessmentSchema>;
+export type MapContribution = z.infer<typeof mapContributionSchema>;
 export type MaintenanceCandidateReference = z.infer<typeof maintenanceCandidateReferenceSchema>;
 export type MaintenanceResult = z.infer<typeof maintenanceResultSchema>;
 export type TaskObservationInput = z.infer<typeof taskObservationInputSchema>;

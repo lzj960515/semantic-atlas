@@ -10,6 +10,10 @@ import type {
   InsightPeriod,
   InsightSummary,
   InsightSummaryResult,
+  TaskInsight,
+  TaskInsightReport,
+  TaskInsightSummary,
+  TaskReviewInsight,
   UpstreamCauseCounts,
 } from "../contracts/insights.js";
 import { ObservationStore } from "../observations/observation-store.js";
@@ -51,6 +55,138 @@ export class InsightService {
       summary: summarizeObservations(tasks, reviews, observations.tasks),
     };
   }
+
+  public async reportTasks(
+    repositoryPath: string,
+    duration?: string,
+    now = new Date(),
+  ): Promise<TaskInsightReport> {
+    const repository = (await this.repositoryResolver.resolve(repositoryPath)).identity;
+    const period = duration ? resolvePeriod(duration, now) : undefined;
+    const observations = await this.store.readAll(repository);
+    const selectedTaskIds = new Set(
+      filterByPeriod(observations.tasks, period).map(({ task }) => task.taskId),
+    );
+    const tasks = buildTaskInsights(
+      observations.tasks.filter(({ task }) => selectedTaskIds.has(task.taskId)),
+      observations.reviews,
+    );
+
+    return {
+      repository,
+      ...(period ? { period } : {}),
+      summary: summarizeTasks(tasks),
+      tasks,
+    };
+  }
+}
+
+function buildTaskInsights(
+  observations: readonly TaskObservation[],
+  reviews: readonly ReviewObservation[],
+): readonly TaskInsight[] {
+  const reviewsByTaskObservation = new Map<string, ReviewObservation[]>();
+  for (const review of reviews) {
+    const linkedReviews = reviewsByTaskObservation.get(review.taskObservationId) ?? [];
+    linkedReviews.push(review);
+    reviewsByTaskObservation.set(review.taskObservationId, linkedReviews);
+  }
+
+  const observationsByTask = new Map<string, TaskObservation[]>();
+  for (const observation of observations) {
+    const runs = observationsByTask.get(observation.task.taskId) ?? [];
+    runs.push(observation);
+    observationsByTask.set(observation.task.taskId, runs);
+  }
+
+  return [...observationsByTask.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([taskId, runs]) => ({
+      taskId,
+      runs: runs.sort(compareObservations).map((run) => {
+        const linkedReviews = (reviewsByTaskObservation.get(run.id) ?? []).sort(
+          compareObservations,
+        );
+        return {
+          observationId: run.id,
+          runId: run.task.runId,
+          recordedAt: run.recordedAt,
+          queries: run.map.queries,
+          dispositions: run.map.dispositions,
+          humanCorrections: [
+            ...(run.humanCorrection ? [{ observationId: run.id, ...run.humanCorrection }] : []),
+            ...linkedReviews.flatMap((review) =>
+              review.humanCorrection
+                ? [{ observationId: review.id, ...review.humanCorrection }]
+                : [],
+            ),
+          ],
+          reviews: linkedReviews.map(toReviewInsight),
+        };
+      }),
+    }));
+}
+
+function toReviewInsight(observation: ReviewObservation): TaskReviewInsight {
+  return {
+    observationId: observation.id,
+    recordedAt: observation.recordedAt,
+    verdict: observation.review.verdict,
+    requiredRework: observation.review.requiredRework,
+    mapCausedRegression: observation.review.mapCausedRegression,
+    ...(observation.schemaVersion === 2
+      ? { mapContribution: observation.review.mapContribution }
+      : {}),
+  };
+}
+
+function summarizeTasks(tasks: readonly TaskInsight[]): TaskInsightSummary {
+  return {
+    tasks: tasks.length,
+    tasksWithContext: tasks.filter((task) => task.runs.some(hasContext)).length,
+    tasksWithReviewedContext: tasks.filter((task) =>
+      task.runs.some((run) => hasContext(run) && run.reviews.length > 0),
+    ).length,
+    tasksWithAssessedContext: tasks.filter((task) =>
+      task.runs.some(
+        (run) =>
+          hasContext(run) &&
+          run.reviews.some(
+            (review) => review.mapContribution && review.mapContribution.status !== "not_assessed",
+          ),
+      ),
+    ).length,
+    tasksWithReview: tasks.filter((task) => task.runs.some((run) => run.reviews.length > 0)).length,
+    tasksWithRework: tasks.filter((task) =>
+      task.runs.some((run) => run.reviews.some((review) => review.requiredRework)),
+    ).length,
+    tasksWithConfirmedLead: tasks.filter((task) =>
+      task.runs.some(
+        (run) =>
+          hasContext(run) &&
+          run.reviews.some((review) => review.mapContribution?.status === "confirmed_lead"),
+      ),
+    ).length,
+    tasksWithMapRegression: tasks.filter((task) =>
+      task.runs.some((run) => run.reviews.some((review) => review.mapCausedRegression)),
+    ).length,
+    tasksWithHumanCorrection: tasks.filter((task) =>
+      task.runs.some((run) => run.humanCorrections.length > 0),
+    ).length,
+  };
+}
+
+function hasContext(run: TaskInsight["runs"][number]): boolean {
+  return run.queries.some((query) => query.outcome === "context");
+}
+
+function compareObservations(
+  left: { readonly recordedAt: string; readonly id: string },
+  right: { readonly recordedAt: string; readonly id: string },
+): number {
+  return (
+    Date.parse(left.recordedAt) - Date.parse(right.recordedAt) || left.id.localeCompare(right.id)
+  );
 }
 
 function resolvePeriod(duration: string, now: Date): InsightPeriod {

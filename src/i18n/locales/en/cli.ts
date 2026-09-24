@@ -15,6 +15,7 @@ export default {
   observeMaintenance: "Record a reviewed post-integration candidate result",
   insights: "Summarize retained accuracy evidence",
   summary: "Derive a read-only repository accuracy summary",
+  tasks: "Show real engineering tasks with their map queries and linked reviews",
   reconcile: "Prepare reviewed business-map maintenance",
   candidates: "Group retained map-update candidates without editing the repository",
   status: "Report whether the repository has actionable maintenance",

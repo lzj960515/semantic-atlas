@@ -233,11 +233,17 @@ or review result and verification are known.
 - For engineering and analysis work, record one task observation. It contains
   the map-query outcome, selected concepts, current-evidence dispositions,
   map-update candidates from a `candidate` maintenance disposition, and any
-  explicit human correction.
+  explicit human correction. When context guided the investigation, identify in
+  the task result the map statement followed and the current evidence that
+  confirmed or corrected it, so independent review can assess its contribution.
 - For independent review, record one review observation that references the
-  existing task observation and contains the accuracy verdict. Keep the task
-  observation immutable. When no task observation is available, report the
-  missing accuracy-evidence link separately from the review verdict.
+  existing task observation and contains the accuracy verdict and
+  `mapContribution` assessment. Inspect the task trace and linked map query:
+  use `confirmed_lead` only for a specific lead followed into decisive current
+  evidence, `not_established` when the inspected trace does not establish that
+  contribution, and `not_assessed` when the trace cannot support a judgment.
+  Keep the task observation immutable. When no task observation is available,
+  report the missing accuracy-evidence link separately from the review verdict.
 
 Independent review owns accuracy judgments, so task observations contain
 investigation evidence rather than correctness verdicts. Generate one stable

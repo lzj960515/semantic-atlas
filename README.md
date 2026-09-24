@@ -251,6 +251,7 @@ semantic-atlas observe task --stdin --repo /path/to/repository
 semantic-atlas observe review --stdin --repo /path/to/repository
 semantic-atlas observe maintenance --stdin --repo /path/to/repository
 semantic-atlas insights summary --repo /path/to/repository --period 4w
+semantic-atlas insights tasks --repo /path/to/repository --period 4w
 ```
 
 A task observation records queries including `map_not_found`, current-evidence
@@ -259,7 +260,9 @@ eligible correction can target a node, relation, anchor, or flow. An empty
 candidate list is valid when knowledge is already represented,
 implementation-local, or unresolved. The task never grades its own accuracy.
 An independent review observation owns correctness, impact, required-rework,
-and map-regression judgments. A maintenance observation records `accepted`,
+map-regression, and source-confirmed map-lead judgments. `insights tasks` keeps
+each review attached to the exact task run it assessed and counts distinct
+engineering tasks. A maintenance observation records `accepted`,
 `refined`, `discarded`, or `unresolved` results only after review and
 integration. IDs are immutable: an exact replay is idempotent and changed
 content conflicts.

@@ -9,6 +9,7 @@ import type {
   CliRunResult,
   ContextEnvelope,
   InsightsSummaryEnvelope,
+  InsightsTasksEnvelope,
   ObserveMaintenanceEnvelope,
   ObserveReviewEnvelope,
   ObserveTaskEnvelope,
@@ -46,6 +47,7 @@ import { readPackageIdentity, type PackageIdentity } from "../setup/package-iden
 import {
   type ObservationCliRuntime,
   runInsightsSummaryCommand,
+  runInsightsTasksCommand,
   runObserveMaintenanceCommand,
   runObserveReviewCommand,
   runObserveTaskCommand,
@@ -94,6 +96,7 @@ export async function runCli(
     | ProjectAddEnvelope
     | ObserveReviewEnvelope
     | InsightsSummaryEnvelope
+    | InsightsTasksEnvelope
     | ObserveMaintenanceEnvelope
     | ReconciliationCandidatesEnvelope
     | ReconciliationStatusEnvelope
@@ -228,15 +231,24 @@ export async function runCli(
       commandEnvelope = await runObserveMaintenanceCommand(resolvedRuntime, options.repo);
     });
 
-  program
-    .command("insights")
-    .description(t("cli.insights"))
+  const insights = program.command("insights").description(t("cli.insights"));
+
+  insights
     .command("summary")
     .description(t("cli.summary"))
     .option("--repo <path>", t("cli.repo"), process.cwd())
     .option("--period <duration>", t("cli.period"))
     .action(async (options: { readonly repo: string; readonly period?: string }) => {
       commandEnvelope = await runInsightsSummaryCommand(resolvedRuntime, options);
+    });
+
+  insights
+    .command("tasks")
+    .description(t("cli.tasks"))
+    .option("--repo <path>", t("cli.repo"), process.cwd())
+    .option("--period <duration>", t("cli.period"))
+    .action(async (options: { readonly repo: string; readonly period?: string }) => {
+      commandEnvelope = await runInsightsTasksCommand(resolvedRuntime, options);
     });
 
   const reconcile = program.command("reconcile").description(t("cli.reconcile"));
