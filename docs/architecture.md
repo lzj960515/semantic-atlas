@@ -127,7 +127,9 @@ Resolves a concept by stable ID, name, or alias and returns the smallest useful
 business neighborhood: ancestors, direct children, incoming and outgoing
 relations, referenced concepts, summaries, navigation anchors, and complete
 related flows. It reports ambiguity explicitly rather than selecting a hidden
-match.
+match. It preserves bound symbol anchors as structured file paths and
+declaration names; source location and behavior confirmation belong to the
+calling Agent's repository tools.
 
 ### ConceptSearchService
 
@@ -190,8 +192,9 @@ business meaning only. Card surfaces use a grab cursor, selected-text surfaces
 retain the text cursor, and active diagram dragging uses a grabbing cursor.
 Clicking a node or activating it with the keyboard opens its navigation anchors and
 derived related-flow links in an overlaid desktop side panel or narrow-screen
-bottom panel. Flow steps with a concept reference open that concept's same
-panel; steps without a reference remain ordinary flow content. From a boundary
+bottom panel. The panel displays bound symbols as `file#value`. Flow steps with
+a concept reference open that concept's same panel; steps without a reference
+remain ordinary flow content. From a boundary
 concept, the complete-map view, or a concept-linked flow step, the panel can open
 the concept's owning business-domain view and select the same concept there.
 The target domain is derived from the existing non-boundary domain projection,
@@ -314,7 +317,9 @@ business-flow branches before and after the change, and continues through the
 repository's normal implementation and verification process. It classifies a
 source/flow discrepancy before proposing either a code repair or a `flow`
 maintenance candidate. Source editing and engineering judgment remain with the
-calling Agent.
+calling Agent. For a symbol bound to a file, it locates the declaration within
+that file and reads the current business behavior before expanding discovery.
+Missing declarations follow its existing stale-anchor investigation route.
 
 The Skill invokes the public `semantic-atlas search` command, chooses a
 candidate from its business meaning and score ordering, and then invokes the
@@ -331,7 +336,10 @@ responsibilities, reuse still-correct owners, create owners for new independent
 business areas, and preserve shared identities and relation/flow ownership.
 These decisions apply equally to the first map and later maintenance. The
 [map format](map-format.md#business-ownership-and-file-boundaries) owns the
-common model.
+common model. The Skill prefers source-file-bound methods or functions for
+confirmed business actions, while retaining directory, data-file and document
+anchors when those serve the concept. It refines existing navigation hints
+from current evidence through the same reviewed map-editing lifecycle.
 
 Direct authoring handles requested creation, extension, correction or ownership
 reorganization from current evidence even when no retained candidates exist.

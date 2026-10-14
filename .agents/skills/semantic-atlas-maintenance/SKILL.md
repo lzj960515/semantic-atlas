@@ -86,8 +86,14 @@ adding later business capabilities, correcting meaning, or reconciling drift:
 5. Define each shared concept once in its owning business file. Other files use
    its stable ID. Declare each directed relation in its source concept's file,
    including cross-file relations. Keep each flow in the same domain-owned YAML
-   as its scenario; steps may reference concepts owned by other files. Anchors
-   remain repository-relative navigation hints.
+   as its scenario; steps may reference concepts owned by other files.
+6. Choose anchors from the current evidence using
+   [references/map-authoring.md](references/map-authoring.md#navigation-anchors).
+   For a business action with a confirmed method or function, prefer a symbol
+   bound to its source file and describe the specific action it performs.
+   Keep domain directories, data declarations and product documents at their
+   useful navigation granularity. Refine older file-only or unbound references
+   during maintenance when current evidence establishes a more decisive entry.
 
 For each relevant flow, confirm the business-relevant actions, decisions,
 branches, and outcomes that can change user results, durable data, cost or
@@ -135,8 +141,9 @@ git diff -- docs/business-map/
 
 Recheck source-to-map coverage against the final partition, including supported
 lifecycle responsibilities missing from the old map. Inspect every changed
-business area in the Viewer. Confirm that domain selection matches the evidenced boundaries, cross-file relationships retain
-external neighboring concepts, and scenario flows preserve their branches,
+business area in the Viewer. Confirm that bound symbol anchors show the correct
+file and declaration name, domain selection matches the evidenced boundaries,
+cross-file relationships retain external neighboring concepts, and scenario flows preserve their branches,
 outcomes and relationship-to-flow links. Moving YAML alone does not establish
 correct business containment. Check the complete graph together, including
 unchanged documents, and keep retained observations immutable.

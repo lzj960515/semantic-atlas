@@ -55,6 +55,14 @@ runs when no map documents exist. The agent follows map leads when available,
 otherwise establishes the smallest source-supported business boundary, then
 opens decisive current evidence before editing.
 
+For a mapped business action, a source-file-bound symbol can point to the
+specific method or function that carries it. The Agent locates that declaration
+inside the named file using its normal repository tools and confirms the
+described business responsibility in current code. Existing file, directory,
+document, search, and unbound symbol hints remain valid. The
+[navigation-anchor contract](map-format.md#navigation-anchors) defines the shape
+and when each granularity is useful.
+
 ### Root-cause and impact discovery
 
 An agent uses typed business relations to ask what invokes an action, what data

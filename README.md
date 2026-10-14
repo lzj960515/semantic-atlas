@@ -129,6 +129,23 @@ flows: []
 The [map format](docs/map-format.md) defines supported concepts, relations,
 business flows, anchors, validation rules, and lookup behavior.
 
+For an operation implemented by a known method, bind its symbol to the source
+file so the Agent can begin with that declaration:
+
+```yaml
+anchors:
+  - kind: symbol
+    file: src/orders/place-order.service.ts
+    value: PlaceOrderService.execute
+    description: Confirm inventory and create a durable customer order.
+```
+
+`context` retains both fields, and the Viewer shows
+`src/orders/place-order.service.ts#PlaceOrderService.execute`. The Agent locates
+the current method using normal repository tools and confirms its behavior.
+Existing file references and unbound symbols remain compatible; maintenance
+can refine them when current evidence establishes a more precise business entry.
+
 ## Query And Render
 
 ```bash

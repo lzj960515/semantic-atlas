@@ -52,6 +52,7 @@ nodes:
       - Checkout
     anchors:
       - kind: symbol
+        file: src/orders/place-order.service.ts
         value: PlaceOrderService.execute
         description: Historical orchestration entry point to confirm in current source.
 

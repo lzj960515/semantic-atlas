@@ -30,13 +30,26 @@ const businessIdSchema = nonEmptyStringSchema.regex(/^[a-z0-9]+(?:[.-][a-z0-9]+)
   error: () => t("errors.businessId"),
 });
 
-export const navigationAnchorSchema = z
-  .object({
-    kind: z.enum(navigationAnchorKinds),
-    value: nonEmptyStringSchema,
-    description: nonEmptyStringSchema,
-  })
-  .strict();
+const navigationAnchorFields = {
+  value: nonEmptyStringSchema,
+  description: nonEmptyStringSchema,
+};
+
+export const navigationAnchorSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("symbol"),
+      ...navigationAnchorFields,
+      file: nonEmptyStringSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.enum(navigationAnchorKinds.filter((kind) => kind !== "symbol")),
+      ...navigationAnchorFields,
+    })
+    .strict(),
+]);
 
 export const businessNodeSchema = z
   .object({

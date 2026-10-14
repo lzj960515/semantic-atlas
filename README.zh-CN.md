@@ -130,6 +130,21 @@ flows: []
 [地图格式](docs/map-format.md)定义了支持的业务概念、关系、业务流程、导航锚点、
 验证规则和查找行为。
 
+业务操作已有明确实现方法时，可以把符号绑定到源文件，让 Agent 从这个方法开始阅读：
+
+```yaml
+anchors:
+  - kind: symbol
+    file: src/orders/place-order.service.ts
+    value: PlaceOrderService.execute
+    description: 确认库存并创建持久化的客户订单。
+```
+
+`context` 保留文件和符号两个字段，Viewer 显示为
+`src/orders/place-order.service.ts#PlaceOrderService.execute`。Agent 使用平常的仓库
+工具定位当前方法，并确认实际业务行为。既有文件引用和未绑定文件的符号继续兼容；
+维护时根据当前源码证据完善更精确的业务入口。
+
 ## 查询与渲染
 
 ```bash
