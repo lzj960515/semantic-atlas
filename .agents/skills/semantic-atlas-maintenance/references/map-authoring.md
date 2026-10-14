@@ -33,7 +33,11 @@ nodes:
     name: Resolve request
     summary: A customer request reaches a supported resolution.
     aliases: []
-    anchors: []
+    anchors:
+      - kind: symbol
+        file: src/support/resolve-request.ts
+        value: resolveRequest
+        description: Apply the supported resolution to a customer request.
 relations:
   - from: support.resolve-request
     type: part_of
@@ -68,9 +72,31 @@ IDs use lowercase business vocabulary separated by dots or hyphens and remain
 unique across the repository. Node kinds are `domain`, `capability`, `scenario`,
 `operation`, `data`, `invariant`, and `interface`.
 
+## Navigation Anchors
+
 Anchors contain `kind`, `value`, and `description`. Kinds are `file`, `directory`,
-`document`, `symbol`, and `search`; file-like values are normalized
-repository-relative paths. Keep source evidence discoverable through anchors.
+`document`, `symbol`, and `search`. A `symbol` may also include `file`, a
+normalized repository-relative source path; other kinds use only the three
+common fields. Its `value` names the declaration, such as
+`SupportService.resolveRequest` or the module function `resolveRequest`.
+Use the owning class or type when needed to distinguish same-named methods.
+The name follows the source language's vocabulary rather than a parser syntax.
+
+Prefer a file-bound symbol when current source establishes the method or
+function that carries a mapped business action. Open that declaration and
+confirm its responsibility before writing the anchor; `description` states
+the action, rule or state change a future task should inspect there. The
+Viewer shows this pair as `file#value`; the Agent locates the current declaration
+and body through normal repository tools. Retain the file and symbol name as
+navigation hints while current source supplies line locations and behavior.
+
+Choose the anchor granularity that serves the business concept: a domain can
+point to its directory, a data concept to its declaration file, and a durable
+rule to its product document. File-like `value` fields remain normalized
+repository-relative paths. Existing unbound symbols and file references stay
+valid; improve them during maintenance when evidence identifies a more precise
+business entry. A valid node can retain an empty anchor list when no supported
+location is available.
 
 ## Relations And Flows
 

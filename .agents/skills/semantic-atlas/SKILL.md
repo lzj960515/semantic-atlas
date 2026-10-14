@@ -73,7 +73,15 @@ Route the search and context result into one current-evidence investigation:
 
 - A successful context result supplies likely business scope and source entry
   points. It can also return related business flows in `context.data.flows`.
-  Open the most decisive anchors first. Query another returned stable ID only
+  Open the most decisive anchors first. For a `kind: symbol` anchor with
+  `file`, use normal repository tools to locate `value` inside that
+  repository-relative file. For a qualified name such as
+  `PlaceOrderService.execute`, distinguish the declaring class or type from
+  same-named methods and call sites. Read the current implementation and
+  relevant tests, and confirm the business action stated in `description`.
+  A missing file or declaration follows the stale-anchor route below. Unbound
+  symbols and other anchor kinds remain useful entry points. Query another
+  returned stable ID only
   when an owner, upstream action, downstream consumer, shared data concept,
   invariant, interface, or business-relevant path could change the
   implementation scope.

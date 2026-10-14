@@ -36,6 +36,7 @@ nodes:
     aliases: [Create order]
     anchors:
       - kind: symbol
+        file: src/checkout/place-order.ts
         value: placeOrder
         description: Current order orchestration symbol.
   - id: commerce.pricing

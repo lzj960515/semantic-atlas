@@ -2,7 +2,7 @@ import { getTranslator, getResources } from "../i18n/index.js";
 import { escapeHtml } from "./html.js";
 import { renderViewerBrowserScript } from "./viewer-browser.js";
 import { renderViewerLegend, viewerLegendStyles } from "./viewer-legend.js";
-import type { BusinessFlowStepDefinition } from "../contracts/map.js";
+import type { BusinessFlowStepDefinition, NavigationAnchor } from "../contracts/map.js";
 import type { DiagramLayoutSpec } from "./viewer-layout.js";
 
 const t = getTranslator("en");
@@ -14,11 +14,7 @@ export interface ViewerProjectReference {
   readonly name: string;
 }
 
-export interface ViewerNavigationAnchor {
-  readonly kind: string;
-  readonly value: string;
-  readonly description: string;
-}
+export type ViewerNavigationAnchor = NavigationAnchor;
 
 export interface ViewerNodeDetails {
   readonly id: string;

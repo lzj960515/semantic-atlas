@@ -246,14 +246,18 @@ evidence bindings.
 ```yaml
 anchors:
   - kind: file
-    value: src/orders/place-order.service.ts
-    description: Historical implementation entry for placing an order.
+    value: src/orders/order.ts
+    description: Order data declarations and stored states.
   - kind: directory
     value: src/inventory
     description: Inventory capability source area.
   - kind: symbol
+    file: src/orders/place-order.service.ts
     value: PlaceOrderService.execute
-    description: Likely orchestration symbol.
+    description: Confirm inventory and create a durable customer order.
+  - kind: symbol
+    value: OrderPlaced
+    description: Order-created event vocabulary when its source file is unknown.
   - kind: search
     value: PLACE_ORDER
     description: Stable operation or event vocabulary.
@@ -263,12 +267,29 @@ anchors:
 ```
 
 Supported anchor kinds are `file`, `directory`, `symbol`, `search`, and
-`document`. `value` is repository-relative for file-like anchors and literal
-search vocabulary for symbol or search anchors.
+`document`. Every anchor contains `kind`, `value`, and `description`. Only
+`symbol` supports an optional `file`, a normalized repository-relative source
+path. For a bound symbol, `value` names the declaration within that file, for
+example `PlaceOrderService.execute` or the module function `placeOrder`. Include
+the owning class or type when it distinguishes same-named methods. Symbol names
+use the source language's vocabulary and remain language-independent hints.
+An unbound symbol retains its existing literal lookup meaning. `value` remains
+repository-relative for file-like anchors and literal vocabulary for `search`.
 
-The CLI preserves anchors exactly in context results. It may report an advisory
-diagnostic for a missing file or directory. The calling agent decides how to
-continue through current source discovery.
+Prefer a file-bound symbol for a mapped business action when current source
+establishes a decisive method or function. Its `description` explains the
+specific action, rule, or state change to inspect. Domain directories, data
+declaration files, product documents, and useful search terms retain their
+appropriate anchor kinds. Existing anchors remain valid and can be refined
+during maintenance using current evidence.
+
+The CLI preserves the structured `file` and `value` fields in context results;
+the Viewer displays a bound symbol as `file#value`. The calling agent uses its
+normal repository tools to locate the current declaration and read the code,
+then confirms the described business responsibility. Tracked anchors retain
+names and paths while current source supplies line locations and behavior.
+A missing file or declaration weakens that navigation hint and follows the
+existing stale-anchor investigation path.
 
 ## Validation Rules
 
@@ -285,7 +306,8 @@ The complete repository map must satisfy:
 9. Names, summaries, IDs, aliases, anchor values, and relation summaries are
    non-empty after trimming.
 10. Aliases are unique for one node after case-insensitive normalization.
-11. Repository-relative anchors remain relative and normalized.
+11. Repository-relative anchor values and symbol `file` paths remain relative
+    and normalized; `file` is supported only by `symbol` anchors.
 12. Normalized graph order is deterministic across file discovery order.
 13. Flow IDs are repository-wide unique and each flow belongs to an existing
     `scenario`.

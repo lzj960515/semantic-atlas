@@ -175,6 +175,14 @@ async function exerciseInstalledProduct() {
   assert.equal(context.stderr, "");
   const contextData = JSON.parse(context.stdout).data;
   assert.equal(contextData.selected.id, "commerce.orders.place-order");
+  assert.deepEqual(contextData.selected.anchors, [
+    {
+      kind: "symbol",
+      file: "src/orders/place-order.service.ts",
+      value: "PlaceOrderService.execute",
+      description: "Historical orchestration entry point to confirm in current source.",
+    },
+  ]);
   assert.deepEqual(
     contextData.flows.map(({ id }) => id),
     ["commerce.orders.place-order-flow"],
@@ -363,6 +371,18 @@ async function exerciseInstalledWeb(
       ),
       true,
     );
+    const placeOrder = projectEnvelope.data.project.views[0].nodes.find(
+      (node) => node.id === "commerce.orders.place-order",
+    );
+    assert.ok(placeOrder, "installed Web payload is missing the place-order operation");
+    assert.deepEqual(placeOrder.anchors, [
+      {
+        kind: "symbol",
+        file: "src/orders/place-order.service.ts",
+        value: "PlaceOrderService.execute",
+        description: "Historical orchestration entry point to confirm in current source.",
+      },
+    ]);
     assert.doesNotMatch(
       JSON.stringify(projectEnvelope),
       new RegExp(escapeRegularExpression(selectedRepositoryRoot), "u"),

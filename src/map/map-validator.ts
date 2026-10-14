@@ -10,6 +10,7 @@ import {
   type BusinessRelationKind,
   type LoadedMapDocument,
   type MapIssue,
+  type NavigationAnchor,
   type ParsedMapDocument,
   type RepositoryMapSource,
   type ValidatedBusinessMap,
@@ -207,14 +208,14 @@ function validateAliases(node: BusinessNode, issues: MapIssue[]): void {
 
 function validateAnchors(node: BusinessNode, issues: MapIssue[]): void {
   for (const [index, anchor] of node.anchors.entries()) {
-    if (!isFileLikeAnchor(anchor.kind)) continue;
-    if (isNormalizedRelativePath(anchor.value)) continue;
+    const reference = repositoryPathForAnchor(anchor);
+    if (!reference || isNormalizedRelativePath(reference.value)) continue;
     issues.push({
       code: "ANCHOR_PATH_INVALID",
       document: node.documentPath,
-      path: `nodes.${node.id}.anchors.${index}.value`,
+      path: `nodes.${node.id}.anchors.${index}.${reference.field}`,
       subject: node.id,
-      message: t("errors.invalidAnchor", { value: anchor.value }),
+      message: t("errors.invalidAnchor", { value: reference.value }),
     });
   }
 }
@@ -378,8 +379,16 @@ function relationKindsMatch(
   }
 }
 
-function isFileLikeAnchor(kind: string): boolean {
-  return kind === "file" || kind === "directory" || kind === "document";
+function repositoryPathForAnchor(
+  anchor: NavigationAnchor,
+): { readonly field: "file" | "value"; readonly value: string } | undefined {
+  if (anchor.kind === "symbol") {
+    return anchor.file ? { field: "file", value: anchor.file } : undefined;
+  }
+  if (anchor.kind === "file" || anchor.kind === "directory" || anchor.kind === "document") {
+    return { field: "value", value: anchor.value };
+  }
+  return undefined;
 }
 
 function isNormalizedRelativePath(value: string): boolean {

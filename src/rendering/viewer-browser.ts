@@ -47,6 +47,7 @@ const imageBrowserScript =
 interface ViewerNavigationAnchorModel {
   readonly kind: string;
   readonly value: string;
+  readonly file?: string;
   readonly description: string;
 }
 
@@ -458,7 +459,8 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     kind.className = "node-details__anchor-kind";
     kind.textContent = t(`viewer.anchorKinds.${anchor.kind}`);
     const value = document.createElement("code");
-    value.textContent = anchor.value;
+    value.textContent =
+      anchor.kind === "symbol" && anchor.file ? `${anchor.file}#${anchor.value}` : anchor.value;
     const description = document.createElement("p");
     description.textContent = anchor.description;
     element.append(kind, value, description);
