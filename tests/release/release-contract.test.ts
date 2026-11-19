@@ -14,7 +14,7 @@ describe("public release candidate", () => {
 
     expect(packageDocument).toMatchObject({
       name: "semantic-atlas",
-      version: "2.8.0",
+      version: "2.8.1",
       license: "MIT",
       homepage: `${publicRepository}#readme`,
       bugs: { url: `${publicRepository}/issues` },
@@ -22,7 +22,7 @@ describe("public release candidate", () => {
         type: "git",
         url: `git+${publicRepository}.git`,
       },
-      engines: { node: ">=24 <25" },
+      engines: { node: ">=24" },
       publishConfig: { access: "public", provenance: true },
     });
     expect(packageDocument).not.toHaveProperty("private");
@@ -58,7 +58,7 @@ describe("public release candidate", () => {
         expect.objectContaining({ uses: "pnpm/action-setup@v4" }),
         expect.objectContaining({
           uses: "actions/setup-node@v4",
-          with: expect.objectContaining({ "node-version": 24 }),
+          with: expect.objectContaining({ "node-version": "${{ matrix.node-version }}" }),
         }),
         expect.objectContaining({ run: "pnpm install --frozen-lockfile" }),
         expect.objectContaining({ run: "pnpm release:verify" }),
