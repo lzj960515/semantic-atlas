@@ -20,7 +20,7 @@ Agent 也会建立有边界的当前业务模型，并在证据足够时保留�
 
 ## 安装
 
-Semantic Atlas 需要 Node.js 24。
+Semantic Atlas 需要 Node.js 24 或更高版本。CI 验证 Node.js 24 和 26。
 
 ```bash
 npm install --global semantic-atlas

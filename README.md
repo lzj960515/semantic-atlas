@@ -22,7 +22,7 @@ workflow and can retain a well-supported maintenance candidate.
 
 ## Install
 
-Semantic Atlas requires Node.js 24.
+Semantic Atlas requires Node.js 24 or later. CI verifies Node.js 24 and 26.
 
 ```bash
 npm install --global semantic-atlas

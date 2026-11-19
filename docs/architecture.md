@@ -451,6 +451,8 @@ typecheck, build, deterministic render checks, packed-tarball privacy, an
 anonymous installed-product flow, package dry-run, and Git diff validation. CI
 invokes the same gate used by a
 release tag so the public package is not validated through a weaker path.
+CI runs the complete gate on Node.js 24 and 26 to verify the minimum supported
+major version and the newer LTS runtime.
 
 ### Release Automation
 
@@ -689,7 +691,8 @@ needs business understanding.
 
 ## Current Technology Boundary
 
-The implementation uses TypeScript ESM, Node.js 24, and pnpm. Mature libraries
+The implementation uses TypeScript ESM, Node.js 24 or later, and pnpm. The npm
+engine declaration has no upper version bound. Mature libraries
 provide YAML parsing, runtime schema validation, CLI parsing, and graph layout.
 The exact packages are selected in the first implementation task from their
 maintained APIs, footprint, and supported output needs.
