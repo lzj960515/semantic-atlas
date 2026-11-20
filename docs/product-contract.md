@@ -4,9 +4,10 @@ This page defines the accepted initial product. It answers what Semantic Atlas
 must improve, how agents and people use it, and which results establish
 that the product works.
 
-**Status: the public product is released and installed; the current source
-candidate adds persistent manual project registration and on-demand Web
-loading, while longitudinal acceptance remains in progress.**
+**Status: the behavior below is implemented for 4.0.0, including named-project
+queries, multiple flow entries, unconditional fan-out and overview authoring
+guidance. Exact publication identity lives in the corresponding GitHub Release;
+longitudinal acceptance remains in progress.**
 
 ## Purpose
 
@@ -48,12 +49,10 @@ uses current evidence and is held to a higher accuracy standard than the map.
 
 ### Coding agent orientation
 
-An agent receives a feature, bug, refactor, or impact question. It first ranks
-mapped concepts from the task's natural business language, selects a stable ID,
-and then queries that concept's compact business neighborhood. This probe still
-runs when no map documents exist. The agent follows map leads when available,
-otherwise establishes the smallest source-supported business boundary, then
-opens decisive current evidence before editing.
+Agent 接到功能、缺陷、重构或影响分析任务后，按已知流程或概念 ID 直接读取；只有
+业务意图时才搜索相关流程。已登记项目可通过 `project list` 与 `--project <名称或ID>`
+从任意工作目录定位。未登记项目可显式使用 `--repo <路径>`。业务图缺失时，先建立
+当前任务所需且有源码依据的业务理解；修改前核实会决定结果的当前证据。
 
 For a mapped business action, a source-file-bound symbol can point to the
 specific method or function that carries it. The Agent locates that declaration
@@ -85,9 +84,12 @@ The explicit `web --repo <paths...>` form remains a temporary project set for
 one session. It neither writes the user-local project file nor implicitly
 merges registered paths. The browser receives service-assigned project IDs and
 display names, never repository paths, and cannot submit a filesystem path.
-所有可视页面统一为业务流程图。总览也由 AI 显式编写动作、顺序、判断、条件与结果，
-例如“顾客下单并付款 → 仓库发货 → 按顾客申请进入售后退款”。业务分类和归属继续
-帮助 AI 调查，不能被当成执行顺序，也不能替代总览流程。
+所有可视页面统一为业务流程图。AI 根据真实业务决定怎样概括、拆分和连接，不套用
+固定的开始、判断和结束结构。每个项目的资料都应有能讲清整体业务的一张或几张总览，
+再按真实环节进入细图，例如“顾客下单并付款 → 仓库发货 → 按顾客申请进入售后退款”。
+细图目录不能代替整体业务理解，独立业务仍保留真实路径。业务跨前端、后端或其他
+服务时，AI 按缺失环节寻找证据，仓库边界不截断图的业务叙述。软件提供表达、渲染
+和导航能力，由 AI 组织总览与细节，不自动拼成巨图或推断执行关系。
 
 流程节点可以引用场景，进入该场景自己的子流程。没有被其他流程引用的根流程排在
 前面，默认打开第一条根流程；其余流程通过“查看其他流程”的级联菜单或节点角标进入。没有流程资料
@@ -186,6 +188,10 @@ A flow belongs to one existing scenario and orders business-granularity
 `action`, `decision`, and `outcome` steps through transitions. Decision
 transitions carry distinct business labels. A step can reference an existing
 场景概念 ID，从该步骤进入场景自有的子流程，无需第二套链接字段。
+
+同一张图支持多个真实业务入口与独立并行后续。`startsAt` 可写一个 ID 或非空列表，
+解析与 CLI 返回统一为列表；动作的多条无条件后续均成立，判断的条件分支继续按条件
+选择。软件按显式节点和连线展示，不要求编造共同入口，也不自动推断等待或执行状态。
 
 Flows retain only steps that can change a user-visible result, durable data,
 cost or provider usage, authorization or tenant isolation, an interface, or a

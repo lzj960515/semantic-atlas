@@ -21,10 +21,11 @@ The first implementation uses this conventional directory. Every `*.yaml` file
 in the directory participates in one repository-wide graph. File names organize
 ownership but do not become graph nodes.
 
-多项目工作空间中的各仓库保留各自的流程文件。查询、校验和渲染通过 `--repo` 指定目标
-仓库，概念与流程 ID 在该仓库加载的图内解析，源码锚点也相对它解析。工作目录可以位于
-父工作空间；省略 `--repo` 只加载当前目录，不递归合并子项目。工作空间项目映射负责
-找到目标仓库，跨项目协作分别读取双方资料并核实真实契约。
+各仓库保留各自的流程文件。登记后，通过 `project list` 查看项目名称、ID 与路径，查询、
+校验和渲染使用 `--project <名称或ID>` 选择目标，与当前工作目录无关；也可通过 `--repo`
+直接指定仓库。两种选择方式互斥，均不提供时只加载当前目录，不递归合并子项目。
+概念与流程 ID 在选定仓库的图内解析，源码锚点也相对它解析。跨项目协作分别读取双方
+资料并核实真实契约，不能把一个项目的同名业务当成另一个项目。
 
 ## Business Ownership And File Boundaries
 
@@ -216,14 +217,14 @@ Each flow contains:
 | `name` | yes | Human-facing scenario path name |
 | `summary` | yes | Durable business result represented by the flow |
 | `scenario` | yes | Existing `scenario` node that owns the flow |
-| `startsAt` | yes | Entry step ID within the flow |
+| `startsAt` | yes | 一个步骤 ID 或非空步骤 ID 列表，表示真实业务入口；解析与 CLI 输出统一为列表 |
 | `steps` | yes | One or more business-granularity steps |
 | `transitions` | yes | Directed step connections and decision labels |
 | `notes` | no | Durable qualification or known uncertainty |
 
 Step kinds are:
 
-- `action`: a meaningful business action with at most one unlabeled next step;
+- `action`：具体业务动作，可有多条无条件后继；多条路径都成立，不表示择一执行；
 - `decision`: a business choice with at least two uniquely labeled branches;
 - `outcome`: a business result that ends its path.
 
@@ -295,8 +296,19 @@ CLI 在上下文查询中保留 `file` 和 `value` 两个字段；面向业务�
 
 ## 流程图阅读与层次
 
-所有可视页面使用 `flows`，总览同样是一条显式编写的业务流程。AI 从入口、动作、
-判断、条件与结果组织总览，子流程通过步骤的 `concept` 引用其所属场景进入。
+所有可视页面使用 `flows`。AI 依据实际业务与阅读需要决定范围、层次与表达；总览
+概括真实业务动作、条件和交接，不为独立业务补出共同触发或执行关系。子流程
+通过步骤的 `concept` 引用其所属场景进入。文件字段约定结构，不规定业务的画法。
+
+每个项目的资料应通过一张或几张总览讲清整体业务，再逐步进入细节。只有分散的接口
+流程并不满足项目建图的阅读目标。源码证据可以分布在多个仓库，图按完整业务组织；
+本地路径锚点继续相对资料所属仓库，跨项目线索可由 `search` 锚点注明项目和入口。
+
+一条流程可以有多个真实入口，`startsAt` 列出它们；没有执行关系的入口无需补出共同
+触发或连线。动作有多个无条件后继时，各条路径分别继续，适合表达同一事件的独立
+消费者。判断的带条件后继仍表示业务选择。多个入口与分支均由 AI 在资料中显式写出，
+软件不自动补全业务联系。多条线汇入一个步骤不自行声明等待语义；需要等待哪些工作
+完成，应使用具体动作与说明表达。阅读器负责展示，不执行或模拟流程。
 `part_of` 只表达业务归属，不推断执行先后；没有 `flows` 的资料仍可被 CLI 查询，
 阅读器显示空状态。
 
@@ -326,11 +338,11 @@ The complete repository map must satisfy:
 12. Normalized graph order is deterministic across file discovery order.
 13. Flow IDs are repository-wide unique and each flow belongs to an existing
     `scenario`.
-14. Step IDs are unique within a flow; `startsAt`, transition endpoints, and
-    optional concept references resolve.
-15. Actions have at most one unlabeled outgoing transition, decisions have at
+14. Step IDs are unique within a flow; every `startsAt` ID, transition endpoint,
+    and optional concept reference resolves. Entry IDs are nonempty and unique.
+15. Actions have unlabeled outgoing transitions, decisions have at
     least two uniquely labeled outgoing transitions, and outcomes have none.
-16. Every flow step is reachable from `startsAt`; cycles remain valid.
+16. Every flow step is reachable from at least one declared entry; cycles remain valid.
 
 Horizontal relation endpoints follow their business meaning:
 

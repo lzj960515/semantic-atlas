@@ -693,7 +693,7 @@ describe("semantic-atlas context", () => {
           {
             id: "commerce.orders.place-order-flow",
             scenario: "commerce.orders.place-order",
-            startsAt: "receive-order",
+            startsAt: ["receive-order"],
             steps: [
               { id: "create-order", concept: "commerce.orders.create-order" },
               { id: "order-created", kind: "outcome" },

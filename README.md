@@ -146,12 +146,16 @@ semantic-atlas flows "engagement.notifications.confirm-order-flow" --repo /path/
 semantic-atlas context "engagement.notifications.send-order-confirmation" --repo /path/to/repository
 semantic-atlas render --repo /path/to/repository --output ./business-map.html
 semantic-atlas project add /path/to/repository
+semantic-atlas project list
+semantic-atlas search "order confirmation notification" --flows --project repository
 semantic-atlas web
 ```
 
-从多项目工作空间调用时，将 `--repo` 指向实际要修改的子仓库。流程与源码保留在同一
-仓库，锚点相对该仓库解析；跨项目任务分别查询。省略参数只读取当前目录，不递归扫描
-子项目，不能根据工作空间根目录的空结果判断子项目没有图。
+登记项目后，可从任意目录使用 `--project <项目名称或ID>` 查询。`project list` 返回名称、
+展示名、ID 与实际路径；名称从仓库目录名派生。重名时用 ID，误拼时返回“你是不是在找”
+的候选，由 AI 判断后明确重试。`validate/search/flows/context/render/web` 支持该参数，
+与显式 `--repo` 互斥。也可直接用 `--repo <路径>`，两项均省略时地图命令只读取当前目录。
+流程与源码保留在同一仓库，锚点相对它解析；不同项目分别查询，不递归混合子项目。
 
 `validate` checks every map document as one graph. `search` ranks up to five
 concepts of any business-node kind for a natural-language query. Each result
@@ -172,6 +176,14 @@ AI 按业务问题直接定位流程：已知编号时直接 `flows <flow-id>`�
 正文有备注才打开默认关闭的说明，说明中没有进入按钮。“上一层”沿实际来路返回。
 “查看其他流程”按父子流程逐列展开，单项目名不重复显示。源码与 AI 编排理由在界面隐藏。
 
+AI 根据真实业务决定图的范围、层次和画法。每个项目的一张或几张总览应讲清整体业务，
+再按需要进入细图；跨项目环节沿实际业务查找源码。独立业务保留真实路径，不套用共同
+起止，不由软件自动拼成全项目巨图。
+
+同一流程的 `startsAt` 可写多个真实入口；普通动作可以连接多个无条件后续，表示各条
+路径都成立。带条件的选择继续使用判断节点。CLI 的 `startsAt` 统一返回 ID 列表，
+这是 4.0 的公开结果类型变化；原有单 ID 输入仍可读取。详见[格式](docs/map-format.md)。
+
 没有 `flows` 时显示空状态。可运行[订单管理阅读样例](examples/订单管理/README.md)。
 
 `project add [path]` validates the complete business map and saves its
@@ -181,7 +193,7 @@ directory. Repeating a valid path is idempotent; a missing or invalid map leaves
 the file unchanged.
 
 `web` starts the same Viewer on a read-only `127.0.0.1` server and opens the
-default browser. With no `--repo`, it reads the registered list from any current
+default browser. With neither `--repo` nor `--project`, it reads the registered list from any current
 directory. An empty list opens an instructional empty state. The initial page
 contains only project names and opaque IDs; it loads and validates a map only
 when that project is initially selected or selected later. An unavailable path

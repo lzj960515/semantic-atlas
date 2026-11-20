@@ -46,7 +46,7 @@ function map(): ValidatedBusinessMap {
     scenario: "child",
     name: id,
     summary: id,
-    startsAt: "done",
+    startsAt: ["done"],
     steps: [{ id: "done", kind: "outcome", name: "完成", summary: "处理结束" }],
     transitions: [],
     documentId: "orders",
@@ -61,7 +61,7 @@ function map(): ValidatedBusinessMap {
       {
         ...detail("overview"),
         scenario: "overview",
-        startsAt: "child",
+        startsAt: ["child"],
         steps: [
           {
             id: "child",

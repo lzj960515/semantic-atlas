@@ -15,71 +15,70 @@
 ```yaml
 schemaVersion: 1
 map:
-  id: support
-  title: 客户服务
-  summary: 将客户请求处理到明确结果。
+  id: appointments
+  title: 预约管理
+  summary: 管理客户预约及其取消规则。
 nodes:
-  - id: support
+  - id: appointments
     kind: domain
-    name: 客户服务
-    summary: 负责客户请求的接收与处理。
+    name: 预约管理
+    summary: 负责预约状态和取消规则。
     aliases: []
     anchors: []
-  - id: support.resolve-request
+  - id: appointments.cancel
     kind: scenario
-    name: 处理客户请求
-    summary: 记录请求，核对是否支持，给出处理结果。
+    name: 取消预约
+    summary: 允许客户在约定期限内取消已确认的预约。
     aliases: []
     anchors:
       - kind: symbol
-        file: src/support/resolve-request.ts
-        value: SupportService.resolveRequest
-        description: 核对请求是否支持并处理。
+        file: src/rules/cancel.ts
+        value: cancelAppointment
+        description: 判断预约状态与取消期限，修改预约状态。
 relations:
-  - from: support.resolve-request
+  - from: appointments.cancel
     type: part_of
-    to: support
-    summary: 客户请求由客户服务负责。
+    to: appointments
+    summary: 预约管理决定取消规则和预约状态。
 flows:
-  - id: support.resolve-request.flow
-    name: 处理客户请求
-    summary: 从接收请求到给出结果。
-    scenario: support.resolve-request
-    startsAt: receive
+  - id: appointments.cancel.flow
+    name: 取消预约
+    summary: 在取消期限内取消已确认的预约，否则保留原状态。
+    scenario: appointments.cancel
+    startsAt: within-deadline
     steps:
-      - id: receive
-        kind: action
-        name: 接收请求
-        summary: 记录客户要解决的问题。
-      - id: supported
+      - id: within-deadline
         kind: decision
-        name: 属于支持范围吗？
-        summary: 根据当前服务范围核对请求。
-        notes: 超出服务范围时说明原因，避免让客户继续等待无法提供的结果。
-      - id: resolved
+        name: 预约已确认且距离开始至少 24 小时吗？
+        summary: 同时满足状态和提前时间要求才允许取消。
+      - id: cancel
+        kind: action
+        name: 取消预约
+        summary: 将预约状态改为已取消。
+      - id: cancelled
         kind: outcome
-        name: 完成处理
-        summary: 客户得到处理结果。
-      - id: refused
+        name: 预约已取消
+        summary: 本次预约不再有效。
+      - id: retained
         kind: outcome
-        name: 说明无法处理的原因
-        summary: 告知客户当前服务边界。
+        name: 保留预约当前状态
+        summary: 不符合状态或提前时间要求，本次取消不生效。
     transitions:
-      - from: receive
-        to: supported
-      - from: supported
-        when: 属于
-        to: resolved
-      - from: supported
-        when: 不属于
-        to: refused
+      - from: within-deadline
+        when: 两项均满足
+        to: cancel
+      - from: within-deadline
+        when: 任意一项不满足
+        to: retained
+      - from: cancel
+        to: cancelled
 ```
 
 文件中的 `relations`、节点的 `aliases` 和 `anchors` 可以为空；业务图需要明确编写 `flows`，没有流程时 Web 显示空状态，不从领域或分类自动补画。
 
-## 总览与子流程
+## 流程与深入阅读
 
-总览也编写为一个 `flow`，归属一个负责这条完整旅程的 `scenario`。步骤使用动作和判断说明主要环节及交接；例如“顾客下单 → 仓库发货 → 顾客申请退款了吗？”，退款只有符合触发条件才进入。
+项目资料需要能解释全貌的业务总览，具体组织方法见[流程设计](diagram-design.md#4-根据理解成本安排层次)。将其中的真实业务旅程编写为 `flow`，归属该旅程的 `scenario`。步骤使用具体业务动作、判断与结果说明环节和交接；例如“顾客下单 → 仓库发货 → 顾客申请退款了吗？”，退款只有符合触发条件才进入。总览可以由几张图共同承担，简单项目的一张图也可以同时讲清整体与细节；分类目录不编成执行流程。
 
 继续深入某个环节时，让上层步骤的 `concept` 指向下层流程所属的场景：
 
@@ -98,7 +97,7 @@ flows:
 ```yaml
 - id: orders.payment.flow
   name: 支付订单
-  summary: 从提交支付请求到收到最终结果。
+  summary: 顾客付款后，订单进入已付款或继续待付款。
   scenario: orders.payment
   startsAt: request
   steps:
@@ -131,17 +130,22 @@ flows:
 
 同一场景可拥有多条有明确名字的流程，界面按当前子流程入口呈现。不要把进入操作放进备注详情。
 
-Web 默认入口从根流程取得：其 `scenario` 没有被其他流程步骤的 `concept` 引用。根流程排在前面；明确编写一个总览，使读者进入后先看到完整旅程。多个真实独立入口不应为了凑成总览而伪造先后关系。流程内部循环用 `transitions` 表达，图间引用用于展开环节。
+根流程是其 `scenario` 没有被其他流程步骤的 `concept` 引用的流程，这是目录的技术含义，不保证业务全貌已经组织好。编写者应把相关细图组织到可讲解的业务总览，再按真实环节深入；不能只因许多图都能从目录打开，就认定项目建图完成。独立业务仍保留真实起点和结果，不添加虚构的共同触发或路由场景，软件不补跨流程连线。流程内部循环用 `transitions` 表达，图间引用用于展开环节。
 
 `part_of` 只表达业务归属，不能推断执行顺序；被同一流程引用也不改变概念的业务所有者。相关流程不自动变成下一层，只有步骤所引用概念自己的流程才作为进入目标，当前流程排除自身入口。
 
 ## 步骤、连接与备注
 
 - 流程归属已存在的 `scenario`；步骤包含 `id`、`kind`、`name`、`summary`，可以有 `concept` 和 `notes`。
-- `action` 至多有一条无标签后续连接；`decision` 至少有两条标签不同且非空的后续连接；`outcome` 结束当前路径。
-- `startsAt` 指向起点，所有步骤都应从它可达。`transitions` 的 `from`、`to` 引用本流程内的步骤 ID；判断的 `when` 说明具体条件。
+- `action` 可有多条无标签后续连接，表示各条路径都成立；`decision` 至少有两条标签不同且非空的后续连接，表示按条件选择；`outcome` 结束当前路径。
+- `startsAt` 可以是一个 ID 或非空 ID 列表，显式记录真实入口；解析和 CLI 返回统一为列表。入口不能重复，每个步骤应从至少一个入口可达。`transitions` 的 `from`、`to` 引用本流程内的步骤 ID；判断的 `when` 说明具体条件。
 - 节点 `notes` 和步骤 `notes` 记录业务背景、规则的目的与接受的代价；步骤备注优先于引用概念的备注。不能把推测的原因写成已确认决定。
 - 子流程通过节点角标直接进入；点击节点正文仅在有业务备注时打开默认关闭的详情，详情只显示备注，不提供进入按钮。无备注的普通节点点击保持原样。
+
+例如 `startsAt: [customer-order, customer-refund]` 可以保留购买与退款各自的入口；一个
+“付款确认”动作分别连向“仓库发货”和“发送购买确认”，表示两条后续各自进行。具体
+是否并行、是否需要等待仍按业务证据判断；需要等全部工作完成时，明确写出等待对象。
+不把同时发生或独立发生的路径改成判断菜单，不为不相连的入口补共同触发。
 
 概念关系继续用于 AI 调查：`invokes` 从场景／操作指向场景／操作，`reads`／`writes` 指向数据，`publishes`／`consumes` 指向接口，`constrained_by` 指向约束。每条关系包含 `from`、`type`、`to` 和业务 `summary`。关系由来源概念所属文件声明，共享概念只定义一次。
 
@@ -151,7 +155,15 @@ Web 默认入口从根流程取得：其 `scenario` 没有被其他流程步骤�
 
 当前源码确认了业务动作的决定性方法时，优先绑定到文件与声明，描述后续需要核实的动作、规则或状态。领域可以定位目录，数据概念定位声明文件，业务规则定位产品决定。文件路径保持规范的仓库相对路径；有效概念没有已证实入口时可以保留空锚点。
 
-AI 可以用 `flows <flow-id>` 或 `context <concept-id>` 直达已知业务；只有业务意图时，用 `search --flows` 词面定位相关流程。目标流程提供本层步骤、子流程和引用概念的源码锚点，需要整体结构时才读取无 ID 的 `flows` 目录。文件和 CLI 保留这些结构，Web 面向业务人员隐藏源码路径、类和方法。AI 使用普通仓库工具打开当前声明和实现；行号与行为以当前源码为准。旧文件或声明失效时，依据当前证据修正锚点，不丢弃仍准确的业务含义。
+图的业务范围可以跨项目。先根据缺失的业务环节找到证据所属项目，再记录项目与具体
+入口；跨项目线索可使用现有 `search` 锚点，在 `value` 与 `description` 中写清项目、
+文件和符号，供 AI 转到该项目核实。本地路径锚点仍相对资料所属仓库，不能用 `../`
+冒充本地文件。资料保存位置不限定图能描述的业务范围；确有格式或跨图导航能力缺口
+时明确报告，不通过省掉业务环节解决，也不擅自新增字段。
+
+AI 可以用 `flows <flow-id>` 或 `context <concept-id>` 直达已知业务；只有业务意图时，用 `search --flows` 词面定位相关流程。已登记项目用 `--project "<name-or-id>"`，需要核对名称、ID 与仓库路径时用 `project list`；相近名称建议和重名候选经判断后，再以确切名称或 ID 重试。未登记或按已知路径操作时用 `--repo "<absolute-repository-root>"`，两种选择方式互斥。锚点和业务文件都相对选中的仓库解析，父工作空间不是自动递归查询入口。
+
+目标流程提供本层步骤、子流程和引用概念的源码锚点，需要整体结构时才读取无 ID 的 `flows` 目录。文件和 CLI 保留这些结构，Web 面向业务人员隐藏源码路径、类和方法。AI 使用普通仓库工具打开当前声明和实现；行号与行为以当前源码为准。旧文件或声明失效时，依据当前证据修正锚点，不丢弃仍准确的业务含义。
 
 ## 完成检查
 

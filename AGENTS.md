@@ -47,8 +47,10 @@ navigation conventions to Wiki maintenance workflows.
   或流程维护的前置条件，不自动修改或清理已有观察数据。
 - 新版文件格式和业务资料可以按已确认契约重写，不因旧格式或旧业务文件引入
   兼容要求；发布、真实业务资料更新和用户安装仍按本次授权分别执行。
-- 所有可视页面统一为业务流程图，总览和细图都由 AI 在 flows 中显式编写。
-  归属与协作资料帮助调查，不自动推断为流程；通过步骤的场景引用进入子流程。
+- 所有可视页面统一为业务流程图，由 AI 根据真实业务在 flows 中决定范围、粒度和
+  连接。每个项目应有能讲清整体业务的一张或几张总览，按真实环节进入细图；不套
+  固定骨架，不为聚合编造共同起止或执行关系。仓库不限定业务图边界，沿缺失环节
+  查前端、后端与其他项目证据。归属与协作资料帮助调查，不自动推断为执行顺序。
 - Static export and the loopback Web command use one shared interactive Viewer;
   the service adds project selection without becoming a second graph model.
 - Source discovery uses the calling agent's normal repository tools. The map

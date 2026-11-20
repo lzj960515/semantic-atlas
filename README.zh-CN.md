@@ -9,8 +9,7 @@
 Semantic Atlas 在编码 Agent 修改代码之前，为它提供一份紧凑的业务地图。
 仓库使用纳入 Git 管理的 YAML 描述稳定的业务域、能力、操作、数据、规则、
 接口及其关系；场景流程继续描述业务上重要的动作、判断、分支和结果。CLI 负责
-验证地图、返回适合当前调查的小范围业务邻域及相关流程，并把两种视图渲染给人
-查看。
+验证地图、返回适合当前调查的小范围业务邻域及相关流程，并把业务流程渲染给人查看。
 
 地图只提供调查线索，不直接代表当前实现。它帮助 Agent 从正确的业务边界
 进入问题；当前源码、测试、纳入版本管理的产品文档，以及必要的运行时证据，
@@ -151,12 +150,16 @@ semantic-atlas flows "engagement.notifications.confirm-order-flow" --repo /path/
 semantic-atlas context "engagement.notifications.send-order-confirmation" --repo /path/to/repository
 semantic-atlas render --repo /path/to/repository --output ./business-map.html
 semantic-atlas project add /path/to/repository
+semantic-atlas project list
+semantic-atlas search "订单确认通知" --flows --project repository
 semantic-atlas web
 ```
 
-从多项目工作空间调用时，将 `--repo` 指向实际要修改的子仓库。流程文件保存在该仓库的
-`docs/business-map/`，源码锚点也相对该仓库解析；不同项目分别查询。省略 `--repo` 只读取
-当前目录，不递归扫描子项目，因此工作空间根目录没有图不表示子项目没有图。
+登记项目后，可从任意目录使用 `--project <项目名称或ID>` 查询。`project list` 返回名称、
+展示名、ID 与实际路径；名称从仓库目录名派生。重名时用 ID，误拼时返回“你是不是在找”
+的候选，由 AI 判断后明确重试。`validate/search/flows/context/render/web` 支持该参数，
+与显式 `--repo` 互斥。也可直接用 `--repo <路径>`，两项均省略时地图命令只读取当前目录。
+流程与源码保留在同一仓库，锚点相对它解析；不同项目分别查询，不递归混合子项目。
 
 `validate` 把所有地图文档作为一张完整图进行检查。`search` 根据自然语言查询，
 从所有类型的业务节点中返回最多五个排序结果；每个结果包含查询内的相对相关度、
@@ -173,6 +176,14 @@ AI 按业务问题直接定位流程：已知编号时直接 `flows <flow-id>`�
 正文有备注才打开默认关闭的说明，说明中没有进入按钮。“上一层”沿实际来路返回。
 “查看其他流程”按父子流程逐列展开，单项目名不重复显示。源码与 AI 编排理由在界面隐藏。
 
+AI 根据真实业务决定图的范围、层次和画法。每个项目的一张或几张总览应讲清整体业务，
+再按需要进入细图；跨项目环节沿实际业务查找源码。独立业务保留真实路径，不套用共同
+起止，不由软件自动拼成全项目巨图。
+
+同一流程的 `startsAt` 可写多个真实入口；普通动作可以连接多个无条件后续，表示各条
+路径都成立。带条件的选择继续使用判断节点。CLI 的 `startsAt` 统一返回 ID 列表，
+这是 4.0 的公开结果类型变化；原有单 ID 输入仍可读取。详见[格式](docs/map-format.md)。
+
 没有 `flows` 时显示空状态。可运行[订单管理阅读样例](examples/订单管理/README.md)。
 
 `project add [path]` 会先校验完整业务地图，再把规范化的 checkout 路径保存到
@@ -180,7 +191,7 @@ AI 按业务问题直接定位流程：已知编号时直接 `flows <flow-id>`�
 目录；重复登记有效路径是幂等操作，地图缺失或无效时不会修改文件。
 
 `web` 会在只读的 `127.0.0.1` 服务上启动同一个 Viewer，并打开默认浏览器。
-不带 `--repo` 时，它可以从任意当前目录读取已登记项目；清单为空时仍会打开
+`--repo` 和 `--project` 均未提供时，它从任意当前目录读取完整登记清单；清单为空时仍会打开
 Viewer，并显示登记指引。首页只包含项目名称和不透明标识，浏览器初次选择或
 切换项目时才加载、校验并渲染该项目。路径不可用的项目仍保留在列表中，而且
 不会阻止其他项目正常加载。

@@ -1,23 +1,24 @@
 {
   "skill_name": "semantic-atlas",
-  "source": "原业务边界案例保持；2026-11-20按统一Skill、显式流程、同分支维护及首次建图边读边画和反向修图的用户决定更新表达标准。",
+  "source": "原业务边界案例保持；2026-11-20用户确认项目应有整体业务总览、由业务缺口驱动跨仓库调查，同时不套统一业务骨架或虚构执行关系。",
   "evals": [
     {
       "id": 1,
       "prompt": "为这个项目初始化业务模块图谱。",
       "fixture": "multi-business",
       "sandbox": "workspace-write",
-      "expected_output": "有源码依据的项目流程资料，以真实业务归属组织文件，显式总览与子流程保留共享订单、事件和业务交接。",
+      "expected_output": "有源码依据的项目业务资料，以真实所有者组织文件，通过一张或几张总览讲清订单、履约、核算的整体业务，再进入具体规则；保留共享订单、事件交接和独立执行路径。",
       "expectations": [
         "Creates multiple business-owned YAML documents without receiving a file-splitting instruction; partition covers purchasing, shipment fulfillment, and revenue reporting with evidence-backed boundaries rather than src/actions versus src/records.",
-        "Uses meaningful business owners and containment for source investigation, and explicitly authors overview flows with child-flow concept references; the Viewer reads actual workflow paths rather than domain/category views.",
+        "按真实业务所有者和归属调查源码，显式编写具体业务路径；总览和子流程引用由实际业务与阅读需要决定，有连线的分类目录或通用请求处理骨架不能证明业务含义正确。",
         "Defines the shared Order and Order placed event concepts once; publishing, consuming and shared-data references connect the source-supported collaborators across files.",
         "Relations are declared in the source concept document and flows in their scenario document; stable flow steps preserve at least the dispatch allowed/refused outcomes supported by source.",
-        "All generated YAML documents validate together; overview and child flows express cross-business handoffs supported by source, remain reachable in the flow reader, and expose decisive concept anchors through the CLI.",
+        "所有 YAML 共同校验通过；项目总览能向不熟悉项目的人讲清主要业务及其真实联系，再进入有依据的细节，CLI 能取得决定性锚点。只有零散函数或接口的目录尚未完成项目建图，不预设总览图数或层数。",
         "Reports complete requested map work, evidence and real Git review/integration state. Does not require candidate/task origins or observe/reconcile records before direct authoring can complete.",
         "按有来源的业务分块调查；一条局部路径已有证据时及时保存流程和符号锚点，再读取其他业务，不等全部源码读完才首次画图。未核实部分保留为调查缺口，不画成已证实行为。",
         "后续读到跨业务协作或状态所有者时，回看并修正已画的入口、顺序、归属和上下层引用；若证据否定早期理解，修改或重构旧流程而非只追加节点。",
-        "使用流程文件及必要状态记录承接调查，区分已证实覆盖、未读范围和证据不足；完成范围依据指定业务的重要路径与证据，不依据固定图层、节点或轮数。"
+        "使用流程文件及必要状态记录承接调查，区分已证实覆盖、未读范围和证据不足；完成范围依据指定业务的重要路径与证据，不依据固定图层、节点或轮数。",
+        "下单发布的共享事件分别由配送请求和销售入账独立消费，两者不互为前置；顾客取消订单和财务查询日收入保留各自有依据的路径，不为单一根图虚构共同触发、串行、路由判断或汇合。"
       ]
     },
     {
@@ -29,7 +30,7 @@
       "expectations": [
         "Creates one business-owned YAML covering appointment cancellation; HTTP/rules/storage are source anchors, not artificial independent business domains.",
         "Represents the cancellation deadline, durable appointment state, and accepted/refused outcomes in a source-supported scenario flow.",
-        "Complete graph validation passes and the Viewer directly presents the appointment-cancellation flow, with readable decisions and outcomes.",
+        "完整图校验通过，阅读器直接呈现预约取消流程，判断和结果容易理解。节点按适当粒度说明预约、取消期限与结果状态，只写接收、处理和结果等空泛标签不足以解释该业务。",
         "Completes direct authoring through real file changes and review evidence; no candidate-origin or observation gate delays the requested flow work."
       ]
     },

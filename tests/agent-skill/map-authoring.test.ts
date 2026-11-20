@@ -19,16 +19,14 @@ describe("business map authoring resources", () => {
     const repository = await mkdtemp(path.join(os.tmpdir(), "atlas-authoring-"));
     try {
       await mkdir(path.join(repository, "docs/business-map"), { recursive: true });
-      await writeFile(path.join(repository, "docs/business-map/support.yaml"), example!);
+      await writeFile(path.join(repository, "docs/business-map/appointments.yaml"), example!);
       const application = new MapApplication();
       const result = await application.viewerProject(repository);
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error.message);
-      expect(result.viewerProject.flows.map(({ id }) => id)).toEqual([
-        "support.resolve-request.flow",
-      ]);
+      expect(result.viewerProject.flows.map(({ id }) => id)).toEqual(["appointments.cancel.flow"]);
       expect(new Set(result.viewerProject.flows[0]?.nodes.map(({ id }) => id))).toEqual(
-        new Set(["receive", "supported", "resolved", "refused"]),
+        new Set(["within-deadline", "cancel", "cancelled", "retained"]),
       );
     } finally {
       await rm(repository, { recursive: true, force: true });

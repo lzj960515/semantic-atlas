@@ -72,6 +72,10 @@ function localizeParserError(message: string): string {
       /^error: option '(?<option>.*)' argument '(?<value>.*)' is invalid\. (?<reason>.*)$/u,
       "invalidOptionArgument",
     ],
+    [
+      /^error: option '(?<option>.*)' cannot be used with option '(?<conflictingOption>.*)'$/u,
+      "conflictingOptions",
+    ],
   ];
   for (const [pattern, key] of patterns) {
     const match = pattern.exec(message);

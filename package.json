@@ -1,6 +1,6 @@
 {
   "name": "semantic-atlas",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "面向人与 AI 协作的业务流程图与只读阅读器。",
   "keywords": [
     "ai-agents",

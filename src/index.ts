@@ -12,6 +12,8 @@ export type {
   ObserveTaskEnvelope,
   ProjectAddData,
   ProjectAddEnvelope,
+  ProjectListData,
+  ProjectListEnvelope,
   ReconciliationCandidatesEnvelope,
   ReconciliationStatusData,
   ReconciliationStatusEnvelope,
@@ -24,6 +26,7 @@ export type {
   ValidateData,
   ValidateEnvelope,
 } from "./contracts/cli.js";
+export type { RegisteredProject } from "./contracts/project.js";
 export type {
   AccuracyDimensionCounts,
   ImpactCompletenessCounts,

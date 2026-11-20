@@ -28,7 +28,7 @@ describe("按业务直接定位流程与代码", () => {
     const selected = JSON.parse(direct.stdout).data.selected;
     expect(selected).toMatchObject({
       id: "payment.flow",
-      startsAt: "charge",
+      startsAt: ["charge"],
       parents: [{ id: "journey.flow" }],
     });
     expect(

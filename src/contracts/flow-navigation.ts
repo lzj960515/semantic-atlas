@@ -28,7 +28,7 @@ export interface FlowStepContext extends Omit<BusinessFlowStepDefinition, "conce
 export interface FlowContext extends FlowReference {
   readonly scenario: BusinessNode;
   readonly documentPath: string;
-  readonly startsAt: string;
+  readonly startsAt: readonly string[];
   readonly notes?: string;
   readonly parents: readonly FlowReference[];
   readonly steps: readonly FlowStepContext[];

@@ -5,12 +5,13 @@ export default {
   missingScenario: "Flow '{{flowId}}' references missing scenario '{{scenario}}'",
   scenarioKind: "Flow '{{flowId}}' must belong to a scenario, not {{kind}} '{{scenario}}'",
   missingStart: "Flow '{{flowId}}' starts at missing step '{{startsAt}}'",
+  duplicateStart: "Flow '{{flowId}}' declares entry step '{{stepId}}' more than once",
   duplicateStep: "Flow '{{flowId}}' declares step '{{stepId}}' more than once",
   missingConcept: "Flow '{{flowId}}' step '{{stepId}}' references missing concept '{{concept}}'",
   missingTransitionStep:
     "Flow '{{flowId}}' transition '{{transition}}' references missing step '{{endpoints}}'",
   duplicateTransition: "Flow '{{flowId}}' declares transition '{{identity}}' more than once",
-  actionBranch: "Flow '{{flowId}}' action '{{stepId}}' must have at most one unlabeled transition",
+  actionBranch: "Flow '{{flowId}}' action '{{stepId}}' can only have unconditional transitions",
   decisionBranch:
     "Flow '{{flowId}}' decision '{{stepId}}' requires at least two transitions with unique branch labels",
   outcomeTransition: "Flow '{{flowId}}' outcome '{{stepId}}' cannot continue to another step",
@@ -61,6 +62,12 @@ export default {
   projectConfig: "The registered project file is not valid Semantic Atlas project configuration",
   projectUpdateDetail: "Could not update the registered project file: {{error}}",
   projectFailure: "Unexpected project configuration failure",
+  projectNameNotFound:
+    "Registered project '{{selector}}' was not found. Use 'semantic-atlas project list' to see registered projects.",
+  projectSuggestion:
+    "Registered project '{{selector}}' was not found. Did you mean {{candidates}}? Choose a project name or ID and retry.",
+  projectAmbiguous:
+    "Project name '{{selector}}' matches multiple registered paths. Choose a candidate's project ID and retry.",
   webAddress: "Could not resolve the local Web server address",
   projectMapUnavailable: "This project's business map could not be loaded.",
   projectNotFound: "Project was not found.",

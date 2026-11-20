@@ -1,7 +1,6 @@
 import { t } from "../i18n/index.js";
-import { createHash } from "node:crypto";
-import path from "node:path";
 import { MapApplication } from "../application/map-application.js";
+import { createProjectCatalog } from "../projects/project-directory.js";
 import {
   renderWebViewerPage,
   toViewerProjectPayload,
@@ -36,17 +35,12 @@ export class LocalWebApplication {
     private readonly mapApplication: MapApplication,
     repositoryPaths: readonly string[],
   ) {
-    const normalizedPaths = [
-      ...new Set(repositoryPaths.map((repositoryPath) => path.resolve(repositoryPath))),
-    ];
     this.projects = Object.freeze(
-      disambiguateProjectNames(
-        normalizedPaths.map((repositoryPath) => ({
-          id: projectId(repositoryPath),
-          name: path.basename(repositoryPath),
-          repositoryPath,
-        })),
-      ),
+      createProjectCatalog(repositoryPaths).map((project) => ({
+        id: project.id,
+        name: project.displayName,
+        repositoryPath: project.repositoryPath,
+      })),
     );
   }
 
@@ -81,28 +75,6 @@ export class LocalWebApplication {
       data: toViewerProjectPayload(result.viewerProject),
     };
   }
-}
-
-function projectId(repositoryPath: string): string {
-  return createHash("sha256")
-    .update("semantic-atlas-web-project-v1\0")
-    .update(repositoryPath)
-    .digest("hex")
-    .slice(0, 24);
-}
-
-function disambiguateProjectNames(projects: readonly WebProject[]): readonly WebProject[] {
-  const totals = new Map<string, number>();
-  for (const project of projects) {
-    totals.set(project.name, (totals.get(project.name) ?? 0) + 1);
-  }
-  const occurrences = new Map<string, number>();
-  return projects.map((project) => {
-    if ((totals.get(project.name) ?? 0) < 2) return project;
-    const occurrence = (occurrences.get(project.name) ?? 0) + 1;
-    occurrences.set(project.name, occurrence);
-    return { ...project, name: `${project.name} (${occurrence})` };
-  });
 }
 
 function safeUnavailableMessageKey(code: string): string {

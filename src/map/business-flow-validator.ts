@@ -67,21 +67,43 @@ function validateFlow(
 
   const stepById = indexSteps(flow, issues);
   validateStepConcepts(flow, nodeById, issues);
-  if (!stepById.has(flow.startsAt)) {
-    issues.push(
-      flowIssue(
-        flow,
-        "FLOW_START_STEP_MISSING",
-        flow.startsAt,
-        t("errors.missingStart", { flowId: flow.id, startsAt: flow.startsAt }),
-      ),
-    );
-  }
+  validateStarts(flow, stepById, issues);
 
   const validTransitions = validateTransitionEndpoints(flow, stepById, issues);
   validateTransitionIdentities(flow, validTransitions, issues);
   validateStepBranches(flow, validTransitions, issues);
   validateReachability(flow, validTransitions, stepById, issues);
+}
+
+function validateStarts(
+  flow: BusinessFlow,
+  stepById: ReadonlyMap<string, BusinessFlow["steps"][number]>,
+  issues: MapIssue[],
+): void {
+  const known = new Set<string>();
+  for (const start of flow.startsAt) {
+    if (known.has(start)) {
+      issues.push(
+        flowIssue(
+          flow,
+          "DUPLICATE_FLOW_START_STEP_ID",
+          start,
+          t("errors.duplicateStart", { flowId: flow.id, stepId: start }),
+        ),
+      );
+    }
+    known.add(start);
+    if (!stepById.has(start)) {
+      issues.push(
+        flowIssue(
+          flow,
+          "FLOW_START_STEP_MISSING",
+          start,
+          t("errors.missingStart", { flowId: flow.id, startsAt: start }),
+        ),
+      );
+    }
+  }
 }
 
 function indexSteps(
@@ -186,7 +208,7 @@ function validateStepBranches(
     const outgoing = outgoingByStep.get(step.id) ?? [];
     switch (step.kind) {
       case "action":
-        if (outgoing.length > 1 || outgoing.some((transition) => transition.when)) {
+        if (outgoing.some((transition) => transition.when)) {
           issues.push(
             flowIssue(
               flow,
@@ -237,7 +259,8 @@ function validateReachability(
   stepById: ReadonlyMap<string, BusinessFlow["steps"][number]>,
   issues: MapIssue[],
 ): void {
-  if (!stepById.has(flow.startsAt)) return;
+  const pending = flow.startsAt.filter((start) => stepById.has(start));
+  if (pending.length === 0) return;
   const targetsBySource = new Map<string, string[]>();
   for (const transition of transitions) {
     const targets = targetsBySource.get(transition.from) ?? [];
@@ -246,7 +269,6 @@ function validateReachability(
   }
 
   const reachable = new Set<string>();
-  const pending = [flow.startsAt];
   while (pending.length > 0) {
     const stepId = pending.shift()!;
     if (reachable.has(stepId)) continue;
@@ -261,7 +283,11 @@ function validateReachability(
         flow,
         "FLOW_STEP_UNREACHABLE",
         step.id,
-        t("errors.unreachableStep", { flowId: flow.id, stepId: step.id, startsAt: flow.startsAt }),
+        t("errors.unreachableStep", {
+          flowId: flow.id,
+          stepId: step.id,
+          startsAt: flow.startsAt.join(", "),
+        }),
       ),
     );
   }

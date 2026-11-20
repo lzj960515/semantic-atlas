@@ -46,7 +46,7 @@ export class FlowProjector {
       kind: step.kind,
       name: step.name,
       summary: step.summary,
-      start: step.id === flow.startsAt,
+      start: flow.startsAt.includes(step.id),
       ...(notes ? { notes } : {}),
       childFlows: concept ? conceptDetailLinks(this.graph, concept.id, flow.id) : [],
     };

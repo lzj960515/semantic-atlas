@@ -98,7 +98,9 @@ export const businessFlowSchema = z
     name: nonEmptyStringSchema,
     summary: nonEmptyStringSchema,
     scenario: businessIdSchema,
-    startsAt: businessIdSchema,
+    startsAt: z
+      .union([businessIdSchema, z.array(businessIdSchema).min(1)])
+      .transform((value) => (typeof value === "string" ? [value] : value)),
     steps: z.array(businessFlowStepSchema).min(1),
     transitions: z.array(businessFlowTransitionSchema),
     notes: nonEmptyStringSchema.optional(),
@@ -157,7 +159,11 @@ export interface BusinessRelation extends BusinessRelationDefinition {
   readonly documentPath: string;
 }
 
-export interface BusinessFlow extends Omit<BusinessFlowDefinition, "steps" | "transitions"> {
+export interface BusinessFlow extends Omit<
+  BusinessFlowDefinition,
+  "startsAt" | "steps" | "transitions"
+> {
+  readonly startsAt: readonly string[];
   readonly steps: readonly BusinessFlowStepDefinition[];
   readonly transitions: readonly BusinessFlowTransitionDefinition[];
   readonly documentId: string;
@@ -183,6 +189,7 @@ export type MapIssueCode =
   | "FLOW_SCENARIO_KIND_MISMATCH"
   | "FLOW_CONCEPT_MISSING"
   | "FLOW_START_STEP_MISSING"
+  | "DUPLICATE_FLOW_START_STEP_ID"
   | "FLOW_TRANSITION_ENDPOINT_MISSING"
   | "DUPLICATE_FLOW_TRANSITION"
   | "FLOW_ACTION_BRANCH_INVALID"

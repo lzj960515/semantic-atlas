@@ -8,8 +8,10 @@ export default {
   upgrade: "Install the latest stable package and sync its Skills",
   validate: "Validate tracked business-map documents",
   render: "Render the validated business graph for human inspection",
-  project: "Manage user-local Viewer projects",
-  projectAdd: "Validate and register a project for the local Viewer",
+  project: "Manage registered local projects",
+  projectAdd: "Validate and register a project for queries and the local Viewer",
+  projectList: "List registered project names, IDs, and repository paths",
+  projectSelector: "registered project name or ID (exclusive with --repo)",
   web: "Start the local interactive business-map viewer",
   search: "Rank business concepts for a natural-language query",
   context: "Return a local business neighborhood",
@@ -57,5 +59,7 @@ export default {
   unknownCommand: "error: unknown command '{{value}}'",
   excessArguments: "error: too many arguments. Expected {{expected}} but got {{received}}.",
   invalidOptionArgument: "error: option '{{option}}' argument '{{value}}' is invalid. {{reason}}",
+  conflictingOptions:
+    "error: option '{{option}}' cannot be used with option '{{conflictingOption}}'",
   suggestion: "(Did you mean {{value}}?)",
 };

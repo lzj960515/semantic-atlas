@@ -117,6 +117,7 @@ function normalizeFlows(documents: readonly ParsedMapDocument[]): BusinessFlow[]
     .flatMap(({ document, relativePath }) =>
       document.flows.map((flow) => ({
         ...flow,
+        startsAt: [...flow.startsAt],
         steps: flow.steps
           .map((step) => ({ ...step }))
           .sort((left, right) => left.id.localeCompare(right.id)),
@@ -428,6 +429,7 @@ function freezeRelation(relation: BusinessRelation): BusinessRelation {
 function freezeFlow(flow: BusinessFlow): BusinessFlow {
   return Object.freeze({
     ...flow,
+    startsAt: Object.freeze([...flow.startsAt]),
     steps: Object.freeze(flow.steps.map((step) => Object.freeze({ ...step }))),
     transitions: Object.freeze(
       flow.transitions.map((transition) => Object.freeze({ ...transition })),

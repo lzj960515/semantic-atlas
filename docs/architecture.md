@@ -87,7 +87,7 @@ Viewer selection -> GET /api/projects/<opaque-id> -> one validated projection
 The tracked documents and their Git history are the shared product state. Each
 map load creates an in-memory graph for its own invocation. Rendering and future
 local acceleration remain derived behavior around that same graph. The
-user-local project list supplies only checkout selection and never becomes a
+user-local project list supplies checkout selection and never becomes a
 second graph or map-authoring source.
 
 ## Stable Responsibilities
@@ -109,8 +109,10 @@ malformed anchors. It owns deterministic validity, not current-source truth.
 ### BusinessFlowValidator
 
 Validates scenario ownership, flow and step identity, concept and transition
-references, action/decision/outcome branch shape, and reachability. Cycles are
-valid. It owns structural flow coherence while current source and durable
+references, action/decision/outcome branch shape, and reachability from the
+declared entry set. A single entry ID and a nonempty entry list normalize to
+one immutable list. Actions can have multiple unconditional successors;
+decisions retain distinct labeled alternatives. Cycles are valid. It owns structural flow coherence while current source and durable
 product evidence decide whether the described business path is current.
 
 ### BusinessGraph
@@ -147,6 +149,9 @@ ID to `ContextQueryService`.
 引用其场景的流程先显示，再按节点引用排列子流程。`part_of` 继续表示业务归属，
 不会生成分类画面或执行箭头。没有流程时提供空状态。
 
+AI 决定每条流程的业务范围与粒度；产品不补统一起止、不生成跨流程连线，也不把
+所有根流程自动铺在一张画布中。独立业务通过按需导航分别浏览。
+
 节点进入目标只取引用场景自己拥有的其他流程，排除当前流程。普通相关关系与后代
 归属不产生深入链接。CLI 的概念、关系、源码锚点和完整地图统计保持其已有含义。
 
@@ -155,6 +160,10 @@ ID to `ContextQueryService`.
 每个流程投影出 HTML 节点、SVG 连线和布局资料。起点、动作、判断、结果采用紧凑
 卡片、小图标与细色条，子流程节点以叠层样式提示。判断使用淡金卡片，不因正文
 增加而膨胀成大菱形。
+
+显式声明的所有入口都采用起点样式；同图的不相连路径和并行连线沿原布局完整投影，
+不生成共同起点、虚拟判断或汇合节点。它们来自 AI 编写的这一张图，项目内其他流程
+仍按需读取，不被自动合并到当前画布。
 
 Dagre 确定层级和位置，正交走线保持水平或垂直并使用圆角转折。小箭头与线条同色，
 分支标签放在对应连接的空白区。服务端预估与浏览器实测共用布局，文字变化后重新
@@ -184,6 +193,14 @@ configuration is separate from observations and tracked business-map YAML.
 `ProjectRegistrationService` validates the complete map through
 `MapApplication` before storing its resolved root. A missing, invalid, or
 unresolvable map therefore leaves the project file unchanged.
+
+### ProjectDirectory
+
+从既有登记路径派生目录名、展示名和路径哈希 ID，不增加持久字段。CLI 的 `project list`
+返回 `{id, name, displayName, repositoryPath}`；Web 复用同一目录生成名称与 ID，但只
+向浏览器发送名称和不透明 ID。目录名经 Unicode NFKC、首尾空白和大小写归一后精确
+匹配，重名返回候选并要求使用 ID。未知名称返回最多五个相近候选，供 AI 判断后明确
+重试，不自动选中相近项目。路径存在与地图有效性仍由 `MapApplication` 在读取时核实。
 
 ### LocalWebApplication And LocalWebServer
 
@@ -438,6 +455,7 @@ semantic-atlas flows [flow-id] [--repo <path>]
 semantic-atlas context <id-or-term> [--repo <path>]
 semantic-atlas render [--repo <path>] [--output <path>]
 semantic-atlas project add [path]
+semantic-atlas project list
 semantic-atlas web [--repo <path...>] [--port <port>] [--no-open]
 semantic-atlas setup
 semantic-atlas upgrade
@@ -461,6 +479,10 @@ a versioned envelope with a stable success or error discriminant.
 
 `search --flows` 直接检索流程及其业务步骤，按流程去重返回命中步骤。`flows <id>`
 只读取指定图及源码锚点，省略编号时才提供目录。
+
+`validate`、`search`、`flows`、`context`、`render` 与 `web` 均支持
+`--project <name-or-id>`，从登记目录解析目标，与当前工作目录无关；它与显式 `--repo`
+互斥。两项均未提供时，地图命令仍使用当前目录，`web` 仍使用完整登记清单。
 
 `search` returns at most five ranked nodes from every business-node kind. A
 successful empty result means the map has no sufficiently related vocabulary;
@@ -554,6 +576,9 @@ Errors fall into stable categories:
   shape, normalized absolute-path rule, or uniqueness rule and remains unchanged.
 - `PROJECT_CONFIG_STORAGE_FAILED`: the project file cannot be read or atomically
   replaced; the previous complete file remains authoritative.
+- `PROJECT_NOT_FOUND`：没有精确匹配的项目；`selector` 保留原输入，`candidates` 返回
+  相近项目，找不到相近项时为空。
+- `PROJECT_AMBIGUOUS`：多个登记路径具有相同名称；`candidates` 返回候选，使用 ID 重试。
 - `WEB_START_FAILED`: the registered list cannot be read, the loopback port
   cannot bind, or the local Viewer cannot start.
 

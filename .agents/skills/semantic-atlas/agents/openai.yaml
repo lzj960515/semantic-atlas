@@ -1,4 +1,4 @@
 interface:
   display_name: "Semantic Atlas"
-  short_description: "理解业务，并同步实现与流程图"
-  default_prompt: "使用 $semantic-atlas 根据已有 ID 或业务意图直接定位相关流程和源码证据；业务行为变化时在同一分支同步修改代码与相关流程，核对实际阅读和行为，合并时按最终代码重审受影响路径。"
+  short_description: "理解整体业务，绘制总览并同步维护流程"
+  default_prompt: "使用 $semantic-atlas 根据已有 ID 或业务意图定位流程；项目建图先讲清业务全貌再深入细节，按业务缺口跨项目查证。业务行为变化时在同一分支同步代码和相关流程，核对实际阅读与行为，合并时按最终代码重审受影响路径。"

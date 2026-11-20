@@ -117,7 +117,7 @@ function exampleMap(): ValidatedBusinessMap {
       flow("shipping.flow", "shipping", "仓库发货"),
       {
         ...flow("journey.flow", "journey", "订单全流程"),
-        startsAt: "checkout",
+        startsAt: ["checkout"],
         steps: [
           {
             id: "checkout",
@@ -163,7 +163,7 @@ function flow(id: string, scenario: string, name: string): BusinessFlow {
     scenario,
     name,
     summary: name,
-    startsAt: "start",
+    startsAt: ["start"],
     steps: [
       { id: "start", kind: "action", name, summary: name, concept: scenario },
       { id: "done", kind: "outcome", name: "完成", summary: "本环节结束。" },

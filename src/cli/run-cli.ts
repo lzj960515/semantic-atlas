@@ -2,7 +2,7 @@ import { LocalizedCommand } from "./localized-command.js";
 import { t } from "../i18n/index.js";
 import path from "node:path";
 import os from "node:os";
-import { CommanderError, InvalidArgumentError } from "commander";
+import { CommanderError, InvalidArgumentError, Option } from "commander";
 import { MapApplication, type MapProjectionResult } from "../application/map-application.js";
 import type {
   CliErrorEnvelope,
@@ -15,6 +15,7 @@ import type {
   ObserveReviewEnvelope,
   ObserveTaskEnvelope,
   ProjectAddEnvelope,
+  ProjectListEnvelope,
   ReconciliationCandidatesEnvelope,
   ReconciliationStatusEnvelope,
   RenderEnvelope,
@@ -33,7 +34,8 @@ import {
   ProjectRegistrationService,
   type ProjectRegistrationResult,
 } from "../projects/project-registration-service.js";
-import { ProjectStore } from "../projects/project-store.js";
+import { ProjectDirectory, ProjectSelectionError } from "../projects/project-directory.js";
+import { ProjectStore, ProjectStoreError } from "../projects/project-store.js";
 import {
   ManagedSkillConflictError,
   ManagedSkillsInstaller,
@@ -67,6 +69,7 @@ import {
 export interface CliRuntime extends ObservationCliRuntime, ReconciliationCliRuntime {
   readonly packageIdentity: PackageIdentity;
   readonly mapApplication: MapApplication;
+  readonly projectDirectory: ProjectDirectory;
   addProject(repositoryPath: string): Promise<ProjectRegistrationResult>;
   installSkills(): Promise<ManagedSkillsInstallation>;
   upgradePackage(): Promise<PackageUpgradeResult>;
@@ -96,6 +99,7 @@ export async function runCli(
     | UpgradeEnvelope
     | ObserveTaskEnvelope
     | ProjectAddEnvelope
+    | ProjectListEnvelope
     | ObserveReviewEnvelope
     | InsightsSummaryEnvelope
     | ObserveMaintenanceEnvelope
@@ -137,21 +141,44 @@ export async function runCli(
   program
     .command("validate")
     .description(t("cli.validate"))
-    .option("--repo <path>", t("cli.repo"), process.cwd())
-    .action(async (options: { readonly repo: string }) => {
-      commandEnvelope = await application.validate(options.repo);
+    .option("--repo <path>", t("cli.repo"))
+    .addOption(new Option("--project <name-or-id>", t("cli.projectSelector")).conflicts("repo"))
+    .action(async (options: RepositorySelectionOptions) => {
+      commandEnvelope = await runSelectedRepositoryCommand(
+        "validate",
+        resolvedRuntime,
+        options,
+        (repositoryPath) => application.validate(repositoryPath),
+      );
     });
 
   program
     .command("render")
     .description(t("cli.render"))
-    .option("--repo <path>", t("cli.repo"), process.cwd())
+    .option("--repo <path>", t("cli.repo"))
+    .addOption(new Option("--project <name-or-id>", t("cli.projectSelector")).conflicts("repo"))
     .option("--output <path>", t("cli.output"))
-    .action(async (options: { readonly repo: string; readonly output?: string }) => {
-      commandEnvelope = await runRenderCommand(application, options);
+    .action(async (options: RepositorySelectionOptions & { readonly output?: string }) => {
+      commandEnvelope = await runSelectedRepositoryCommand(
+        "render",
+        resolvedRuntime,
+        options,
+        (repositoryPath) =>
+          runRenderCommand(application, {
+            repo: repositoryPath,
+            ...(options.output !== undefined ? { output: options.output } : {}),
+          }),
+      );
     });
 
   const project = program.command("project").description(t("cli.project"));
+
+  project
+    .command("list")
+    .description(t("cli.projectList"))
+    .action(async () => {
+      commandEnvelope = await runProjectListCommand(resolvedRuntime);
+    });
 
   project
     .command("add")
@@ -165,14 +192,30 @@ export async function runCli(
     .command("web")
     .description(t("cli.web"))
     .option("--repo <paths...>", t("cli.repos"))
+    .addOption(new Option("--project <name-or-id>", t("cli.projectSelector")).conflicts("repo"))
     .option("--port <port>", t("cli.port"), parsePort, 4310)
     .option("--no-open", t("cli.noOpen"))
     .action(
       async (options: {
         readonly repo?: readonly string[];
+        readonly project?: string;
         readonly port: number;
         readonly open: boolean;
       }) => {
+        if (options.project !== undefined) {
+          commandEnvelope = await runSelectedRepositoryCommand(
+            "web",
+            resolvedRuntime,
+            { project: options.project },
+            (repositoryPath) =>
+              runWebCommand(resolvedRuntime, {
+                repositoryPaths: [repositoryPath],
+                port: options.port,
+                openBrowser: options.open,
+              }),
+          );
+          return;
+        }
         commandEnvelope = await runWebCommand(resolvedRuntime, {
           ...(options.repo
             ? {
@@ -190,29 +233,50 @@ export async function runCli(
     .description(t("cli.search"))
     .argument("<query>", t("cli.query"))
     .option("--flows", t("cli.searchFlows"))
-    .option("--repo <path>", t("cli.repo"), process.cwd())
-    .action(async (query: string, options: { readonly repo: string; readonly flows?: boolean }) => {
-      commandEnvelope = options.flows
-        ? await application.searchFlows(options.repo, query)
-        : await application.search(options.repo, query);
-    });
+    .option("--repo <path>", t("cli.repo"))
+    .addOption(new Option("--project <name-or-id>", t("cli.projectSelector")).conflicts("repo"))
+    .action(
+      async (query: string, options: RepositorySelectionOptions & { readonly flows?: boolean }) => {
+        commandEnvelope = await runSelectedRepositoryCommand(
+          "search",
+          resolvedRuntime,
+          options,
+          async (repositoryPath): Promise<SearchEnvelope | FlowSearchEnvelope> =>
+            options.flows
+              ? application.searchFlows(repositoryPath, query)
+              : application.search(repositoryPath, query),
+        );
+      },
+    );
 
   program
     .command("flows")
     .description(t("cli.flows"))
     .argument("[flow-id]", t("cli.flowId"))
-    .option("--repo <path>", t("cli.repo"), process.cwd())
-    .action(async (flowId: string | undefined, options: { readonly repo: string }) => {
-      commandEnvelope = await application.flows(options.repo, flowId);
+    .option("--repo <path>", t("cli.repo"))
+    .addOption(new Option("--project <name-or-id>", t("cli.projectSelector")).conflicts("repo"))
+    .action(async (flowId: string | undefined, options: RepositorySelectionOptions) => {
+      commandEnvelope = await runSelectedRepositoryCommand(
+        "flows",
+        resolvedRuntime,
+        options,
+        (repositoryPath) => application.flows(repositoryPath, flowId),
+      );
     });
 
   program
     .command("context")
     .description(t("cli.context"))
     .argument("<selector>", t("cli.selector"))
-    .option("--repo <path>", t("cli.repo"), process.cwd())
-    .action(async (selector: string, options: { readonly repo: string }) => {
-      commandEnvelope = await application.context(options.repo, selector);
+    .option("--repo <path>", t("cli.repo"))
+    .addOption(new Option("--project <name-or-id>", t("cli.projectSelector")).conflicts("repo"))
+    .action(async (selector: string, options: RepositorySelectionOptions) => {
+      commandEnvelope = await runSelectedRepositoryCommand(
+        "context",
+        resolvedRuntime,
+        options,
+        (repositoryPath) => application.context(repositoryPath, selector),
+      );
     });
 
   const observe = program.command("observe").description(t("cli.observe"));
@@ -339,6 +403,7 @@ export async function createCliRuntime(options: CliRuntimeOptions = {}): Promise
   return {
     packageIdentity,
     mapApplication,
+    projectDirectory: new ProjectDirectory(projectStore),
     addProject: (repositoryPath) => projectRegistration.add(repositoryPath),
     observationApplication: new ObservationApplication(repositoryResolver, observationStore),
     insightService: new InsightService(repositoryResolver, observationStore),
@@ -352,6 +417,57 @@ export async function createCliRuntime(options: CliRuntimeOptions = {}): Promise
     readStandardInput: options.readStandardInput ?? readStandardInput,
     now: options.now ?? (() => new Date()),
   };
+}
+
+interface RepositorySelectionOptions {
+  readonly repo?: string;
+  readonly project?: string;
+}
+
+async function runSelectedRepositoryCommand<TCommand extends string, TResult>(
+  command: TCommand,
+  runtime: CliRuntime,
+  options: RepositorySelectionOptions,
+  action: (repositoryPath: string) => Promise<TResult>,
+): Promise<TResult | CliErrorEnvelope<TCommand>> {
+  if (options.project === undefined) return action(options.repo ?? process.cwd());
+
+  let repositoryPath: string;
+  try {
+    repositoryPath = (await runtime.projectDirectory.resolve(options.project)).repositoryPath;
+  } catch (error) {
+    if (!(error instanceof ProjectSelectionError || error instanceof ProjectStoreError))
+      throw error;
+    return {
+      schemaVersion: 1,
+      ok: false,
+      command,
+      error:
+        error instanceof ProjectSelectionError
+          ? error.error
+          : { code: error.code, message: error.message },
+    };
+  }
+  return action(repositoryPath);
+}
+
+async function runProjectListCommand(runtime: CliRuntime): Promise<ProjectListEnvelope> {
+  try {
+    return {
+      schemaVersion: 1,
+      ok: true,
+      command: "project list",
+      data: { projects: await runtime.projectDirectory.list() },
+    };
+  } catch (error) {
+    if (!(error instanceof ProjectStoreError)) throw error;
+    return {
+      schemaVersion: 1,
+      ok: false,
+      command: "project list",
+      error: { code: error.code, message: error.message },
+    };
+  }
 }
 
 async function runProjectAddCommand(

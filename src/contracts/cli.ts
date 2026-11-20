@@ -9,6 +9,7 @@ import type { FlowsData, FlowSearchData } from "./flow-navigation.js";
 import type { InsightSummaryResult } from "./insights.js";
 import type { ObservationKind } from "./observation.js";
 import type { ReconciliationCandidateReport } from "./reconciliation.js";
+import type { ProjectSelectionFailure, RegisteredProject } from "./project.js";
 
 export interface CliRunResult {
   readonly exitCode: number;
@@ -40,6 +41,7 @@ export interface CliErrorEnvelope<TCommand extends string> {
 }
 
 export type CliError =
+  | ProjectSelectionFailure
   | {
       readonly code: "FLOW_NOT_FOUND";
       readonly message: string;
@@ -212,6 +214,10 @@ export interface ProjectAddData {
   readonly outcome: "added" | "already_exists";
 }
 
+export interface ProjectListData {
+  readonly projects: readonly RegisteredProject[];
+}
+
 export interface SetupData {
   readonly skills: readonly {
     readonly outcome: "installed" | "current" | "repaired" | "upgraded" | "recovered";
@@ -260,6 +266,10 @@ export type WebEnvelope = StandaloneCliSuccessEnvelope<"web", WebData> | CliErro
 export type ProjectAddEnvelope =
   | CliSuccessEnvelope<"project add", ProjectAddData>
   | CliErrorEnvelope<"project add">;
+
+export type ProjectListEnvelope =
+  | StandaloneCliSuccessEnvelope<"project list", ProjectListData>
+  | CliErrorEnvelope<"project list">;
 
 export type SetupEnvelope =
   | StandaloneCliSuccessEnvelope<"setup", SetupData>

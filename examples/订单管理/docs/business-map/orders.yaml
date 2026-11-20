@@ -50,7 +50,7 @@ nodes:
   - id: shopping.journey
     kind: scenario
     name: 订单全流程
-    summary: 从顾客下单到仓库发货，再按申请处理售后退款。
+    summary: 已付款订单分别进入发货和购买通知；退款申请从自己的入口交给售后。
     aliases: []
     anchors: []
 relations:
@@ -93,9 +93,9 @@ relations:
 flows:
   - id: shopping.journey.flow
     name: 订单全流程
-    summary: 下单付款后发货；顾客提出退款申请时，进入售后处理。
+    summary: 付款后发货与购买通知各自进行；顾客申请退款时，由售后核对处理。
     scenario: shopping.journey
-    startsAt: checkout
+    startsAt: [checkout, refund-request]
     steps:
       - id: checkout
         kind: action
@@ -108,10 +108,19 @@ flows:
         name: 仓库发货
         summary: 核对商品、打包并交给承运商。
         concept: fulfillment.ship
-      - id: needs-refund
-        kind: decision
-        name: 顾客申请退款吗？
-        summary: 按顾客的实际申请决定是否进入售后。
+      - id: confirmation
+        kind: action
+        name: 发送购买确认
+        summary: 将付款订单的购买凭证发给顾客。
+        notes: 发货和购买确认分别处理，任一项不必等候另一项完成。
+      - id: notified
+        kind: outcome
+        name: 顾客收到购买确认
+        summary: 购买确认通知流程结束。
+      - id: refund-request
+        kind: action
+        name: 顾客提交退款申请
+        summary: 售后申请有独立入口，不要求顾客等待发货流程结束。
       - id: refund
         kind: outcome
         name: 售后退款
@@ -119,19 +128,19 @@ flows:
         concept: aftersales.refund
       - id: completed
         kind: outcome
-        name: 订单完成
-        summary: 本次订单无需售后处理。
+        name: 包裹已交运
+        summary: 仓库完成本次发货。
     transitions:
       - from: checkout
         to: ship
+      - from: checkout
+        to: confirmation
       - from: ship
-        to: needs-refund
-      - from: needs-refund
-        to: refund
-        when: 申请退款
-      - from: needs-refund
         to: completed
-        when: 不申请
+      - from: confirmation
+        to: notified
+      - from: refund-request
+        to: refund
   - id: shopping.checkout.flow
     name: 提交并支付订单
     summary: 顾客确认商品后提交订单，付款成功后等待发货。
