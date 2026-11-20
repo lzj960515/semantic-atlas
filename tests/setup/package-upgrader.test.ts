@@ -8,41 +8,44 @@ import {
 } from "../../src/setup/package-upgrader.js";
 
 describe("SemanticAtlasPackageUpgrader", () => {
-  it("installs the resolved stable version and delegates setup to that exact CLI", async () => {
-    const runner = new ScriptedRunner([
-      success('"1.0.0"\n'),
-      success(),
-      success("/global/lib/node_modules\n"),
-      success("1.0.0\n"),
-      success('{"ok":true,"command":"setup"}\n'),
-    ]);
-    const upgrader = new SemanticAtlasPackageUpgrader(
-      {
-        currentVersion: "0.4.0",
-        nodeExecutable: "/runtime/node",
-        npmExecutable: "/runtime/npm",
-        userHome: "/isolated/home",
-      },
-      runner,
-    );
+  it.each(['"1.0.0"\n', '["1.0.0"]\n'])(
+    "installs the exact stable version from npm output %s and delegates setup to that CLI",
+    async (versionOutput) => {
+      const runner = new ScriptedRunner([
+        success(versionOutput),
+        success(),
+        success("/global/lib/node_modules\n"),
+        success("1.0.0\n"),
+        success('{"ok":true,"command":"setup"}\n'),
+      ]);
+      const upgrader = new SemanticAtlasPackageUpgrader(
+        {
+          currentVersion: "0.4.0",
+          nodeExecutable: "/runtime/node",
+          npmExecutable: "/runtime/npm",
+          userHome: "/isolated/home",
+        },
+        runner,
+      );
 
-    await expect(upgrader.upgrade()).resolves.toEqual({
-      outcome: "upgraded",
-      previousVersion: "0.4.0",
-      targetVersion: "1.0.0",
-      skillDirectories: [path.join("/isolated/home", ".agents", "skills", "semantic-atlas")],
-    });
-    expect(runner.invocations).toEqual([
-      ["/runtime/npm", ["view", "semantic-atlas", "dist-tags.latest", "--json"]],
-      [
-        "/runtime/npm",
-        ["install", "--global", "--allow-scripts=semantic-atlas", "semantic-atlas@1.0.0"],
-      ],
-      ["/runtime/npm", ["root", "--global"]],
-      ["/runtime/node", ["/global/lib/node_modules/semantic-atlas/dist/cli/bin.js", "--version"]],
-      ["/runtime/node", ["/global/lib/node_modules/semantic-atlas/dist/cli/bin.js", "setup"]],
-    ]);
-  });
+      await expect(upgrader.upgrade()).resolves.toEqual({
+        outcome: "upgraded",
+        previousVersion: "0.4.0",
+        targetVersion: "1.0.0",
+        skillDirectories: [path.join("/isolated/home", ".agents", "skills", "semantic-atlas")],
+      });
+      expect(runner.invocations).toEqual([
+        ["/runtime/npm", ["view", "semantic-atlas", "dist-tags.latest", "--json"]],
+        [
+          "/runtime/npm",
+          ["install", "--global", "--allow-scripts=semantic-atlas", "semantic-atlas@1.0.0"],
+        ],
+        ["/runtime/npm", ["root", "--global"]],
+        ["/runtime/node", ["/global/lib/node_modules/semantic-atlas/dist/cli/bin.js", "--version"]],
+        ["/runtime/node", ["/global/lib/node_modules/semantic-atlas/dist/cli/bin.js", "setup"]],
+      ]);
+    },
+  );
 
   it("still verifies the installed CLI and repairs its Skill when already current", async () => {
     const runner = new ScriptedRunner([
@@ -75,21 +78,24 @@ describe("SemanticAtlasPackageUpgrader", () => {
     ]);
   });
 
-  it("rejects a non-stable registry version before changing the installation", async () => {
-    const runner = new ScriptedRunner([success('"1.0.0-rc.1"\n')]);
-    const upgrader = new SemanticAtlasPackageUpgrader(
-      {
-        currentVersion: "0.4.0",
-        npmExecutable: "/runtime/npm",
-      },
-      runner,
-    );
+  it.each(['"1.0.0-rc.1"\n', '["1.0.0","2.0.0"]\n'])(
+    "rejects an ambiguous or non-stable registry result %s before changing the installation",
+    async (versionOutput) => {
+      const runner = new ScriptedRunner([success(versionOutput)]);
+      const upgrader = new SemanticAtlasPackageUpgrader(
+        {
+          currentVersion: "0.4.0",
+          npmExecutable: "/runtime/npm",
+        },
+        runner,
+      );
 
-    await expect(upgrader.upgrade()).rejects.toMatchObject({
-      step: "check",
-    } satisfies Partial<PackageUpgradeError>);
-    expect(runner.invocations).toHaveLength(1);
-  });
+      await expect(upgrader.upgrade()).rejects.toMatchObject({
+        step: "check",
+      } satisfies Partial<PackageUpgradeError>);
+      expect(runner.invocations).toHaveLength(1);
+    },
+  );
 
   it("stops before setup when npm did not install the resolved identity", async () => {
     const runner = new ScriptedRunner([

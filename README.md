@@ -37,6 +37,9 @@ Claude 使用指向 `~/.agents/skills/semantic-atlas` 的共享入口，同事�
 semantic-atlas upgrade
 ```
 
+旧版在 `check` 阶段提示无法取得单一稳定版本时，重新运行上面的全局安装命令即可更新。
+4.1.1 已支持 npm 12 返回的单项版本数组；更新后继续使用 `upgrade`。
+
 `upgrade` resolves npm's current stable version, installs that exact package,
 verifies the installed CLI identity, and synchronizes the single managed Skill.
 

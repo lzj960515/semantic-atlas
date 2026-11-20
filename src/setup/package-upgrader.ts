@@ -92,10 +92,11 @@ export class SemanticAtlasPackageUpgrader {
         error instanceof Error ? { cause: error } : undefined,
       );
     }
-    if (typeof parsed !== "string" || !stableVersionPattern.test(parsed)) {
+    const version = Array.isArray(parsed) && parsed.length === 1 ? parsed[0] : parsed;
+    if (typeof version !== "string" || !stableVersionPattern.test(version)) {
       throw new PackageUpgradeError("check", t("errors.stableVersion"));
     }
-    return parsed;
+    return version;
   }
 
   private async install(targetVersion: string): Promise<void> {

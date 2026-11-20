@@ -4,7 +4,7 @@ This page defines the accepted initial product. It answers what Semantic Atlas
 must improve, how agents and people use it, and which results establish
 that the product works.
 
-**Status: the behavior below is implemented for 4.1.0, including named-project
+**Status: the behavior below is implemented for 4.1.1, including named-project
 queries, multiple flow entries, unconditional fan-out and overview authoring
 guidance. Exact publication identity lives in the corresponding GitHub Release;
 longitudinal acceptance remains in progress.**
