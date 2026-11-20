@@ -9,12 +9,9 @@ const projectRoot = fileURLToPath(new URL("../..", import.meta.url));
 const fixtureRoot = path.join(projectRoot, "tests/fixtures/map-authoring");
 
 describe("business map authoring resources", () => {
-  it("provides a complete authoring example that validates and projects a business domain", async () => {
+  it("provides a valid flow example with reachable decisions and outcomes", async () => {
     const reference = await readFile(
-      path.join(
-        projectRoot,
-        ".agents/skills/semantic-atlas-maintenance/references/map-authoring.md",
-      ),
+      path.join(projectRoot, ".agents/skills/semantic-atlas/references/map-authoring.md"),
       "utf8",
     );
     const example = /```yaml\n([\s\S]*?)\n```/u.exec(reference)?.[1];
@@ -27,9 +24,12 @@ describe("business map authoring resources", () => {
       const result = await application.viewerProject(repository);
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error(result.error.message);
-      expect(result.viewerProject.views.map(({ id }) => id)).toEqual(["all", "support"]);
-      expect(result.viewerProject.flows).toHaveLength(1);
-      expect(result.viewerProject.views[1]?.nodes).toHaveLength(2);
+      expect(result.viewerProject.flows.map(({ id }) => id)).toEqual([
+        "support.resolve-request.flow",
+      ]);
+      expect(new Set(result.viewerProject.flows[0]?.nodes.map(({ id }) => id))).toEqual(
+        new Set(["receive", "supported", "resolved", "refused"]),
+      );
     } finally {
       await rm(repository, { recursive: true, force: true });
     }
@@ -61,10 +61,7 @@ describe("business map authoring resources", () => {
         const projected = await new MapApplication().viewerProject(repository);
         expect(projected.ok).toBe(true);
         if (!projected.ok) throw new Error(projected.error.message);
-        expect(projected.viewerProject.views.map(({ id }) => id)).toEqual([
-          "all",
-          evaluation.id === 3 ? "orders" : "assistant",
-        ]);
+        expect(projected.viewerProject.flows).toHaveLength(evaluation.id === 3 ? 1 : 0);
       } else {
         await expect(access(path.join(repository, "docs/business-map"))).rejects.toThrow();
         expect(probe).toMatchObject({ ok: false, error: { code: "MAP_NOT_FOUND" } });

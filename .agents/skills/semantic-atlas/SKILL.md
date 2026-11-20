@@ -1,289 +1,103 @@
 ---
 name: semantic-atlas
-description: Build source-supported business understanding and make maintenance decisions for business-changing engineering tasks, with or without an existing business map. Use for features, bugs, refactors, reviews, and impact analysis to find or establish business boundaries, collaborators, data, invariants, interfaces, business flows, and source entry points before broad discovery, then decide whether stable shared knowledge needs maintenance.
-compatibility: Requires Node.js 24+, the semantic-atlas CLI on PATH, and repository source access.
+description: 理解、绘制和维护有源码依据的业务流程。用于功能、缺陷、重构、评审和影响分析中的业务调查，以及新建、修改或重组业务流程图；按业务意图直接定位相关流程与源码，业务行为变化时在同一分支同步代码和相关流程。
+compatibility: 需要 Node.js 24+、PATH 中的 semantic-atlas CLI，以及目标仓库源码。
 ---
 
 # Semantic Atlas
 
-Build the smallest current-evidence business model needed to make an accurate
-engineering decision. An existing map is a compact navigation prior. Missing,
-incomplete, stale, or contradicted map knowledge changes the discovery route;
-it does not remove the need to understand the business boundary.
+让人和 AI 围绕同一份业务流程协作。AI 理解当前业务、核实实现、编写和维护文件；人通过只读界面逐层阅读、讨论和确认。总览与细图统一使用业务流程图。
 
-Current source, tests, tracked product documents, and required runtime evidence
-decide what an engineering change may claim and do. Treat map results as
-investigation leads.
+业务图提供调查线索。当前源码、测试、已跟踪的产品决定和必要的运行证据，决定这次可以作出的结论和改动。业务行为变化时，代码与相关流程在同一分支修改、审阅和提交合入。没有业务变化时，不为代码内部调整重画流程。
 
-## Choose The Workflow From The Task
+## 1. 从任务确定工作范围
 
-For an explicit request to create, extend, correct or reorganize a business map,
-use `semantic-atlas-maintenance`'s direct-authoring path. Its common business
-ownership rules apply to initial maps and every later update. The engineering
-workflow below keeps ordinary feature and bug tasks bounded and produces
-source-supported candidates for separate canonical maintenance.
+| 当前请求 | 本次应完成什么 |
+| --- | --- |
+| 功能、缺陷或重构 | 理解受影响业务，核实证据；行为变化时同步实现和相关流程，检查两者一致 |
+| 评审或影响分析 | 对照当前源码与流程判断影响；用户仅授权分析时，报告必要修改而不直接写文件 |
+| 新建、修改或重组流程图 | 完成指定业务范围的调查、流程文件和实际阅读检查 |
+| 已明确源边界的格式化、局部改名等机械任务 | 直接按仓库工作流完成；业务含义保持时不改流程 |
+| 用户明确要求处理历史观察或候选 | 使用文末可选历史工具，不改变正常工程的同步维护方式 |
 
-Use this workflow when work can change or depend on business behavior,
-ownership, shared data, an invariant, or an interface. This includes feature,
-bug, refactor, impact-analysis, and independent-review work whose correct scope
-requires business judgment.
+普通工程任务不意味着重画整个仓库。是否提交、合入、发布或改变数据结构，遵循本次授权和仓库规则；同步代码与图表示一个完整候选，不自动取得发布或生产操作授权。
 
-Begin ordinary repository work directly when the task is purely mechanical and
-its exact source boundary is already established, such as formatting, a local
-rename, or generated-file refresh. This is a complete stopping decision and
-produces no shared business-knowledge maintenance work.
+## 2. 直接定位相关业务与源码
 
-## Probe Existing Business Knowledge
+根据任务、工作空间的项目映射和 `AGENTS.md` 定位目标仓库，当前工作目录不一定是目标仓库。从父工作空间调用时，为查询、校验和渲染命令显式传入 `--repo <目标仓库绝对路径>`；源码锚点相对该仓库解析。CLI 不递归发现子仓库的业务图，多仓库任务分别查询各自资料，不能用错误根目录返回的 `MAP_NOT_FOUND` 判断子仓库没有图。
 
-1. Read the task contract and repository instructions. Resolve the repository
-   root and keep all commands in the task's assigned worktree.
-2. Form one concise business query from the user-visible behavior. Use the
-   user's natural business language rather than guessing an exact map name.
-3. Before broad source discovery, run the public ranked-search command whether
-   or not map documents are present:
+确定目标后，从已经掌握的信息进入相关业务。AI 可以像熟悉系统的程序员一样直达目标，不必每次从总览走完整层级；人的级联浏览菜单不规定 AI 的调查顺序。
 
-   ```bash
-   semantic-atlas search "<business-query>" \
-     --repo "<absolute-repository-root>"
+| 已有信息 | 直接入口 |
+| --- | --- |
+| 已知流程 ID | `semantic-atlas flows "<flow-id>" --repo "<repository-root>"` |
+| 已知业务概念 ID | `semantic-atlas context "<concept-id>" --repo "<repository-root>"` |
+| 只有要完成的业务行为 | `semantic-atlas search --flows "<business-query>" --repo "<repository-root>"`，选命中的流程 ID 再读该层 |
+| 需要补看整体结构或没有合适命中 | 可选用 `semantic-atlas flows --repo "<repository-root>"` 取得根流程与简要目录 |
+
+读取目标流程中的动作、判断、连接条件、结果、子流程和步骤引用概念的源码锚点。当前层已足以判断时直接核实对应源码；只有上层承诺、细节或必要协作会改变结论时，才补看父层、子流程或概念上下文，不展开无关邻域。
+
+`search --flows` 根据流程及相关业务文本的词面相似度返回候选，不是向量或语义搜索。不同词汇、同义改写或不同语言可能没有命中；分数只说明这次查询的相关排序。需要概念检索时可用普通 `semantic-atlas search "<business-term>"`，同样按业务含义判断结果，而不是把分数当正确性证明。
+
+从锚点的 `file` 定位文件，再查 `value` 指定的类、方法或函数；打开当前声明和必要调用方，确认实际动作。资料给的是导航与规则线索，当前源码和证据决定行为。
+
+| 结果 | 怎样继续 |
+| --- | --- |
+| 取得相关流程或概念 | 核实当前图的规则、源码和必要使用方，不强制补走总览 |
+| 搜索为空或存在歧义 | 使用已知业务词、可选目录或源码入口继续调查；会改变范围且仍无法确定的选择保持待核实 |
+| 没有相关流程或 `MAP_NOT_FOUND` | 建立当前任务所需的最小业务模型；行为变更时补写相关流程，不先建完整分类体系 |
+| 流程 ID 不存在 | 按当前目录和源码核对替代路径 |
+| 文件无效或 CLI 不可用 | 说明资料不可用，继续有界源码调查；能在本次范围修正的资料问题一起处理 |
+| 锚点缺失或过期 | 用当前实现找到替代入口，同步修正本次依赖的锚点，保留其他仍成立的业务知识 |
+
+核实谁承诺结果、拥有规则与状态，谁是调用者或协作者。边界不清或需要调整业务资料时，读取[业务边界](references/boundary-design.md)。沿真实生产者、使用方和外部交接确定影响，不以目录或类数量代替业务责任。
+
+## 3. 同步修改实现与受影响流程
+
+从相关流程的起点走到本次可能影响的结果，核对动作、判断、条件分支、停止和恢复对象。重点确认会影响数据、费用、权限、租户隔离、接口和用户结果的路径，只追踪当前任务所需范围。
+
+先区分差异的含义：实现违反已确认规则时修代码，并让图准确表达修复后的支持路径；业务要求改变时同步改代码和流程；源码位置变化时修正必要锚点；仅内部组织变化且业务含义不变时，保留流程。证据冲突且会改变行为时，先确认关键决定。
+
+代码修改与相应流程文件放在同一工作分支。局部条件只改所属细图和直接提到它的说明；入口、结果、重要分支或协作变化时，再检查引用它的上层与相关协作者。不要把必要的图更新留成候选，等合入主分支后才维护。
+
+按仓库工程工作流验证并审阅完整差异，把代码行为和图中的规则、分支、备注与源码锚点一起检查。没有业务变化，或图已完整表达修复后行为时，可以没有结构性图修改，但应说明核对结果。
+
+## 4. 编写流程资料
+
+首次建图或重建较大业务范围时，边分块读取源码边画，不等读完整仓库才写图。按照[流程设计中的持续建图方法](references/diagram-design.md#2-分块调查并持续修正已画流程)，把已核实的局部流程及时落盘，记录未覆盖范围；后续证据改变理解时，立即修正或重构已画部分，再继续调查。图和必要状态文件承载外部记忆，当前源码仍负责证实行为。
+
+新建图、修图或同步行为变化时：
+
+1. 按[业务边界](references/boundary-design.md)建立当前分块有证据的责任范围与必要协作者，逐块核对源码入口、状态和规则，并随新证据修正边界与已画流程；旧节点列表不构成完整性证明。
+2. 按[流程设计](references/diagram-design.md)决定总览和细图的边界、粒度、条件、备注与修改范围。每张图从可理解的入口走到结果；总览也表达真实先后和分支，不能用分类树或无连接卡片代替流程。
+3. 按[文件编写](references/map-authoring.md)使用当前产品格式。复用仍成立的业务身份，共享概念只定义一次。`part_of` 表达归属，不产生执行顺序；总览 `flows` 由 AI 显式编写，步骤通过 `concept` 引用场景的自有流程，形成下层。
+4. 同一业务责任仍成立时复用其文件；独立新业务有自己的领域和文件。文件数量由真实责任决定。新版格式需要更好的表达时，可以按已确认契约重写既有资料，无需为旧业务文件或旧格式保留兼容分支。
+5. 源码锚点保留到具体文件、类和方法，供 AI 与 CLI 定位；Web 隐藏这些资料。备注说明业务规则的背景、目的和取舍，不写 AI 怎样安排图的理由。
+6. 完成结构与阅读检查：
+
+   ```sh
+   semantic-atlas validate --repo "<absolute-repository-root>"
+   semantic-atlas render --repo "<absolute-repository-root>" --output "<repository-root>/tmp/business-flow.html"
+   git diff --check
+   git diff -- docs/business-map/
    ```
-4. Read the ordered `data.results`. Every result can represent any mapped node
-   kind and includes its `rank`, `score`, stable ID, name, kind, and matched
-   fields. Scores express relative relevance within one query, not correctness
-   probabilities. Choose the candidate whose business meaning fits the task;
-   use score and the gap between nearby results as ranking evidence rather than
-   as a substitute for task meaning.
-5. Query the chosen candidate's stable ID through the public context command:
 
-   ```bash
-   semantic-atlas context "<stable-concept-id>" \
-     --repo "<absolute-repository-root>"
-   ```
+   打开受影响流程，按实际变化核对必要的上下层进入与返回、主线、关键分支、数量／时间边界和备注。查看实际阅读尺寸下的文字、连线与角标。角标直接进入子流程；点击节点正文只在有业务备注时打开默认关闭的详情，详情不再承担进入操作。无备注的普通节点保持原样。
 
-   A clear leading candidate proceeds directly. When nearby candidates express
-   materially different business scopes, compare their names, kinds, and task
-   meaning before choosing. Ask for clarification only when current task
-   evidence cannot distinguish a choice that would change the engineering
-   boundary.
-6. Preserve the original business query, bounded outcome, and selected stable
-   IDs for the task observation.
+结构校验证明文件与引用有效，源码证据证明行为，实际阅读证明表达清楚；三者不能互相替代。
 
-## Build The Business Model With Or Without A Map
+## 5. 合并时按最终行为消除冲突
 
-Route the search and context result into one current-evidence investigation:
+代码与流程图作为同一业务变更提交和合入。审查通过后，按当前授权执行仓库的提交或合并流程；只有本地修改时如实报告候选状态。
 
-- A successful context result supplies likely business scope and source entry
-  points. It can also return related business flows in `context.data.flows`.
-  Open the most decisive anchors first. For a `kind: symbol` anchor with
-  `file`, use normal repository tools to locate `value` inside that
-  repository-relative file. For a qualified name such as
-  `PlaceOrderService.execute`, distinguish the declaring class or type from
-  same-named methods and call sites. Read the current implementation and
-  relevant tests, and confirm the business action stated in `description`.
-  A missing file or declaration follows the stale-anchor route below. Unbound
-  symbols and other anchor kinds remain useful entry points. Query another
-  returned stable ID only
-  when an owner, upstream action, downstream consumer, shared data concept,
-  invariant, interface, or business-relevant path could change the
-  implementation scope.
-- An empty search result means the repository has a map without sufficiently
-  related vocabulary. Search current product documents and source using the
-  original query, likely business synonyms, and directly observed
-  collaborators.
-- Ranked candidates that remain indistinguishable after task-specific
-  comparison form a bounded ambiguous result. Continue with current evidence
-  when it can identify the owner; otherwise preserve the unresolved choice.
-- `MAP_NOT_FOUND` means the repository has no configured shared business map.
-  When the map is absent, build the smallest source-supported business model needed for the task.
-  Start from the user-visible outcome, identify only the owning business scope,
-  actions, data, rules, and interfaces that current evidence requires, and stop
-  when the engineering boundary is source-confirmable. Limit this model to
-  business meaning supported by the current task rather than repository-folder
-  structure or a complete taxonomy.
-- `MAP_DOCUMENT_INVALID`, an unavailable CLI, or an infrastructure failure
-  makes map knowledge unavailable for this task. Preserve the failure, build
-  the same bounded current-evidence model, and report observation recording as
-  unavailable when the CLI boundary cannot accept it.
-- A node without anchors still supplies business vocabulary and relations.
-  Search its name, aliases, neighboring concepts, and interface terms, then
-  follow current code structure.
-- A missing or stale anchor weakens only that navigation hint. Use current
-  evidence to find the replacement location without discarding unrelated
-  stable business meaning.
+遇到分支合并或重放冲突，先理解两边各自改变的规则、入口、结果和协作，再按合并后的代码重审受影响流程。即使文本没有冲突，也要检查两项行为变化叠加后，分支条件、顺序、子流程引用和备注是否仍然成立。不能仅保留两边文字或按格式拼接 YAML。
 
-Record a successful selection as `context` with the original business query
-and selected stable ID. Record an empty result as `concept_not_found`, an
-unresolved candidate choice as `concept_ambiguous`, and an unavailable search
-contract as `unavailable`.
+解决后重跑受影响的业务验证、完整图校验和必要阅读检查，确保合并结果中的实现与流程一致。未取得业务决定或关键证据时，保留具体阻塞，不用测试断言替代决定。
 
-For a mapless task, the observation query records the bounded outcome:
+## 6. 可选：已有历史记录
 
-```json
-{
-  "selector": "<business term>",
-  "outcome": "map_not_found"
-}
-```
+正常工程不要求先生成候选、记录观察或等待主分支更新。只有用户明确要求准确性记录，或要处理已有历史观察和候选时，才读取[观察记录](references/observations.md)与[历史候选校准](references/reconciliation.md)，使用已有 `observe`、`reconcile` 命令。它们不替代本次同分支维护，也不阻断代码与流程的交付。
 
-## Confirm The Current-Evidence Model
+## 7. 交付
 
-Identify who promises the task's outcome and controls its rules/state, then
-separate that owner from callers, consumers and infrastructure collaborators.
-When ownership or lifecycle coverage is uncertain, read the shared
-[boundary-design reference](../semantic-atlas-maintenance/references/boundary-design.md)
-and apply its source-to-map coverage and cohesion questions to this task only.
-An ordinary engineering task needs a sufficient local model, not a complete
-project partition or a map-authoring artifact.
-
-For every statement that could control the change:
-
-1. Open current source or tests that implement or exercise the behavior.
-2. Open the tracked product document when it owns the durable rule or outcome.
-3. Confirm both endpoints of an invocation, shared-data, invariant, publish, or
-   consume relation when that relation expands the required scope.
-4. Use runtime evidence when the conclusion depends on deployed state rather
-   than repository behavior.
-5. Classify relevant map hypotheses as confirmed, missing, stale,
-   contradicted, or unresolved. Let confirmed current evidence control the
-   task. Keep unresolved statements out of decisive conclusions.
-
-Trace a downstream symptom toward its confirmed upstream cause before editing.
-For shared data or interfaces, inspect every confirmed producer and consumer
-needed to preserve the contract. Keep unrelated neighbors outside the change.
-
-## Check Relevant Business Flows
-
-Use each returned flow as a compact hypothesis about the business-relevant
-actions, decisions, branches, and outcomes in one scenario. Follow only the
-flows and paths that intersect the task; ordinary relation context remains
-sufficient when no flow is relevant.
-
-1. Before editing, trace each relevant path from `startsAt` through its labeled
-   decisions to the outcomes that could change. Give special attention to paths
-   controlling durable data, provider usage or cost, authorization or tenant
-   isolation, interfaces, and user-visible results.
-2. Confirm every step or branch that controls the engineering decision in
-   current source, tests, tracked product documents, or required runtime
-   evidence. Flow order is an investigation lead rather than current execution
-   truth.
-3. After implementation or review, trace the affected paths again. Check that
-   preserved branches still reach their intended outcomes and that an intended
-   product change has a clear durable meaning.
-4. Classify a discrepancy before changing either side:
-   - repair source when implementation accidentally breaks the confirmed
-     business path;
-   - propose a flow update when confirmed product intent changed the durable
-     business path;
-   - propose a flow correction when decisive current evidence establishes that
-     the retained path was already stale;
-   - preserve the discrepancy as unresolved when available evidence cannot
-     choose the durable behavior;
-   - keep the flow unchanged when only implementation structure changed.
-
-Keep routine parameter validation, DTO conversion, helpers, framework wiring,
-and Service or Queue names in source rather than flow steps.
-
-## Implement And Verify
-
-Continue through the repository's normal engineering workflow after the
-current-evidence model is clear. Implement the confirmed cause and affected
-collaborators, add regression coverage at the public behavior boundary, run
-the repository's required checks, and review the final diff against the task
-scope.
-
-Final engineering conclusions identify the business boundary, decisive current
-evidence, implementation or review scope, and verification. Phrase map-only
-statements as leads or uncertainty rather than current behavior.
-
-## Decide Post-Task Business-Knowledge Maintenance
-
-After the engineering or review result is known, choose one maintenance disposition:
-
-- `candidate`: current evidence establishes stable business meaning that the
-  shared map omits or represents incorrectly. Record one or more domain-owned
-  map-update candidates with decisive evidence. Use `kind: "flow"` when the
-  durable correction concerns a scenario's actions, decisions, labeled
-  branches, or outcomes.
-- `already_represented`: the shared map still expresses the stable business
-  meaning needed by the task. Record no candidate.
-- `implementation_local`: the result changes only helpers, framework wiring,
-  source organization, tests, or another non-durable implementation detail.
-  Record no candidate.
-- `unresolved`: available evidence cannot establish durable business identity,
-  ownership, or relation direction. Preserve the uncertainty without proposing
-  a canonical edit.
-
-A no-change disposition is a complete result when current shared knowledge
-already represents the durable meaning or the change is implementation-local.
-Add concepts, relations, and flows only when current evidence supports their
-accuracy. When no relevant flow changed, record no flow candidate.
-
-For every proposed candidate, identify the actual business responsibility from
-its outcomes, owned data/rules, lifecycle and collaborators using the same
-boundary-design reference when that ownership needs investigation. Reuse a mapped
-domain when that meaning matches; an independently meaningful new business area receives
-its own stable `businessDomainId`, even when another domain already has a YAML.
-Use narrower capabilities for behavior belonging inside an existing area.
-The maintenance Skill rechecks this ownership before choosing files. A required
-multi-file ownership correction is explicit authoring/reorganization work,
-while retained candidate origins keep their immutable domain identity.
-
-For mapped and mapless tasks alike, retain only the stable meaning established
-by current evidence. Use `unresolved` when the task cannot establish business
-identity or ownership. A local engineering task does not imply mapping the
-whole repository.
-
-## Record Accuracy Evidence
-
-For business-changing work, read
-[references/observations.md](references/observations.md) after the engineering
-or review result and verification are known.
-
-- For engineering and analysis work, record one task observation. It contains
-  the map-query outcome, selected concepts, current-evidence dispositions,
-  map-update candidates from a `candidate` maintenance disposition, and any
-  explicit human correction.
-- For independent review, record one review observation that references the
-  existing task observation and contains the accuracy verdict. Keep the task
-  observation immutable. When no task observation is available, report the
-  missing accuracy-evidence link separately from the review verdict.
-
-Independent review owns accuracy judgments, so task observations contain
-investigation evidence rather than correctness verdicts. Generate one stable
-observation ID for the run and reuse the same complete document when retrying an
-interrupted submission.
-
-Submit the matching complete JSON document through the installed CLI:
-
-```text
-semantic-atlas observe task --stdin [--repo <repository-root>]
-semantic-atlas observe review --stdin [--repo <repository-root>]
-```
-
-Report the recorded or idempotent outcome with the engineering result. When
-the observation command fails, the engineering result remains unchanged;
-report the observation failure separately so review can distinguish delivery
-evidence from missing accuracy evidence.
-
-## Hand Off Canonical Maintenance
-
-Keep canonical map editing in a separate maintenance change after stable reviewed source is available.
-For this candidate-driven handoff, the `semantic-atlas-maintenance` Skill
-rechecks real business ownership using its common authoring rules, then handles
-one confirmed domain and owning YAML. Ownership corrections needing multiple
-files follow its ordinary reviewed authoring path with accurate separate origin
-accounting. Both paths validate the complete graph, inspect the affected Viewer
-areas and submit the Git diff for independent review.
-
-A post-integration maintenance run can examine retained candidates from
-business-changing results; an empty or no-change run is successful. Periodic
-reconciliation remains a fallback for accumulated drift, missed observations,
-and changes outside the normal engineering workflow. The understanding and
-maintenance contracts run independently of task orchestrators.
-
-## Report The Result
-
-Report the business boundary, decisive current evidence, engineering scope,
-verification, accuracy-observation outcome, and maintenance disposition. For
-`candidate`, include the business domain, proposed durable correction, and
-evidence. For `already_represented`, `implementation_local`, or `unresolved`,
-state the evidence-based reason and record no map-update candidate.
+说明当前业务边界、关键依据、代码与流程分别改了什么，以及实际验证。没有业务变化或无需结构性改图时给出简短依据。直接画图提供阅读入口与文件；仅分析时说明建议改动。把已核实的覆盖、尚未调查的范围、资料缺口、未完成的运行验证，以及本地修改与实际合入状态分别讲清楚。当前结果已充分验证后结束，不补画无关业务。

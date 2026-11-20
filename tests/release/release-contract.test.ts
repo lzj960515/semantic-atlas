@@ -14,7 +14,7 @@ describe("public release candidate", () => {
 
     expect(packageDocument).toMatchObject({
       name: "semantic-atlas",
-      version: "2.8.1",
+      version: "3.0.0",
       license: "MIT",
       homepage: `${publicRepository}#readme`,
       bugs: { url: `${publicRepository}/issues` },
@@ -232,7 +232,7 @@ describe("public release candidate", () => {
     expect(readme).toContain("~/.semantic-atlas/projects.json");
     expect(readme).toContain("not merged with registered projects");
     expect(readme).toContain("127.0.0.1");
-    expect(readme).toContain("Drag to pan");
+    expect(readme).toContain("返回");
     expect(readme).toContain("semantic-atlas observe task --stdin");
     expect(readme).toContain("semantic-atlas reconcile candidates");
     expect(readme).toContain("semantic-atlas reconcile status");
@@ -257,7 +257,7 @@ describe("public release candidate", () => {
     expect(readmeZh).toContain("~/.semantic-atlas/projects.json");
     expect(readmeZh).toContain("不会与已登记路径合并");
     expect(readmeZh).toContain("127.0.0.1");
-    expect(readmeZh).toContain("桌面右侧面板或窄屏底部");
+    expect(readmeZh).toContain("流程图");
     expect(readmeZh).toContain("semantic-atlas reconcile candidates");
     expect(readmeZh).toContain("semantic-atlas reconcile status");
     expect(readmeZh).toContain("[English](README.md)");

@@ -2,7 +2,7 @@
 
 - Change: map maintenance now establishes responsibility and lifecycle coverage
   before choosing domains or files. The shared
-  [boundary-design reference](../../.agents/skills/semantic-atlas-maintenance/references/boundary-design.md)
+  [boundary-design reference](../../.agents/skills/semantic-atlas/references/boundary-design.md)
   owns the evidence-based cohesion, ownership, external-collaborator and stopping
   judgments; ordinary engineering reuses it at task scale. YAML and candidate
   observation contracts remain unchanged.
@@ -19,7 +19,7 @@
 - Affected pages: [map format](../map-format.md#business-ownership-and-file-boundaries),
   [evaluation](../evaluation.md#business-ownership-regression), the
   [understanding Skill](../../.agents/skills/semantic-atlas/SKILL.md) and
-  [maintenance Skill](../../.agents/skills/semantic-atlas-maintenance/SKILL.md).
+  [maintenance Skill](../../.agents/skills/semantic-atlas/SKILL.md).
 - Verification: both Skill packages pass frontmatter validation; changed
   relative document links resolve; all 15 existing Skill and authoring-resource
   tests pass, including complete-graph checks for the new initial fixture.

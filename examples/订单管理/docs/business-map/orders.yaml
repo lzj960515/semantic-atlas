@@ -1,0 +1,267 @@
+schemaVersion: 1
+map:
+  id: order-demo
+  title: 订单管理
+  summary: 演示下单、付款与发货的逐层阅读，不代表任何线上系统的现行规则。
+nodes:
+  - id: shopping
+    kind: domain
+    name: 购物下单
+    summary: 顾客提交订单，完成付款。
+    aliases: []
+    anchors: []
+  - id: fulfillment
+    kind: domain
+    name: 仓库发货
+    summary: 仓库核对商品，把包裹交给承运商。
+    aliases: []
+    anchors: []
+  - id: aftersales
+    kind: domain
+    name: 售后退款
+    summary: 核对退款申请，退回符合条件的款项。
+    aliases: []
+    anchors: []
+  - id: shopping.checkout
+    kind: scenario
+    name: 提交并支付订单
+    summary: 从确认商品到订单付款完成。
+    aliases: []
+    anchors: []
+  - id: shopping.payment
+    kind: scenario
+    name: 支付订单
+    summary: 发起付款，确认支付结果。
+    aliases: []
+    anchors: []
+    notes: 只有确认收到款项，订单才进入待发货。支付失败时，顾客可以重新选择支付方式。
+  - id: fulfillment.ship
+    kind: scenario
+    name: 打包与发货
+    summary: 已付款订单完成拣货、打包和交运。
+    aliases: []
+    anchors: []
+  - id: aftersales.refund
+    kind: scenario
+    name: 处理退款申请
+    summary: 确认申请是否符合退款条件。
+    aliases: []
+    anchors: []
+  - id: shopping.journey
+    kind: scenario
+    name: 订单全流程
+    summary: 从顾客下单到仓库发货，再按申请处理售后退款。
+    aliases: []
+    anchors: []
+relations:
+  - from: shopping.checkout
+    type: part_of
+    to: shopping
+    summary: 下单属于购物业务。
+  - from: shopping.payment
+    type: part_of
+    to: shopping.checkout
+    summary: 支付是下单中的一个环节。
+  - from: fulfillment.ship
+    type: part_of
+    to: fulfillment
+    summary: 打包与发货由仓库负责。
+  - from: aftersales.refund
+    type: part_of
+    to: aftersales
+    summary: 退款申请由售后处理。
+  - from: shopping.checkout
+    type: invokes
+    to: shopping.payment
+    summary: 提交订单后进入支付。
+  - from: shopping.journey
+    type: part_of
+    to: shopping
+    summary: 购物业务协调顾客订单的完整旅程。
+  - from: shopping.journey
+    type: invokes
+    to: shopping.checkout
+    summary: 顾客先完成下单和付款。
+  - from: shopping.journey
+    type: invokes
+    to: fulfillment.ship
+    summary: 已付款订单交给仓库发货。
+  - from: shopping.journey
+    type: invokes
+    to: aftersales.refund
+    summary: 顾客申请退款时交给售后处理。
+flows:
+  - id: shopping.journey.flow
+    name: 订单全流程
+    summary: 下单付款后发货；顾客提出退款申请时，进入售后处理。
+    scenario: shopping.journey
+    startsAt: checkout
+    steps:
+      - id: checkout
+        kind: action
+        name: 顾客下单并付款
+        summary: 确认商品、地址并完成付款。
+        concept: shopping.checkout
+        notes: 本层展示完成付款后进入发货的主线。付款失败或取消时，订单留在待付款状态，具体分支在下单流程中。
+      - id: ship
+        kind: action
+        name: 仓库发货
+        summary: 核对商品、打包并交给承运商。
+        concept: fulfillment.ship
+      - id: needs-refund
+        kind: decision
+        name: 顾客申请退款吗？
+        summary: 按顾客的实际申请决定是否进入售后。
+      - id: refund
+        kind: outcome
+        name: 售后退款
+        summary: 核对条件，退款或告知处理原因。
+        concept: aftersales.refund
+      - id: completed
+        kind: outcome
+        name: 订单完成
+        summary: 本次订单无需售后处理。
+    transitions:
+      - from: checkout
+        to: ship
+      - from: ship
+        to: needs-refund
+      - from: needs-refund
+        to: refund
+        when: 申请退款
+      - from: needs-refund
+        to: completed
+        when: 不申请
+  - id: shopping.checkout.flow
+    name: 提交并支付订单
+    summary: 顾客确认商品后提交订单，付款成功后等待发货。
+    scenario: shopping.checkout
+    startsAt: confirm
+    steps:
+      - id: confirm
+        kind: action
+        name: 确认商品与地址
+        summary: 顾客确认购买内容和收货信息。
+      - id: payment
+        kind: action
+        name: 支付订单
+        summary: 顾客选择支付方式并完成付款。
+        concept: shopping.payment
+      - id: paid
+        kind: decision
+        name: 付款成功了吗？
+        summary: 以支付渠道确认的结果为准。
+        notes: 付款页面关闭不代表付款失败。收到支付渠道的最终结果后，再决定订单能否发货。
+      - id: ready
+        kind: outcome
+        name: 等待发货
+        summary: 订单进入仓库的待发货列表。
+      - id: unpaid
+        kind: outcome
+        name: 保留待付款订单
+        summary: 顾客可以稍后重新付款。
+    transitions:
+      - from: confirm
+        to: payment
+      - from: payment
+        to: paid
+      - from: paid
+        when: 成功
+        to: ready
+      - from: paid
+        when: 失败或取消
+        to: unpaid
+  - id: shopping.payment.flow
+    name: 支付订单
+    summary: 从选择支付方式，到收到支付渠道的处理结果。
+    scenario: shopping.payment
+    startsAt: choose
+    steps:
+      - id: choose
+        kind: action
+        name: 选择支付方式
+        summary: 顾客选择本次付款使用的方式。
+      - id: request
+        kind: action
+        name: 向支付渠道发起付款
+        summary: 按订单应付金额提交支付请求。
+        notes: 支付金额使用订单确认的应付金额，不能用浏览器临时提交的金额替代。
+      - id: result
+        kind: decision
+        name: 支付渠道确认成功了吗？
+        summary: 等待渠道返回本次付款的结果。
+      - id: success
+        kind: outcome
+        name: 记录付款成功
+        summary: 订单可以继续进入发货环节。
+      - id: failed
+        kind: outcome
+        name: 返回待付款
+        summary: 保留订单，顾客可以重新付款。
+    transitions:
+      - from: choose
+        to: request
+      - from: request
+        to: result
+      - from: result
+        when: 确认成功
+        to: success
+      - from: result
+        when: 失败或取消
+        to: failed
+  - id: fulfillment.ship.flow
+    name: 打包与发货
+    summary: 仓库将已付款订单交给承运商。
+    scenario: fulfillment.ship
+    startsAt: pick
+    steps:
+      - id: pick
+        kind: action
+        name: 按订单拣货
+        summary: 仓库取出订单中的商品。
+      - id: pack
+        kind: action
+        name: 核对并打包
+        summary: 核对商品和数量，贴好收货标签。
+        notes: 商品和数量与订单一致后再封箱，避免把错误商品交给承运商。
+      - id: shipped
+        kind: outcome
+        name: 交给承运商
+        summary: 包裹开始运输，顾客可以查看物流。
+    transitions:
+      - from: pick
+        to: pack
+      - from: pack
+        to: shipped
+  - id: aftersales.refund.flow
+    name: 处理退款申请
+    summary: 售后根据订单状态确认能否退款。
+    scenario: aftersales.refund
+    startsAt: request
+    steps:
+      - id: request
+        kind: action
+        name: 收到退款申请
+        summary: 顾客选择订单并说明退款原因。
+      - id: eligible
+        kind: decision
+        name: 符合退款条件吗？
+        summary: 核对订单是否已付款、是否已退款。
+        notes: 只对已付款且尚未退款的订单处理退款，避免重复退款。
+      - id: refunded
+        kind: outcome
+        name: 原路退款
+        summary: 款项退回顾客使用的支付方式。
+      - id: rejected
+        kind: outcome
+        name: 告知无法退款的原因
+        summary: 售后向顾客说明本次申请的处理结果。
+    transitions:
+      - from: request
+        to: eligible
+      - from: eligible
+        when: 符合
+        to: refunded
+      - from: eligible
+        when: 不符合
+        to: rejected

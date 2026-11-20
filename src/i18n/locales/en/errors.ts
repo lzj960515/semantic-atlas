@@ -1,4 +1,6 @@
 export default {
+  flowNotFound: "Business flow '{{flowId}}' does not exist.",
+
   duplicateFlow: "Flow '{{flowId}}' is also declared by {{documentPath}}",
   missingScenario: "Flow '{{flowId}}' references missing scenario '{{scenario}}'",
   scenarioKind: "Flow '{{flowId}}' must belong to a scenario, not {{kind}} '{{scenario}}'",

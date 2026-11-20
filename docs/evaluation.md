@@ -24,6 +24,17 @@ not the Skill's activation boundary.
 The evaluation observes investigation cost, but cost does not substitute for
 correctness.
 
+## 当前持续建图试用边界
+
+2026-11-20 的新上下文私有项目试用按三个源码分块逐步保存 3、6、9 条身份业务流程。
+后读到的消费者与管理入口证据促使 AI 修改已经写出的凭据交付边界和账户来源，而非
+只追加流程。最终 14 个概念、25 条关系、9 条流程的校验、业务词搜索、指定流程读取、
+概念读取和渲染通过。另从父工作空间查询子仓库流程及真实源码锚点，确认项目结果隔离。
+
+这次结果证明该局部任务实际执行了渐进落图、证据驱动回改和直接业务定位。它不证明
+全库覆盖、长期稳定收益或所有业务的表达质量；本次生成图的浏览器阅读检查因工具问题
+尚未完成。首次全库重建和日常工程中的后续证据应分别记录。
+
 ## Accuracy Dimensions
 
 ### Business-boundary accuracy
@@ -118,7 +129,7 @@ CLI outcome and that every acceptance oracle points to present source, test, or
 tracked product evidence. Fresh Agent runs then judge both mapped and mapless
 workflow behavior: the Agent must activate from business task meaning, use the
 bounded map outcome, reach the current-evidence conclusion, and report one
-maintenance disposition separately. Mechanical controls must end without
+same-branch business-flow updates separately; observation tools are optional. Mechanical controls must end without
 manufactured business knowledge. These fixtures protect the Skill contract;
 they do not replace the private real-project paired evaluation defined in this
 page.
@@ -137,7 +148,7 @@ extraction, withdrawal and removal, plus unrelated neighboring features. It
 checks complete responsibility coverage, correct external ownership and a
 clean stop at the requested business boundary rather than a node or file count.
 Execution receives only the request and source fixture, while expected results
-remain with the evaluator. Use the bundled understanding and maintenance Skills
+remain with the evaluator. Use the bundled unified business Skill
 in fresh contexts, with equivalent baseline and candidate environments.
 
 Acceptance checks actual business-owned files, shared concept identity,
@@ -192,7 +203,7 @@ Each run records:
 - required and unrelated impact surfaces;
 - implementation or proposed change;
 - verification performed;
-- post-task maintenance disposition and any durable candidate;
+- same-branch flow update and its correspondence with the final code;
 - independent review findings;
 - human decisions or corrections;
 - optional observations for tokens, opened files, elapsed time, compute cost,
@@ -207,7 +218,7 @@ The initial product passes when:
   an unsupported final claim;
 - a mapless business task still activates the Skill, records `map_not_found`,
   and limits bootstrap knowledge to stable meaning supported by the task;
-- mapped and mapless business tasks choose one maintenance disposition, while a
+- mapped and mapless business tasks update changed business meaning alongside code, while a
   mechanical control produces no business-maintenance work;
 - required business boundaries and impact surfaces are identified in every
   case;

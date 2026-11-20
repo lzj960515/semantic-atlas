@@ -94,24 +94,16 @@ describe("semantic-atlas render", () => {
     const secondProjection = await readFile(secondOutput, "utf8");
     expect(firstProjection).toBe(secondProjection);
     expect(firstProjection).toContain("<svg");
-    expect(firstProjection).toContain('data-channel="containment"');
-    expect(firstProjection).toContain('data-channel="directed-relation"');
-    expect(firstProjection).toContain('data-relation-id="commerce.orders--part_of--commerce"');
-    expect(firstProjection).toMatch(/marker-end="url\(#relation-arrow-[^)]+\)"/u);
-    expect(firstProjection).toContain("Likely source area for order behavior.");
-    expect(firstProjection).toContain("src/orders");
     expect(firstProjection).toContain('data-viewer-mode="export"');
     expect(firstProjection).toContain('id="project-select"');
-    expect(firstProjection).toContain('id="domain-select"');
-    expect(firstProjection).toContain('id="flow-select"');
-    expect(firstProjection).toContain('data-view-type="relationships"');
-    expect(firstProjection).toContain('data-view-type="flows"');
-    expect(firstProjection).toContain('data-flow-view="commerce.orders.place-order-flow"');
+    expect(firstProjection).toContain('id="diagram-select"');
+    expect(firstProjection).toContain('id="back-button"');
+    expect(firstProjection).toContain('data-flow-id="commerce.orders.place-order-flow"');
     expect(firstProjection).toContain('data-flow-step-id="check-inventory"');
     expect(firstProjection).toContain('data-action="zoom-in"');
     expect(firstProjection).toContain('data-action="fit"');
-    expect(firstProjection).toContain("Containment relationships");
-    expect(firstProjection).toContain("Directed business relationships");
+    expect(firstProjection).not.toContain("data-map-view=");
+    expect(firstProjection).not.toContain("src/orders");
     expect(firstProjection).toContain("<script");
     expect(firstProjection).not.toContain("__vite_ssr_import");
     expect(firstProjection).not.toContain("Business relationships, made visible.");
@@ -123,11 +115,29 @@ describe("semantic-atlas render", () => {
       "commerce.yaml": mapDocument(
         "commerce",
         [
-          node(nodeId, "capability", "跨境订单履约协作与售后退款处理业务能力中心平台服务", {
+          node(nodeId, "scenario", "跨境订单履约协作与售后退款处理业务能力中心平台服务", {
             summary: "协调跨境订单履约协作与售后退款处理业务能力中心平台服务的完整业务结果。",
           }),
         ],
         [],
+        [
+          flow(
+            "commerce.fulfillment.flow",
+            nodeId,
+            "start",
+            [
+              {
+                id: "start",
+                kind: "action",
+                name: "跨境订单履约协作与售后退款处理业务能力中心平台服务",
+                summary: "协调跨境订单履约协作与售后退款处理业务能力中心平台服务的完整业务结果。",
+                concept: nodeId,
+              },
+              flowStep("done", "outcome", "完成"),
+            ],
+            [transition("start", "done")],
+          ),
+        ],
       ),
     });
     const outputPath = path.join(repositoryRoot, "artifacts", "wide-character.html");
@@ -136,17 +146,12 @@ describe("semantic-atlas render", () => {
 
     expect(result.exitCode).toBe(0);
     const projection = await readFile(outputPath, "utf8");
-    const nodeMarkup = extractNodeMarkup(projection, nodeId);
-    const cardHeight = extractCardHeight(nodeMarkup);
-
+    expect(projection).toContain("跨境订单履约协作与售后退款处理业务能力中心平台服务");
     expect(projection).toContain(
-      '<h3 class="node-card__title"><span data-selectable-text>跨境订单履约协作与售后退款处理业务能力中心平台服务</span></h3>',
+      "协调跨境订单履约协作与售后退款处理业务能力中心平台服务的完整业务结果。",
     );
-    expect(projection).toContain(
-      '<p class="node-card__summary"><span data-selectable-text>协调跨境订单履约协作与售后退款处理业务能力中心平台服务的完整业务结果。</span></p>',
-    );
-    expect(nodeMarkup).not.toContain("<text");
-    expect(cardHeight).toBeGreaterThan(124);
+    expect(projection).toContain('class="flow-card__title-text"');
+    expect(projection).not.toContain("<text");
   });
 
   it("reports an actionable output failure after successfully loading the graph", async () => {
@@ -219,19 +224,4 @@ function mapDocument(
     relations,
     flows,
   };
-}
-
-function extractNodeMarkup(projection: string, nodeId: string): string {
-  const escapedNodeId = nodeId.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  const match = projection.match(
-    new RegExp(`<g class="node-card[^>]*data-node-id="${escapedNodeId}"[\\s\\S]*?</g>`, "u"),
-  );
-  expect(match, `Expected rendered node ${nodeId}`).not.toBeNull();
-  return match?.[0] ?? "";
-}
-
-function extractCardHeight(nodeMarkup: string): number {
-  const match = nodeMarkup.match(/<rect class="node-card__surface"[^>]*height="([^"]+)"/u);
-  expect(match, "Expected rendered node card surface").not.toBeNull();
-  return Number(match?.[1]);
 }

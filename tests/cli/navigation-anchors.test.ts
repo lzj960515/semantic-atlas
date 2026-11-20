@@ -36,8 +36,8 @@ describe("file-bound symbol navigation", () => {
     const rendered = await runCli(["render", "--repo", repositoryRoot, "--output", output]);
     expect(rendered.exitCode, rendered.stdout).toBe(0);
     const html = await readFile(output, "utf8");
-    expect(html).toContain('"file":"src/orders.ts"');
-    expect(html).toContain('"value":"Orders.create"');
+    expect(html).not.toContain("src/orders.ts");
+    expect(html).not.toContain("Orders.create");
   });
 
   it.each(["../outside.ts", "/absolute.ts", "src/../orders.ts", "src\\orders.ts"])(

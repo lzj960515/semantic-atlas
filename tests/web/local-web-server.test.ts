@@ -37,7 +37,6 @@ describe("Semantic Atlas local Web server", () => {
     expect(response.headers.get("content-security-policy")).toContain("connect-src 'self'");
     expect(response.headers.get("content-security-policy")).toContain("img-src data:;");
     expect(model).toMatchObject({
-      schemaVersion: 1,
       mode: "web",
       projects: [{ id: expect.stringMatching(/^[a-f0-9]+$/u) }],
       projectPayloads: [],
@@ -56,8 +55,8 @@ describe("Semantic Atlas local Web server", () => {
       schemaVersion: 1,
       ok: true,
       data: {
-        project: { id: project?.id, views: expect.any(Array), flows: expect.any(Array) },
-        markup: expect.stringContaining('data-map-view="commerce"'),
+        project: { id: project?.id, flows: expect.any(Array) },
+        markup: expect.any(String),
       },
     });
     expect(JSON.stringify(mapEnvelope)).not.toContain(repositoryRoot);
@@ -135,7 +134,9 @@ describe("Semantic Atlas local Web server", () => {
 
     const availableResponse = await fetch(`${server.url}/api/projects/${available?.id}`);
     expect(availableResponse.status).toBe(200);
-    expect(await availableResponse.text()).toContain("Commerce");
+    expect((await availableResponse.json()).data.project.flows[0].id).toBe(
+      "commerce.orders.checkout-flow",
+    );
   });
 
   it("keeps the complete loopback surface read-only", async () => {

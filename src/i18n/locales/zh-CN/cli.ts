@@ -1,4 +1,8 @@
 export default {
+  flows: "按编号直接读取业务流程，省略编号时列出流程目录",
+  searchFlows: "直接搜索业务流程",
+  flowId: "稳定的业务流程编号",
+
   description: "查询 Git 原生的辅助业务地图",
   setup: "安装或修复随包提供的用户技能",
   upgrade: "安装最新稳定版并同步技能",

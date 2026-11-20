@@ -71,10 +71,7 @@ export class SemanticAtlasPackageUpgrader {
       outcome,
       previousVersion: this.options.currentVersion,
       targetVersion,
-      skillDirectories: [
-        path.join(this.userHome, ".agents", "skills", packageName),
-        path.join(this.userHome, ".agents", "skills", "semantic-atlas-maintenance"),
-      ],
+      skillDirectories: [path.join(this.userHome, ".agents", "skills", packageName)],
     };
   }
 

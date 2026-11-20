@@ -1,269 +1,114 @@
 import type LanguageDetector from "i18next-browser-languagedetector";
-import { normalizeLocale } from "../i18n/locale.js";
 import type { i18n, Resource } from "i18next";
+import type dagre from "@dagrejs/dagre";
 import { dirname, join } from "node:path";
-import {
-  clamp,
-  fitViewBox,
-  MAP_SCALE_LIMITS,
-  mapPointFromViewport,
-  mapPointToViewport,
-  panViewBox,
-  viewportScale,
-  zoomViewBoxAt,
-  type MapPoint,
-  type MapViewBox,
-  type MapViewport,
-} from "./map-camera.js";
-import { createLatestProjectLoader } from "./latest-project-loader.js";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { layoutDiagram, type DiagramLayoutSpec } from "./viewer-layout.js";
-import { repositionDiagram } from "./manual-layout.js";
+import { normalizeLocale } from "../i18n/locale.js";
+import { createLatestProjectLoader } from "./latest-project-loader.js";
+import { layoutDiagram, diagramEdgePath } from "./viewer-layout.js";
 import { createDiagramLayoutController } from "./viewer-diagram.js";
-import type dagre from "@dagrejs/dagre";
-import type * as htmlToImage from "html-to-image";
-import { planDiagramImage, renderDiagramImage } from "./diagram-image.js";
+import type {
+  ViewerProjectModel,
+  ViewerProjectPayload,
+  ViewerProjectReference,
+} from "./viewer-page.js";
 
 const require = createRequire(import.meta.url);
 const i18nextRoot = dirname(require.resolve("i18next/package.json"));
-const i18nextBrowserScript =
-  `/*! i18next (MIT)\n${readFileSync(join(i18nextRoot, "LICENSE"), "utf8")}*/\n` +
-  readFileSync(join(i18nextRoot, "dist/umd/i18next.min.js"), "utf8");
-const languageDetectorRoot = dirname(
-  require.resolve("i18next-browser-languagedetector/package.json"),
-);
-const languageDetectorBrowserScript =
-  `/*! i18next-browser-languagedetector (MIT)\n${readFileSync(join(languageDetectorRoot, "LICENSE"), "utf8")}*/\n` +
-  readFileSync(join(languageDetectorRoot, "i18nextBrowserLanguageDetector.min.js"), "utf8");
-const dagreLicense = readFileSync(require.resolve("@dagrejs/dagre/LICENSE"), "utf8");
-const dagreBrowserScript =
-  `/*! @dagrejs/dagre and @dagrejs/graphlib (MIT)\n${dagreLicense}*/\n` +
-  readFileSync(require.resolve("@dagrejs/dagre/dist/dagre.min.js"), "utf8");
-const imageBrowserScript =
-  `/*! html-to-image (MIT)\n${readFileSync(require.resolve("html-to-image/LICENSE"), "utf8")}*/\n` +
-  readFileSync(require.resolve("html-to-image/dist/html-to-image.js"), "utf8");
-
-interface ViewerNavigationAnchorModel {
-  readonly kind: string;
-  readonly value: string;
-  readonly file?: string;
-  readonly description: string;
-}
-
-interface ViewerNodeModel {
-  readonly id: string;
-  readonly kind: string;
-  readonly name: string;
-  readonly summary: string;
-  readonly boundary: boolean;
-  readonly anchors: readonly ViewerNavigationAnchorModel[];
-  readonly relatedFlowIds: readonly string[];
-}
-
-interface ViewerFlowModel {
-  readonly layout: DiagramLayoutSpec;
-  readonly id: string;
-  readonly name: string;
-  readonly summary: string;
-  readonly scenario: {
-    readonly id: string;
-    readonly name: string;
-  };
-  readonly stepCount: number;
-  readonly transitionCount: number;
-}
-
-interface ViewerMapModel {
-  readonly layout: DiagramLayoutSpec;
-  readonly id: string;
-  readonly name: string;
-  readonly nodeCount: number;
-  readonly relationCount: number;
-  readonly nodes: readonly ViewerNodeModel[];
-}
-
-interface ViewerProjectReferenceModel {
-  readonly id: string;
-  readonly name: string;
-}
-
-interface ViewerProjectModel extends ViewerProjectReferenceModel {
-  readonly views: readonly ViewerMapModel[];
-  readonly flows: readonly ViewerFlowModel[];
-}
-
-interface ViewerProjectPayloadModel {
-  readonly project: ViewerProjectModel;
-  readonly markup: string;
-}
+const detectorRoot = dirname(require.resolve("i18next-browser-languagedetector/package.json"));
+const browserDependencies = [
+  `/*! i18next (MIT)\n${readFileSync(join(i18nextRoot, "LICENSE"), "utf8")}*/\n${readFileSync(join(i18nextRoot, "dist/umd/i18next.min.js"), "utf8")}`,
+  `/*! i18next-browser-languagedetector (MIT)\n${readFileSync(join(detectorRoot, "LICENSE"), "utf8")}*/\n${readFileSync(join(detectorRoot, "i18nextBrowserLanguageDetector.min.js"), "utf8")}`,
+  `/*! @dagrejs/dagre (MIT)\n${readFileSync(require.resolve("@dagrejs/dagre/LICENSE"), "utf8")}*/\n${readFileSync(require.resolve("@dagrejs/dagre/dist/dagre.min.js"), "utf8")}`,
+];
 
 interface ViewerModel {
   readonly resources: Resource;
-  readonly schemaVersion: 1;
   readonly mode: "export" | "web";
-  readonly projects: readonly ViewerProjectReferenceModel[];
-  readonly projectPayloads: readonly ViewerProjectPayloadModel[];
+  readonly projects: readonly ViewerProjectReference[];
+  readonly projectPayloads: readonly ViewerProjectPayload[];
 }
 
-interface WebProjectEnvelope {
-  readonly schemaVersion: 1;
-  readonly ok: boolean;
-  readonly data?: ViewerProjectPayloadModel;
-  readonly error?: {
-    readonly code: string;
-    readonly message: string;
-    readonly messageKey?: string;
-  };
+interface Camera {
+  readonly x: number;
+  readonly y: number;
+  readonly scale: number;
+  readonly fitted: boolean;
+}
+
+interface NavigationSnapshot {
+  readonly flowId: string;
+  readonly camera?: Camera;
+  readonly selectedId?: string;
 }
 
 export function renderViewerBrowserScript(): string {
   return [
-    i18nextBrowserScript,
-    languageDetectorBrowserScript,
+    ...browserDependencies,
     normalizeLocale.toString(),
-    dagreBrowserScript,
-    imageBrowserScript,
-    `const MAP_SCALE_LIMITS = ${JSON.stringify(MAP_SCALE_LIMITS)};`,
-    clamp.toString(),
-    viewportScale.toString(),
-    fitViewBox.toString(),
-    zoomViewBoxAt.toString(),
-    mapPointFromViewport.toString(),
-    mapPointToViewport.toString(),
-    panViewBox.toString(),
     createLatestProjectLoader.toString(),
     layoutDiagram.toString(),
+    diagramEdgePath.toString(),
     createDiagramLayoutController.toString(),
-    repositionDiagram.toString(),
-    "const defaultTranslate = globalThis.i18next.t.bind(globalThis.i18next);",
-    planDiagramImage.toString(),
-    renderDiagramImage.toString(),
-    "globalThis.__semanticAtlasDiagramImage = { planDiagramImage, renderDiagramImage };",
-    "globalThis.__semanticAtlasCamera = { fitViewBox, zoomViewBoxAt, mapPointFromViewport, mapPointToViewport, viewportScale, panViewBox };",
-    "globalThis.__semanticAtlasCreateLatestProjectLoader = createLatestProjectLoader;",
-    "globalThis.__semanticAtlasLayoutDiagram = layoutDiagram;",
-    "globalThis.__semanticAtlasCreateDiagramLayoutController = createDiagramLayoutController;",
-    "globalThis.__semanticAtlasRepositionDiagram = repositionDiagram;",
+    "globalThis.__atlasRuntime = { createLatestProjectLoader, layoutDiagram, diagramEdgePath, createDiagramLayoutController };",
     `(${viewerBrowserEntry.toString()})(normalizeLocale);`,
   ].join("\n");
 }
 
-interface BrowserCameraApi {
-  viewportScale(viewBox: MapViewBox, viewport: MapViewport): number;
-  mapPointToViewport(point: MapPoint, viewBox: MapViewBox, viewport: MapViewport): MapPoint;
-  fitViewBox(bounds: MapViewBox): MapViewBox;
-  zoomViewBoxAt(
-    current: MapViewBox,
-    bounds: MapViewBox,
-    factor: number,
-    anchor: MapPoint,
-  ): MapViewBox;
-  mapPointFromViewport(
-    viewportPoint: MapPoint,
-    viewBox: MapViewBox,
-    viewport: MapViewport,
-  ): MapPoint;
-  panViewBox(current: MapViewBox, pointerDelta: MapPoint, viewport: MapViewport): MapViewBox;
-}
-
-interface MapDragState {
-  readonly pointerId: number;
-  readonly startX: number;
-  readonly startY: number;
-  readonly x: number;
-  readonly y: number;
-  readonly moved: boolean;
-  readonly nodeElement?: SVGGElement;
-}
-
-type ViewerViewType = "relationships" | "flows";
-
 function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" | undefined): void {
-  const browserGlobal = globalThis as typeof globalThis & {
+  const browser = globalThis as typeof globalThis & {
     readonly i18next: i18n;
     readonly i18nextBrowserLanguageDetector: typeof LanguageDetector;
     readonly dagre: typeof dagre;
-    readonly htmlToImage: typeof htmlToImage;
-    readonly __semanticAtlasDiagramImage: {
-      planDiagramImage: typeof planDiagramImage;
-      renderDiagramImage: typeof renderDiagramImage;
+    readonly __atlasRuntime: {
+      readonly createLatestProjectLoader: typeof createLatestProjectLoader;
+      readonly layoutDiagram: typeof layoutDiagram;
+      readonly diagramEdgePath: typeof diagramEdgePath;
+      readonly createDiagramLayoutController: typeof createDiagramLayoutController;
     };
-    readonly __semanticAtlasLayoutDiagram: typeof layoutDiagram;
-    readonly __semanticAtlasRepositionDiagram: typeof repositionDiagram;
-    readonly __semanticAtlasCreateDiagramLayoutController: typeof createDiagramLayoutController;
-    readonly __semanticAtlasCamera: BrowserCameraApi;
-    readonly __semanticAtlasCreateLatestProjectLoader: typeof createLatestProjectLoader;
   };
-  const cameraApi = browserGlobal.__semanticAtlasCamera;
-  const latestProjectLoader = browserGlobal.__semanticAtlasCreateLatestProjectLoader;
   const modelElement = document.querySelector<HTMLScriptElement>("#viewer-model");
   const projectSelect = document.querySelector<HTMLSelectElement>("#project-select");
-  const domainSelect = document.querySelector<HTMLSelectElement>("#domain-select");
-  const flowSelect = document.querySelector<HTMLSelectElement>("#flow-select");
-  const relationshipSelector = document.querySelector<HTMLElement>("#relationship-selector");
-  const flowSelector = document.querySelector<HTMLElement>("#flow-selector");
-  const viewTypeButtons = Array.from(
-    document.querySelectorAll<HTMLButtonElement>("button[data-view-type]"),
-  );
-  const cameraButtons = Array.from(
-    document.querySelectorAll<HTMLButtonElement>(".camera-controls button"),
-  );
-  const statistics = document.querySelector<HTMLElement>("#map-statistics");
+  const diagramSelect = document.querySelector<HTMLButtonElement>("#diagram-select");
+  const flowDirectory = document.querySelector<HTMLElement>("#flow-directory");
+  const childFlowMenu = document.querySelector<HTMLElement>("#child-flow-menu");
+  const backButton = document.querySelector<HTMLButtonElement>("#back-button");
+  const title = document.querySelector<HTMLElement>("#diagram-title");
+  const summary = document.querySelector<HTMLElement>("#diagram-summary");
   const viewport = document.querySelector<HTMLElement>("#map-viewport");
-  const projectViewHost = document.querySelector<HTMLElement>("#project-view-host");
-  const viewerStatus = document.querySelector<HTMLElement>("#viewer-status");
-  const statusEyebrow = document.querySelector<HTMLElement>("#viewer-status-eyebrow");
+  const host = document.querySelector<HTMLElement>("#project-view-host");
+  const status = document.querySelector<HTMLElement>("#viewer-status");
   const statusTitle = document.querySelector<HTMLElement>("#viewer-status-title");
   const statusMessage = document.querySelector<HTMLElement>("#viewer-status-message");
-  const nodeDetails = document.querySelector<HTMLElement>("#node-details");
-  const detailsKind = document.querySelector<HTMLElement>("#node-details-kind");
+  const details = document.querySelector<HTMLElement>("#node-details");
   const detailsTitle = document.querySelector<HTMLElement>("#node-details-title");
-  const detailsSummary = document.querySelector<HTMLElement>("#node-details-summary");
-  const detailsDomain = document.querySelector<HTMLElement>("#node-details-domain");
-  const detailsDomainLink = document.querySelector<HTMLButtonElement>("#node-details-domain-link");
-  const detailsFlows = document.querySelector<HTMLElement>("#node-details-flows");
-  const detailsFlowList = document.querySelector<HTMLElement>("#node-details-flow-list");
-  const detailsAnchors = document.querySelector<HTMLElement>("#node-details-anchors");
-  const detailsAnchorList = document.querySelector<HTMLElement>("#node-details-anchor-list");
+  const detailsNotes = document.querySelector<HTMLElement>("#node-details-notes");
   const detailsClose = document.querySelector<HTMLButtonElement>('[data-action="close-details"]');
-  const exportButton = document.querySelector<HTMLButtonElement>('[data-action="export-image"]');
-  const exportStatus = document.querySelector<HTMLElement>("#export-status");
   if (
     !modelElement ||
     !projectSelect ||
-    !domainSelect ||
-    !flowSelect ||
-    !relationshipSelector ||
-    !flowSelector ||
-    viewTypeButtons.length !== 2 ||
-    cameraButtons.length !== 4 ||
-    !statistics ||
+    !diagramSelect ||
+    !flowDirectory ||
+    !childFlowMenu ||
+    !backButton ||
+    !title ||
+    !summary ||
     !viewport ||
-    !projectViewHost ||
-    !viewerStatus ||
-    !statusEyebrow ||
+    !host ||
+    !status ||
     !statusTitle ||
     !statusMessage ||
-    !nodeDetails ||
-    !detailsKind ||
+    !details ||
     !detailsTitle ||
-    !detailsSummary ||
-    !detailsDomain ||
-    !detailsDomainLink ||
-    !detailsFlows ||
-    !detailsFlowList ||
-    !detailsAnchors ||
-    !detailsAnchorList ||
-    !detailsClose ||
-    !exportButton ||
-    !exportStatus
+    !detailsNotes ||
+    !detailsClose
   )
     return;
 
   const model = JSON.parse(modelElement.textContent ?? "{}") as ViewerModel;
-  const translator = browserGlobal.i18next;
-  translator.use(browserGlobal.i18nextBrowserLanguageDetector);
+  const translator = browser.i18next;
+  translator.use(browser.i18nextBrowserLanguageDetector);
   void translator.init({
     resources: model.resources,
     initAsync: false,
@@ -276,655 +121,608 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     },
     interpolation: { escapeValue: false },
   });
-  const t = (key: string, values?: Record<string, unknown>): string =>
-    translator.t(key, values ?? {});
+  const t = (key: string, values: Record<string, unknown> = {}): string =>
+    translator.t(key, values);
   document.documentElement.lang = translator.resolvedLanguage ?? "en";
   const translateMarkup = (root: Document | HTMLElement): void => {
-    const elements = root.querySelectorAll<HTMLElement>(
-      "[data-i18n], [data-i18n-aria-label], [data-i18n-title]",
-    );
-    for (const element of Array.from(elements)) {
-      const values = JSON.parse(element.getAttribute("data-i18n-options") ?? "{}") as Record<
-        string,
-        unknown
-      >;
-      const relationKind = element.getAttribute("data-i18n-relation-kind");
-      if (relationKind) values.relation = t(`viewer.relationKinds.${relationKind}`);
+    for (const element of Array.from(
+      root.querySelectorAll<HTMLElement>("[data-i18n], [data-i18n-aria-label]"),
+    )) {
       const textKey = element.getAttribute("data-i18n");
-      if (textKey) element.textContent = t(textKey, values);
-      for (const attribute of ["aria-label", "title"] as const) {
-        const key = element.getAttribute(`data-i18n-${attribute}`);
-        if (key) element.setAttribute(attribute, t(key, values));
-      }
+      if (textKey) element.textContent = t(textKey);
+      const labelKey = element.getAttribute("data-i18n-aria-label");
+      if (labelKey) element.setAttribute("aria-label", t(labelKey));
     }
   };
   translateMarkup(document);
-  const cameras = new Map<string, MapViewBox>();
-  let activeProjectId = model.projects[0]?.id;
-  let activeProject: ViewerProjectModel | undefined;
-  let activeViewId: string | undefined;
-  let activeFlowId: string | undefined;
-  let activeViewType: ViewerViewType = "relationships";
-  let activeNodeElement: SVGGElement | undefined;
-  let dragState: MapDragState | undefined;
-  let exporting = false;
 
-  const currentProject = (): ViewerProjectModel | undefined =>
-    activeProject?.id === activeProjectId ? activeProject : undefined;
-  const currentView = (): ViewerMapModel | undefined =>
-    currentProject()?.views.find(({ id }) => id === activeViewId);
-  const currentFlow = (): ViewerFlowModel | undefined =>
-    currentProject()?.flows.find(({ id }) => id === activeFlowId);
-  const activeDiagramId = (): string | undefined =>
-    activeViewType === "relationships" ? activeViewId : activeFlowId;
-  const cameraKey = (): string =>
-    `${activeProjectId ?? ""}:${activeViewType}:${activeDiagramId() ?? ""}`;
-  const mapViews = (): readonly HTMLElement[] =>
-    Array.from(projectViewHost.querySelectorAll<HTMLElement>("[data-project-view]"));
-  const activeSvg = (): SVGSVGElement | undefined =>
-    mapViews()
-      .find(
-        (element) =>
-          element.dataset.projectId === activeProjectId &&
-          element.dataset.viewType === activeViewType &&
-          (activeViewType === "relationships"
-            ? element.dataset.mapView === activeViewId
-            : element.dataset.flowView === activeFlowId),
-      )
-      ?.querySelector<SVGSVGElement>("svg") ?? undefined;
-  const mapBounds = (svg: SVGSVGElement): MapViewBox => ({
-    x: 0,
-    y: 0,
-    width: Number(svg.dataset.canvasWidth),
-    height: Number(svg.dataset.canvasHeight),
-  });
-  const applyCamera = (svg: SVGSVGElement, camera: MapViewBox): void => {
+  const runtime = browser.__atlasRuntime;
+  const cameras = new Map<string, Camera>();
+  const history: NavigationSnapshot[] = [];
+  let projectId = model.projects[0]?.id;
+  let project: ViewerProjectModel | undefined;
+  let flowId: string | undefined;
+  let selected: HTMLElement | undefined;
+  let directoryPath: string[] = [];
+  let childMenuTrigger: HTMLButtonElement | undefined;
+  let drag:
+    | { pointerId: number; x: number; y: number; moved: boolean; startX: number; startY: number }
+    | undefined;
+  const cameraKey = (): string => `${projectId ?? ""}:${flowId ?? ""}`;
+  const currentFlow = () => project?.flows.find((flow) => flow.id === flowId);
+  const allViews = (): HTMLElement[] =>
+    Array.from(host.querySelectorAll<HTMLElement>("[data-project-view]"));
+  const currentView = (): HTMLElement | undefined =>
+    allViews().find(
+      (view) => view.dataset.projectId === projectId && view.dataset.flowId === flowId,
+    );
+  const world = (): HTMLElement | null | undefined =>
+    currentView()?.querySelector<HTMLElement>(".diagram-world");
+  const applyCamera = (camera: Camera): void => {
     cameras.set(cameraKey(), camera);
-    svg.setAttribute("viewBox", `${camera.x} ${camera.y} ${camera.width} ${camera.height}`);
-    const textLayer = svg.parentElement?.querySelector<HTMLElement>(".diagram-text-layer");
-    if (!textLayer) return;
-    const bounds = svg.getBoundingClientRect();
-    const viewportSize = { width: bounds.width, height: bounds.height };
-    const scale = cameraApi.viewportScale(camera, viewportSize);
-    const origin = cameraApi.mapPointToViewport({ x: 0, y: 0 }, camera, viewportSize);
-    textLayer.style.transform = `translate(${origin.x}px, ${origin.y}px) scale(${scale})`;
+    const element = world();
+    if (element)
+      element.style.transform = `translate(${camera.x}px, ${camera.y}px) scale(${camera.scale})`;
   };
-  const ensureCamera = (svg: SVGSVGElement): MapViewBox => {
-    const stored = cameras.get(cameraKey());
-    if (stored) return stored;
-    const fitted = cameraApi.fitViewBox(mapBounds(svg));
-    cameras.set(cameraKey(), fitted);
-    return fitted;
+  const fit = (): void => {
+    const element = world();
+    if (!element) return;
+    const width = Number(element.dataset.canvasWidth);
+    const height = Number(element.dataset.canvasHeight);
+    const bounds = viewport.getBoundingClientRect();
+    const scale = Math.min(1, (bounds.width - 48) / width, (bounds.height - 56) / height);
+    applyCamera({
+      x: (bounds.width - width * scale) / 2,
+      y: (bounds.height - height * scale) / 2,
+      scale,
+      fitted: true,
+    });
   };
-
-  const diagramLayout = browserGlobal.__semanticAtlasCreateDiagramLayoutController(
-    browserGlobal.dagre,
-    browserGlobal.__semanticAtlasLayoutDiagram,
-    (svg, previousBounds, originDelta) => {
-      const current = cameras.get(cameraKey());
-      if (originDelta && current) {
-        applyCamera(svg, {
-          ...current,
-          x: current.x + originDelta.x,
-          y: current.y + originDelta.y,
-        });
-        return;
-      }
-      const wasFitted =
-        !current ||
-        (current.x === 0 &&
-          current.y === 0 &&
-          current.width === previousBounds.width &&
-          current.height === previousBounds.height);
-      applyCamera(svg, wasFitted ? cameraApi.fitViewBox(mapBounds(svg)) : current);
+  const layout = runtime.createDiagramLayoutController(
+    browser.dagre,
+    runtime.layoutDiagram,
+    runtime.diagramEdgePath,
+    (view) => {
+      if (view !== currentView()) return;
+      const camera = cameras.get(cameraKey());
+      if (!camera || camera.fitted) fit();
+      else applyCamera(camera);
     },
-    browserGlobal.__semanticAtlasRepositionDiagram,
   );
-
-  const closeNodeDetails = (restoreFocus = false): void => {
-    const previousNode = activeNodeElement;
-    previousNode?.setAttribute("aria-expanded", "false");
-    activeNodeElement = undefined;
-    nodeDetails.hidden = true;
-    if (restoreFocus) previousNode?.focus({ preventScroll: true });
+  const closeDetails = (restoreFocus = false): void => {
+    const previous = selected;
+    previous?.classList.remove("flow-card--selected");
+    previous?.querySelector(".flow-card__body")?.setAttribute("aria-expanded", "false");
+    selected = undefined;
+    details.hidden = true;
+    if (restoreFocus)
+      previous?.querySelector<HTMLElement>(".flow-card__body")?.focus({ preventScroll: true });
   };
-
-  const setMapControlsEnabled = (enabled: boolean): void => {
-    domainSelect.disabled = !enabled;
-    flowSelect.disabled = !enabled;
-    for (const button of viewTypeButtons) button.disabled = !enabled;
-    for (const button of cameraButtons) button.disabled = !enabled;
-    exportButton.disabled = !enabled || exporting;
+  const controls = Array.from(
+    document.querySelectorAll<HTMLButtonElement>(".camera-controls button"),
+  );
+  const setControls = (enabled: boolean): void => {
+    diagramSelect.disabled = !enabled;
+    backButton.disabled = !enabled || history.length === 0;
+    backButton.hidden = backButton.disabled;
+    for (const button of controls) button.disabled = !enabled;
   };
-
-  const showStatus = (eyebrow: string, title: string, message: string): void => {
-    statusEyebrow.textContent = eyebrow;
-    statusTitle.textContent = title;
+  const showStatus = (heading: string, message: string): void => {
+    statusTitle.textContent = heading;
     statusMessage.textContent = message;
-    viewerStatus.hidden = false;
+    status.hidden = false;
   };
-
-  const clearProject = (): void => {
-    diagramLayout.disconnect();
-    closeNodeDetails();
-    activeProject = undefined;
-    activeViewId = undefined;
-    activeFlowId = undefined;
-    activeViewType = "relationships";
-    dragState = undefined;
-    delete viewport.dataset.dragging;
-    cameras.clear();
-    projectViewHost.replaceChildren();
-    domainSelect.replaceChildren();
-    flowSelect.replaceChildren();
-    relationshipSelector.hidden = false;
-    flowSelector.hidden = true;
-    statistics.textContent = "";
-    setMapControlsEnabled(false);
+  const closeDirectory = (restoreFocus = false): void => {
+    flowDirectory.hidden = true;
+    diagramSelect.setAttribute("aria-expanded", "false");
+    if (restoreFocus) diagramSelect.focus({ preventScroll: true });
   };
-
-  const markProjectAvailability = (projectId: string, unavailable: boolean): void => {
-    const reference = model.projects.find(({ id }) => id === projectId);
-    const option = Array.from(projectSelect.options).find(({ value }) => value === projectId);
-    if (!reference || !option) return;
-    option.textContent = unavailable
-      ? t("viewer.unavailableProject", { name: reference.name })
-      : reference.name;
+  const closeChildMenu = (restoreFocus = false): void => {
+    const trigger = childMenuTrigger;
+    childMenuTrigger = undefined;
+    trigger?.setAttribute("aria-expanded", "false");
+    childFlowMenu.hidden = true;
+    if (restoreFocus) trigger?.focus({ preventScroll: true });
   };
-
-  const enterLoading = (projectId: string): void => {
-    const reference = model.projects.find(({ id }) => id === projectId);
-    activeProjectId = projectId;
-    clearProject();
-    viewport.setAttribute("aria-busy", "true");
-    showStatus(
-      t("viewer.loadingProject"),
-      reference?.name ?? t("viewer.businessMap"),
-      t("viewer.loadingMap"),
+  const closeMenus = (): void => {
+    closeDirectory();
+    closeChildMenu();
+  };
+  const directoryFlow = (id: string) => project?.navigation.flows.find((flow) => flow.id === id);
+  const renderDirectory = (preserveThrough = -1): void => {
+    const columns: HTMLElement[] = [];
+    let ids = project?.navigation.roots ?? [];
+    for (let level = 0; ids.length > 0; level += 1) {
+      const column = document.createElement("section");
+      column.className = "flow-directory__column";
+      column.dataset.column = String(level);
+      column.setAttribute("role", "group");
+      column.setAttribute(
+        "aria-label",
+        level === 0 ? t("viewer.jumpToDiagram") : directoryFlow(directoryPath[level - 1]!)!.name,
+      );
+      for (const id of ids) {
+        const flow = directoryFlow(id);
+        if (!flow) continue;
+        const row = document.createElement("div");
+        row.className = "flow-directory__row";
+        row.dataset.active = String(directoryPath[level] === id);
+        const open = document.createElement("button");
+        open.type = "button";
+        open.className = "flow-directory__open";
+        open.dataset.flowId = id;
+        open.textContent = flow.name;
+        if (id === flowId) open.setAttribute("aria-current", "page");
+        open.addEventListener("click", () => {
+          closeDirectory();
+          navigate(id);
+        });
+        row.append(open);
+        row.addEventListener("pointerenter", (event) => {
+          if (event.pointerType !== "mouse" || directoryPath[level] === id) return;
+          directoryPath = [...directoryPath.slice(0, level), id];
+          renderDirectory(level);
+        });
+        if (flow.childFlows.length > 0 && !directoryPath.slice(0, level).includes(id)) {
+          const expand = document.createElement("button");
+          expand.type = "button";
+          expand.className = "flow-directory__expand";
+          expand.dataset.expandFlow = id;
+          expand.textContent = "›";
+          expand.setAttribute("aria-label", t("viewer.expandFlow", { name: flow.name }));
+          expand.setAttribute("aria-expanded", String(directoryPath[level] === id));
+          expand.addEventListener("click", () => expandDirectory(id, level));
+          row.append(expand);
+        }
+        column.append(row);
+      }
+      columns.push(column);
+      const selectedId = directoryPath[level];
+      if (!selectedId || directoryPath.slice(0, level).includes(selectedId)) break;
+      ids = directoryFlow(selectedId)?.childFlows ?? [];
+    }
+    if (preserveThrough < 0) {
+      flowDirectory.replaceChildren(...columns);
+      return;
+    }
+    // 保留鼠标所在行，不因展开下一列打断悬停、焦点或随后的名称点击。
+    const previous = Array.from(flowDirectory.children);
+    for (let index = 0; index <= preserveThrough; index += 1) {
+      for (const row of Array.from(
+        previous[index]?.querySelectorAll<HTMLElement>(".flow-directory__row") ?? [],
+      )) {
+        const id = row.querySelector<HTMLButtonElement>(".flow-directory__open")?.dataset.flowId;
+        const active = directoryPath[index] === id;
+        row.dataset.active = String(active);
+        row.querySelector(".flow-directory__expand")?.setAttribute("aria-expanded", String(active));
+      }
+    }
+    for (const column of previous.slice(preserveThrough + 1)) column.remove();
+    flowDirectory.append(...columns.slice(preserveThrough + 1));
+  };
+  const focusDirectoryColumn = (level: number, last = false): void => {
+    const column = flowDirectory.querySelectorAll<HTMLElement>(".flow-directory__column")[level];
+    const buttons = Array.from(
+      column?.querySelectorAll<HTMLButtonElement>(".flow-directory__open") ?? [],
     );
+    (last ? buttons.at(-1) : buttons[0])?.focus({ preventScroll: true });
+    column?.scrollIntoView({ block: "nearest", inline: "nearest" });
   };
-
-  const enterUnavailable = (error: unknown, projectId: string): void => {
-    if (projectId !== activeProjectId) return;
-    viewport.setAttribute("aria-busy", "false");
-    markProjectAvailability(projectId, true);
-    const message = error instanceof Error ? error.message : t("viewer.loadFailed");
-    showStatus(t("viewer.unavailable"), t("viewer.projectUnavailable"), message);
+  const expandDirectory = (id: string, level: number): void => {
+    directoryPath = [...directoryPath.slice(0, level), id];
+    renderDirectory(level);
+    focusDirectoryColumn(level + 1);
   };
-
-  const createAnchorElement = (anchor: ViewerNavigationAnchorModel): HTMLElement => {
-    const element = document.createElement("article");
-    element.className = "node-details__anchor";
-    const kind = document.createElement("span");
-    kind.className = "node-details__anchor-kind";
-    kind.textContent = t(`viewer.anchorKinds.${anchor.kind}`);
-    const value = document.createElement("code");
-    value.textContent =
-      anchor.kind === "symbol" && anchor.file ? `${anchor.file}#${anchor.value}` : anchor.value;
-    const description = document.createElement("p");
-    description.textContent = anchor.description;
-    element.append(kind, value, description);
-    return element;
+  const openDirectory = (): void => {
+    closeChildMenu();
+    directoryPath = [];
+    renderDirectory();
+    flowDirectory.hidden = false;
+    const anchor = diagramSelect.getBoundingClientRect();
+    flowDirectory.style.setProperty(
+      "--directory-max-width",
+      `${Math.max(0, window.innerWidth - anchor.left - 16)}px`,
+    );
+    diagramSelect.setAttribute("aria-expanded", "true");
+    focusDirectoryColumn(0);
   };
-
-  const activateFlow = (flowId: string): void => {
-    const project = currentProject();
-    if (!project?.flows.some(({ id }) => id === flowId)) return;
-    closeNodeDetails();
-    activeViewType = "flows";
-    activeFlowId = flowId;
-    populateFlowSelector();
-    activateView();
+  diagramSelect.addEventListener("click", () => {
+    if (flowDirectory.hidden) openDirectory();
+    else closeDirectory();
+  });
+  flowDirectory.addEventListener("keydown", (event) => {
+    const target =
+      event.target instanceof Element ? event.target.closest<HTMLButtonElement>("button") : null;
+    const column = target?.closest<HTMLElement>(".flow-directory__column");
+    if (!target || !column) return;
+    const level = Number(column.dataset.column);
+    const buttons = Array.from(column.querySelectorAll<HTMLButtonElement>(".flow-directory__open"));
+    const rowButton = target.classList.contains("flow-directory__open")
+      ? target
+      : target.parentElement?.querySelector<HTMLButtonElement>(".flow-directory__open");
+    const index = buttons.indexOf(rowButton!);
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      buttons[
+        (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length
+      ]?.focus({ preventScroll: true });
+    } else if (event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      focusDirectoryColumn(level, event.key === "End");
+    } else if (event.key === "ArrowRight") {
+      const expand =
+        target.parentElement?.querySelector<HTMLButtonElement>(".flow-directory__expand");
+      if (expand?.dataset.expandFlow) {
+        event.preventDefault();
+        expandDirectory(expand.dataset.expandFlow, level);
+      }
+    } else if (event.key === "ArrowLeft" && level > 0) {
+      event.preventDefault();
+      const parentId = directoryPath[level - 1];
+      directoryPath = directoryPath.slice(0, level - 1);
+      renderDirectory();
+      Array.from(flowDirectory.querySelectorAll<HTMLButtonElement>(".flow-directory__open"))
+        .find((button) => button.dataset.flowId === parentId)
+        ?.focus({ preventScroll: true });
+    }
+  });
+  const openChildFlows = (trigger: HTMLButtonElement): void => {
+    const card = trigger.closest<HTMLElement>(".flow-card");
+    const node = currentFlow()?.nodes.find((item) => item.id === card?.dataset.nodeId);
+    const children =
+      node?.childFlows.filter((child) => project?.flows.some((flow) => flow.id === child.id)) ?? [];
+    if (children.length === 0) return;
+    if (children.length === 1) {
+      navigate(children[0]!.id);
+      return;
+    }
+    if (childMenuTrigger === trigger && !childFlowMenu.hidden) {
+      closeChildMenu();
+      return;
+    }
+    closeMenus();
+    childMenuTrigger = trigger;
+    trigger.setAttribute("aria-expanded", "true");
+    childFlowMenu.replaceChildren(
+      ...children.map((child) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.setAttribute("role", "menuitem");
+        button.textContent = child.name;
+        button.addEventListener("click", () => navigate(child.id));
+        return button;
+      }),
+    );
+    childFlowMenu.hidden = false;
+    const anchor = trigger.getBoundingClientRect();
+    const bounds = childFlowMenu.getBoundingClientRect();
+    childFlowMenu.style.left = `${Math.max(12, Math.min(anchor.right - bounds.width, window.innerWidth - bounds.width - 12))}px`;
+    childFlowMenu.style.top = `${Math.max(12, Math.min(anchor.bottom + 6, window.innerHeight - bounds.height - 12))}px`;
+    childFlowMenu.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
   };
-
-  const createFlowLink = (flowId: string): HTMLButtonElement => {
-    const flow = currentProject()?.flows.find(({ id }) => id === flowId);
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "node-details__flow-link";
-    button.textContent = flow?.name ?? flowId;
-    button.addEventListener("click", () => activateFlow(flowId));
-    return button;
-  };
-
-  const openNodeDetails = (nodeElement: SVGGElement, focusDetails = true): void => {
-    const nodeId = nodeElement.dataset.nodeId ?? nodeElement.dataset.conceptId;
-    const project = currentProject();
-    const sourceView =
-      activeViewType === "relationships"
-        ? currentView()
-        : project?.views.find(({ id }) => id === "all");
-    const node = sourceView?.nodes.find(({ id }) => id === nodeId);
+  childFlowMenu.addEventListener("keydown", (event) => {
+    const buttons = Array.from(childFlowMenu.querySelectorAll<HTMLButtonElement>("button"));
+    const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      buttons[
+        (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length
+      ]?.focus({ preventScroll: true });
+    } else if (event.key === "Home" || event.key === "End") {
+      event.preventDefault();
+      (event.key === "Home" ? buttons[0] : buttons.at(-1))?.focus({ preventScroll: true });
+    }
+  });
+  const openDetails = (card: HTMLElement, focus = false): void => {
+    const node = currentFlow()?.nodes.find((item) => item.id === card.dataset.nodeId);
     if (!node) return;
-
-    activeNodeElement?.setAttribute("aria-expanded", "false");
-    activeNodeElement = nodeElement;
-    nodeElement.setAttribute("aria-expanded", "true");
-    detailsKind.textContent = node.boundary
-      ? t("viewer.externalBoundary", { kind: t(`viewer.nodeKinds.${node.kind}`) })
-      : t(`viewer.nodeKinds.${node.kind}`);
+    if (!node.notes?.trim()) return;
+    closeDetails();
+    selected = card;
+    card.classList.add("flow-card--selected");
+    card.querySelector(".flow-card__body")?.setAttribute("aria-expanded", "true");
     detailsTitle.textContent = node.name;
-    detailsSummary.textContent = node.summary;
-    const owningView = project?.views.find(
-      (view) =>
-        view.id !== "all" &&
-        view.nodes.some((candidate) => candidate.id === node.id && !candidate.boundary),
-    );
-    const canOpenDomain =
-      owningView && (activeViewType === "flows" || owningView.id !== activeViewId);
-    detailsDomain.hidden = !canOpenDomain;
-    detailsDomainLink.onclick = null;
-    if (canOpenDomain) {
-      detailsDomainLink.textContent = t("viewer.openBusinessDomain", { name: owningView.name });
-      detailsDomainLink.onclick = () => activateConceptDomain(owningView.id, node.id);
-    }
-    const relatedFlowIds = node.relatedFlowIds.filter(
-      (flowId) => activeViewType !== "flows" || flowId !== activeFlowId,
-    );
-    detailsFlowList.replaceChildren(...relatedFlowIds.map(createFlowLink));
-    detailsFlows.hidden = relatedFlowIds.length === 0;
-    detailsAnchorList.replaceChildren(...node.anchors.map(createAnchorElement));
-    detailsAnchors.hidden = node.anchors.length === 0;
-    nodeDetails.hidden = false;
-    if (focusDetails) detailsClose.focus({ preventScroll: true });
+    detailsNotes.textContent = node.notes ?? "";
+    detailsNotes.hidden = !node.notes?.trim();
+    details.hidden = false;
+    if (focus) detailsClose.focus({ preventScroll: true });
   };
-
-  const activateConceptDomain = (domainId: string, nodeId: string): void => {
-    closeNodeDetails();
-    activeViewType = "relationships";
-    activeViewId = domainId;
-    populateDomains();
-    activateView();
-    fit();
-    const target = Array.from(activeSvg()?.querySelectorAll<SVGGElement>(".node-card") ?? []).find(
-      (element) => element.dataset.nodeId === nodeId,
-    );
-    if (target) openNodeDetails(target);
-  };
-
-  const populateDomains = (): void => {
-    const project = currentProject();
-    domainSelect.replaceChildren(
-      ...(project?.views ?? []).map((view) => {
-        const option = document.createElement("option");
-        option.value = view.id;
-        option.textContent = view.id === "all" ? t("viewer.allBusiness") : view.name;
-        return option;
-      }),
-    );
-    if (!project?.views.some(({ id }) => id === activeViewId)) {
-      activeViewId = project?.views[0]?.id;
-    }
-    domainSelect.value = activeViewId ?? "";
-    domainSelect.disabled = (project?.views.length ?? 0) < 2;
-  };
-
-  const populateFlowSelector = (): void => {
-    const project = currentProject();
-    flowSelect.replaceChildren(
-      ...(project?.flows ?? []).map((flow) => {
-        const option = document.createElement("option");
-        option.value = flow.id;
-        option.textContent = flow.name;
-        return option;
-      }),
-    );
-    if (!project?.flows.some(({ id }) => id === activeFlowId)) {
-      activeFlowId = project?.flows[0]?.id;
-    }
-    flowSelect.value = activeFlowId ?? "";
-    flowSelect.disabled = (project?.flows.length ?? 0) < 2;
-  };
-
-  const activateView = (): void => {
-    if (!exporting) exportStatus.hidden = true;
-    for (const view of mapViews()) {
-      const active =
-        view.dataset.projectId === activeProjectId &&
-        view.dataset.viewType === activeViewType &&
-        (activeViewType === "relationships"
-          ? view.dataset.mapView === activeViewId
-          : view.dataset.flowView === activeFlowId);
-      view.hidden = !active;
-    }
-    relationshipSelector.hidden = activeViewType !== "relationships";
-    flowSelector.hidden = activeViewType !== "flows";
-    for (const button of viewTypeButtons) {
-      const buttonType = button.dataset.viewType as ViewerViewType;
-      button.setAttribute("aria-pressed", String(buttonType === activeViewType));
-      button.disabled = buttonType === "flows" && (currentProject()?.flows.length ?? 0) === 0;
-    }
-    const view = currentView();
+  const activateFlow = (): void => {
     const flow = currentFlow();
-    statistics.textContent =
-      activeViewType === "relationships"
-        ? view
-          ? t("viewer.mapStatistics", { nodes: view.nodeCount, relations: view.relationCount })
-          : t("viewer.noMap")
-        : flow
-          ? t("viewer.flowStatistics", {
-              steps: flow.stepCount,
-              transitions: flow.transitionCount,
-              scenario: flow.scenario.name,
-            })
-          : t("viewer.noFlows");
-    const svg = activeSvg();
-    exportButton.disabled = !svg || exporting;
-    const definition = activeViewType === "relationships" ? view : flow;
-    if (svg && definition) {
-      applyCamera(svg, ensureCamera(svg));
-      diagramLayout.observe(svg.parentElement!, definition.layout);
+    for (const view of allViews())
+      view.hidden = view.dataset.projectId !== projectId || view.dataset.flowId !== flowId;
+    title.textContent = flow?.name ?? "";
+    summary.textContent = flow?.summary ?? "";
+    summary.hidden = !flow?.summary;
+    setControls(Boolean(flow));
+    const view = currentView();
+    if (flow && view) {
+      status.hidden = true;
+      layout.observe(view, flow.layout);
+      const camera = cameras.get(cameraKey());
+      if (!camera || camera.fitted) fit();
+      else applyCamera(camera);
     } else {
-      diagramLayout.disconnect();
+      layout.disconnect();
+      showStatus(t("viewer.noFlows"), t("viewer.addFlow"));
     }
   };
-
-  const enterReady = (payload: ViewerProjectPayloadModel, projectId: string): void => {
-    if (projectId !== activeProjectId || payload.project.id !== projectId) return;
-    activeProject = payload.project;
-    activeViewId = payload.project.views[0]?.id;
-    activeFlowId = payload.project.flows[0]?.id;
-    if (payload.markup) projectViewHost.innerHTML = payload.markup;
-    translateMarkup(projectViewHost);
-    viewport.setAttribute("aria-busy", "false");
-    viewerStatus.hidden = true;
-    markProjectAvailability(projectId, false);
-    setMapControlsEnabled(true);
-    populateDomains();
-    populateFlowSelector();
-    activateView();
+  const navigate = (nextId: string): void => {
+    if (nextId === flowId || !project?.flows.some((flow) => flow.id === nextId)) return;
+    if (flowId) {
+      const camera = cameras.get(cameraKey());
+      const selectedId = selected?.dataset.nodeId;
+      history.push({
+        flowId,
+        ...(camera ? { camera } : {}),
+        ...(selectedId ? { selectedId } : {}),
+      });
+    }
+    closeMenus();
+    closeDetails();
+    flowId = nextId;
+    activateFlow();
+    title.focus({ preventScroll: true });
   };
+  backButton.addEventListener("click", () => {
+    const previous = history.pop();
+    if (!previous) return;
+    closeMenus();
+    closeDetails();
+    flowId = previous.flowId;
+    if (previous.camera) cameras.set(cameraKey(), previous.camera);
+    activateFlow();
+    const card = Array.from(currentView()?.querySelectorAll<HTMLElement>(".flow-card") ?? []).find(
+      (item) => item.dataset.nodeId === previous.selectedId,
+    );
+    if (card) openDetails(card);
+    title.focus({ preventScroll: true });
+  });
+  detailsClose.addEventListener("click", () => closeDetails(true));
 
-  const fetchProject = async (
-    projectId: string,
-    signal: AbortSignal,
-  ): Promise<ViewerProjectPayloadModel> => {
-    const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}`, {
+  const clearProject = (removeMarkup: boolean): void => {
+    layout.disconnect();
+    closeMenus();
+    closeDetails();
+    project = undefined;
+    flowId = undefined;
+    history.length = 0;
+    cameras.clear();
+    if (removeMarkup) host.replaceChildren();
+    title.textContent = "";
+    summary.textContent = "";
+    summary.hidden = true;
+    setControls(false);
+  };
+  const markAvailability = (id: string, unavailable: boolean): void => {
+    const reference = model.projects.find((item) => item.id === id);
+    const option = Array.from(projectSelect.options).find((item) => item.value === id);
+    if (reference && option)
+      option.textContent = unavailable
+        ? t("viewer.unavailableProject", { name: reference.name })
+        : reference.name;
+  };
+  const enterReady = (payload: ViewerProjectPayload, id: string): void => {
+    if (id !== projectId || payload.project.id !== id) return;
+    project = payload.project;
+    if (payload.markup) host.innerHTML = payload.markup;
+    translateMarkup(host);
+    flowId = project.flows[0]?.id;
+    viewport.setAttribute("aria-busy", "false");
+    markAvailability(id, false);
+    activateFlow();
+  };
+  const enterUnavailable = (error: unknown, id: string): void => {
+    if (id !== projectId) return;
+    viewport.setAttribute("aria-busy", "false");
+    markAvailability(id, true);
+    showStatus(
+      t("viewer.projectUnavailable"),
+      error instanceof Error ? error.message : t("viewer.loadFailed"),
+    );
+  };
+  const fetchProject = async (id: string, signal: AbortSignal): Promise<ViewerProjectPayload> => {
+    const response = await fetch(`/api/projects/${encodeURIComponent(id)}`, {
       method: "GET",
       headers: { Accept: "application/json" },
       cache: "no-store",
       signal,
     });
-    const envelope = (await response.json()) as WebProjectEnvelope;
+    const envelope = (await response.json()) as {
+      ok: boolean;
+      data?: ViewerProjectPayload;
+      error?: { messageKey?: string };
+    };
     if (!response.ok || !envelope.ok || !envelope.data) {
+      const key = envelope.error?.messageKey;
       throw new Error(
-        envelope.error?.messageKey &&
+        key &&
           [
             "errors.projectMapMissing",
             "errors.projectMapInvalid",
             "errors.projectPathUnavailable",
             "errors.projectMapUnavailable",
             "errors.projectNotFound",
-          ].includes(envelope.error.messageKey)
-          ? t(envelope.error.messageKey)
+          ].includes(key)
+          ? t(key)
           : t("viewer.loadFailed"),
       );
     }
-    if (envelope.data.project.id !== projectId) {
-      throw new Error(t("viewer.invalidResponse"));
-    }
+    if (envelope.data.project.id !== id) throw new Error(t("viewer.invalidResponse"));
     return envelope.data;
   };
-
-  const loadLatestProject = latestProjectLoader(fetchProject, enterReady, enterUnavailable);
-
+  const loadLatest = runtime.createLatestProjectLoader(fetchProject, enterReady, enterUnavailable);
   const activateProject = (): void => {
-    const projectId = projectSelect.value;
-    if (!projectId) return;
+    const id = projectSelect.value;
+    if (!id) return;
+    projectId = id;
+    clearProject(model.mode === "web");
     if (model.mode === "web") {
-      enterLoading(projectId);
-      void loadLatestProject(projectId);
-      return;
-    }
-    closeNodeDetails();
-    activeProjectId = projectId;
-    activeViewType = "relationships";
-    const payload = model.projectPayloads.find(({ project }) => project.id === projectId);
-    if (payload) enterReady(payload, projectId);
-    else enterUnavailable(new Error(t("viewer.exportedLoadFailed")), projectId);
-  };
-
-  const zoom = (factor: number, pointer?: MapPoint): void => {
-    const svg = activeSvg();
-    if (!svg) return;
-    const current = ensureCamera(svg);
-    const anchor = pointer ?? {
-      x: current.x + current.width / 2,
-      y: current.y + current.height / 2,
-    };
-    applyCamera(svg, cameraApi.zoomViewBoxAt(current, mapBounds(svg), factor, anchor));
-  };
-
-  const fit = (): void => {
-    const svg = activeSvg();
-    if (svg) applyCamera(svg, cameraApi.fitViewBox(mapBounds(svg)));
-  };
-
-  const resetLayout = (): void => {
-    diagramLayout.reset();
-    fit();
-  };
-
-  const exportImage = async (): Promise<void> => {
-    const svg = activeSvg();
-    const view = svg?.parentElement;
-    if (!view || exporting) return;
-    const diagram = activeViewType === "relationships" ? currentView() : currentFlow();
-    const filename = `${currentProject()?.name ?? "business-map"}-${diagram?.id ?? "all"}`
-      // 文件名清理需要匹配控制字符，避免生成不可用的下载名称。
-      // oxlint-disable-next-line no-control-regex
-      .replace(/[<>:"/\\|?*\u0000-\u001f]/gu, "-");
-    exporting = true;
-    exportButton.disabled = true;
-    exportButton.setAttribute("aria-busy", "true");
-    exportStatus.hidden = false;
-    exportStatus.textContent = t("viewer.preparingPng");
-    try {
-      const imageApi = browserGlobal.__semanticAtlasDiagramImage;
-      const image = await imageApi.renderDiagramImage(
-        view,
-        browserGlobal.htmlToImage.toBlob,
-        imageApi.planDiagramImage,
-        t,
-      );
-      const url = URL.createObjectURL(image.blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${filename}.png`;
-      link.click();
-      // 下载在浏览器中异步开始，保留 URL 到下载接管之后。
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      exportStatus.textContent = t("viewer.pngReady", { width: image.width, height: image.height });
-    } catch (error) {
-      exportStatus.textContent = error instanceof Error ? error.message : t("viewer.exportFailed");
-    } finally {
-      exporting = false;
-      exportButton.removeAttribute("aria-busy");
-      exportButton.disabled = !activeSvg();
+      viewport.setAttribute("aria-busy", "true");
+      showStatus(t("viewer.loadingProject"), t("viewer.readingMap"));
+      void loadLatest(id);
+    } else {
+      const payload = model.projectPayloads.find((item) => item.project.id === id);
+      if (payload) enterReady(payload, id);
+      else enterUnavailable(new Error(t("viewer.exportedLoadFailed")), id);
     }
   };
-  exportButton.addEventListener("click", () => {
-    void exportImage();
-  });
-
-  new ResizeObserver(() => {
-    const svg = activeSvg();
-    if (svg) applyCamera(svg, ensureCamera(svg));
-  }).observe(viewport);
-
   projectSelect.addEventListener("change", activateProject);
-  domainSelect.addEventListener("change", () => {
-    closeNodeDetails();
-    activeViewId = domainSelect.value;
-    activateView();
-  });
-  flowSelect.addEventListener("change", () => {
-    closeNodeDetails();
-    activeFlowId = flowSelect.value;
-    activateView();
-  });
-  for (const button of viewTypeButtons) {
-    button.addEventListener("click", () => {
-      const requested = button.dataset.viewType as ViewerViewType;
-      if (requested === "flows" && (currentProject()?.flows.length ?? 0) === 0) return;
-      closeNodeDetails();
-      activeViewType = requested;
-      activateView();
+  const zoom = (factor: number, pointer?: { x: number; y: number }): void => {
+    const camera = cameras.get(cameraKey());
+    if (!camera) return;
+    const bounds = viewport.getBoundingClientRect();
+    const anchor = pointer ?? { x: bounds.width / 2, y: bounds.height / 2 };
+    const scale = Math.max(0.2, Math.min(3, camera.scale * factor));
+    applyCamera({
+      x: anchor.x - ((anchor.x - camera.x) * scale) / camera.scale,
+      y: anchor.y - ((anchor.y - camera.y) * scale) / camera.scale,
+      scale,
+      fitted: false,
     });
-  }
-  detailsClose.addEventListener("click", () => closeNodeDetails(true));
-
+  };
+  document.querySelector('[data-action="zoom-in"]')?.addEventListener("click", () => zoom(1.2));
   document
-    .querySelector<HTMLElement>('[data-action="zoom-in"]')
-    ?.addEventListener("click", () => zoom(1.3));
-  document
-    .querySelector<HTMLElement>('[data-action="zoom-out"]')
-    ?.addEventListener("click", () => zoom(1 / 1.3));
-  document.querySelector<HTMLElement>('[data-action="fit"]')?.addEventListener("click", fit);
-  document
-    .querySelector<HTMLElement>('[data-action="reset-layout"]')
-    ?.addEventListener("click", resetLayout);
-
+    .querySelector('[data-action="zoom-out"]')
+    ?.addEventListener("click", () => zoom(1 / 1.2));
+  document.querySelector('[data-action="fit"]')?.addEventListener("click", fit);
   viewport.addEventListener(
     "wheel",
     (event) => {
-      const svg = activeSvg();
-      if (!svg) return;
+      if (!currentFlow()) return;
       event.preventDefault();
-      const bounds = svg.getBoundingClientRect();
-      const camera = ensureCamera(svg);
-      const pointer = cameraApi.mapPointFromViewport(
-        {
-          x: event.clientX - bounds.left,
-          y: event.clientY - bounds.top,
-        },
-        camera,
-        {
-          width: bounds.width,
-          height: bounds.height,
-        },
-      );
-      zoom(Math.exp(-event.deltaY * 0.0015), pointer);
+      const bounds = viewport.getBoundingClientRect();
+      zoom(Math.exp(-event.deltaY * 0.0015), {
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      });
     },
     { passive: false },
   );
-
-  const nodeElementFromTarget = (target: EventTarget | null): SVGGElement | undefined =>
-    target instanceof Element
-      ? (target.closest<SVGGElement>(".node-card, .flow-step") ?? undefined)
-      : undefined;
-
   viewport.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0 || !activeSvg()) return;
-    // 文字保留原生选区；卡片空白处移动节点，画布空白处平移视图。
+    if (event.button !== 0 || !currentFlow()) return;
     if (
       event.target instanceof Element &&
-      event.target.closest("[data-selectable-text], .diagram-label")
+      event.target.closest(".flow-card, .diagram-label, button")
     )
       return;
     event.preventDefault();
-    document.getSelection()?.removeAllRanges();
-    const nodeElement = nodeElementFromTarget(event.target);
-    dragState = {
+    drag = {
       pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
       startX: event.clientX,
       startY: event.clientY,
-      x: event.clientX,
-      y: event.clientY,
       moved: false,
-      ...(nodeElement ? { nodeElement } : {}),
     };
     viewport.setPointerCapture(event.pointerId);
+  });
+  viewport.addEventListener("pointermove", (event) => {
+    const camera = cameras.get(cameraKey());
+    if (!drag || drag.pointerId !== event.pointerId || !camera) return;
+    if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 4)
+      return;
+    applyCamera({
+      ...camera,
+      x: camera.x + event.clientX - drag.x,
+      y: camera.y + event.clientY - drag.y,
+      fitted: false,
+    });
+    drag = { ...drag, x: event.clientX, y: event.clientY, moved: true };
     viewport.dataset.dragging = "true";
   });
-
-  viewport.addEventListener("pointermove", (event) => {
-    const svg = activeSvg();
-    if (!svg || !dragState || dragState.pointerId !== event.pointerId) return;
-    const moved =
-      dragState.moved ||
-      Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY) >= 4;
-    if (!moved) return;
-
-    const current = ensureCamera(svg);
-    const viewportBounds = viewport.getBoundingClientRect();
-    const pointerDelta = {
-      x: event.clientX - (dragState.moved ? dragState.x : dragState.startX),
-      y: event.clientY - (dragState.moved ? dragState.y : dragState.startY),
-    };
-    dragState = {
-      ...dragState,
-      x: event.clientX,
-      y: event.clientY,
-      moved: true,
-    };
-    const mapViewport = { width: viewportBounds.width, height: viewportBounds.height };
-    const nodeId = dragState.nodeElement?.dataset.layoutNode;
-    if (nodeId) {
-      const scale = cameraApi.viewportScale(current, mapViewport);
-      diagramLayout.moveNode(nodeId, { x: pointerDelta.x / scale, y: pointerDelta.y / scale });
-    } else {
-      applyCamera(svg, cameraApi.panViewBox(current, pointerDelta, mapViewport));
-    }
-  });
-
-  const finishDrag = (event: PointerEvent, openDetails: boolean): void => {
-    if (!dragState || dragState.pointerId !== event.pointerId) return;
-    const completed = dragState;
-    dragState = undefined;
+  const finishDrag = (event: PointerEvent): void => {
+    if (drag?.pointerId !== event.pointerId) return;
+    drag = undefined;
     delete viewport.dataset.dragging;
     if (viewport.hasPointerCapture(event.pointerId))
       viewport.releasePointerCapture(event.pointerId);
-    if (openDetails && !completed.moved && completed.nodeElement) {
-      openNodeDetails(completed.nodeElement);
-    }
   };
-  viewport.addEventListener("pointerup", (event) => finishDrag(event, true));
-  viewport.addEventListener("pointercancel", (event) => finishDrag(event, false));
-  viewport.addEventListener("lostpointercapture", (event) => finishDrag(event, false));
+  viewport.addEventListener("pointerup", finishDrag);
+  viewport.addEventListener("pointercancel", finishDrag);
+  viewport.addEventListener("lostpointercapture", finishDrag);
   viewport.addEventListener("click", (event) => {
-    if (document.getSelection()?.isCollapsed === false) return;
-    const text =
+    const childTrigger =
       event.target instanceof Element
-        ? event.target.closest<HTMLElement>(".diagram-card-text[data-layout-node]")
+        ? event.target.closest<HTMLButtonElement>('[data-action="open-child-flow"]')
         : null;
-    if (!text) return;
-    const nodeElement = Array.from(
-      activeSvg()?.querySelectorAll<SVGGElement>(".node-card, .flow-step") ?? [],
-    ).find((node) => node.dataset.layoutNode === text.dataset.layoutNode);
-    if (nodeElement) openNodeDetails(nodeElement, false);
+    if (childTrigger) {
+      event.stopPropagation();
+      openChildFlows(childTrigger);
+      return;
+    }
+    if (document.getSelection()?.isCollapsed === false) return;
+    const card =
+      event.target instanceof Element ? event.target.closest<HTMLElement>(".flow-card") : null;
+    if (card) openDetails(card);
   });
   viewport.addEventListener("keydown", (event) => {
-    const nodeElement = nodeElementFromTarget(event.target);
-    if (!nodeElement || (event.key !== "Enter" && event.key !== " ")) return;
-    event.preventDefault();
-    openNodeDetails(nodeElement);
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !nodeDetails.hidden) {
+    const body =
+      event.target instanceof Element
+        ? event.target.closest<HTMLElement>('.flow-card__body[role="button"]')
+        : null;
+    const card = body?.closest<HTMLElement>(".flow-card");
+    if (card && (event.key === "Enter" || event.key === " ")) {
       event.preventDefault();
-      closeNodeDetails(true);
+      openDetails(card, true);
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.defaultPrevented) return;
+    if (event.key === "Escape" && !childFlowMenu.hidden) {
+      event.preventDefault();
+      closeChildMenu(true);
       return;
     }
-    if (
-      event.target instanceof HTMLInputElement ||
-      event.target instanceof HTMLSelectElement ||
-      event.target instanceof HTMLButtonElement
-    )
+    if (event.key === "Escape" && !flowDirectory.hidden) {
+      event.preventDefault();
+      closeDirectory(true);
       return;
-    if (event.key === "+" || event.key === "=") zoom(1.3);
-    if (event.key === "-") zoom(1 / 1.3);
+    }
+    if (event.key === "Escape" && !details.hidden) {
+      closeDetails(true);
+      return;
+    }
+    if (event.target instanceof Element && event.target.closest("button, select, input")) return;
+    if (event.key === "+" || event.key === "=") zoom(1.2);
+    if (event.key === "-") zoom(1 / 1.2);
     if (event.key === "0") fit();
   });
-
+  document.addEventListener("pointerdown", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (!flowDirectory.hidden && !flowDirectory.contains(target) && !diagramSelect.contains(target))
+      closeDirectory();
+    if (
+      !childFlowMenu.hidden &&
+      !childFlowMenu.contains(target) &&
+      !childMenuTrigger?.contains(target)
+    )
+      closeChildMenu();
+  });
+  document.addEventListener("focusin", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) return;
+    if (!flowDirectory.hidden && !flowDirectory.contains(target) && !diagramSelect.contains(target))
+      closeDirectory();
+    if (
+      !childFlowMenu.hidden &&
+      !childFlowMenu.contains(target) &&
+      !childMenuTrigger?.contains(target)
+    )
+      closeChildMenu();
+  });
+  new ResizeObserver(() => {
+    closeChildMenu();
+    const camera = cameras.get(cameraKey());
+    if (!camera || camera.fitted) fit();
+    else applyCamera(camera);
+  }).observe(viewport);
   projectSelect.disabled = model.projects.length < 2;
-  projectSelect.value = activeProjectId ?? "";
-  if (activeProjectId) activateProject();
+  projectSelect.value = projectId ?? "";
+  if (projectId) activateProject();
   else {
-    clearProject();
-    projectSelect.disabled = true;
-    viewport.setAttribute("aria-busy", "false");
-    showStatus(t("viewer.projectCatalog"), t("viewer.noProjects"), t("viewer.registerProject"));
+    clearProject(false);
+    showStatus(t("viewer.noProjects"), t("viewer.registerProject"));
   }
 }

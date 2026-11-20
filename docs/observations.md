@@ -7,6 +7,10 @@ and summary contract.
 
 **Status: implemented with current task, review, and maintenance contracts.**
 
+本页说明保留的可选观察与历史候选工具。普通开发在同分支同步代码与流程，不要求
+写观察、先生成候选或等待合入后维护。下文的集成记录规则仅适用于明确请求处理
+既有历史观察的工作。
+
 ## Authority Boundary
 
 Every business-changing engineering or analysis run produces one
@@ -92,7 +96,7 @@ only discarded and unresolved results omits `mapChange`.
 
 The understanding Skill's [observation reference](../.agents/skills/semantic-atlas/references/observations.md)
 contains complete task and review JSON examples. The maintenance Skill's
-[reconciliation reference](../.agents/skills/semantic-atlas-maintenance/references/reconciliation.md)
+[reconciliation reference](../.agents/skills/semantic-atlas/references/reconciliation.md)
 contains the maintenance result shape.
 
 ## Repository Identity And Privacy
@@ -204,7 +208,7 @@ unresolved-plus-new evidence set actionable again.
 
 Both commands read repository identity and immutable observation files only.
 They do not edit observations, source, `docs/business-map`, rendered artifacts,
-or Git state. The bundled `semantic-atlas-maintenance` Skill selects one business
+or Git state. The unified `semantic-atlas` Skill selects one business
 domain, rechecks current source and tracked product meaning, and submits any
 accepted correction as a normal reviewed YAML change. Unresolved and
 implementation-local observations remain outside the canonical map. When the
@@ -216,7 +220,7 @@ requires a recorded or idempotent response before reporting completion.
 ## Engineering Result Semantics
 
 Observation recording is a secondary evidence action after the engineering
-result is known. The Skill also reports the post-task maintenance disposition;
+result is known. When explicitly requested, the Skill reports the historical maintenance result;
 observation failure is reported separately and keeps the engineering result
 unchanged. Independent review can then distinguish a valid engineering delivery
 with missing observation evidence from a successful accuracy record.

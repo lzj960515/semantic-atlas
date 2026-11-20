@@ -1,4 +1,8 @@
 export default {
+  flows: "Read a business flow directly by ID, or list available flows",
+  searchFlows: "Search business flows directly",
+  flowId: "stable business flow ID",
+
   description: "Query a Git-native advisory business map",
   setup: "Install or repair the bundled user Skills",
   upgrade: "Install the latest stable package and sync its Skills",

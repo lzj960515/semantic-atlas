@@ -21,6 +21,11 @@ The first implementation uses this conventional directory. Every `*.yaml` file
 in the directory participates in one repository-wide graph. File names organize
 ownership but do not become graph nodes.
 
+多项目工作空间中的各仓库保留各自的流程文件。查询、校验和渲染通过 `--repo` 指定目标
+仓库，概念与流程 ID 在该仓库加载的图内解析，源码锚点也相对它解析。工作目录可以位于
+父工作空间；省略 `--repo` 只加载当前目录，不递归合并子项目。工作空间项目映射负责
+找到目标仓库，跨项目协作分别读取双方资料并核实真实契约。
+
 ## Business Ownership And File Boundaries
 
 Every map-writing task chooses ownership from stable business responsibilities,
@@ -28,7 +33,7 @@ owned data/rules, and collaborators. This applies to initial creation, later
 capability additions, drift correction and candidate maintenance. Source
 folders, existing filenames and recorded candidate owners supply evidence;
 current business meaning decides the boundary. Before encoding, use the Skills'
-[boundary-design method](../.agents/skills/semantic-atlas-maintenance/references/boundary-design.md)
+[boundary-design method](../.agents/skills/semantic-atlas/references/boundary-design.md)
 to establish cohesive responsibilities, supported lifecycle coverage and
 collaborator limits. That reference owns the judgment method; this page owns
 its representation in the tracked model.
@@ -224,7 +229,7 @@ Step kinds are:
 
 Each step has an ID unique within its flow, a name, a summary, and an optional
 `concept` reference to an existing graph node. Referencing the same concept is
-what lets the Viewer navigate from a relationship card into related flows;
+what lets the Viewer open a scenario-owned child process;
 there is no separately maintained link list.
 
 Record a step when changing it can alter a user-visible result, durable data,
@@ -283,13 +288,23 @@ declaration files, product documents, and useful search terms retain their
 appropriate anchor kinds. Existing anchors remain valid and can be refined
 during maintenance using current evidence.
 
-The CLI preserves the structured `file` and `value` fields in context results;
-the Viewer displays a bound symbol as `file#value`. The calling agent uses its
-normal repository tools to locate the current declaration and read the code,
-then confirms the described business responsibility. Tracked anchors retain
-names and paths while current source supplies line locations and behavior.
-A missing file or declaration weakens that navigation hint and follows the
-existing stale-anchor investigation path.
+CLI 在上下文查询中保留 `file` 和 `value` 两个字段；面向业务人员的 Viewer 隐藏
+源码锚点。AI 用平常的仓库工具定位当前声明并读取代码，确认它实际承担的业务职责。
+文件中的锚点保留路径与符号名称，当前源码提供行号和行为。文件或声明缺失时，
+按既有的过期锚点流程调查。
+
+## 流程图阅读与层次
+
+所有可视页面使用 `flows`，总览同样是一条显式编写的业务流程。AI 从入口、动作、
+判断、条件与结果组织总览，子流程通过步骤的 `concept` 引用其所属场景进入。
+`part_of` 只表达业务归属，不推断执行先后；没有 `flows` 的资料仍可被 CLI 查询，
+阅读器显示空状态。
+
+默认入口是没有被其他流程的步骤引用其场景的根流程，按稳定编号排序；随后沿步骤
+引用安排子流程。步骤对自身场景的引用不算新的父层。所有流程都能从按需选择器访问。
+
+步骤备注优先使用自己的 `notes`，未写时沿用所引用概念的备注。只有业务备注才打开节点详情；子流程角标直接进入，多目标先选择。新增或修改概念、关系和流程仍沿用 v1 字段；源码锚点只供
+AI 与 CLI 使用，业务界面不展示。
 
 ## Validation Rules
 
@@ -387,17 +402,28 @@ selected operation, data, invariant, or interface from one of its steps.
 The result is intentionally local. The caller can query another returned stable
 ID when it needs to expand the investigation.
 
-## Editing And Reconciliation
+## 同分支编辑与业务定位
 
-Agents edit the owning YAML file directly and use `semantic-atlas validate`
-before submitting a map change. Git diff is the review surface.
+改变业务行为时，在同一开发分支更新代码和相关流程，校验完整地图，实际查看受影响
+图，并一起评审和合入。纯实现调整不改变流程含义时保持原图。合并冲突按合并后代码
+重新核实分支、结果与引用，再修订资料，不等待合入后创建候选任务。
 
-Business-changing engineering tasks record observations outside the canonical
-map and create node, relation, anchor, or flow candidates only for stable
-meaning that needs maintenance.
-Post-integration or periodic reconciliation confirms candidates in current
-evidence, updates one bounded neighborhood, validates the complete graph, and
-submits the normal repository change for review. A mapless repository can use
-the same candidate path to establish one evidence-supported initial domain.
-Direct authoring and ownership reorganization use the common business-ownership
-rules above and review their complete necessary set of owning files together.
+AI 不必先从总览进入。已知编号直接 `flows <flow-id>`；未知时
+`search "<business-query>" --flows` 搜索流程业务词，再读取命中的图、步骤和概念锚点。
+`context <concept-id>` 补充协作者、规则与数据；`flows` 无编号仅提供可选目录。
+词面匹配不能识别任意同义表达，AI 仍需按业务含义选择结果并核实当前源码。
+
+旧文件兼容不是新格式设计约束。现有字段足以表达本轮导航与锚点，因此没有为本轮
+新增持久结构；将来需要新结构时明确契约，再按新版重写资料，无需保留旧解析分支。
+
+## 流程搜索与直接读取
+
+`search <query> --flows` 直接返回最多五个业务流程候选，包含 `id`、`name`、`summary`、
+`scenarioId`、相对分数和命中字段。匹配流程名称、所属场景业务别名、步骤及其引用业务的名称和说明，使用
+本地词面检索。没有 `--flows` 时仍搜索业务概念。
+
+`flows <flow-id>` 直接读取该图，`data.selected` 包含入口、步骤、带标签转换、父流程和
+业务概念。步骤的 `concept` 为包含源码锚点的业务对象，`childFlows` 指向子图。
+指定编号时只返回该流程，不附带全量目录。省略编号时返回 `data.navigation`，
+它与人的级联菜单共用同一目录，AI不必先读它。
+没有匹配的编号返回 `FLOW_NOT_FOUND`，不会自动换成名字相近的业务。

@@ -1,14 +1,12 @@
-# Accuracy Observation Contract
+# 观察记录契约
 
-Create one immutable task observation after business-changing engineering work
-has reached its current result. Generate `id` once, keep `recordedAt` stable,
-and replay the same document when a submission result is uncertain.
+这是可选的既有记录契约，仅在用户明确要求准确性记录，或需要读取和处理已有历史观察时使用。正常工程直接在同一分支同步代码与相关流程，不要求生成观察、候选或等待主分支后维护。
 
-## Task Observation
+需要写入时，`id` 生成一次，`recordedAt` 保持稳定；提交结果不确定时重试完全相同的文档。现有历史数据保持原样，不因工作流调整自动清理或迁移。
 
-The task Agent records investigation evidence. It does not add review verdicts,
-correctness fields, rework judgments, or map-regression judgments. Current task
-observations use schema version 2.
+## 任务观察
+
+任务 Agent 记录调查证据，不填写正确性、返工或图导致回归的审查评分。当前任务观察使用 `schemaVersion: 2`：
 
 ```json
 {
@@ -22,7 +20,7 @@ observations use schema version 2.
   "map": {
     "queries": [
       {
-        "selector": "Place order",
+        "selector": "提交订单",
         "outcome": "context",
         "selectedConceptIds": ["commerce.orders.place-order"]
       }
@@ -30,7 +28,7 @@ observations use schema version 2.
     "dispositions": [
       {
         "status": "stale",
-        "summary": "Current source moved while the mapped business meaning stayed stable.",
+        "summary": "当前源码位置已变化，资料中的业务含义保持稳定。",
         "evidence": [
           {
             "kind": "source",
@@ -45,7 +43,7 @@ observations use schema version 2.
       "businessDomainId": "commerce",
       "kind": "anchor",
       "disposition": "confirmed",
-      "summary": "Replace the stale source anchor during reconciliation.",
+      "summary": "校准时替换过期的源码锚点。",
       "evidence": [
         {
           "kind": "source",
@@ -57,52 +55,34 @@ observations use schema version 2.
 }
 ```
 
-Query outcomes are `context`, `concept_not_found`, `concept_ambiguous`,
-`map_not_found`, or `unavailable`. Only `context` includes one or more
-`selectedConceptIds`. Current-evidence dispositions are `confirmed`, `missing`,
-`stale`, `contradicted`, or `unresolved`. Evidence kinds are `source`, `test`,
-`document`, or `runtime`.
+查询结果为 `context`、`concept_not_found`、`concept_ambiguous`、`map_not_found` 或 `unavailable`；只有 `context` 包含非空 `selectedConceptIds`。当前证据结论为 `confirmed`、`missing`、`stale`、`contradicted` 或 `unresolved`；证据类型为 `source`、`test`、`document` 或 `runtime`。
 
-Every map-update candidate names its stable `businessDomainId`. Its disposition
-is `confirmed` when current evidence supports the proposed correction,
-`contradicted` when it replaces a mapped statement contradicted by current
-evidence, or `unresolved` when it remains a maintenance lead. Periodic
-maintenance preserves these task-time judgments and linked independent reviews,
-then confirms durable business meaning again before editing canonical YAML.
-Candidate kinds are `node`, `relation`, `anchor`, and `flow`. Use `flow` for
-a stable scenario path whose business actions, decisions, labeled branches, or
-outcomes need reconciliation. An implementation-only control-flow change does
-not create a flow candidate.
-Stored task observations must match this current schema; unsupported local
-artifacts fail visibly and are never migrated or promoted into reconciliation.
+每项 `mapUpdateCandidates` 保留稳定 `businessDomainId`。`confirmed` 表示当前证据支持候选，`contradicted` 表示候选替换了被当前证据否定的图中说法，`unresolved` 只作为待核实线索。种类为 `node`、`relation`、`anchor`、`flow`；业务流程的动作、条件或结果改变时用 `flow`，实现内部控制流调整不自动产生候选。
 
-When a person explicitly corrects the task, add:
+处理历史候选时，保留记录当时的原始判断与独立审查，再核实当前稳定含义。旧版本或不支持的本地观察会明确读取失败，不自动迁移成可行动候选。
+
+用户明确纠正了任务时，可以添加：
 
 ```json
 {
   "humanCorrection": {
-    "summary": "The user corrected the business boundary.",
+    "summary": "用户纠正了业务边界。",
     "dimensions": ["business_boundary"]
   }
 }
 ```
 
-Correction dimensions are `business_boundary`, `upstream_cause`, `impact`, and
-`map_use`.
-
-Submit the document on standard input from the repository or provide `--repo`:
+纠正维度为 `business_boundary`、`upstream_cause`、`impact`、`map_use`。从标准输入提交：
 
 ```text
 semantic-atlas observe task --stdin --repo <repository-root>
 ```
 
-The first submission returns `recorded`. An exact replay returns `idempotent`.
-The same ID with changed content returns `OBSERVATION_CONFLICT`.
+首次成功返回 `recorded`；精确重试返回 `idempotent`；同一 ID 修改内容返回 `OBSERVATION_CONFLICT`。失败单独报告，不改变已经验证的工程结果。
 
-## Independent Review Observation
+## 独立审查观察
 
-An independent reviewer references the retained task observation and owns the
-accuracy assessment:
+独立审查者引用同仓库的任务观察并拥有准确性判断：
 
 ```json
 {
@@ -123,12 +103,6 @@ accuracy assessment:
 }
 ```
 
-Submit it with:
+通过 `semantic-atlas observe review --stdin --repo <repository-root>` 提交。`approved` 不能包含错误维度、需要返工或图导致回归；`changes_requested` 的 `requiredRework` 为 `true`，可记录未通过的维度。
 
-```text
-semantic-atlas observe review --stdin --repo <repository-root>
-```
-
-An approved review cannot contain an incorrect assessed dimension, required
-rework, or a map-caused regression. A `changes_requested` review sets
-`requiredRework` to `true` and can record the failed accuracy dimensions.
+找不到任务观察时，审查结论仍按当前代码与证据给出，单独说明缺少准确性记录关联，不伪造任务来源。候选维护结果另见[候选校准](reconciliation.md)。

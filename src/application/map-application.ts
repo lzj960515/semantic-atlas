@@ -4,6 +4,8 @@ import path from "node:path";
 import type {
   CliError,
   ContextEnvelope,
+  FlowsEnvelope,
+  FlowSearchEnvelope,
   SearchEnvelope,
   ValidateEnvelope,
 } from "../contracts/cli.js";
@@ -13,6 +15,8 @@ import { MapDocumentLoader, RepositoryResolutionError } from "../map/map-documen
 import { BusinessGraph } from "../map/business-graph.js";
 import { MapValidator } from "../map/map-validator.js";
 import { ContextQueryService } from "../query/context-query-service.js";
+import { FlowNavigationService } from "../query/flow-navigation-service.js";
+import { FlowSearchService } from "../query/flow-search-service.js";
 import { ConceptSearchService } from "../query/concept-search-service.js";
 import { MapProjector, type ViewerProjectMetadata } from "../rendering/map-projector.js";
 import type { ViewerProject } from "../rendering/viewer-page.js";
@@ -126,6 +130,65 @@ export class MapApplication {
       data: {
         query,
         results: new ConceptSearchService(result.map.nodes).search(query),
+      },
+    };
+  }
+
+  public async flows(repositoryPath: string, flowId?: string): Promise<FlowsEnvelope> {
+    const result = await this.loadValidatedMap(repositoryPath);
+    if (!result.ok) {
+      return {
+        schemaVersion: 1,
+        ok: false,
+        command: "flows",
+        ...(result.repository ? { repository: result.repository } : {}),
+        error: result.error,
+      };
+    }
+    const navigation = new FlowNavigationService(new BusinessGraph(result.map));
+    const selected = flowId ? navigation.context(flowId) : undefined;
+    if (flowId && !selected) {
+      return {
+        schemaVersion: 1,
+        ok: false,
+        command: "flows",
+        repository: result.map.source,
+        error: {
+          code: "FLOW_NOT_FOUND",
+          flowId,
+          message: t("errors.flowNotFound", { flowId }),
+        },
+      };
+    }
+    return {
+      schemaVersion: 1,
+      ok: true,
+      command: "flows",
+      repository: result.map.source,
+      data: selected ? { selected } : { navigation: navigation.directory() },
+    };
+  }
+
+  public async searchFlows(repositoryPath: string, query: string): Promise<FlowSearchEnvelope> {
+    const result = await this.loadValidatedMap(repositoryPath);
+    if (!result.ok) {
+      return {
+        schemaVersion: 1,
+        ok: false,
+        command: "search",
+        ...(result.repository ? { repository: result.repository } : {}),
+        error: result.error,
+      };
+    }
+    return {
+      schemaVersion: 1,
+      ok: true,
+      command: "search",
+      repository: result.map.source,
+      data: {
+        query,
+        target: "flows",
+        results: new FlowSearchService(new BusinessGraph(result.map)).search(query),
       },
     };
   }

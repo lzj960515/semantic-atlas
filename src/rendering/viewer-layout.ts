@@ -5,6 +5,11 @@ export interface DiagramSize {
   readonly height: number;
 }
 
+export interface DiagramPoint {
+  readonly x: number;
+  readonly y: number;
+}
+
 export interface DiagramLayoutNodeSpec extends DiagramSize {
   readonly id: string;
   readonly kind: "card" | "decision" | "outcome";
@@ -24,11 +29,6 @@ export interface DiagramLayoutSpec {
   readonly edges: readonly DiagramLayoutEdgeSpec[];
 }
 
-export interface DiagramPoint {
-  readonly x: number;
-  readonly y: number;
-}
-
 export interface DiagramLayoutNode extends DiagramSize, DiagramPoint {
   readonly id: string;
 }
@@ -39,44 +39,49 @@ export interface DiagramLayoutEdge extends DiagramPoint {
 }
 
 export interface DiagramLayout extends DiagramSize {
+  readonly direction: "LR" | "TB";
   readonly offsetX: number;
   readonly offsetY: number;
   readonly nodes: readonly DiagramLayoutNode[];
   readonly edges: readonly DiagramLayoutEdge[];
 }
 
-// 服务端预估与浏览器实测共用此函数；函数整体序列化后仍只依赖显式参数。
+/** 服务端预排和浏览器按正文实测共用，节点统一为矩形业务卡片。 */
 export function layoutDiagram(
   dagreApi: Pick<typeof dagre, "graphlib" | "layout">,
   spec: DiagramLayoutSpec,
   measuredSizes: Readonly<Record<string, DiagramSize>> = {},
+  viewport?: DiagramSize,
 ): DiagramLayout {
-  const vertical = spec.direction === "TB";
-  const padding = vertical ? 42 : 28;
-  const layoutGraph = new dagreApi.graphlib.Graph({ multigraph: true })
+  if (viewport) {
+    const horizontal = layoutDiagram(dagreApi, { ...spec, direction: "LR" }, measuredSizes);
+    const vertical = layoutDiagram(dagreApi, { ...spec, direction: "TB" }, measuredSizes);
+    const scale = (layout: DiagramLayout): number =>
+      Math.min(1, (viewport.width - 48) / layout.width, (viewport.height - 56) / layout.height);
+    return scale(vertical) > scale(horizontal) ? vertical : horizontal;
+  }
+  const horizontal = spec.direction === "LR";
+  const graph = new dagreApi.graphlib.Graph({ multigraph: true })
     .setGraph({
       rankdir: spec.direction,
       ranker: "network-simplex",
       acyclicer: "greedy",
-      nodesep: vertical ? 92 : 50,
-      edgesep: vertical ? 34 : 30,
-      ranksep: vertical ? 112 : 118,
-      marginx: vertical ? 28 : 24,
-      marginy: vertical ? 28 : 24,
+      nodesep: 54,
+      edgesep: 24,
+      ranksep: 64,
+      marginx: 0,
+      marginy: 0,
     })
     .setDefaultEdgeLabel(() => ({}));
-
   for (const node of spec.nodes) {
     const measured = measuredSizes[node.id];
-    // 菱形中央半宽、半高矩形是正文的内接区域。
-    const textRatio = node.kind === "decision" ? 2 : 1;
-    layoutGraph.setNode(node.id, {
-      width: Math.max(node.width, (measured?.width ?? 0) * textRatio),
-      height: Math.max(node.height, (measured?.height ?? 0) * textRatio),
+    graph.setNode(node.id, {
+      width: measured?.width ?? node.width,
+      height: measured?.height ?? node.height,
     });
   }
   for (const edge of spec.edges) {
-    layoutGraph.setEdge(
+    graph.setEdge(
       edge.from,
       edge.to,
       {
@@ -89,54 +94,103 @@ export function layoutDiagram(
       edge.id,
     );
   }
-
-  dagreApi.layout(layoutGraph);
-  const graph = layoutGraph.graph();
-  const contentWidth = graph.width ?? 0;
-  const width = Math.max(960, contentWidth + padding * 2);
-  const nodes = spec.nodes.map(({ id }) => {
-    const node = layoutGraph.node(id);
-    return { id, x: node.x, y: node.y, width: node.width, height: node.height };
-  });
-  const decisionNodes = new Map(
-    spec.nodes
-      .filter(({ kind }) => kind === "decision")
-      .map(({ id }) => [id, layoutGraph.node(id)]),
-  );
-
-  function connectDecisionBoundary(points: DiagramPoint[], nodeId: string, atStart: boolean): void {
-    const node = decisionNodes.get(nodeId);
-    if (!node || points.length < 2) return;
-    const adjacent = points[atStart ? 1 : points.length - 2]!;
-    const dx = adjacent.x - node.x;
-    const dy = adjacent.y - node.y;
-    const distance = Math.abs(dx) / (node.width / 2) + Math.abs(dy) / (node.height / 2);
-    if (distance === 0) return;
-    // Dagre 路由命中包围矩形；沿末段方向延伸至实际菱形边缘。
-    points[atStart ? 0 : points.length - 1] = {
-      x: node.x + dx / distance,
-      y: node.y + dy / distance,
-    };
-  }
-
+  dagreApi.layout(graph);
+  const nodes = spec.nodes.map(({ id }) => ({ id, ...graph.node(id) }));
+  const byId = new Map(nodes.map((node) => [node.id, node]));
   const edges = spec.edges.map((edge) => {
-    const routed = layoutGraph.edge(edge.from, edge.to, edge.id) as dagre.GraphEdge & {
+    const route = graph.edge(edge.from, edge.to, edge.id) as dagre.GraphEdge & {
       readonly x?: number;
       readonly y?: number;
     };
-    const points = routed.points.map(({ x, y }) => ({ x, y }));
-    connectDecisionBoundary(points, edge.from, true);
-    connectDecisionBoundary(points, edge.to, false);
-    const middle = points[Math.floor(points.length / 2)] ?? { x: 0, y: 0 };
-    return { id: edge.id, points, x: routed.x ?? middle.x, y: routed.y ?? middle.y };
+    const source = byId.get(edge.from)!;
+    const target = byId.get(edge.to)!;
+    const raw = route.points.map(({ x, y }) => ({ x, y }));
+    if (edge.from !== edge.to) {
+      const forward = horizontal ? target.x > source.x : target.y > source.y;
+      raw[0] = horizontal
+        ? { x: source.x + ((forward ? 1 : -1) * source.width) / 2, y: source.y }
+        : { x: source.x, y: source.y + ((forward ? 1 : -1) * source.height) / 2 };
+      raw[raw.length - 1] = horizontal
+        ? { x: target.x - ((forward ? 1 : -1) * target.width) / 2, y: target.y }
+        : { x: target.x, y: target.y - ((forward ? 1 : -1) * target.height) / 2 };
+    }
+    const points: DiagramPoint[] = [];
+    const append = (point: DiagramPoint): void => {
+      const previous = points.at(-1);
+      if (previous?.x === point.x && previous.y === point.y) return;
+      const before = points.at(-2);
+      if (
+        before &&
+        previous &&
+        ((before.x === previous.x && previous.x === point.x) ||
+          (before.y === previous.y && previous.y === point.y))
+      )
+        points.pop();
+      points.push(point);
+    };
+    for (const point of raw) {
+      const previous = points.at(-1);
+      if (previous && previous.x !== point.x && previous.y !== point.y) {
+        if (horizontal) {
+          const middleX = (previous.x + point.x) / 2;
+          append({ x: middleX, y: previous.y });
+          append({ x: middleX, y: point.y });
+        } else {
+          const middleY = (previous.y + point.y) / 2;
+          append({ x: previous.x, y: middleY });
+          append({ x: point.x, y: middleY });
+        }
+      }
+      append(point);
+    }
+    const middle = points[Math.floor(points.length / 2)] ?? source;
+    const labelX = route.x ?? middle.x;
+    const labelY = route.y ?? middle.y;
+    return {
+      id: edge.id,
+      points,
+      x:
+        labelX +
+        (horizontal ? 0 : (labelX >= (source.x + target.x) / 2 ? 1 : -1) * (edge.width / 2 + 7)),
+      y:
+        labelY +
+        (horizontal ? (labelY >= (source.y + target.y) / 2 ? 1 : -1) * (edge.height / 2 + 7) : 0),
+    };
   });
-
+  const padding = 44;
   return {
-    width,
-    height: (graph.height ?? 0) + padding * 2,
-    offsetX: (width - contentWidth) / 2,
+    direction: spec.direction,
+    width: (graph.graph().width ?? 0) + padding * 2,
+    height: (graph.graph().height ?? 0) + padding * 2,
+    offsetX: padding,
     offsetY: padding,
     nodes,
     edges,
   };
+}
+
+/** 正交路径的转弯处留小圆角，避免把业务连线画成斜线。 */
+export function diagramEdgePath(points: readonly DiagramPoint[]): string {
+  if (points.length === 0) return "";
+  let path = `M ${points[0]!.x} ${points[0]!.y}`;
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previous = points[index - 1]!;
+    const point = points[index]!;
+    const next = points[index + 1]!;
+    const before = Math.hypot(point.x - previous.x, point.y - previous.y);
+    const after = Math.hypot(next.x - point.x, next.y - point.y);
+    const radius = Math.min(8, before / 2, after / 2);
+    if (radius === 0) continue;
+    const entry = {
+      x: point.x + ((previous.x - point.x) * radius) / before,
+      y: point.y + ((previous.y - point.y) * radius) / before,
+    };
+    const exit = {
+      x: point.x + ((next.x - point.x) * radius) / after,
+      y: point.y + ((next.y - point.y) * radius) / after,
+    };
+    path += ` L ${entry.x} ${entry.y} Q ${point.x} ${point.y} ${exit.x} ${exit.y}`;
+  }
+  const last = points.at(-1)!;
+  return `${path} L ${last.x} ${last.y}`;
 }

@@ -16,7 +16,7 @@ Semantic Atlas 在编码 Agent 修改代码之前，为它提供一份紧凑的�
 进入问题；当前源码、测试、纳入版本管理的产品文档，以及必要的运行时证据，
 仍然决定系统现在实际怎样工作。
 受管 Skill 根据业务任务本身决定是否进入理解流程。因此，即使仓库还没有地图，
-Agent 也会建立有边界的当前业务模型，并在证据足够时保留后续维护候选。
+Agent 也会建立有边界的当前业务模型，并在业务变化时同步更新相关流程。
 
 ## 安装
 
@@ -28,8 +28,8 @@ semantic-atlas setup
 semantic-atlas --version
 ```
 
-`setup` 会把与当前包完全匹配的工程 Skill 和维护 Skill 安装到
-`~/.agents/skills/`。重复执行时，它会验证已安装内容、修复被修改的受管副本，
+`setup` 把一个统一的 `semantic-atlas` Skill 安装到
+`~/.agents/skills/semantic-atlas`，负责业务理解与流程维护。重复执行时，它会验证已安装内容、修复被修改的受管副本，
 并升级由其他当前版本安装的 Skill。对于无关或格式已经废弃的同名目录，它会
 拒绝覆盖。
 
@@ -48,7 +48,7 @@ semantic-atlas upgrade
 ```
 
 `upgrade` 先解析 npm 当前稳定版本，再安装这个精确版本，验证已安装 CLI 的
-身份，然后让新 CLI 同步两个受管 Skill。因此，可执行程序和 Skill 始终作为
+身份，然后让新 CLI 同步一个统一 Skill。因此，可执行程序和 Skill 始终作为
 同一个有版本的产品一起升级。
 
 <a id="skill-conflicts"></a>
@@ -65,12 +65,10 @@ semantic-atlas upgrade
 
 如果 `upgrade` 返回 `UPGRADE_FAILED` 且 `step` 为 `setup`，说明目标 CLI 已通过
 版本验证，但 Skill 同步尚未完成。内层错误的 `directory` 指明冲突位置。
-两个 Skill 按顺序同步，第二个发生冲突时，第一个可能已经完成同步。
 处理报错目录后，使用原来同一套 Node/npm 安装执行 `semantic-atlas setup` 即可
 重试这个阶段，无需为了恢复而再次升级包。
 
-先检查错误中列出的确切目录。下面的 Linux/macOS 示例以工程 Skill 为例；
-如果错误指向维护 Skill 或 `.backup` 目录，请把变量改为错误中的对应路径：
+先检查错误中列出的确切目录；如果指向 `.backup`，使用错误中的对应路径：
 
 ```bash
 skill_dir="$HOME/.agents/skills/semantic-atlas"
@@ -140,8 +138,7 @@ anchors:
     description: 确认库存并创建持久化的客户订单。
 ```
 
-`context` 保留文件和符号两个字段，Viewer 显示为
-`src/orders/place-order.service.ts#PlaceOrderService.execute`。Agent 使用平常的仓库
+`context` 保留文件和符号两个字段；面向业务人员的 Viewer 隐藏源码锚点。Agent 使用平常的仓库
 工具定位当前方法，并确认实际业务行为。既有文件引用和未绑定文件的符号继续兼容；
 维护时根据当前源码证据完善更精确的业务入口。
 
@@ -149,12 +146,17 @@ anchors:
 
 ```bash
 semantic-atlas validate --repo /path/to/repository
-semantic-atlas search "订单确认通知" --repo /path/to/repository
+semantic-atlas search "订单确认通知" --flows --repo /path/to/repository
+semantic-atlas flows "engagement.notifications.confirm-order-flow" --repo /path/to/repository
 semantic-atlas context "engagement.notifications.send-order-confirmation" --repo /path/to/repository
 semantic-atlas render --repo /path/to/repository --output ./business-map.html
 semantic-atlas project add /path/to/repository
 semantic-atlas web
 ```
+
+从多项目工作空间调用时，将 `--repo` 指向实际要修改的子仓库。流程文件保存在该仓库的
+`docs/business-map/`，源码锚点也相对该仓库解析；不同项目分别查询。省略 `--repo` 只读取
+当前目录，不递归扫描子项目，因此工作空间根目录没有图不表示子项目没有图。
 
 `validate` 把所有地图文档作为一张完整图进行检查。`search` 根据自然语言查询，
 从所有类型的业务节点中返回最多五个排序结果；每个结果包含查询内的相对相关度、
@@ -162,15 +164,16 @@ semantic-atlas web
 带版本的 JSON 结果取得该概念的所属层级、直接输入和输出关系、相关概念、源码
 导航锚点及完整相关流程。原有的 `context` 精确和部分选择器继续兼容。`render`
 从同一个标准化地图生成确定性的单文件交互 Viewer。
-顶部工具栏先在“关系”和“流程”之间切换，再选择业务域或场景流程；拖动可以
-平移，鼠标滚轮和按钮可以缩放，`Fit` 会恢复当前完整视图。卡片默认只显示业务
-类型、标题和描述，不会让代码路径挤占地图空间。点击卡片，或聚焦后按 `Enter`，
-会在桌面右侧面板或窄屏底部面板中显示导航锚点和相关流程；点击相关流程会直接
-进入实际流程图。
+AI 按业务问题直接定位流程：已知编号时直接 `flows <flow-id>`，未知时用
+`search "<业务描述>" --flows` 返回相关流程，再读取该图的步骤、子流程与具体代码锚点。
+`context <concept-id>` 可以补看业务规则、数据和协作。没有必须先读总览的顺序。
+搜索使用业务名称、别名、步骤和说明做词面匹配，AI 仍需判断业务含义，不能把分数当成证据。
 
-点击 `Export PNG` 可以把当前选中的整张图导出为高清图片，不受屏幕大小和当前
-缩放影响，也会保留页面上已经翻译的文字。导出的单文件 HTML 离线打开后也能使用
-这个功能。超过浏览器图片容量的超大图会提示先选择一个业务域或流程再导出。
+人通过画布阅读。所有页面统一为流程图；节点角标直接进子流程，多目标先选择。
+正文有备注才打开默认关闭的说明，说明中没有进入按钮。“上一层”沿实际来路返回。
+“查看其他流程”按父子流程逐列展开，单项目名不重复显示。源码与 AI 编排理由在界面隐藏。
+
+没有 `flows` 时显示空状态。可运行[订单管理阅读样例](examples/订单管理/README.md)。
 
 `project add [path]` 会先校验完整业务地图，再把规范化的 checkout 路径保存到
 带版本的用户本地文件 `~/.semantic-atlas/projects.json`。省略 `path` 时使用当前
@@ -204,34 +207,31 @@ semantic-atlas web --repo /path/to/api /path/to/frontend --port 4310 --no-open
 5. 使用纳入版本管理的产品文档确认稳定意图，使用运行时证据确认依赖环境状态的行为。
 6. 当地图缺失、过期或与当前证据冲突时，以当前证据为准。
 7. 按目标仓库原有的工程流程实现、验证并重新核对受影响的业务路径。
-8. 记录任务结果，并判断共享业务知识是否需要单独维护；确认无需修改也是完整结果。
+8. 业务变化在同分支同步代码与相关图，一起验证合入；纯实现调整无需重画。
 
 最终工程结论应当比帮助定位问题的地图更准确。
 
 ## Agent Skills
 
-`semantic-atlas setup` 会安装两个由 npm 包管理的 Skill：
+`semantic-atlas setup` 只安装一个 `semantic-atlas` Skill。它把理解业务、核实证据、
+编写流程和维护资料放在同一条工作路径中，按任务读取所需方法，不再转交另一个
+维护 Skill。所有可视图都使用 `flows` 显式编写，总览有真实顺序与分支，子流程
+通过步骤的场景引用进入；`part_of` 只表示业务归属。
 
-- `semantic-atlas` 让每个业务改动任务进入有边界的当前证据理解流程，不要求仓库
-  事先存在业务地图，并在存在相关流程时核对关键分支。
-- `semantic-atlas-maintenance` 根据真实业务职责创建、补充、修正和校准图谱，
-  通过普通 Git 审查交付。
+旧安装中的 maintenance 用户目录不会由本次源码改动自动删除，新安装只提供统一
+入口。业务资料仍随所属仓库通过 Git 维护。
 
 每次写入或维护图谱，都先根据业务职责、数据、规则与协作关系确认归属，再选择文件。
-既有业务域仍然准确时复用；新增独立业务有自己的 YAML 和可供 Viewer 选择的业务域
-根节点。共享概念只定义一次，其他文件用稳定 ID 引用。局部请求或只有一种业务职责
+既有业务域仍然准确时复用；新增独立业务有自己的 YAML 和清楚的业务域根节点；阅读器通过对应的流程访问细节。共享概念只定义一次，其他文件用稳定 ID 引用。局部请求或只有一种业务职责
 的小项目可以只用一个文件；这些规则同样适用于初始化和后续维护。
 
-普通候选校准仍限定一个经证据确认的业务域及其所属文件。真实归属修正需要跨多个
-既有文件时，通过完整的普通图谱变更接受审查，保留准确的候选处理记录，不用一条
-单文件维护结果冒充整个改动。直接编写图谱不需要先有候选。
-
-目标仓库不会复制这些 Skill；通过 Git 共享的只有仓库自己的业务地图。
+业务代码和相关流程在同分支一起修改、检查、评审和合入。合并冲突按最终代码的
+业务行为重新梳理，不机械拼接图文件。纯实现调整无需重画。旧业务文件不要求兼容，
+新版发布后再按新契约重写，本轮不迁移其他项目。
 
 ## 准确性观测
 
-每个业务改动任务都会保存自己的调查证据，而不直接修改业务地图。独立审查会另外
-保存审查证据；完成审查和合入的维护任务还会记录每个精确候选来源的处理结果：
+以下工具只在明确请求处理观察或历史资料时使用，不属于普通开发的默认步骤：
 
 ```bash
 semantic-atlas observe task --stdin --repo /path/to/repository
@@ -240,15 +240,7 @@ semantic-atlas observe maintenance --stdin --repo /path/to/repository
 semantic-atlas insights summary --repo /path/to/repository --period 4w
 ```
 
-任务观测记录包括 `map_not_found` 在内的查询结果、当前证据分类、地图修正候选
-和明确的人类纠正；候选可以针对节点、关系、导航锚点或流程。业务知识已经覆盖、
-改动只涉及实现细节或稳定含义尚不明确时，
-候选列表可以为空。任务不会给自己的准确性打分；独立审查观测负责记录正确性、
-影响完整性、是否需要返工，以及地图是否导致了错误结论。维护观测只在审查和
-合入完成后记录 `accepted`、`refined`、`discarded` 或 `unresolved`。观测 ID
-不可变：完全相同的重放是幂等的，内容发生变化则会报告冲突。
-
-具体 schema 和证据语义见[准确性观测](docs/observations.md)。
+记录不可变，精确重放幂等；完整语义见[观察契约](docs/observations.md)。
 
 ## 地图校准
 
@@ -257,19 +249,8 @@ semantic-atlas reconcile status --repo /path/to/repository
 semantic-atlas reconcile candidates --repo /path/to/repository
 ```
 
-`reconcile status` 只回答当前仓库是否至少存在一个可行动候选。它只读取任务观测和
-维护观测，把候选详情、Review 证据和业务域选择留在维护流程内部；这是提供给任务
-编排器的最小契约。
-
-`reconcile candidates` 按明确的业务域归属返回当前可行动候选，同时保留每个来源、
-证据判断、关联的独立审查和之前未解决的调查。已接受、已细化和已丢弃的来源会进入终态；
-未解决的来源会等待新证据，而不会立刻重复生成相同任务。两个命令都只读。随后，
-维护 Skill 会选择一个业务域，使用当前证据重新确认候选，把被接受的地图修正
-作为普通 Git 差异提交独立审查，并在合入后记录处理结果。如果仓库还没有地图，
-有充分证据的候选可以建立第一份有边界的业务域 YAML，而不是一次推断整个仓库。
-代码合入后的维护是正常的保鲜路径；定期校准负责补回遗漏观测、累计漂移和常规
-流程以外的变更。
-候选针对流程时，维护 Skill 会核对稳定业务路径，而不是照抄当前实现控制流。
+这些命令只读查询已有历史候选。正常流程维护随业务代码变化，不先生成候选，
+不等待代码合入；需要处理已有历史记录时才使用这些工具。
 
 ## 本地数据与隐私
 

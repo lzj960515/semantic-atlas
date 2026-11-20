@@ -6,19 +6,16 @@
 
 English | [简体中文](README.zh-CN.md)
 
-Semantic Atlas gives coding agents a compact map of the business before they
-change the code. A repository describes stable domains, capabilities,
-operations, data, rules, interfaces, and their relationships in tracked YAML.
-Scenario flows add business-relevant actions, decisions, branches, and outcomes
-to the same documents. The CLI validates the map, returns a small neighborhood
-and its related flows for investigation, and renders both views for people.
+Semantic Atlas 用流程图帮助人和 AI 共同理解业务。AI 根据源码、文档与运行证据维护
+Git 中的业务资料，人通过只读画布检查流程、分支与结果，并逐层进入细节。
+总览和子图统一为业务流程图；业务归属、源码锚点与查询为 AI 提供调查入口。
 
 The map is deliberately advisory. It helps an agent enter through the right
 business boundary; current source, tests, tracked product documents, and
 required runtime evidence still decide what the system does now.
 The installed Skill activates from business-changing task meaning, so a
 repository without a map still receives the same bounded business-understanding
-workflow and can retain a well-supported maintenance candidate.
+workflow and updates affected business flows in the same branch.
 
 ## Install
 
@@ -30,10 +27,9 @@ semantic-atlas setup
 semantic-atlas --version
 ```
 
-`setup` installs the package's exact engineering and maintenance Skills under
-`~/.agents/skills/`. Repeating it verifies the installed payloads, repairs a
-modified managed copy, and upgrades Skills installed by another current package
-version. It refuses to replace an unrelated or obsolete same-named directory.
+`setup` 安装一个统一的 `semantic-atlas` Skill 到 `~/.agents/skills/semantic-atlas`，
+负责理解业务、核实证据、编写和维护流程图。重复运行会校验、修复或升级受管副本，
+无关同名目录受到保护。
 
 ## Upgrade
 
@@ -42,9 +38,7 @@ semantic-atlas upgrade
 ```
 
 `upgrade` resolves npm's current stable version, installs that exact package,
-verifies the installed CLI identity, and asks the new CLI to synchronize both
-managed Skills. The executable and Skills therefore move as one versioned
-product.
+verifies the installed CLI identity, and synchronizes the single managed Skill.
 
 ### Skill conflicts
 
@@ -59,14 +53,12 @@ Missing, unreadable, malformed, obsolete, or mismatched markers remain protected
 
 When `upgrade` reports `UPGRADE_FAILED` with `step: "setup"`, the target CLI has
 already passed version verification, but Skill synchronization is incomplete.
-The nested setup error identifies the conflicting `directory`. The two Skills
-are synchronized in order, so the first may already be current when the second
-conflicts. Resolve the named directory, then retry `semantic-atlas setup` using
+The nested setup error identifies the conflicting `directory`. Resolve the named directory, then retry `semantic-atlas setup` using
 the same Node/npm installation; another package upgrade is not needed for this
 recovery.
 
 Inspect the exact directory named in the error. This Linux/macOS example uses
-the primary Skill; substitute the maintenance or `.backup` path when that is
+the managed Skill; substitute the `.backup` path when that is
 the reported conflict:
 
 ```bash
@@ -140,8 +132,7 @@ anchors:
     description: Confirm inventory and create a durable customer order.
 ```
 
-`context` retains both fields, and the Viewer shows
-`src/orders/place-order.service.ts#PlaceOrderService.execute`. The Agent locates
+`context` retains both fields. The business-facing Viewer hides source anchors. The Agent locates
 the current method using normal repository tools and confirms its behavior.
 Existing file references and unbound symbols remain compatible; maintenance
 can refine them when current evidence establishes a more precise business entry.
@@ -150,12 +141,17 @@ can refine them when current evidence establishes a more precise business entry.
 
 ```bash
 semantic-atlas validate --repo /path/to/repository
-semantic-atlas search "order confirmation notification" --repo /path/to/repository
+semantic-atlas search "order confirmation notification" --flows --repo /path/to/repository
+semantic-atlas flows "engagement.notifications.confirm-order-flow" --repo /path/to/repository
 semantic-atlas context "engagement.notifications.send-order-confirmation" --repo /path/to/repository
 semantic-atlas render --repo /path/to/repository --output ./business-map.html
 semantic-atlas project add /path/to/repository
 semantic-atlas web
 ```
+
+从多项目工作空间调用时，将 `--repo` 指向实际要修改的子仓库。流程与源码保留在同一
+仓库，锚点相对该仓库解析；跨项目任务分别查询。省略参数只读取当前目录，不递归扫描
+子项目，不能根据工作空间根目录的空结果判断子项目没有图。
 
 `validate` checks every map document as one graph. `search` ranks up to five
 concepts of any business-node kind for a natural-language query. Each result
@@ -165,18 +161,18 @@ containment, direct incoming and outgoing relationships, related concepts,
 source-navigation anchors, and complete related flows in a versioned JSON
 envelope. Existing exact and partial `context` selectors remain supported.
 `render` produces a deterministic, self-contained interactive HTML Viewer from
-that same normalized map. Its compact toolbar switches between Relationships
-and Flows; each view then selects a business domain or scenario flow. Drag to pan,
-use the mouse wheel or controls to zoom, and use `Fit` to restore the
-complete selected view. Cards keep business type, title, and description visible
-without exposing code paths in the graph. Click a card, or focus it and press
-`Enter`, to inspect its navigation anchors and related flows in a desktop side
-panel or narrow-screen bottom panel. A related-flow link opens the actual flow.
+that same normalized map.
 
-Use `Export PNG` to download the entire selected diagram at high resolution,
-independent of the current zoom. The image includes displayed translations and
-works offline in an exported HTML Viewer. Very large diagrams that exceed the
-browser image budget ask you to select a business domain or flow.
+AI 按业务问题直接定位流程：已知编号时直接 `flows <flow-id>`，未知时用
+`search "<业务描述>" --flows` 返回相关流程，再读取该图的步骤、子流程与具体代码锚点。
+`context <concept-id>` 可以补看业务规则、数据和协作。没有必须先读总览的顺序。
+搜索使用业务名称、别名、步骤和说明做词面匹配，AI 仍需判断业务含义，不能把分数当成证据。
+
+人通过画布阅读。所有页面统一为流程图；节点角标直接进子流程，多目标先选择。
+正文有备注才打开默认关闭的说明，说明中没有进入按钮。“上一层”沿实际来路返回。
+“查看其他流程”按父子流程逐列展开，单项目名不重复显示。源码与 AI 编排理由在界面隐藏。
+
+没有 `flows` 时显示空状态。可运行[订单管理阅读样例](examples/订单管理/README.md)。
 
 `project add [path]` validates the complete business map and saves its
 normalized checkout path in the versioned user-local
@@ -228,40 +224,28 @@ For a business-changing engineering task:
 6. Let current evidence override missing, stale, or contradicted map knowledge.
 7. Implement, verify, and recheck the affected business paths through the
    repository's normal engineering workflow.
-8. Record the task outcome and decide whether shared business knowledge needs a
-   separate maintenance change; a no-change decision is a complete result.
+8. 业务行为变化时，在同一分支同步代码与流程，一起验证和合入；纯实现调整不强制改图。
 
 The final engineering conclusion is expected to be more accurate than the map
 that helped locate it.
 
 ## Agent Skills
 
-`semantic-atlas setup` installs two package-owned Skills:
+`semantic-atlas setup` 只安装一个 `semantic-atlas` Skill。它根据当前任务先理解业务、
+核实源码与运行证据，再决定实现、编写流程或维护共享资料；相关方法按需读取。
+理解、画图与维护使用同一份业务知识，不再交接给另一个 Skill。
 
-- `semantic-atlas` gives every business-changing task a bounded,
-  current-evidence understanding workflow, including relevant flow branches,
-  with or without an existing map.
-- `semantic-atlas-maintenance` creates, extends, corrects and reconciles maps
-  through one evidence-based business-ownership workflow and normal Git review.
+所有图都用 `flows` 显式编写。总览交代主要路径与条件，子流程解释具体环节，
+`part_of` 继续表达所有权，不作为执行顺序。旧用户目录中的 maintenance Skill
+不由本次源码改动自动清理；本产品的新安装只提供统一入口。
 
-Every map update identifies the affected business responsibilities before
-selecting files. Reuse an existing domain while its scope remains correct;
-give newly discovered independent business areas their own YAML and domain
-roots. Shared concepts are defined once and referenced across files. A bounded
-request or a single-business project can use one file. These rules govern both
-initialization and later maintenance. Ordinary candidate reconciliation remains
-one confirmed domain and its owning file; necessary multi-file ownership
-corrections use a complete reviewed authoring change with accurate separate
-candidate accounting. Direct authoring needs no retained candidate.
-
-Target repositories do not copy these Skills. They share only their business
-maps through Git.
+业务代码和相关流程在同分支一起修改、检查、评审与合入。合并冲突按最终代码的业务
+行为重新梳理，不机械拼接图文件。只有实现组织变化时无需重画。旧业务文件不要求兼容，
+新版发布后再按新契约重写，当前不迁移其他项目。
 
 ## Accuracy Observations
 
-Every business-changing task records task evidence without changing the
-business map. Independent review records separate review evidence, and a
-reviewed maintenance run records what happened to each exact candidate origin:
+观察与候选工具保留为明确请求下的历史资料操作，不属于普通开发的默认步骤：
 
 ```bash
 semantic-atlas observe task --stdin --repo /path/to/repository
@@ -270,19 +254,7 @@ semantic-atlas observe maintenance --stdin --repo /path/to/repository
 semantic-atlas insights summary --repo /path/to/repository --period 4w
 ```
 
-A task observation records queries including `map_not_found`, current-evidence
-classifications, candidate map corrections, and explicit human corrections. An
-eligible correction can target a node, relation, anchor, or flow. An empty
-candidate list is valid when knowledge is already represented,
-implementation-local, or unresolved. The task never grades its own accuracy.
-An independent review observation owns correctness, impact, required-rework,
-and map-regression judgments. A maintenance observation records `accepted`,
-`refined`, `discarded`, or `unresolved` results only after review and
-integration. IDs are immutable: an exact replay is idempotent and changed
-content conflicts.
-
-See [accuracy observations](docs/observations.md) for the schemas and evidence
-semantics.
+具体不可变记录与重放语义见[观察契约](docs/observations.md)。
 
 ## Reconciliation
 
@@ -291,26 +263,8 @@ semantic-atlas reconcile status --repo /path/to/repository
 semantic-atlas reconcile candidates --repo /path/to/repository
 ```
 
-`reconcile status` returns only whether the repository currently has at least
-one actionable candidate. It reads task and maintenance observations, leaving
-candidate details, Review evidence, and business-domain selection inside the
-maintenance workflow. This is the narrow orchestration contract.
-
-`reconcile candidates` returns current actionable candidates by explicit
-business-domain ownership while preserving each origin, evidence disposition,
-linked independent review, and earlier unresolved investigation. Accepted, refined,
-and discarded origins are terminal. An unresolved origin waits for new evidence
-instead of immediately producing the same task again. Both commands are read-only.
-The maintenance Skill then confirms one domain against current evidence,
-submits any accepted map correction through an ordinary Git diff and independent
-review, and records the reviewed outcome after integration. When no map exists,
-a supported candidate can seed one bounded business-domain YAML instead of a
-repository-wide taxonomy.
-Flow candidates are checked as stable business paths rather than copied
-implementation control flow.
-Post-integration maintenance is the normal freshness path; periodic
-reconciliation recovers missed observations, accumulated drift, and changes
-outside the normal engineering workflow.
+这些只读命令查询已有的历史候选，只有明确要求时使用。正常流程维护随代码变化，
+不先生成候选，不等待代码合入。业务仓库只共享版本控制中的资料。
 
 ## Local Data And Privacy
 

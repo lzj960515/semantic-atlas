@@ -68,8 +68,8 @@ changes need accurate content and working links; report the checks actually run.
 
 Update stable knowledge in its authoritative page and add an independent record
 following [documentation change rules](docs/changes/README.md). Business-changing
-work follows the observation and independent-review workflow in
-[AGENTS.md](AGENTS.md#accuracy-workflow). Keep private observations and temporary
+work updates code and affected flow files together and follows the independent-review workflow in
+[AGENTS.md](AGENTS.md#business-change-workflow). Keep private observations and temporary
 evaluation artifacts outside the Git diff.
 
 Use single-line English Conventional Commits, for example:

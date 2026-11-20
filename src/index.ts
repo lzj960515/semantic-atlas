@@ -3,6 +3,8 @@ export type {
   CliRunResult,
   ContextData,
   ContextEnvelope,
+  FlowsEnvelope,
+  FlowSearchEnvelope,
   InsightsSummaryEnvelope,
   ObservationRecordedData,
   ObserveMaintenanceEnvelope,
@@ -81,3 +83,10 @@ export type {
   TaskObservation,
   TaskObservationInput,
 } from "./contracts/observation.js";
+
+export type {
+  FlowNavigation,
+  FlowContext,
+  FlowSearchResult,
+  FlowsData,
+} from "./contracts/flow-navigation.js";

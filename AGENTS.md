@@ -33,21 +33,22 @@ navigation conventions to Wiki maintenance workflows.
   scenario flows as investigation hypotheses.
 - Relationships describe durable collaboration. Flows separately describe
   business-relevant actions, decisions, labeled branches, and outcomes.
-- Business-changing work activates the understanding Skill from task meaning,
-  including when the selected repository has no map yet.
-- A missing map routes the Agent into a bounded current-evidence business model;
-  it does not turn business understanding into an orchestrator decision.
-- Current source, tests, tracked product documents, and runtime evidence confirm
-  every claim that controls an engineering change.
-- Ordinary engineering work reads the map without synchronizing it to every
-  code change.
-- Every business-changing result records an observation and an explicit
-  maintenance disposition; a correct disposition can produce no candidate.
-- Durable map changes use normal file edits, Git diffs, review, and merge.
-- Post-integration maintenance integrates stable business changes by domain;
-  periodic reconciliation recovers accumulated drift and missed work.
-- Rendered relationship and flow diagrams are reproducible outputs of the
-  tracked map.
+- 统一的 `semantic-atlas` Skill 从任务的业务含义介入；仓库尚无图时，先建立当前任务
+  所需且有证据的业务模型，行为变化时补写相关流程。
+- AI 依据已知流程或概念 ID 直达 `flows <id>`／`context <id>`；只有业务意图时，
+  用 `search --flows` 词面定位相关流程。按需补看上下层和协作，不强制从总览起步。
+  无 ID 的 `flows` 提供可选目录；人的级联浏览不约束 AI 的调查顺序。
+- 当前源码、测试、已跟踪的产品决定和必要运行证据确认会影响改动的结论。
+- 业务行为变化时，代码与相关流程在同一分支同步修改、审阅、提交和合入；不默认
+  留作候选等待主分支后的独立维护。纯机械或内部组织变化不要求重画流程。
+- 合并或重放后按最终代码重审受影响的流程条件、顺序、结果与子流程引用；没有文本
+  冲突也需核对两边行为叠加。禁止只拼接两边 YAML 文本。
+- `observe` 与 `reconcile` 保留为明确请求时使用的历史记录工具，不作为正常工程
+  或流程维护的前置条件，不自动修改或清理已有观察数据。
+- 新版文件格式和业务资料可以按已确认契约重写，不因旧格式或旧业务文件引入
+  兼容要求；发布、真实业务资料更新和用户安装仍按本次授权分别执行。
+- 所有可视页面统一为业务流程图，总览和细图都由 AI 在 flows 中显式编写。
+  归属与协作资料帮助调查，不自动推断为流程；通过步骤的场景引用进入子流程。
 - Static export and the loopback Web command use one shared interactive Viewer;
   the service adds project selection without becoming a second graph model.
 - Source discovery uses the calling agent's normal repository tools. The map
@@ -65,10 +66,8 @@ tracked map files
   -> deterministic JSON and visual projections
 ```
 
-The first release includes a package-managed Agent Skill that routes business
-tasks through existing map knowledge or a mapless current-evidence path. Later
-capabilities enter the product only after real engineering evidence establishes
-their need.
+产品只提供一个包内 semantic-atlas Skill，统一理解业务、核实证据、编写和维护流程图。
+业务资料由 AI 编辑，人通过只读画布阅读、导航与讨论。后续能力依据实际业务需要引入。
 
 ## Engineering Quality
 
@@ -91,28 +90,20 @@ their need.
   evidence. A candidate belongs in the product when its responsibilities and
   lifecycle remain readable from the entry point.
 
-## Accuracy Workflow
+## Business Change Workflow
 
-For every business-changing engineering task:
+1. 阅读任务与仓库规则，按已知 ID 或业务意图直接定位受影响流程、步骤概念和源码，
+   只有决定所需时补看上下层；无相关图时，建立足以完成本次任务的业务模型。
+2. 核实当前行为、已确认要求与必要协作，沿相关路径检查动作、判断、分支和结果。
+3. 在同一工作分支实施代码与相关流程变更；只更新实际影响范围。纯机械或内部
+   组织变化没有业务含义变化时，保留既有流程并说明核对结果。
+4. 对完整候选进行业务验证、图校验、实际阅读和独立审查，检查代码与图一致。
+5. 按授权一起提交和合入。遇到合并或重放，以最终代码重审受影响路径和两边规则
+   的叠加，再完成必要验证；文本合并成功不代表业务一致。
+6. 交付说明业务边界、代码与流程修改、验证及真实 Git 状态。准确性观察或历史候选
+   校准仅在明确请求时执行，不延后本次流程同步，也不构成交付门槛。
 
-1. Probe the smallest useful business neighborhood even when no map files are
-   present.
-2. Treat returned map knowledge as investigation leads, or build the smallest
-   source-supported business model after `MAP_NOT_FOUND`.
-3. Trace relevant business-flow decisions, branches, and outcomes.
-4. Open the decisive current source, tests, or tracked product documents.
-5. Expand to upstream or downstream code when confirmed business relations
-   indicate another owner or collaborator.
-6. Form the task-specific system model from current evidence.
-7. Implement, verify, and independently review the engineering change, then
-   recheck each affected business path.
-8. Record the task observation and choose `candidate`, `already_represented`,
-   `implementation_local`, or `unresolved` maintenance.
-9. Send durable candidates to a separate post-integration maintenance change.
-
-The final engineering conclusion is expected to be more accurate than any map
-that helped locate it. Business-changing tasks with no map follow the same
-accuracy standard.
+业务资料是理解入口，最终工程结论仍由当前实现与业务证据支持。
 
 ## Public Release Contract
 

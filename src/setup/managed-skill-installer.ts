@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import type { PackageIdentity } from "./package-identity.js";
 
 const primarySkillName = "semantic-atlas";
-const managedSkillNames = [primarySkillName, "semantic-atlas-maintenance"] as const;
+const managedSkillNames = [primarySkillName] as const;
 const managerName = "semantic-atlas";
 const installationMarkerName = ".semantic-atlas-managed.json";
 const fingerprintPattern = /^[a-f0-9]{64}$/u;

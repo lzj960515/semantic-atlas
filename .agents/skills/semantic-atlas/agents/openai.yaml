@@ -1,4 +1,4 @@
 interface:
   display_name: "Semantic Atlas"
-  short_description: "Build current-evidence business context for engineering work"
-  default_prompt: "Use $semantic-atlas to understand this business-changing task with or without an existing business map, verify it in current evidence, and decide whether shared knowledge needs maintenance."
+  short_description: "理解业务，并同步实现与流程图"
+  default_prompt: "使用 $semantic-atlas 根据已有 ID 或业务意图直接定位相关流程和源码证据；业务行为变化时在同一分支同步修改代码与相关流程，核对实际阅读和行为，合并时按最终代码重审受影响路径。"

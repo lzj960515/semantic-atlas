@@ -61,7 +61,7 @@ describe("managed Skill conflict recovery", () => {
       await rename(directory, preservedDirectory);
       const recovered = await runCli(["setup"], runtime);
       expect(recovered.exitCode).toBe(0);
-      expect(JSON.parse(recovered.stdout).data.skills).toHaveLength(2);
+      expect(JSON.parse(recovered.stdout).data.skills).toHaveLength(1);
       expect(await readFile(path.join(preservedDirectory, "SKILL.md"), "utf8")).toBe(userContent);
       expect(
         JSON.parse(await readFile(path.join(directory, ".semantic-atlas-managed.json"), "utf8")),

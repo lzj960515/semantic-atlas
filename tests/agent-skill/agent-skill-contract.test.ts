@@ -59,123 +59,36 @@ const projectRoot = fileURLToPath(new URL("../..", import.meta.url));
 const skillDirectory = path.join(projectRoot, ".agents/skills/semantic-atlas");
 const fixtureRepository = path.join(projectRoot, "tests/fixtures/agent-skill/repository");
 
-describe("business-understanding Agent Skill", () => {
-  it("has one discoverable identity in both the repository and package", async () => {
+describe("unified business Agent Skill", () => {
+  it("exposes one identity for business investigation and flow authoring", async () => {
     const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
-    const metadataDocument = await readFile(
-      path.join(skillDirectory, "agents/openai.yaml"),
-      "utf8",
-    );
-    const packageDocument = JSON.parse(
-      await readFile(path.join(projectRoot, "package.json"), "utf8"),
-    ) as { readonly files: readonly string[] };
-    const frontmatter = parseFrontmatter(skillDocument);
-    const metadata = parse(metadataDocument) as {
+    const metadata = parse(
+      await readFile(path.join(skillDirectory, "agents/openai.yaml"), "utf8"),
+    ) as {
       readonly interface: { readonly default_prompt: string };
     };
-
-    expect(frontmatter).toMatchObject({
-      name: "semantic-atlas",
-    });
+    const frontmatter = parseFrontmatter(skillDocument);
+    expect(frontmatter).toMatchObject({ name: "semantic-atlas" });
+    expect(frontmatter.description).toMatch(/理解.*绘制.*维护/u);
     expect(metadata.interface.default_prompt).toContain("$semantic-atlas");
-    expect(packageDocument.files).toContain(".agents");
-  });
+    expect(skillDocument).not.toContain("semantic-atlas-maintenance");
+    await expect(
+      access(path.join(projectRoot, ".agents/skills/semantic-atlas-maintenance")),
+    ).rejects.toThrow();
 
-  it("defines advisory evidence routing for every bounded search outcome", async () => {
-    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
-
-    expect(skillDocument).toContain("concept_not_found");
-    expect(skillDocument).toContain("concept_ambiguous");
-    expect(skillDocument).toContain("MAP_NOT_FOUND");
-    expect(skillDocument).toContain("investigation leads");
-    expect(skillDocument).toContain("map-update candidate");
-  });
-
-  it("searches ranked concepts before querying one stable business neighborhood", async () => {
-    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
-
-    const searchStep = skillDocument.indexOf('semantic-atlas search "<business-query>"');
-    const contextStep = skillDocument.indexOf('semantic-atlas context "<stable-concept-id>"');
-
-    expect(searchStep).toBeGreaterThan(-1);
-    expect(contextStep).toBeGreaterThan(searchStep);
-    expect(skillDocument).not.toContain("/scripts/");
-    await expect(access(path.join(skillDirectory, "scripts"))).rejects.toThrow();
-    expect(skillDocument).toContain("rank");
-    expect(skillDocument).toContain("score");
-    expect(skillDocument).toContain("stable ID");
-    expect(skillDocument).toContain("Scores express relative relevance within one query");
-  });
-
-  it("activates from business-changing work with or without an existing map", async () => {
-    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
-    const metadataDocument = await readFile(
-      path.join(skillDirectory, "agents/openai.yaml"),
-      "utf8",
+    const references = [...skillDocument.matchAll(/\]\((references\/[^)#]+)(?:#[^)]*)?\)/gu)].map(
+      (match) => match[1]!,
     );
-    const frontmatter = parseFrontmatter(skillDocument);
-    const metadata = parse(metadataDocument) as {
-      readonly interface: { readonly default_prompt: string };
-    };
-
-    expect(frontmatter.description).toContain("business-changing engineering tasks");
-    expect(frontmatter.description).toContain("with or without an existing business map");
-    expect(frontmatter.description).not.toContain(
-      "Use in repositories with docs/business-map files",
+    expect(new Set(references)).toEqual(
+      new Set([
+        "references/boundary-design.md",
+        "references/diagram-design.md",
+        "references/map-authoring.md",
+        "references/observations.md",
+        "references/reconciliation.md",
+      ]),
     );
-    expect(metadata.interface.default_prompt).toContain("with or without an existing business map");
-    expect(skillDocument).toContain(
-      "When the map is absent, build the smallest source-supported business model needed for the task.",
-    );
-    expect(skillDocument).toContain('"outcome": "map_not_found"');
-  });
-
-  it("makes a post-task maintenance decision without forcing a map edit", async () => {
-    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
-
-    expect(skillDocument).toContain("maintenance disposition");
-    expect(skillDocument).toContain("candidate");
-    expect(skillDocument).toContain("already_represented");
-    expect(skillDocument).toContain("implementation_local");
-    expect(skillDocument).toContain("unresolved");
-    expect(skillDocument).toContain("A no-change disposition is a complete result");
-    expect(skillDocument).toContain("semantic-atlas-maintenance");
-    expect(skillDocument).toContain(
-      "Keep canonical map editing in a separate maintenance change after stable reviewed source is available.",
-    );
-  });
-
-  it("uses related business flows to check stable branches without treating them as source truth", async () => {
-    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
-
-    expect(skillDocument).toContain("context.data.flows");
-    expect(skillDocument).toContain("actions, decisions, branches, and outcomes");
-    expect(skillDocument).toContain("business-relevant path");
-    expect(skillDocument).toContain("Classify a discrepancy before changing either side");
-    expect(skillDocument).toContain('kind: "flow"');
-    expect(skillDocument).toContain("When no relevant flow changed, record no flow candidate");
-  });
-
-  it("records task evidence without moving accuracy authority into the task Agent", async () => {
-    const skillDocument = await readFile(path.join(skillDirectory, "SKILL.md"), "utf8");
-    const observationReference = await readFile(
-      path.join(skillDirectory, "references/observations.md"),
-      "utf8",
-    );
-
-    expect(skillDocument).toContain("references/observations.md");
-    expect(skillDocument).toContain("semantic-atlas observe task --stdin");
-    expect(skillDocument).toContain("semantic-atlas observe review --stdin");
-    expect(skillDocument).toContain("For independent review, record one review observation");
-    expect(skillDocument).toContain("engineering result remains unchanged");
-    expect(skillDocument).toContain("Independent review owns accuracy judgments");
-    expect(observationReference).toContain('"schemaVersion": 1');
-    expect(observationReference).toContain('"schemaVersion": 2');
-    expect(observationReference).toContain('"mapUpdateCandidates"');
-    expect(observationReference).toContain('"businessDomainId"');
-    expect(observationReference).toContain('"disposition"');
-    expect(observationReference).toContain("semantic-atlas observe review --stdin");
-    expect(observationReference).not.toContain("Pietra");
+    for (const reference of references) await access(path.join(skillDirectory, reference));
   });
 
   it("keeps every controlled case queryable and grounded in current evidence", async () => {

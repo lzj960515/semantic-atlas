@@ -21,8 +21,14 @@ afterEach(async () => {
 });
 
 describe("ManagedSkillInstaller", () => {
-  it("installs and repairs the primary and maintenance Skills from one package", async () => {
+  it("installs one unified Skill and preserves a separate legacy directory", async () => {
     const fixture = await createBundleFixture();
+    const legacyDirectory = path.join(
+      fixture.userHome,
+      ".agents/skills/semantic-atlas-maintenance",
+    );
+    await mkdir(legacyDirectory, { recursive: true });
+    await writeFile(path.join(legacyDirectory, "SKILL.md"), "保留的旧工作流\n");
     const installer = new ManagedSkillsInstaller({
       packageIdentity,
       sourceRoot: fixture.sourceRoot,
@@ -30,35 +36,17 @@ describe("ManagedSkillInstaller", () => {
     });
 
     const installed = await installer.install();
-    expect(installed.skills).toHaveLength(2);
     expect(installed.skills).toMatchObject([
       {
         outcome: "installed",
         identity: { skillName: "semantic-atlas", packageVersion: "0.0.0" },
       },
-      {
-        outcome: "installed",
-        identity: {
-          skillName: "semantic-atlas-maintenance",
-          packageVersion: "0.0.0",
-        },
-      },
     ]);
-
-    const maintenanceDirectory = path.join(
-      fixture.userHome,
-      ".agents/skills/semantic-atlas-maintenance",
-    );
-    await writeFile(path.join(maintenanceDirectory, "SKILL.md"), "modified\n");
-
-    const repaired = await installer.install();
-    expect(repaired.skills).toMatchObject([
+    expect(installed.skills).toHaveLength(1);
+    expect(await readFile(path.join(legacyDirectory, "SKILL.md"), "utf8")).toBe("保留的旧工作流\n");
+    expect((await installer.install()).skills).toMatchObject([
       { outcome: "current", identity: { skillName: "semantic-atlas" } },
-      { outcome: "repaired", identity: { skillName: "semantic-atlas-maintenance" } },
     ]);
-    await expect(readFile(path.join(maintenanceDirectory, "SKILL.md"), "utf8")).resolves.toBe(
-      skillDocumentForName("maintenance workflow", "semantic-atlas-maintenance"),
-    );
   });
 
   it("installs, verifies, and repairs the package-owned Skill", async () => {
@@ -281,14 +269,8 @@ async function createBundleFixture(): Promise<{
   const sourceRoot = path.join(sandbox, "package-skills");
   const userHome = path.join(sandbox, "home");
   const primaryDirectory = path.join(sourceRoot, "semantic-atlas");
-  const maintenanceDirectory = path.join(sourceRoot, "semantic-atlas-maintenance");
   await mkdir(primaryDirectory, { recursive: true });
-  await mkdir(maintenanceDirectory, { recursive: true });
   await writeFile(path.join(primaryDirectory, "SKILL.md"), skillDocument("primary workflow"));
-  await writeFile(
-    path.join(maintenanceDirectory, "SKILL.md"),
-    skillDocumentForName("maintenance workflow", "semantic-atlas-maintenance"),
-  );
   return { sourceRoot, userHome };
 }
 

@@ -11,7 +11,7 @@
   reconciliation retains its exact-origin, single-domain observation contract;
   necessary multi-file ownership corrections use a complete Git review surface
   with separate, accurate origin accounting.
-- Affected pages: the [maintenance Skill](../../.agents/skills/semantic-atlas-maintenance/SKILL.md),
+- Affected pages: the [maintenance Skill](../../.agents/skills/semantic-atlas/SKILL.md),
   [understanding Skill](../../.agents/skills/semantic-atlas/SKILL.md),
   [map format](../map-format.md), [architecture](../architecture.md),
   [product contract](../product-contract.md), [observations](../observations.md),

@@ -49,16 +49,14 @@ try {
   });
 
   const projection = await readFile(outputPath, "utf8");
-  assert.match(projection, /data-node-id="commerce\.orders\.place-order"/u);
-  assert.match(projection, /data-channel="directed-relation"/u);
+  assert.match(projection, /data-node-id="check-inventory"/u);
   assert.match(projection, /data-viewer-mode="export"/u);
   assert.match(projection, /data-action="zoom-in"/u);
-  assert.match(projection, /data-view-type="flows"/u);
-  assert.match(projection, /data-flow-view="commerce\.orders\.place-order-flow"/u);
+  assert.match(projection, /data-flow-id="commerce\.orders\.place-order-flow"/u);
   assert.match(projection, /data-flow-step-id="check-inventory"/u);
   assert.match(projection, /id="node-details"/u);
-  assert.match(projection, /preserveAspectRatio="xMidYMid meet"/u);
-  assert.match(projection, /"value":"src\/catalog"/u);
+  assert.doesNotMatch(projection, /data-map-view=/u);
+  assert.doesNotMatch(projection, /src\/catalog/u);
   assert.doesNotMatch(projection, /class="node-card__anchor/u);
   assert.doesNotMatch(projection, /Business relationships, made visible\./u);
 } finally {

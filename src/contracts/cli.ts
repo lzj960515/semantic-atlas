@@ -5,6 +5,7 @@ import type {
   MapIssue,
   RepositoryMapSource,
 } from "./map.js";
+import type { FlowsData, FlowSearchData } from "./flow-navigation.js";
 import type { InsightSummaryResult } from "./insights.js";
 import type { ObservationKind } from "./observation.js";
 import type { ReconciliationCandidateReport } from "./reconciliation.js";
@@ -39,6 +40,11 @@ export interface CliErrorEnvelope<TCommand extends string> {
 }
 
 export type CliError =
+  | {
+      readonly code: "FLOW_NOT_FOUND";
+      readonly message: string;
+      readonly flowId: string;
+    }
   | {
       readonly code: "MAP_NOT_FOUND";
       readonly message: string;
@@ -213,7 +219,7 @@ export interface SetupData {
     readonly identity: {
       readonly packageName: string;
       readonly packageVersion: string;
-      readonly skillName: "semantic-atlas" | "semantic-atlas-maintenance";
+      readonly skillName: "semantic-atlas";
       readonly fingerprint: string;
     };
   }[];
@@ -286,3 +292,8 @@ export type ReconciliationCandidatesEnvelope =
 export type ReconciliationStatusEnvelope =
   | StandaloneCliSuccessEnvelope<"reconcile status", ReconciliationStatusData>
   | CliErrorEnvelope<"reconcile status">;
+
+export type FlowsEnvelope = CliSuccessEnvelope<"flows", FlowsData> | CliErrorEnvelope<"flows">;
+export type FlowSearchEnvelope =
+  | CliSuccessEnvelope<"search", FlowSearchData>
+  | CliErrorEnvelope<"search">;

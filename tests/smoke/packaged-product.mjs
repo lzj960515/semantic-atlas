@@ -30,12 +30,6 @@ const renderedOutputPath = path.join(sandbox, "business-map.html");
 const installedPackageRoot = path.join(consumerDirectory, "node_modules", packageIdentity.name);
 const installedCli = path.join(installedPackageRoot, "dist", "cli", "bin.js");
 const managedSkillDirectory = path.join(userHome, ".agents", "skills", "semantic-atlas");
-const maintenanceSkillDirectory = path.join(
-  userHome,
-  ".agents",
-  "skills",
-  "semantic-atlas-maintenance",
-);
 const cliEnvironment = withoutRegistryCredentials({
   ...process.env,
   HOME: userHome,
@@ -70,9 +64,7 @@ async function assertPublicArchive(archivePath) {
     "package/.agents/skills/semantic-atlas/SKILL.md",
     "package/.agents/skills/semantic-atlas/agents/openai.yaml",
     "package/.agents/skills/semantic-atlas/references/observations.md",
-    "package/.agents/skills/semantic-atlas-maintenance/SKILL.md",
-    "package/.agents/skills/semantic-atlas-maintenance/agents/openai.yaml",
-    "package/.agents/skills/semantic-atlas-maintenance/references/reconciliation.md",
+    "package/.agents/skills/semantic-atlas/references/reconciliation.md",
     "package/dist/cli/bin.js",
     "package/examples/commerce.yaml",
     "package/LICENSE",
@@ -199,15 +191,12 @@ async function exerciseInstalledProduct() {
   assert.equal(JSON.parse(render.stdout).data.outputPath, renderedOutputPath);
   assert.equal(JSON.parse(render.stdout).data.flowCount, 1);
   const projection = await readFile(renderedOutputPath, "utf8");
-  assert.match(projection, /data-node-id="commerce\.orders\.place-order"/u);
-  assert.match(projection, /data-channel="directed-relation"/u);
+  assert.match(projection, /data-node-id="check-inventory"/u);
   assert.match(projection, /data-viewer-mode="export"/u);
   assert.match(projection, /data-action="zoom-in"/u);
-  assert.match(projection, /data-view-type="flows"/u);
-  assert.match(projection, /data-flow-view="commerce\.orders\.place-order-flow"/u);
+  assert.match(projection, /data-flow-id="commerce\.orders\.place-order-flow"/u);
   assert.match(projection, /id="node-details"/u);
-  assert.match(projection, /preserveAspectRatio="xMidYMid meet"/u);
-  assert.match(projection, /"value":"src\/catalog"/u);
+  assert.doesNotMatch(projection, /src\/catalog/u);
   assert.doesNotMatch(projection, /class="node-card__anchor/u);
 
   const chineseEnvironment = { ...cliEnvironment, SEMANTIC_ATLAS_LANG: "", LC_ALL: "zh_CN.UTF-8" };
@@ -342,7 +331,6 @@ async function exerciseInstalledWeb(
       assert.match(html, /<html lang="en">/u);
     }
     assert.match(html, /data-viewer-mode="web"/u);
-    assert.match(html, /data-view-type="flows"/u);
     assert.match(html, /id="node-details"/u);
     assert.deepEqual(model.projectPayloads, []);
     assert.equal(model.projects.length, 1);
@@ -353,36 +341,16 @@ async function exerciseInstalledWeb(
     const projectEnvelope = await project.json();
     assert.equal(project.status, 200);
     if (environment.LC_ALL === "zh_CN.UTF-8") {
-      assert.match(
-        projectEnvelope.data.markup,
-        /data-i18n="viewer\.nodeKinds\.domain">domain<\/span>/u,
-      );
+      assert.match(projectEnvelope.data.markup, /Is inventory available\?/u);
     }
     assert.equal(project.headers.get("cache-control"), "no-store");
-    assert.match(projectEnvelope.data.markup, /data-map-view="commerce"/u);
-    assert.match(
-      projectEnvelope.data.markup,
-      /data-flow-view="commerce\.orders\.place-order-flow"/u,
+    assert.match(projectEnvelope.data.markup, /data-flow-id="commerce\.orders\.place-order-flow"/u);
+    assert.equal(projectEnvelope.data.project.flows.length, 1);
+    assert.equal(projectEnvelope.data.project.views, undefined);
+    assert.ok(
+      projectEnvelope.data.project.flows[0].nodes.some((node) => node.id === "check-inventory"),
     );
-    assert.match(projectEnvelope.data.markup, /preserveAspectRatio="xMidYMid meet"/u);
-    assert.equal(
-      projectEnvelope.data.project.views[0].nodes.some((node) =>
-        node.anchors.some((anchor) => anchor.value === "src/catalog"),
-      ),
-      true,
-    );
-    const placeOrder = projectEnvelope.data.project.views[0].nodes.find(
-      (node) => node.id === "commerce.orders.place-order",
-    );
-    assert.ok(placeOrder, "installed Web payload is missing the place-order operation");
-    assert.deepEqual(placeOrder.anchors, [
-      {
-        kind: "symbol",
-        file: "src/orders/place-order.service.ts",
-        value: "PlaceOrderService.execute",
-        description: "Historical orchestration entry point to confirm in current source.",
-      },
-    ]);
+    assert.doesNotMatch(JSON.stringify(projectEnvelope), /src\/catalog/u);
     assert.doesNotMatch(
       JSON.stringify(projectEnvelope),
       new RegExp(escapeRegularExpression(selectedRepositoryRoot), "u"),
@@ -687,9 +655,8 @@ async function exerciseManagedSkillLifecycle() {
   const firstSetup = JSON.parse(runInstalledCli(["setup"]).stdout);
   assert.equal(firstSetup.ok, true);
   assert.equal(firstSetup.command, "setup");
-  assert.equal(firstSetup.data.skills.length, 2);
+  assert.equal(firstSetup.data.skills.length, 1);
   const primarySetup = setupSkill(firstSetup, "semantic-atlas");
-  const maintenanceSetup = setupSkill(firstSetup, "semantic-atlas-maintenance");
   assert.equal(primarySetup.outcome, "installed");
   assert.equal(primarySetup.targetDirectory, managedSkillDirectory);
   assert.deepEqual(primarySetup.identity, {
@@ -698,11 +665,7 @@ async function exerciseManagedSkillLifecycle() {
     skillName: "semantic-atlas",
     fingerprint: primarySetup.identity.fingerprint,
   });
-  assert.equal(maintenanceSetup.outcome, "installed");
-  assert.equal(maintenanceSetup.targetDirectory, maintenanceSkillDirectory);
-  assert.equal(maintenanceSetup.identity.packageVersion, packageIdentity.version);
   assert.match(primarySetup.identity.fingerprint, /^[a-f0-9]{64}$/u);
-  assert.match(maintenanceSetup.identity.fingerprint, /^[a-f0-9]{64}$/u);
 
   const marker = JSON.parse(
     await readFile(path.join(managedSkillDirectory, ".semantic-atlas-managed.json"), "utf8"),
@@ -716,33 +679,20 @@ async function exerciseManagedSkillLifecycle() {
     fingerprint: primarySetup.identity.fingerprint,
   });
 
-  const maintenanceMarker = JSON.parse(
-    await readFile(path.join(maintenanceSkillDirectory, ".semantic-atlas-managed.json"), "utf8"),
-  );
-  assert.equal(maintenanceMarker.skillName, "semantic-atlas-maintenance");
-  assert.equal(maintenanceMarker.packageVersion, packageIdentity.version);
-
   const repeatedSetup = JSON.parse(runInstalledCli(["setup"]).stdout);
   assert.deepEqual(
     repeatedSetup.data.skills.map(({ outcome }) => outcome),
-    ["current", "current"],
+    ["current"],
   );
 
-  const installedSkillDocument = path.join(maintenanceSkillDirectory, "SKILL.md");
+  const installedSkillDocument = path.join(managedSkillDirectory, "SKILL.md");
   await appendFile(installedSkillDocument, "\nmodified managed copy\n");
   const repairedSetup = JSON.parse(runInstalledCli(["setup"]).stdout);
-  assert.equal(setupSkill(repairedSetup, "semantic-atlas").outcome, "current");
-  assert.equal(setupSkill(repairedSetup, "semantic-atlas-maintenance").outcome, "repaired");
+  assert.equal(setupSkill(repairedSetup, "semantic-atlas").outcome, "repaired");
   assert.equal(
     await readFile(installedSkillDocument, "utf8"),
     await readFile(
-      path.join(
-        installedPackageRoot,
-        ".agents",
-        "skills",
-        "semantic-atlas-maintenance",
-        "SKILL.md",
-      ),
+      path.join(installedPackageRoot, ".agents", "skills", "semantic-atlas", "SKILL.md"),
       "utf8",
     ),
   );

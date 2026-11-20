@@ -23,14 +23,14 @@ MapDocumentLoader -> MapValidator -> BusinessFlowValidator -> BusinessGraph
                     ConceptSearchService + ContextQueryService       MapProjector + FlowProjector
                                   |                                               |
                                   v                                               v
-                 relationship + flow JSON                         shared relationship / flow Viewer
+                 business context JSON                            shared process Viewer
 
 Calling Agent
   -> activates from business task meaning
   -> probes the graph, including the map-not-found outcome
   -> treats available map results as investigation hypotheses
   -> confirms decisive behavior in current repository evidence
-  -> records one maintenance disposition
+  -> updates affected code and business flows in the same branch
 
 published package Skills bundle
         |
@@ -59,7 +59,7 @@ Independent review -----------+                      v
                                   required boolean   deterministic candidate report
                                          |                    |
                                          v                    v
-                                  task orchestrator   Maintenance Agent Skill
+                                  task orchestrator   explicit historical reconciliation
                                                       |
                                                       v
                                        current evidence + reviewed YAML
@@ -141,99 +141,37 @@ that query rather than truth or selection confidence. Candidate retrieval owns
 no graph expansion or source-evidence judgment; callers pass the selected stable
 ID to `ContextQueryService`.
 
-### MapProjector
+### MapProjector 与流程导航
 
-Builds deterministic repository-wide and top-level-domain graph projections
-for people and agents. A domain projection keeps directly connected external
-concepts as visible boundary nodes. Every projection distinguishes semantic
-containment from directed horizontal relations and preserves stable element
-identities for repeatable layout and inspection.
+将已校验的 `flows` 投影为阅读器数据。默认入口来自显式流程：没有被其他流程步骤
+引用其场景的流程先显示，再按节点引用排列子流程。`part_of` 继续表示业务归属，
+不会生成分类画面或执行箭头。没有流程时提供空状态。
 
-### FlowProjector
+节点进入目标只取引用场景自己拥有的其他流程，排除当前流程。普通相关关系与后代
+归属不产生深入链接。CLI 的概念、关系、源码锚点和完整地图统计保持其已有含义。
 
-Builds one deterministic top-to-bottom diagram per business flow. Dagre owns step
-placement and transition routing; action, decision, and outcome steps preserve
-distinct visual semantics, while labeled decision branches remain visible on
-their transitions. The projector reads normalized flow meaning and owns no
-query or maintenance decisions.
+### FlowProjector 与布局
 
-### Diagram Layout
+每个流程投影出 HTML 节点、SVG 连线和布局资料。起点、动作、判断、结果采用紧凑
+卡片、小图标与细色条，子流程节点以叠层样式提示。判断使用淡金卡片，不因正文
+增加而膨胀成大菱形。
 
-Relationship and flow projectors share `layoutDiagram` for both initial
-server-side size estimates and browser-measured text dimensions. SVG owns
-shapes and routed lines; an ordinary HTML sibling layer owns complete names,
-summaries, kinds, and branch labels so page translators can read full sentences.
-The same layout positions both layers and connects decision edges to the actual
-diamond boundary.
+Dagre 确定层级和位置，正交走线保持水平或垂直并使用圆角转折。小箭头与线条同色，
+分支标签放在对应连接的空白区。服务端预估与浏览器实测共用布局，文字变化后重新
+测量卡片，完整展示标题、摘要与条件。
 
-The browser observes card and label sizes. Appending a translation, changing
-fonts, or restoring original text reflows the affected diagram without replacing
-its text DOM. Nodes grow with their content and Dagre reserves the measured
-label space. Translation remains browser presentation rather than a second
-tracked business-map copy.
+### ViewerPage 与浏览状态
 
-### ViewerPage
+正式阅读器按流程阅读需求重新实现。项目内所有页面使用一套流程画布，顶部提供
+标题旁的“查看其他流程”级联菜单与多项目选择；产品品牌栏删除，单项目名隐藏。画布保留标题、“上一层”、平移和缩放。默认适应最多使用原始
+比例，避免少量节点被过度放大。没有常驻目录、关系模式、图例或导出按钮。
 
-Owns the compact human inspection surface shared by static export and Web. It
-combines project selection, relationship/flow switching, business-domain or
-flow selection, map statistics, a restrained legend, pan, zoom, and fit-to-view
-around shared SVG geometry and selectable HTML text. Inline text boxes accept
-native selection and copying while card padding and
-blank content space reach the SVG node underneath. Dragging a node updates
-view-local offsets from the measured automatic layout; dragging empty diagram
-space pans the map. `repositionDiagram` moves incident routes and their labels,
-clips endpoints to card or diamond boundaries, and expands the complete image
-bounds. When a drag extends the canvas origin, the camera compensates so the
-node stays under the pointer. Offsets survive text reflow and view switching
-within the current model; reset clears the current view's offsets and fits its
-automatic arrangement. Replacing a Web project model discards that model's
-manual positions. Cards render stable
-business meaning only. Card surfaces use a grab cursor, selected-text surfaces
-retain the text cursor, and active diagram dragging uses a grabbing cursor.
-Clicking a node or activating it with the keyboard opens its navigation anchors and
-derived related-flow links in an overlaid desktop side panel or narrow-screen
-bottom panel. The panel displays bound symbols as `file#value`. Flow steps with
-a concept reference open that concept's same panel; steps without a reference
-remain ordinary flow content. From a boundary
-concept, the complete-map view, or a concept-linked flow step, the panel can open
-the concept's owning business-domain view and select the same concept there.
-The target domain is derived from the existing non-boundary domain projection,
-so cross-file navigation adds no tracked link format or cross-project resolver.
-Related-flow links omit the currently displayed flow in flow view, and the panel
-hides the section when no other related flows remain. Relationship view retains
-all related-flow links. Selecting a related flow switches to its projected path. Camera
-coordinates use the SVG `xMidYMid meet` scale and letterbox offsets for both
-pointer zoom, pan, and HTML placement, including viewport resizing. A fitted
-camera follows content reflow; an explicitly zoomed or panned camera keeps its
-current view. Its browser interaction state is disposable and never
-enters tracked map data.
+详情默认关闭，点击正文只显示业务备注；节点角标直接进入子流程，多目标先选择。
+详情不放进入按钮。正文无备注时保持原样。源码锚点保留在业务文件和 CLI，Web 数据只包含业务阅读所需内容。
+浏览历史保存图编号、视野与选中节点；切项目时清空。浏览器不提供内容编辑或写入。
 
-`ViewerLegend` supplies one keyboard-accessible, scrollable reading guide in the
-shared toolbar, including narrow screens. Its bilingual examples explain all
-relationship kinds, concept and external-boundary styling, and flow shapes and
-branches. Relationship arrows read from source to target, including consumer to
-interface for `consumes`; dashed containment is displayed as parent contains
-child without an arrow. Flow arrows separately express step progression.
-
-`renderDiagramImage` snapshots the selected diagram after text layout settles,
-resets the snapshot to full layout bounds, and rasterizes its SVG geometry and
-current HTML text through bundled `html-to-image`. SVG paint styles are captured
-explicitly because that library deep-clones SVG without copying descendant
-styles. The off-screen snapshot is removed on success or failure; the live
-camera and translated DOM stay unchanged. Small diagrams use 2× resolution;
-large images stay within 64 million pixels and 16384 pixels per side. Diagrams
-that cannot fit at native text size report a limit and suggest a business-domain
-or flow selection. Export controls prevent duplicate jobs and report completion
-or failure. The Web policy permits generated `data:` images while keeping
-external image sources blocked.
-
-Static export embeds its complete project model, diagram layers, and the bundled
-Dagre and image-export browser runtimes, with no network dependency. Web mode initially
-receives only project IDs and display names, then replaces its single current
-model and SVG set when a selection loads. Empty, loading, ready, and unavailable
-states are browser-session state. A monotonically increasing request generation
-and cancellation signal prevent an older project request from replacing a
-newer selection.
+静态 HTML 内嵌完整流程资料与运行包，可离线导航。Web 首页只包含项目名称和不透明
+标识，选择项目后按需载入。请求编号与取消信号防止较早请求覆盖新的项目。
 
 ### ProjectStore And ProjectRegistrationService
 
@@ -307,75 +245,35 @@ corresponding Zod locale. The internationalization tests check catalog parity
 and public language behavior. Runtime language scope is owned by the
 [product contract](product-contract.md#runtime-language).
 
-### Business Understanding Agent Skill
+### 统一业务 Skill
 
-Owns the business-understanding workflow for every business-changing task. It
-activates from task meaning, converts a natural-language task into one bounded
-map probe, interprets advisory results or `MAP_NOT_FOUND`, builds the smallest
-current-evidence business model needed for the decision, traces relevant
-business-flow branches before and after the change, and continues through the
-repository's normal implementation and verification process. It classifies a
-source/flow discrepancy before proposing either a code repair or a `flow`
-maintenance candidate. Source editing and engineering judgment remain with the
-calling Agent. For a symbol bound to a file, it locates the declaration within
-that file and reads the current business behavior before expanding discovery.
-Missing declarations follow its existing stale-anchor investigation route.
+已知流程或概念编号时直接调用 `flows <id>` 或 `context <id>`；未知时按业务意图
+调用 `search --flows` 定位相关图。搜索使用本地业务名称、别名、步骤和说明的词面匹配，
+AI 根据业务含义选择结果；没有语义向量索引，不将分数解释为业务正确性。
+缺少上下文时才补看上层、子流程与协作，不强制总览或固定搜索顺序。
 
-The Skill invokes the public `semantic-atlas search` command, chooses a
-candidate from its business meaning and score ordering, and then invokes the
-public `semantic-atlas context` command with that candidate's stable ID. The
-managed setup and upgrade lifecycle owns package and Skill version identity, so
-the task workflow does not add a second command-resolution or envelope-checking
-adapter.
+根据源码、产品决定和运行证据确定业务行为，沿流程步骤上的概念锚点定位文件、类
+和方法。业务变化在当前分支同步代码和图，检查正常路径、条件和结果。纯实现改动
+不强制重画。合并冲突按最终代码的业务含义重新梳理受影响图，不做机械文本拼接。
 
-### Maintenance Agent Skill
+流程设计、业务边界和文件编写资料在同一 Skill 中按需读取。旧候选与观察仅在明确
+处理历史资料时使用，不作为普通工程的默认动作或合入后的前置工作。
 
-Owns business-map authoring and candidate-driven maintenance. Both paths use
-the same evidence-based ownership sequence before every edit: confirm affected
-responsibilities, reuse still-correct owners, create owners for new independent
-business areas, and preserve shared identities and relation/flow ownership.
-These decisions apply equally to the first map and later maintenance. The
-[map format](map-format.md#business-ownership-and-file-boundaries) owns the
-common model. The Skill prefers source-file-bound methods or functions for
-confirmed business actions, while retaining directory, data-file and document
-anchors when those serve the concept. It refines existing navigation hints
-from current evidence through the same reviewed map-editing lifecycle.
+### FlowNavigationService 与流程搜索
 
-Direct authoring handles requested creation, extension, correction or ownership
-reorganization from current evidence even when no retained candidates exist.
-Its complete necessary map change follows normal Git validation, rendering,
-review and integration. Candidate reconciliation instead begins with
-`ReconciliationService`'s report, confirms the selected domain's real ownership,
-and edits or creates its owning YAML. A mapless candidate run can seed one
-bounded domain. Current evidence may show that repartitioning existing files is
-necessary; that correction uses the complete ordinary authoring review surface
-and reports retained origins separately rather than encoding a multi-file result
-as one `owningMapPath`.
-
-For candidate reconciliation, Work, Review and Integration remain separate
-evidence stages. Work prepares classifications and an observation document
-without consuming any candidate. Integration adds the actual merged commit when
-the single-domain map changed and records the reviewed result through
-`observe maintenance`. Discarded or unresolved conclusions follow the same
-review boundary. Direct authoring without origins records its Git delivery
-state; retained observations stay immutable and origin accounting stays accurate.
+共享服务从显式步骤的场景引用派生根入口、子流程和父流程，不推断执行顺序。
+浏览器的级联菜单与 AI 的 `flows` 命令使用同一目录，AI 可以直接读取任意编号。
+菜单从标题旁左对齐向右展开，鼠标悬停整行时只更新右侧列，保留当前行 DOM 和焦点，
+避免名称点击被展开打断。键盘和触屏保留明确的展开操作，窄屏在菜单内横向滚动。
+流程详情包含本层步骤、转换、子流程、概念与源码锚点；没有锚点时如实为空。
+`search --flows` 复用现有词面检索，直接返回流程候选；普通 `search` 保留概念检索。
+目录支持共享子流程；循环引用保留一个可达入口，菜单沿当前路径停止重复展开。
 
 ### ManagedSkillsInstaller
 
-Coordinates the package's `semantic-atlas` and `semantic-atlas-maintenance`
-payloads. Each Skill receives one `ManagedSkillInstaller` with the same package
-identity and its own target directory. The per-Skill installer derives a
-deterministic payload fingerprint, records package and Skill identity in a
-management marker, and classifies repeated setup as current, repair, upgrade,
-or interrupted-swap recovery. It requires the current marker contract before
-replacing an existing same-named directory; obsolete and unrelated directories
-remain untouched.
-
-Replacement uses one complete staged directory. The current managed directory
-moves to a deterministic backup before the staged directory becomes active. A
-failed swap restores the backup, while a later setup recovers a backup left by
-process interruption and removes owned staging artifacts only after it has
-confirmed the managed target.
+只安装一个包内 `semantic-atlas` Skill，统一理解业务与流程维护。沿用安装指纹、
+归属标记、暂存目录和原子替换，验证已有同名目录归属后才修复或升级。
+旧 `semantic-atlas-maintenance` 用户目录不自动清退，无关目录保持原样。
 
 ### PackageUpgrader
 
@@ -535,7 +433,8 @@ lifecycle commands:
 
 ```text
 semantic-atlas validate [--repo <path>]
-semantic-atlas search <query> [--repo <path>]
+semantic-atlas search <query> [--flows] [--repo <path>]
+semantic-atlas flows [flow-id] [--repo <path>]
 semantic-atlas context <id-or-term> [--repo <path>]
 semantic-atlas render [--repo <path>] [--output <path>]
 semantic-atlas project add [path]
@@ -559,6 +458,9 @@ reports its loopback URL and repository count without exposing roots to the
 browser. Observation commands report the derived repository identity, while
 package lifecycle commands remain repository-independent. Machine output uses
 a versioned envelope with a stable success or error discriminant.
+
+`search --flows` 直接检索流程及其业务步骤，按流程去重返回命中步骤。`flows <id>`
+只读取指定图及源码锚点，省略编号时才提供目录。
 
 `search` returns at most five ranked nodes from every business-node kind. A
 successful empty result means the map has no sufficiently related vocabulary;
@@ -675,19 +577,12 @@ normal Git merge behavior. Review focuses on business meaning, stable IDs,
 relationship direction, labeled branch outcomes, and whether the update belongs
 in the shared map.
 
-Every business-changing task writes its own immutable observation and maintenance
-disposition. Candidate-producing results can enter post-integration maintenance
-as soon as stable reviewed source is available. Periodic reconciliation uses the
-same deterministic report to recover accumulated drift and missed work. Each
-candidate reconciliation run updates one owning YAML surface for one business
-domain after confirming its ownership. Direct authoring and necessary ownership
-reorganization review the affected owning files together. A no-candidate or
-no-change run is a valid outcome and does not
-affect an engineering task already completed against current evidence.
+业务行为变化时，同分支更新代码与受影响流程，使用正常 Git 差异、验证与审阅一起合入。
+纯实现改动不强制改图。多个 Agent 的合并冲突依据最终代码重审业务含义，不机械拼接。
+旧观察与候选工具仅用于明确请求的历史资料处理，不决定普通开发何时维护图。
 
-The understanding and maintenance Skills operate independently of task
-orchestrators. Orchestrators may schedule work but do not decide when an Agent
-needs business understanding.
+统一的 semantic-atlas Skill 独立于任务编排器，根据业务任务选择直接定位、调查、实现
+和同步流程的必要动作。编排器可以安排任务，但不添加固定从根图开始或等主干后维护的门槛。
 
 ## Current Technology Boundary
 

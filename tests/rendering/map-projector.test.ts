@@ -1,320 +1,175 @@
 import { describe, expect, it } from "vitest";
-import type {
-  BusinessFlow,
-  BusinessNode,
-  BusinessRelation,
-  ValidatedBusinessMap,
-} from "../../src/contracts/map.js";
+import type { BusinessFlow, BusinessNode, ValidatedBusinessMap } from "../../src/contracts/map.js";
 import { BusinessGraph } from "../../src/map/business-graph.js";
 import { MapProjector } from "../../src/rendering/map-projector.js";
+import { conceptDetailLinks } from "../../src/rendering/viewer-navigation.js";
 
-describe("MapProjector", () => {
-  it("projects stable graph identities and safely escaped business content", () => {
-    const graph = new BusinessGraph(validatedMap());
+const metadata = { id: "orders", name: "订单示例" };
 
-    const first = new MapProjector(graph).project();
-    const second = new MapProjector(graph).project();
+describe("业务流程投影", () => {
+  it("从完整旅程开始，再按节点引用排列子流程", () => {
+    const project = new MapProjector(new BusinessGraph(exampleMap())).viewerProject(metadata);
 
-    expect(first).toEqual(second);
-    expect(first).toMatchObject({
-      format: "html",
-      nodeCount: 3,
-      relationCount: 2,
-      flowCount: 1,
-    });
-    expect(first.content).toContain('data-node-id="commerce.orders"');
-    expect(first.content).toContain(
-      'data-relation-id="commerce.orders.checkout--part_of--commerce.orders"',
-    );
-    expect(first.content).toContain("Orders &amp; returns");
-    expect(first.content).toContain("&lt;reliable&gt;");
-    expect(first.content).not.toContain("<script>alert");
-    expect(first.content).toContain('data-map-view="all"');
-    expect(first.content).toContain('data-map-view="commerce"');
-    expect(first.content).toContain('aria-label="Zoom in"');
-    expect(first.content).toContain('data-flow-view="commerce.orders.checkout-flow"');
-    expect(first.content).toContain('data-flow-step-id="payment-authorized"');
-    expect(first.content).toContain("authorized");
-  });
-
-  it("exposes complete graph and flow text as ordinary HTML for page translation", () => {
-    const graph = new BusinessGraph(validatedMap());
-    const project = new MapProjector(graph).viewerProject({ id: "repository", name: "Repository" });
-    const view = project.views[0]!;
-    const flow = project.flows[0]!;
-
-    expect(view.svg).not.toContain("<text");
-    expect(flow.svg).not.toContain("<text");
-    expect(view.textLayer).toContain(
-      '<h3 class="node-card__title"><span data-selectable-text>Orders &amp; returns</span></h3>',
-    );
-    expect(view.textLayer).toContain(
-      '<p class="node-card__summary"><span data-selectable-text>Keeps orders &lt;reliable&gt;.</span></p>',
-    );
-    expect(view.textLayer).toContain('data-node-id="commerce.orders"');
-    expect(view.textLayer).toContain(">contains</span>");
-    expect(flow.textLayer).toContain(
-      '<h3 class="flow-step__title"><span data-selectable-text>Is payment authorized?</span></h3>',
-    );
-    expect(flow.textLayer).toContain(
-      '<p class="flow-step__summary"><span data-selectable-text>Only authorized payment may create an order.</span></p>',
-    );
-    expect(flow.textLayer).toContain(">authorized</span>");
-    expect(flow.textLayer).not.toContain("<svg");
-    expect(view.textLayer).not.toContain("<svg");
-    expect(view.textLayer).not.toContain("<script>alert");
-  });
-
-  it("links relationship concepts to flows that reuse their business identities", () => {
-    const graph = new BusinessGraph(validatedMap());
-
-    const project = new MapProjector(graph).viewerProject({
-      id: "repository",
-      name: "Repository",
-    });
-    const checkout = project.views[0]?.nodes.find(({ id }) => id === "commerce.orders.checkout");
-
-    expect(checkout?.relatedFlowIds).toEqual(["commerce.orders.checkout-flow"]);
-    expect(project.flows).toMatchObject([
-      {
-        id: "commerce.orders.checkout-flow",
-        scenario: {
-          id: "commerce.orders.checkout",
-          name: "Checkout",
-        },
-        stepCount: 4,
-        transitionCount: 3,
-      },
+    expect(project.flows.map(({ id }) => id)).toEqual([
+      "journey.flow",
+      "checkout.flow",
+      "shipping.flow",
     ]);
-    expect(project.flows[0]?.svg).toContain('class="flow-step flow-step--decision"');
+    expect(project.flows[0]?.nodes.map(({ name }) => name)).toEqual([
+      "顾客下单",
+      "仓库发货",
+      "订单完成",
+    ]);
+    expect(project).not.toHaveProperty("views");
   });
 
-  it("keeps translated cards intrinsically sized and connects text to reflowable geometry", () => {
-    const graph = new BusinessGraph(validatedMap());
-    const project = new MapProjector(graph).viewerProject({ id: "repository", name: "Repository" });
-    const view = project.views[0]!;
-    const flow = project.flows[0]!;
+  it("只把业务自己拥有的流程作为细图，不把归属或相关流程冒充执行顺序", () => {
+    const graph = new BusinessGraph(exampleMap());
 
-    for (const diagram of [view, flow]) {
-      expect(diagram.svg).toContain("data-layout-root");
-      expect(diagram.textLayer).not.toMatch(/(?:^|;)height:/u);
-      for (const node of diagram.layout.nodes) {
-        expect(diagram.svg).toContain(`data-layout-node="${node.id}"`);
-        expect(diagram.textLayer).toContain(`data-layout-node="${node.id}"`);
-      }
-      for (const edge of diagram.layout.edges) {
-        expect(diagram.svg).toContain(`data-layout-edge="${edge.id}"`);
-        if (edge.width > 0) {
-          expect(diagram.textLayer).toContain(`data-layout-edge="${edge.id}"`);
-        }
-      }
-    }
-    expect(view.layout.direction).toBe("LR");
-    expect(flow.layout.direction).toBe("TB");
-    expect(view.layout.edges[0]).toMatchObject({ from: "commerce", to: "commerce.orders" });
-    expect(flow.layout.nodes.find(({ id }) => id === "payment-authorized")?.kind).toBe("decision");
-    expect(flow.layout.nodes.find(({ id }) => id === "receive-order")?.kind).toBe("card");
-    expect(flow.layout.nodes.find(({ id }) => id === "order-created")?.kind).toBe("outcome");
+    expect(conceptDetailLinks(graph, "checkout", "journey.flow")).toEqual([
+      { id: "checkout.flow", name: "顾客下单", summary: "顾客下单" },
+    ]);
+    expect(conceptDetailLinks(graph, "checkout", "checkout.flow")).toEqual([]);
+    expect(conceptDetailLinks(graph, "domain", "journey.flow")).toEqual([]);
   });
 
-  it("keeps navigation anchors in on-demand details rather than graph cards", () => {
-    const graph = new BusinessGraph(validatedMap());
+  it("同一概念在不同步骤出现时使用本步骤备注，未写备注时沿用业务备注", () => {
+    const map = exampleMap();
+    const flow = map.flows.find(({ id }) => id === "journey.flow")!;
+    const project = new MapProjector(
+      new BusinessGraph({
+        ...map,
+        flows: map.flows.map((candidate) =>
+          candidate.id === flow.id
+            ? {
+                ...flow,
+                steps: flow.steps.map((step) =>
+                  step.id === "checkout"
+                    ? {
+                        ...step,
+                        notes: "从购物车确认商品与地址。",
+                      }
+                    : step,
+                ),
+              }
+            : candidate,
+        ),
+      }),
+    ).viewerProject(metadata);
 
-    const projection = new MapProjector(graph).project();
-    const ordersCard = extractNodeMarkup(projection.content, "commerce.orders");
-
-    expect(ordersCard).toContain('role="button"');
-    expect(ordersCard).toContain('tabindex="0"');
-    expect(ordersCard).not.toContain("NAVIGATION ANCHORS");
-    expect(ordersCard).not.toContain("src/orders");
-    expect(projection.content).toContain('id="node-details"');
-    expect(projection.content).toContain("src/orders");
-  });
-
-  it("makes only concept-linked flow steps keyboard-accessible navigation targets", () => {
-    const project = new MapProjector(new BusinessGraph(validatedMap())).viewerProject({
-      id: "repository",
-      name: "Repository",
+    expect(project.flows[0]?.nodes.find(({ id }) => id === "checkout")).toMatchObject({
+      notes: "从购物车确认商品与地址。",
+      childFlows: [{ id: "checkout.flow", name: "顾客下单", summary: "顾客下单" }],
+      start: true,
     });
-    const svg = project.flows[0]!.svg;
-    const linkedStep = svg.match(
-      /<g class="flow-step[^>]*data-flow-step-id="receive-order"[^>]*>/u,
-    )?.[0];
-    const ordinaryStep = svg.match(
-      /<g class="flow-step[^>]*data-flow-step-id="order-created"[^>]*>/u,
-    )?.[0];
-
-    expect(linkedStep).toContain('data-concept-id="commerce.orders.checkout"');
-    expect(linkedStep).toContain('role="button"');
-    expect(linkedStep).toContain('tabindex="0"');
-    expect(linkedStep).toContain('aria-controls="node-details"');
-    expect(ordinaryStep).toContain('role="group"');
-    expect(ordinaryStep).not.toContain("tabindex");
+    expect(project.flows[0]?.nodes.find(({ id }) => id === "shipping")?.notes).toBe(
+      "付款成功后才能发货。",
+    );
   });
 
-  it("keeps directly connected external concepts visible in a domain view", () => {
-    const graph = new BusinessGraph(crossDomainMap());
+  it("没有编写流程时不生成没有连线的分类图，也不推断业务先后", () => {
+    const map = exampleMap();
+    const projector = new MapProjector(new BusinessGraph({ ...map, flows: [] }));
 
-    const project = new MapProjector(graph).viewerProject({
-      id: "repository",
-      name: "Repository",
-    });
-    const commerce = project.views.find(({ id }) => id === "commerce");
+    expect(projector.viewerProject(metadata).flows).toEqual([]);
+    expect(projector.project(metadata).content).not.toContain("data-map-view=");
+  });
 
-    expect(commerce).toMatchObject({ nodeCount: 3, relationCount: 2 });
-    expect(commerce?.svg).toContain('data-node-id="fulfillment.inventory"');
-    expect(commerce?.svg).toContain('data-boundary="true"');
-    expect(commerce?.svg).not.toContain('data-node-id="support.returns"');
+  it("投影统计仍包含完整业务资料，渲染文字经过HTML转义", () => {
+    const map = exampleMap();
+    const projector = new MapProjector(
+      new BusinessGraph({
+        ...map,
+        flows: map.flows.map((flow) => ({ ...flow, name: '<script>alert("x")</script>' })),
+      }),
+    );
+    const projection = projector.project(metadata);
+
+    expect(projection).toMatchObject({ nodeCount: 4, relationCount: 1, flowCount: 3 });
+    expect(projection.content).not.toContain('<script>alert("x")</script>');
+    expect(projection.content).toContain("\\u003cscript>");
+    expect(projection.content).toBe(projector.project(metadata).content);
   });
 });
 
-function validatedMap(): ValidatedBusinessMap {
+function exampleMap(): ValidatedBusinessMap {
   return {
-    source: {
-      root: "/repository",
-      mapDirectory: "docs/business-map",
-      documents: ["commerce.yaml"],
-    },
+    source: { root: "/example", mapDirectory: "docs/business-map", documents: ["orders.yaml"] },
     documents: [],
     nodes: [
-      businessNode("commerce", "domain", "Commerce", "Customer commerce."),
-      businessNode(
-        "commerce.orders",
-        "capability",
-        "Orders & returns",
-        "Keeps orders <reliable>.",
-        [
-          {
-            kind: "directory",
-            value: "src/orders",
-            description: "Current order implementation.",
-          },
-        ],
-      ),
-      businessNode(
-        "commerce.orders.checkout",
-        "scenario",
-        "Checkout",
-        "Turns a cart into an order without <script>alert('x')</script> behavior.",
-      ),
+      node("domain", "domain", "订单业务"),
+      node("journey", "scenario", "订单全流程"),
+      node("checkout", "scenario", "顾客下单"),
+      { ...node("shipping", "scenario", "仓库发货"), notes: "付款成功后才能发货。" },
     ],
     relations: [
-      businessRelation("commerce.orders", "part_of", "commerce"),
-      businessRelation("commerce.orders.checkout", "part_of", "commerce.orders"),
+      {
+        from: "checkout",
+        to: "domain",
+        type: "part_of",
+        summary: "下单归属购物业务。",
+        documentId: "orders",
+        documentPath: "docs/business-map/orders.yaml",
+      },
     ],
-    flows: [businessFlow()],
+    flows: [
+      flow("checkout.flow", "checkout", "顾客下单"),
+      flow("shipping.flow", "shipping", "仓库发货"),
+      {
+        ...flow("journey.flow", "journey", "订单全流程"),
+        startsAt: "checkout",
+        steps: [
+          {
+            id: "checkout",
+            kind: "action",
+            name: "顾客下单",
+            summary: "确认商品并付款。",
+            concept: "checkout",
+          },
+          {
+            id: "shipping",
+            kind: "action",
+            name: "仓库发货",
+            summary: "商品交给承运商。",
+            concept: "shipping",
+          },
+          { id: "done", kind: "outcome", name: "订单完成", summary: "顾客收到商品。" },
+        ],
+        transitions: [
+          { from: "checkout", to: "shipping" },
+          { from: "shipping", to: "done" },
+        ],
+      },
+    ],
   };
 }
 
-function businessNode(
-  id: string,
-  kind: BusinessNode["kind"],
-  name: string,
-  summary: string,
-  anchors: BusinessNode["anchors"] = [],
-): BusinessNode {
+function node(id: string, kind: BusinessNode["kind"], name: string): BusinessNode {
   return {
     id,
     kind,
     name,
-    summary,
+    summary: name,
     aliases: [],
-    anchors,
-    documentId: "commerce",
-    documentPath: "docs/business-map/commerce.yaml",
+    anchors: [],
+    documentId: "orders",
+    documentPath: "docs/business-map/orders.yaml",
   };
 }
 
-function extractNodeMarkup(projection: string, nodeId: string): string {
-  const escapedNodeId = nodeId.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  const match = projection.match(
-    new RegExp(`<g class="node-card[^>]*data-node-id="${escapedNodeId}"[\\s\\S]*?</g>`, "u"),
-  );
-  expect(match, `Expected rendered node ${nodeId}`).not.toBeNull();
-  return match?.[0] ?? "";
-}
-
-function businessRelation(
-  from: string,
-  type: BusinessRelation["type"],
-  to: string,
-): BusinessRelation {
+function flow(id: string, scenario: string, name: string): BusinessFlow {
   return {
-    from,
-    type,
-    to,
-    summary: `${from} ${type} ${to}.`,
-    documentId: "commerce",
-    documentPath: "docs/business-map/commerce.yaml",
-  };
-}
-
-function businessFlow(): BusinessFlow {
-  return {
-    id: "commerce.orders.checkout-flow",
-    name: "Checkout decision",
-    summary: "Creates an order only after payment is authorized.",
-    scenario: "commerce.orders.checkout",
-    startsAt: "receive-order",
+    id,
+    scenario,
+    name,
+    summary: name,
+    startsAt: "start",
     steps: [
-      {
-        id: "order-created",
-        kind: "outcome",
-        name: "Order created",
-        summary: "The customer receives a confirmed order.",
-      },
-      {
-        id: "payment-authorized",
-        kind: "decision",
-        name: "Is payment authorized?",
-        summary: "Only authorized payment may create an order.",
-      },
-      {
-        id: "payment-declined",
-        kind: "outcome",
-        name: "Order not created",
-        summary: "Declined payment ends checkout without an order.",
-      },
-      {
-        id: "receive-order",
-        kind: "action",
-        name: "Receive checkout request",
-        summary: "Checkout begins from the customer request.",
-        concept: "commerce.orders.checkout",
-      },
+      { id: "start", kind: "action", name, summary: name, concept: scenario },
+      { id: "done", kind: "outcome", name: "完成", summary: "本环节结束。" },
     ],
-    transitions: [
-      { from: "payment-authorized", to: "order-created", when: "authorized" },
-      { from: "payment-authorized", to: "payment-declined", when: "declined" },
-      { from: "receive-order", to: "payment-authorized" },
-    ],
-    documentId: "commerce",
-    documentPath: "docs/business-map/commerce.yaml",
-  };
-}
-
-function crossDomainMap(): ValidatedBusinessMap {
-  return {
-    source: {
-      root: "/repository",
-      mapDirectory: "docs/business-map",
-      documents: ["commerce.yaml", "fulfillment.yaml", "support.yaml"],
-    },
-    documents: [],
-    nodes: [
-      businessNode("commerce", "domain", "Commerce", "Customer commerce."),
-      businessNode("commerce.checkout", "scenario", "Checkout", "Places an order."),
-      businessNode("fulfillment", "domain", "Fulfillment", "Fulfills orders."),
-      businessNode("fulfillment.inventory", "capability", "Inventory", "Reserves stock."),
-      businessNode("support", "domain", "Support", "Supports customers."),
-      businessNode("support.returns", "capability", "Returns", "Handles returns."),
-    ],
-    relations: [
-      businessRelation("commerce.checkout", "part_of", "commerce"),
-      businessRelation("fulfillment.inventory", "part_of", "fulfillment"),
-      businessRelation("support.returns", "part_of", "support"),
-      businessRelation("commerce.checkout", "invokes", "fulfillment.inventory"),
-    ],
-    flows: [],
+    transitions: [{ from: "start", to: "done" }],
+    documentId: "orders",
+    documentPath: "docs/business-map/orders.yaml",
   };
 }

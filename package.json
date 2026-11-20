@@ -1,7 +1,7 @@
 {
   "name": "semantic-atlas",
-  "version": "2.8.1",
-  "description": "A Git-native advisory business map for coding agents.",
+  "version": "3.0.0",
+  "description": "面向人与 AI 协作的业务流程图与只读阅读器。",
   "keywords": [
     "ai-agents",
     "business-map",
@@ -57,7 +57,7 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.build.json",
     "contracts:check": "vitest run tests/release/release-contract.test.ts",
     "release:verify": "pnpm lint && pnpm format:check && pnpm contracts:check && pnpm test && pnpm typecheck && pnpm build && node tests/smoke/built-render.mjs && node tests/smoke/built-skill.mjs && node tests/smoke/packaged-product.mjs && pnpm pack --dry-run && git diff --check",
     "test": "vitest run",
@@ -74,7 +74,6 @@
   "dependencies": {
     "@dagrejs/dagre": "^1.1.8",
     "commander": "^14.0.0",
-    "html-to-image": "1.11.13",
     "i18next": "26.4.2",
     "i18next-browser-languagedetector": "8.2.1",
     "string-width": "^8.2.2",

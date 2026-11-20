@@ -8,6 +8,8 @@ import type {
   CliErrorEnvelope,
   CliRunResult,
   ContextEnvelope,
+  FlowsEnvelope,
+  FlowSearchEnvelope,
   InsightsSummaryEnvelope,
   ObserveMaintenanceEnvelope,
   ObserveReviewEnvelope,
@@ -87,6 +89,8 @@ export async function runCli(
     | ValidateEnvelope
     | ContextEnvelope
     | SearchEnvelope
+    | FlowsEnvelope
+    | FlowSearchEnvelope
     | RenderEnvelope
     | SetupEnvelope
     | UpgradeEnvelope
@@ -185,9 +189,21 @@ export async function runCli(
     .command("search")
     .description(t("cli.search"))
     .argument("<query>", t("cli.query"))
+    .option("--flows", t("cli.searchFlows"))
     .option("--repo <path>", t("cli.repo"), process.cwd())
-    .action(async (query: string, options: { readonly repo: string }) => {
-      commandEnvelope = await application.search(options.repo, query);
+    .action(async (query: string, options: { readonly repo: string; readonly flows?: boolean }) => {
+      commandEnvelope = options.flows
+        ? await application.searchFlows(options.repo, query)
+        : await application.search(options.repo, query);
+    });
+
+  program
+    .command("flows")
+    .description(t("cli.flows"))
+    .argument("[flow-id]", t("cli.flowId"))
+    .option("--repo <path>", t("cli.repo"), process.cwd())
+    .action(async (flowId: string | undefined, options: { readonly repo: string }) => {
+      commandEnvelope = await application.flows(options.repo, flowId);
     });
 
   program

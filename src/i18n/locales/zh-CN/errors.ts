@@ -1,4 +1,6 @@
 export default {
+  flowNotFound: "未找到业务流程“{{flowId}}”。",
+
   duplicateFlow: "流程“{{flowId}}”也在 {{documentPath}} 中声明",
   missingScenario: "流程“{{flowId}}”引用了不存在的场景“{{scenario}}”",
   scenarioKind: "流程“{{flowId}}”必须属于场景，不能属于 {{kind}}“{{scenario}}”",

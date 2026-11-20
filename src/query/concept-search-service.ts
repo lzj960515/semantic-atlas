@@ -25,12 +25,12 @@ interface ScoredNode {
 export class ConceptSearchService {
   public constructor(private readonly nodes: readonly BusinessNode[]) {}
 
-  public search(query: string): readonly ConceptSearchResult[] {
+  public search(query: string, maximumResults = RESULT_LIMIT): readonly ConceptSearchResult[] {
     const ranked = this.nodes
       .map((node) => scoreNode(query, node))
       .filter((candidate) => candidate.score >= MINIMUM_SCORE)
       .sort(compareScoredNodes)
-      .slice(0, RESULT_LIMIT);
+      .slice(0, maximumResults);
 
     return Object.freeze(
       ranked.map((candidate, index) => ({
