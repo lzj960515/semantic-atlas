@@ -99,7 +99,12 @@ export class SemanticAtlasPackageUpgrader {
   }
 
   private async install(targetVersion: string): Promise<void> {
-    await this.runNpmChecked("install", ["install", "--global", `${packageName}@${targetVersion}`]);
+    await this.runNpmChecked("install", [
+      "install",
+      "--global",
+      `--allow-scripts=${packageName}`,
+      `${packageName}@${targetVersion}`,
+    ]);
   }
 
   private async installedCliPath(): Promise<string> {

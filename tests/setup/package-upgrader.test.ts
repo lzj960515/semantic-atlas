@@ -34,7 +34,10 @@ describe("SemanticAtlasPackageUpgrader", () => {
     });
     expect(runner.invocations).toEqual([
       ["/runtime/npm", ["view", "semantic-atlas", "dist-tags.latest", "--json"]],
-      ["/runtime/npm", ["install", "--global", "semantic-atlas@1.0.0"]],
+      [
+        "/runtime/npm",
+        ["install", "--global", "--allow-scripts=semantic-atlas", "semantic-atlas@1.0.0"],
+      ],
       ["/runtime/npm", ["root", "--global"]],
       ["/runtime/node", ["/global/lib/node_modules/semantic-atlas/dist/cli/bin.js", "--version"]],
       ["/runtime/node", ["/global/lib/node_modules/semantic-atlas/dist/cli/bin.js", "setup"]],
@@ -64,7 +67,7 @@ describe("SemanticAtlasPackageUpgrader", () => {
     });
     expect(runner.invocations).not.toContainEqual([
       "/runtime/npm",
-      ["install", "--global", "semantic-atlas@1.0.0"],
+      ["install", "--global", "--allow-scripts=semantic-atlas", "semantic-atlas@1.0.0"],
     ]);
     expect(runner.invocations.at(-1)).toEqual([
       "/runtime/node",

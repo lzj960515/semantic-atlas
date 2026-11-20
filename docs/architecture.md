@@ -290,7 +290,13 @@ AI 根据业务含义选择结果；没有语义向量索引，不将分数解�
 
 只安装一个包内 `semantic-atlas` Skill，统一理解业务与流程维护。沿用安装指纹、
 归属标记、暂存目录和原子替换，验证已有同名目录归属后才修复或升级。
-旧 `semantic-atlas-maintenance` 用户目录不自动清退，无关目录保持原样。
+旧格式或无标记安装可由准确的 Skill 名称识别。新版接入后，清理 Agents／Codex／Claude
+发现目录中已识别的旧维护 Skill；Codex 与 Claude 的当前入口链接到唯一源。比较真实
+路径后再处理已有入口，父目录已经共享时保持唯一源。无关身份的目录继续报冲突并保留。
+
+包内 `scripts/postinstall.mjs` 只在全局安装模式委派 CLI setup；普通源码／项目依赖安装
+不加载构建产物或改动用户级发现目录。npm 12 以单包 allow-scripts 许可执行，不修改
+用户全局配置。主动禁用生命周期脚本的使用方仍可显式执行 setup。
 
 ### PackageUpgrader
 

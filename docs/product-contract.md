@@ -4,7 +4,7 @@ This page defines the accepted initial product. It answers what Semantic Atlas
 must improve, how agents and people use it, and which results establish
 that the product works.
 
-**Status: the behavior below is implemented for 4.0.0, including named-project
+**Status: the behavior below is implemented for 4.1.0, including named-project
 queries, multiple flow entries, unconditional fan-out and overview authoring
 guidance. Exact publication identity lives in the corresponding GitHub Release;
 longitudinal acceptance remains in progress.**
@@ -324,8 +324,8 @@ stages.
 - `lzj960515/semantic-atlas` is the active public source repository and
   `semantic-atlas` is the npm package identity.
 - Releases are normal fast-forward continuations of public `main`.
-- `setup` recognizes package-owned current markers and refuses obsolete or
-  unrelated same-named Skill directories.
+- 全局安装、`setup` 与 `upgrade` 同步唯一新版 Skill，接管已识别的旧格式并清理旧维护入口；
+  身份属于其他 Skill 的目录继续保留。
 - Observation reads and writes use the current task and review schemas; old
   local formats are disposable rather than migration inputs.
 - Existing Git tags, GitHub Releases, and npm versions remain immutable release
@@ -336,15 +336,18 @@ stages.
 The published CLI owns installation of its bundled user Skills:
 
 ```text
-npm install --global semantic-atlas
-semantic-atlas setup
+npm install --global semantic-atlas --allow-scripts=semantic-atlas
 ```
 
-`setup` 安装一个统一的 `semantic-atlas` Skill 到 `~/.agents/skills/semantic-atlas`。
-它负责理解业务、核实证据、编写与维护流程图；内部资料按当前任务读取。
-安装仍检查包版本、内容指纹和归属标记，使用原子替换；无关同名目录受到保护。
-旧安装中的 `semantic-atlas-maintenance` 目录不被自动删除，本地源码改动也不更新用户
-已安装目录。业务仓库只共享业务 YAML，安装与公开发布各自验证。
+使用 `npm install --global semantic-atlas --allow-scripts=semantic-atlas` 一次完成 CLI 与
+统一 Skill 的接入。安装入口只在全局模式执行；普通项目安装保持用户目录不变。
+`setup` 仍可显式修复，`upgrade` 委派新版 CLI 同步 Skill。启用 npm 12 的安装脚本只需
+允许本包，无需修改全局配置；主动禁用脚本的安装需显式执行 setup。
+
+唯一源保存在 `~/.agents/skills/semantic-atlas`，Codex／Claude 的入口指向这份资料。
+当前管理标记或准确的 Skill 名称识别本产品旧目录，安装使用原子替换，随后移除各发现
+目录中的旧维护 Skill 与过期副本。父发现目录已共享时不删除唯一源；其他 Skill 保留。
+业务仓库只共享业务 YAML，安装与公开发布各自验证。
 
 ### Accuracy observations
 

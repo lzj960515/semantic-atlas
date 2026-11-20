@@ -22,14 +22,14 @@ workflow and updates affected business flows in the same branch.
 Semantic Atlas requires Node.js 24 or later. CI verifies Node.js 24 and 26.
 
 ```bash
-npm install --global semantic-atlas
-semantic-atlas setup
+npm install --global semantic-atlas --allow-scripts=semantic-atlas
 semantic-atlas --version
 ```
 
-`setup` 安装一个统一的 `semantic-atlas` Skill 到 `~/.agents/skills/semantic-atlas`，
-负责理解业务、核实证据、编写和维护流程图。重复运行会校验、修复或升级受管副本，
-无关同名目录受到保护。
+全局安装自动接入统一的 `semantic-atlas` Skill，并清理已识别的旧维护 Skill。Codex 与
+Claude 使用指向 `~/.agents/skills/semantic-atlas` 的共享入口，同事无需分别维护副本。
+`--allow-scripts=semantic-atlas` 允许 npm 12 执行本包的安装步骤，不改变全局 npm 配置。
+普通项目依赖安装不会改动用户级 Skill；主动禁用安装脚本时，可运行 `semantic-atlas setup`。
 
 ## Upgrade
 
@@ -42,49 +42,14 @@ verifies the installed CLI identity, and synchronizes the single managed Skill.
 
 ### Skill conflicts
 
-`MANAGED_SKILL_CONFLICT` protects an existing directory whose ownership cannot
-be established. A matching directory name or `SKILL.md` alone is insufficient.
-`setup` requires a readable `.semantic-atlas-managed.json` containing valid JSON
-with `schemaVersion: 1`, `managedBy: "semantic-atlas"`, the matching `skillName`,
-nonempty `packageName` and `packageVersion`, and a 64-character lowercase
-hexadecimal `fingerprint`. The package identity may describe an earlier
-installation; an accepted marker allows setup to repair or upgrade its payload.
-Missing, unreadable, malformed, obsolete, or mismatched markers remain protected.
+`setup` 和 `upgrade` 使用同一安装流程。`semantic-atlas` 与
+`semantic-atlas-maintenance` 是本产品管理的 Skill 名称；当前管理标记或匹配的
+`SKILL.md` 身份可识别旧安装。旧格式会被接管并更新，旧维护入口在新 Skill 生效后移除。
 
-When `upgrade` reports `UPGRADE_FAILED` with `step: "setup"`, the target CLI has
-already passed version verification, but Skill synchronization is incomplete.
-The nested setup error identifies the conflicting `directory`. Resolve the named directory, then retry `semantic-atlas setup` using
-the same Node/npm installation; another package upgrade is not needed for this
-recovery.
-
-Inspect the exact directory named in the error. This Linux/macOS example uses
-the managed Skill; substitute the `.backup` path when that is
-the reported conflict:
-
-```bash
-skill_dir="$HOME/.agents/skills/semantic-atlas"
-ls -ld "$skill_dir"
-ls -l "$skill_dir/.semantic-atlas-managed.json"
-cat "$skill_dir/.semantic-atlas-managed.json"
-```
-
-For a known managed installation, restore the marker only from a trusted backup
-of that installation, or restore its read access, then retry setup. Keep custom
-or unrelated Skills under their owner's control. To switch this location to the
-bundled Skill, preserve the complete conflicting directory outside all Skill
-discovery roots before installing a fresh managed copy:
-
-```bash
-backup_root="$(mktemp -d "$HOME/semantic-atlas-skill-backup.XXXXXX")" &&
-  mv -- "$skill_dir" "$backup_root/" &&
-  semantic-atlas setup
-```
-
-The unique backup directory prevents an existing backup from being overwritten.
-Keep it until the new Skills have been verified and any custom work has been
-reviewed. A renamed copy inside `~/.agents/skills/` may still be discovered by
-agents, so this example places the backup outside that directory. Let `setup`
-create the new ownership marker from its bundled payload.
+`MANAGED_SKILL_CONFLICT` 表示目标目录实为其他 Skill，或没有可识别的本产品身份。
+该目录会保留。需要让出这个位置时，将错误中的确切目录移到所有 Skill 发现目录之外，
+再运行 `semantic-atlas setup`。`upgrade` 若在 `step: "setup"` 失败，已安装的 CLI 保持，
+处理这个目录后重跑 setup 即可，无需重新安装软件。不要手工伪造管理标记。
 
 ## Add A Business Map
 
@@ -248,8 +213,8 @@ that helped locate it.
 理解、画图与维护使用同一份业务知识，不再交接给另一个 Skill。
 
 所有图都用 `flows` 显式编写。总览交代主要路径与条件，子流程解释具体环节，
-`part_of` 继续表达所有权，不作为执行顺序。旧用户目录中的 maintenance Skill
-不由本次源码改动自动清理；本产品的新安装只提供统一入口。
+`part_of` 继续表达所有权，不作为执行顺序。安装和升级会清理已识别的旧维护 Skill，
+持续提供同一入口。业务资料仍随所属仓库通过 Git 维护。
 
 业务代码和相关流程在同分支一起修改、检查、评审与合入。合并冲突按最终代码的业务
 行为重新梳理，不机械拼接图文件。只有实现组织变化时无需重画。旧业务文件不要求兼容，

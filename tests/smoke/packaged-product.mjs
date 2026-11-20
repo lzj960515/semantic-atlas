@@ -43,6 +43,7 @@ try {
   await assertPublicArchive(archivePath);
 
   await installPackedProduct(archivePath);
+  await exerciseGlobalSkillInstallation(archivePath);
   await exerciseInstalledProduct();
   await exerciseInstalledObservations();
   await exerciseManagedSkillLifecycle();
@@ -69,6 +70,7 @@ async function assertPublicArchive(archivePath) {
     "package/examples/commerce.yaml",
     "package/LICENSE",
     "package/package.json",
+    "package/scripts/postinstall.mjs",
     "package/README.md",
     "package/README.zh-CN.md",
   ];
@@ -77,6 +79,7 @@ async function assertPublicArchive(archivePath) {
     "package/dist/",
     "package/docs/",
     "package/examples/",
+    "package/scripts/postinstall.mjs",
     "package/LICENSE",
     "package/package.json",
     "package/README.md",
@@ -111,6 +114,61 @@ async function installPackedProduct(archivePath) {
     `${JSON.stringify({ name: "semantic-atlas-consumer", private: true }, null, 2)}\n`,
   );
   run("pnpm", ["add", "--ignore-scripts", archivePath], consumerDirectory, cliEnvironment);
+}
+
+async function exerciseGlobalSkillInstallation(archivePath) {
+  const globalHome = path.join(sandbox, "global-home");
+  const globalPrefix = path.join(sandbox, "global-prefix");
+  const environment = { ...cliEnvironment, HOME: globalHome, USERPROFILE: globalHome };
+  const oldSkill = path.join(globalHome, ".claude/skills/semantic-atlas");
+  const maintenance = path.join(globalHome, ".codex/skills/semantic-atlas-maintenance");
+  const unrelated = path.join(globalHome, ".agents/skills/personal-notes/keep.txt");
+  for (const [directory, name] of [
+    [oldSkill, "semantic-atlas"],
+    [maintenance, "semantic-atlas-maintenance"],
+  ]) {
+    await mkdir(directory, { recursive: true });
+    await writeFile(
+      path.join(directory, "SKILL.md"),
+      `---\nname: ${name}\ndescription: old bundled Skill\n---\n`,
+    );
+  }
+  await mkdir(path.dirname(unrelated), { recursive: true });
+  await writeFile(unrelated, "personal notes\n");
+  const installation = run(
+    "npm",
+    [
+      "install",
+      "--global",
+      `--allow-scripts=${archivePath}`,
+      "--prefix",
+      globalPrefix,
+      "--no-audit",
+      "--no-fund",
+      archivePath,
+    ],
+    sandbox,
+    environment,
+  );
+  const canonical = path.join(globalHome, ".agents/skills/semantic-atlas");
+  assert.ok(
+    await access(path.join(canonical, ".semantic-atlas-managed.json")).then(
+      () => true,
+      () => false,
+    ),
+    `Global installation did not install the Skill:\n${installation.stdout}\n${installation.stderr}`,
+  );
+  const marker = JSON.parse(
+    await readFile(path.join(canonical, ".semantic-atlas-managed.json"), "utf8"),
+  );
+  assert.equal(marker.packageVersion, packageIdentity.version);
+  assert.equal(await realpath(oldSkill), await realpath(canonical));
+  assert.equal(
+    await realpath(path.join(globalHome, ".codex/skills/semantic-atlas")),
+    await realpath(canonical),
+  );
+  await assertMissing(maintenance);
+  assert.equal(await readFile(unrelated, "utf8"), "personal notes\n");
 }
 
 async function exerciseInstalledProduct() {
@@ -733,7 +791,7 @@ async function exerciseManagedSkillLifecycle() {
 
   await rm(managedSkillDirectory, { recursive: true });
   await mkdir(managedSkillDirectory, { recursive: true });
-  const unrelatedDocument = "---\nname: semantic-atlas\n---\n\n# User-owned Skill\n";
+  const unrelatedDocument = "---\nname: personal-workflow\n---\n\n# User-owned Skill\n";
   await writeFile(path.join(managedSkillDirectory, "SKILL.md"), unrelatedDocument);
   const conflict = runInstalledCliAllowFailure(["setup"]);
   assert.equal(conflict.status, 1);
@@ -772,7 +830,7 @@ async function assertPublicContents(unpackedDirectory) {
     ["Codrive task identity", /\b(?:task|attempt|report_opportunity)_[a-f0-9-]{8,}\b/iu],
     ["private repository identity", /\b(?:pietra-ex-api|Pietra)\b/u],
     ["private key", /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/u],
-    ["credential-like token", /\b(?:ghp_|github_pat_|npm_|sk-)[A-Za-z0-9_-]{12,}/u],
+    ["credential-like token", /\b(?:ghp_|github_pat_|npm_(?!config_)|sk-)[A-Za-z0-9_-]{12,}/u],
   ];
 
   for (const relativePath of relativeEntries) {

@@ -22,15 +22,14 @@ Agent 也会建立有边界的当前业务模型，并在业务变化时同步�
 Semantic Atlas 需要 Node.js 24 或更高版本。CI 验证 Node.js 24 和 26。
 
 ```bash
-npm install --global semantic-atlas
-semantic-atlas setup
+npm install --global semantic-atlas --allow-scripts=semantic-atlas
 semantic-atlas --version
 ```
 
-`setup` 把一个统一的 `semantic-atlas` Skill 安装到
-`~/.agents/skills/semantic-atlas`，负责业务理解与流程维护。重复执行时，它会验证已安装内容、修复被修改的受管副本，
-并升级由其他当前版本安装的 Skill。对于无关或格式已经废弃的同名目录，它会
-拒绝覆盖。
+全局安装自动接入统一的 `semantic-atlas` Skill，并清理已识别的旧维护 Skill。Codex 与
+Claude 使用指向 `~/.agents/skills/semantic-atlas` 的共享入口，同事无需分别维护副本。
+`--allow-scripts=semantic-atlas` 允许 npm 12 执行本包的安装步骤，不改变全局 npm 配置。
+普通项目依赖安装不会改动用户级 Skill；主动禁用安装脚本时，可运行 `semantic-atlas setup`。
 
 ## 界面语言
 
@@ -54,43 +53,14 @@ semantic-atlas upgrade
 
 ### Skill 目录冲突
 
-`MANAGED_SKILL_CONFLICT` 表示现有目录的管理身份无法确认，因此受到保护。
-仅有相同目录名或 `SKILL.md` 不足以证明身份。`setup` 要求可读取的
-`.semantic-atlas-managed.json` 是有效 JSON，并包含 `schemaVersion: 1`、
-`managedBy: "semantic-atlas"`、与目标一致的 `skillName`、非空的
-`packageName` 和 `packageVersion`，以及 64 位小写十六进制 `fingerprint`。
-包名和版本可以属于先前安装；识别管理身份后，setup 才会修复或升级其中的内容。
-标识缺失、不可读、损坏、格式过时或字段不匹配时，目录都会受到保护。
+`setup` 和 `upgrade` 使用同一安装流程。`semantic-atlas` 与
+`semantic-atlas-maintenance` 是本产品管理的 Skill 名称；当前管理标记或匹配的
+`SKILL.md` 身份可识别旧安装。旧格式会被接管并更新，旧维护入口在新 Skill 生效后移除。
 
-如果 `upgrade` 返回 `UPGRADE_FAILED` 且 `step` 为 `setup`，说明目标 CLI 已通过
-版本验证，但 Skill 同步尚未完成。内层错误的 `directory` 指明冲突位置。
-处理报错目录后，使用原来同一套 Node/npm 安装执行 `semantic-atlas setup` 即可
-重试这个阶段，无需为了恢复而再次升级包。
-
-先检查错误中列出的确切目录；如果指向 `.backup`，使用错误中的对应路径：
-
-```bash
-skill_dir="$HOME/.agents/skills/semantic-atlas"
-ls -ld "$skill_dir"
-ls -l "$skill_dir/.semantic-atlas-managed.json"
-cat "$skill_dir/.semantic-atlas-managed.json"
-```
-
-对于来源明确的受管安装，可以从该安装的可信备份恢复管理标识，或恢复读取权限，
-再运行 setup。自定义或其他来源的 Skill 继续由其原来的管理者维护。
-如果决定在此位置改用包内 Skill，先把完整冲突目录移到所有 Skill 发现目录之外，
-保留原内容，再安装新的受管副本：
-
-```bash
-backup_root="$(mktemp -d "$HOME/semantic-atlas-skill-backup.XXXXXX")" &&
-  mv -- "$skill_dir" "$backup_root/" &&
-  semantic-atlas setup
-```
-
-独立生成的备份目录可以避免覆盖已有备份。在新 Skill 验证完成、自定义内容
-确认处理完毕之前保留备份。仅在 `~/.agents/skills/` 内重命名旧目录，仍可能被
-Agent 当作 Skill 发现，因此示例把备份放在该目录之外。新的管理标识由 setup
-根据包内内容生成。
+`MANAGED_SKILL_CONFLICT` 表示目标目录实为其他 Skill，或没有可识别的本产品身份。
+该目录会保留。需要让出这个位置时，将错误中的确切目录移到所有 Skill 发现目录之外，
+再运行 `semantic-atlas setup`。`upgrade` 若在 `step: "setup"` 失败，已安装的 CLI 保持，
+处理这个目录后重跑 setup 即可，无需重新安装软件。不要手工伪造管理标记。
 
 ## 添加业务地图
 
@@ -229,8 +199,7 @@ semantic-atlas web --repo /path/to/api /path/to/frontend --port 4310 --no-open
 维护 Skill。所有可视图都使用 `flows` 显式编写，总览有真实顺序与分支，子流程
 通过步骤的场景引用进入；`part_of` 只表示业务归属。
 
-旧安装中的 maintenance 用户目录不会由本次源码改动自动删除，新安装只提供统一
-入口。业务资料仍随所属仓库通过 Git 维护。
+安装和升级会清理已识别的旧维护 Skill，持续提供同一入口。业务资料仍随所属仓库通过 Git 维护。
 
 每次写入或维护图谱，都先根据业务职责、数据、规则与协作关系确认归属，再选择文件。
 既有业务域仍然准确时复用；新增独立业务有自己的 YAML 和清楚的业务域根节点；阅读器通过对应的流程访问细节。共享概念只定义一次，其他文件用稳定 ID 引用。局部请求或只有一种业务职责

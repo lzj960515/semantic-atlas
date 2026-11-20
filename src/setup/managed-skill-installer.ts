@@ -8,8 +8,10 @@ import {
   readFile,
   readdir,
   readlink,
+  realpath,
   rename,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -19,6 +21,7 @@ import type { PackageIdentity } from "./package-identity.js";
 
 const primarySkillName = "semantic-atlas";
 const managedSkillNames = [primarySkillName] as const;
+const legacySkillNames = ["semantic-atlas-maintenance"] as const;
 const managerName = "semantic-atlas";
 const installationMarkerName = ".semantic-atlas-managed.json";
 const fingerprintPattern = /^[a-f0-9]{64}$/u;
@@ -110,6 +113,7 @@ export class ManagedSkillInstaller {
     }
 
     const current =
+      existing !== "legacy" &&
       markerMatches(existing, marker) &&
       (await fingerprintSkill(this.targetDirectory)) === fingerprint;
     if (current) {
@@ -118,6 +122,7 @@ export class ManagedSkillInstaller {
     }
 
     const outcome =
+      existing === "legacy" ||
       existing.packageName !== marker.packageName ||
       existing.packageVersion !== marker.packageVersion
         ? "upgraded"
@@ -143,7 +148,7 @@ export class ManagedSkillInstaller {
     if (!(await exists(backupDirectory)) || (await exists(this.targetDirectory))) {
       return false;
     }
-    if (!(await readManagedMarker(backupDirectory, this.skillName))) {
+    if (!(await recognizesSkill(backupDirectory, this.skillName))) {
       throw new ManagedSkillConflictError(backupDirectory);
     }
     await mkdir(path.dirname(this.targetDirectory), { recursive: true });
@@ -151,10 +156,13 @@ export class ManagedSkillInstaller {
     return true;
   }
 
-  private async readExistingManagedSkill(): Promise<ManagedSkillMarker | undefined> {
+  private async readExistingManagedSkill(): Promise<ManagedSkillMarker | "legacy" | undefined> {
     if (!(await exists(this.targetDirectory))) return undefined;
     const marker = await readManagedMarker(this.targetDirectory, this.skillName);
-    if (!marker) throw new ManagedSkillConflictError(this.targetDirectory);
+    if (!marker) {
+      if (await recognizesSkill(this.targetDirectory, this.skillName)) return "legacy";
+      throw new ManagedSkillConflictError(this.targetDirectory);
+    }
     return marker;
   }
 
@@ -163,7 +171,7 @@ export class ManagedSkillInstaller {
     const targetName = path.basename(this.targetDirectory);
     const backupDirectory = backupPath(this.targetDirectory);
     if (await exists(backupDirectory)) {
-      if (!(await readManagedMarker(backupDirectory, this.skillName))) {
+      if (!(await recognizesSkill(backupDirectory, this.skillName))) {
         throw new ManagedSkillConflictError(backupDirectory);
       }
       await rm(backupDirectory, { recursive: true, force: true });
@@ -174,7 +182,7 @@ export class ManagedSkillInstaller {
     for (const entry of entries) {
       if (!entry.name.startsWith(`${targetName}.installing-`)) continue;
       const stageDirectory = path.join(parentDirectory, entry.name);
-      if (await readManagedMarker(stageDirectory, this.skillName)) {
+      if (await recognizesSkill(stageDirectory, this.skillName)) {
         ownedStages.push(stageDirectory);
       }
     }
@@ -216,7 +224,60 @@ export class ManagedSkillsInstaller {
         }).install(),
       );
     }
+    const userHome = this.options.userHome ?? homedir();
+    const canonical = path.join(userHome, ".agents", "skills", primarySkillName);
+    const roots = [".agents", ".codex", ".claude"].map((agent) =>
+      path.join(userHome, agent, "skills"),
+    );
+    for (const root of roots) {
+      await this.removeObsoleteSkills(root, canonical);
+    }
+    for (const root of roots.slice(1)) {
+      await this.linkAgentSkill(canonical, path.join(root, primarySkillName));
+    }
     return { skills };
+  }
+
+  private async removeObsoleteSkills(root: string, canonical: string): Promise<void> {
+    if (!(await exists(root))) return;
+    const canonicalPath = await realpath(canonical);
+    for (const entry of await readdir(root, { withFileTypes: true })) {
+      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
+      const directory = path.join(root, entry.name);
+      const actualPath = await realpath(directory).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return undefined;
+        throw error;
+      });
+      if (actualPath === canonicalPath) continue;
+      for (const name of [primarySkillName, ...legacySkillNames]) {
+        if (!(await recognizesSkill(directory, name))) continue;
+        await rm(directory, { recursive: true, force: true });
+        break;
+      }
+    }
+  }
+
+  private async linkAgentSkill(canonical: string, target: string): Promise<void> {
+    const entry = await lstat(target).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return undefined;
+      throw error;
+    });
+    if (entry) {
+      const existing = await realpath(target).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return undefined;
+        throw error;
+      });
+      if (existing === (await realpath(canonical))) return;
+      if (
+        !(entry.isSymbolicLink() && !existing) &&
+        !(await recognizesSkill(target, primarySkillName))
+      ) {
+        throw new ManagedSkillConflictError(target);
+      }
+      await rm(target, { recursive: true, force: true });
+    }
+    await mkdir(path.dirname(target), { recursive: true });
+    await symlink(canonical, target, process.platform === "win32" ? "junction" : "dir");
   }
 }
 
@@ -277,7 +338,7 @@ function resolveBundledSkillsRoot(): string {
 async function requireSkillIdentity(
   directory: string,
   description: string,
-  skillName: ManagedSkillName,
+  skillName: string,
 ): Promise<void> {
   let skillDocument: string;
   try {
@@ -292,6 +353,18 @@ async function requireSkillIdentity(
   const frontmatter = /^---\r?\n([\s\S]*?)^---\s*$/mu.exec(skillDocument)?.[1];
   if (!frontmatter || !nameLine.test(frontmatter)) {
     throw new Error(t("errors.skillIdentity", { description, directory, skillName }));
+  }
+}
+
+async function recognizesSkill(directory: string, skillName: string): Promise<boolean> {
+  if (skillName === primarySkillName && (await readManagedMarker(directory, primarySkillName))) {
+    return true;
+  }
+  try {
+    await requireSkillIdentity(directory, t("errors.bundledSkill"), skillName);
+    return true;
+  } catch {
+    return false;
   }
 }
 

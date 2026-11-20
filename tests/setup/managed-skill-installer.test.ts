@@ -1,5 +1,15 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { access, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -21,14 +31,26 @@ afterEach(async () => {
 });
 
 describe("ManagedSkillInstaller", () => {
-  it("installs one unified Skill and preserves a separate legacy directory", async () => {
+  it("installs one shared Skill and removes obsolete workflows from agent discovery", async () => {
     const fixture = await createBundleFixture();
     const legacyDirectory = path.join(
       fixture.userHome,
       ".agents/skills/semantic-atlas-maintenance",
     );
     await mkdir(legacyDirectory, { recursive: true });
-    await writeFile(path.join(legacyDirectory, "SKILL.md"), "保留的旧工作流\n");
+    await writeFile(
+      path.join(legacyDirectory, "SKILL.md"),
+      skillDocumentForName("old workflow", "semantic-atlas-maintenance"),
+    );
+    const oldClaudeSkill = path.join(fixture.userHome, ".claude/skills/semantic-atlas");
+    await mkdir(oldClaudeSkill, { recursive: true });
+    await writeFile(path.join(oldClaudeSkill, "SKILL.md"), skillDocument("old reader"));
+    const renamedCopy = path.join(fixture.userHome, ".agents/skills/archived-atlas-copy");
+    await mkdir(renamedCopy, { recursive: true });
+    await writeFile(path.join(renamedCopy, "SKILL.md"), skillDocument("renamed old reader"));
+    const unrelated = path.join(fixture.userHome, ".codex/skills/project-notes");
+    await mkdir(unrelated, { recursive: true });
+    await writeFile(path.join(unrelated, "keep.txt"), "personal notes\n");
     const installer = new ManagedSkillsInstaller({
       packageIdentity,
       sourceRoot: fixture.sourceRoot,
@@ -43,10 +65,35 @@ describe("ManagedSkillInstaller", () => {
       },
     ]);
     expect(installed.skills).toHaveLength(1);
-    expect(await readFile(path.join(legacyDirectory, "SKILL.md"), "utf8")).toBe("保留的旧工作流\n");
+    await expect(access(legacyDirectory)).rejects.toThrow();
+    await expect(access(renamedCopy)).rejects.toThrow();
+    const canonical = path.join(fixture.userHome, ".agents/skills/semantic-atlas");
+    expect(await realpath(oldClaudeSkill)).toBe(await realpath(canonical));
+    expect(await realpath(path.join(fixture.userHome, ".codex/skills/semantic-atlas"))).toBe(
+      await realpath(canonical),
+    );
+    expect(await readFile(path.join(unrelated, "keep.txt"), "utf8")).toBe("personal notes\n");
     expect((await installer.install()).skills).toMatchObject([
       { outcome: "current", identity: { skillName: "semantic-atlas" } },
     ]);
+  });
+
+  it("keeps the canonical Skill when Claude shares the entire Agents discovery root", async () => {
+    const fixture = await createBundleFixture();
+    const agentsRoot = path.join(fixture.userHome, ".agents/skills");
+    await mkdir(agentsRoot, { recursive: true });
+    await mkdir(path.join(fixture.userHome, ".claude"), { recursive: true });
+    await symlink(agentsRoot, path.join(fixture.userHome, ".claude/skills"), "junction");
+    const installer = new ManagedSkillsInstaller({
+      packageIdentity,
+      sourceRoot: fixture.sourceRoot,
+      userHome: fixture.userHome,
+    });
+    await installer.install();
+    await installer.install();
+    expect(await readFile(path.join(agentsRoot, "semantic-atlas/SKILL.md"), "utf8")).toBe(
+      skillDocument("primary workflow"),
+    );
   });
 
   it("installs, verifies, and repairs the package-owned Skill", async () => {
@@ -89,7 +136,7 @@ describe("ManagedSkillInstaller", () => {
   it("refuses to replace an unrelated same-named directory", async () => {
     const fixture = await createFixture();
     await mkdir(fixture.targetDirectory, { recursive: true });
-    const unrelatedDocument = skillDocument("user-owned workflow");
+    const unrelatedDocument = skillDocumentForName("user-owned workflow", "project-notes");
     await writeFile(path.join(fixture.targetDirectory, "SKILL.md"), unrelatedDocument);
 
     const installer = new ManagedSkillInstaller({
@@ -120,7 +167,7 @@ describe("ManagedSkillInstaller", () => {
     await expect(access(fixture.targetDirectory)).rejects.toThrow();
   });
 
-  it("refuses to replace a Skill carrying the obsolete v0.4 marker", async () => {
+  it("upgrades a recognized Skill carrying an obsolete marker", async () => {
     const fixture = await createFixture();
     await mkdir(fixture.targetDirectory, { recursive: true });
     await writeFile(
@@ -144,10 +191,10 @@ describe("ManagedSkillInstaller", () => {
       sourceDirectory: fixture.sourceDirectory,
       userHome: fixture.userHome,
     });
-    await expect(installer.install()).rejects.toBeInstanceOf(ManagedSkillConflictError);
+    await expect(installer.install()).resolves.toMatchObject({ outcome: "upgraded" });
     await expect(
       readFile(path.join(fixture.targetDirectory, ".semantic-atlas-managed.json"), "utf8"),
-    ).resolves.toContain('"version": "0.4.0"');
+    ).resolves.toContain('"packageVersion": "0.0.0"');
   });
 
   it("recovers an interrupted replacement of a current managed Skill", async () => {

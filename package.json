@@ -1,6 +1,6 @@
 {
   "name": "semantic-atlas",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "description": "面向人与 AI 协作的业务流程图与只读阅读器。",
   "keywords": [
     "ai-agents",
@@ -44,6 +44,7 @@
     "docs/observations.md",
     "docs/product-contract.md",
     "examples",
+    "scripts/postinstall.mjs",
     "LICENSE",
     "README.md",
     "README.zh-CN.md"
@@ -57,6 +58,7 @@
     "provenance": true
   },
   "scripts": {
+    "postinstall": "node scripts/postinstall.mjs",
     "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.build.json",
     "contracts:check": "vitest run tests/release/release-contract.test.ts",
     "release:verify": "pnpm lint && pnpm format:check && pnpm contracts:check && pnpm test && pnpm typecheck && pnpm build && node tests/smoke/built-render.mjs && node tests/smoke/built-skill.mjs && node tests/smoke/packaged-product.mjs && pnpm pack --dry-run && git diff --check",

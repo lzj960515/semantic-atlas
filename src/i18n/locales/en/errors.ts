@@ -75,7 +75,7 @@ export default {
   projectMapInvalid: "This project's business map is invalid.",
   projectPathUnavailable: "The registered project path is unavailable.",
   managedSkillConflict:
-    "Refusing to replace '{{directory}}' because it is not a recognized managed Semantic Atlas Skill. A readable, current .semantic-atlas-managed.json ownership marker is required. To switch to the bundled Skill, preserve this directory by moving it to a unique backup outside the Skills directory, then run semantic-atlas setup. Inspection and recovery: https://github.com/lzj960515/semantic-atlas#skill-conflicts",
+    "Refusing to replace '{{directory}}' because neither its .semantic-atlas-managed.json nor its SKILL.md identifies a Semantic Atlas Skill. To switch to the bundled Skill, preserve this directory by moving it to a unique backup outside the Skills directory, then run semantic-atlas setup. Inspection and recovery: https://github.com/lzj960515/semantic-atlas#skill-conflicts",
   skillRecoveryLost: "Managed Skill recovery lost '{{targetDirectory}}'",
   skillBackupExists: "Managed Skill recovery backup still exists at '{{backupDirectory}}'",
   skillDocumentMissing: "The {{description}} at '{{directory}}' has no SKILL.md",

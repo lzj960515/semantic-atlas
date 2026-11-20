@@ -25,7 +25,7 @@ describe("managed Skill conflict recovery", () => {
       const userHome = path.join(sandbox, "home");
       const directory = path.join(userHome, ".agents", "skills", "semantic-atlas");
       const skillFile = path.join(directory, "SKILL.md");
-      const userContent = "---\nname: semantic-atlas\n---\n# User-owned workflow\n";
+      const userContent = "---\nname: personal-workflow\n---\n# User-owned workflow\n";
       await mkdir(directory, { recursive: true });
       await writeFile(skillFile, userContent);
       const baseRuntime = await createCliRuntime({ userHome });

@@ -18,6 +18,6 @@ Include screenshots for visible Viewer changes when useful. ｜ 涉及 Viewer �
 ## Impact and follow-up (optional) ｜ 影响与后续事项（可选）
 
 <!-- Describe compatibility changes, risks, migration needs, or follow-up work. ｜ 说明兼容性变化、风险、迁移需求或后续工作。
-For business-changing work, link current evidence and the task observation. ｜ 涉及业务变化时，链接当前证据和任务观察记录。
-State the maintenance disposition: candidate, already_represented, implementation_local, or unresolved. See AGENTS.md#accuracy-workflow. ｜ 说明维护处置：candidate（待维护候选）、already_represented（已被表达）、implementation_local（仅涉及局部实现）或 unresolved（尚未解决）。参见 AGENTS.md#accuracy-workflow。
-Durable map candidates belong in separate post-integration maintenance. ｜ 持久化地图的候选变更应在集成后通过独立维护变更处理。 -->
+For business-changing work, link current evidence and update affected flow files in the same branch. ｜ 涉及业务变化时，链接当前证据，并在同一分支更新相关流程文件。
+Explain unchanged flows when the change only affects implementation details. See AGENTS.md#business-change-workflow. ｜ 仅改变实现细节时，说明流程无需修改的依据，参见 AGENTS.md#business-change-workflow。
+After merge conflicts, confirm the affected flows match the final code. ｜ 解决合并冲突后，核对相关流程与最终代码一致。 -->
