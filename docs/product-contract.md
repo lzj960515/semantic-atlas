@@ -4,9 +4,9 @@ This page defines the accepted initial product. It answers what Semantic Atlas
 must improve, how agents and people use it, and which results establish
 that the product works.
 
-**Status: the behavior below is implemented for 4.1.1, including named-project
-queries, multiple flow entries, unconditional fan-out and overview authoring
-guidance. Exact publication identity lives in the corresponding GitHub Release;
+**Status: the behavior below is implemented for 4.1.2, including named-project
+queries, multiple flow entries, unconditional fan-out and business-boundary
+authoring guidance. Exact publication identity lives in the corresponding GitHub Release;
 longitudinal acceptance remains in progress.**
 
 ## Purpose
@@ -85,11 +85,15 @@ one session. It neither writes the user-local project file nor implicitly
 merges registered paths. The browser receives service-assigned project IDs and
 display names, never repository paths, and cannot submit a filesystem path.
 所有可视页面统一为业务流程图。AI 根据真实业务决定怎样概括、拆分和连接，不套用
-固定的开始、判断和结束结构。每个项目的资料都应有能讲清整体业务的一张或几张总览，
-再按真实环节进入细图，例如“顾客下单并付款 → 仓库发货 → 按顾客申请进入售后退款”。
-细图目录不能代替整体业务理解，独立业务仍保留真实路径。业务跨前端、后端或其他
-服务时，AI 按缺失环节寻找证据，仓库边界不截断图的业务叙述。软件提供表达、渲染
-和导航能力，由 AI 组织总览与细节，不自动拼成巨图或推断执行关系。
+固定的开始、判断和结束结构。项目可直接提供多张平级业务图，不要求共同父图或
+专门的“业务全貌”图。默认第一张只是初始阅读选择，不要求覆盖项目全部业务。
+每张图的范围来自实际业务；相关主线不拆散，独立业务不强行合并。
+
+在选定业务内，图应讲清主要过程、重要条件、状态与交接，复杂局部可进入有额外
+解释的详图。例如订单图保留下单、付款、发货及按条件发生的退款，不因此把另一项
+无关业务并入订单图。图数、节点数与层数由实际内容决定，反复“入口到结果”的封面
+不能替代业务过程。业务跨前端、后端或其他服务时，AI 按缺口找证据；软件提供表达、
+渲染、搜索和导航能力，不替 AI 决定画法或推断执行关系。
 
 流程节点可以引用场景，进入该场景自己的子流程。没有被其他流程引用的根流程排在
 前面，默认打开第一条根流程；其余流程通过“查看其他流程”的级联菜单或节点角标进入。没有流程资料
