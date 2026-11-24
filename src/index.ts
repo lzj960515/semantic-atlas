@@ -93,3 +93,16 @@ export type {
   FlowSearchResult,
   FlowsData,
 } from "./contracts/flow-navigation.js";
+
+export type {
+  BusinessQuerySummary,
+  QueryConcept,
+  QueryRelation,
+  QueryFlowReference,
+  QueryMapReference,
+} from "./contracts/query-context.js";
+export type {
+  QuerySourceLocation,
+  ResolvedNavigationAnchor,
+  NavigationAnchorResolution,
+} from "./contracts/query-location.js";

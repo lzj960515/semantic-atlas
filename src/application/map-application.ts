@@ -18,6 +18,7 @@ import { ContextQueryService } from "../query/context-query-service.js";
 import { FlowNavigationService } from "../query/flow-navigation-service.js";
 import { FlowSearchService } from "../query/flow-search-service.js";
 import { ConceptSearchService } from "../query/concept-search-service.js";
+import { QuerySourceLocator } from "../query/query-source-locator.js";
 import { MapProjector, type ViewerProjectMetadata } from "../rendering/map-projector.js";
 import type { ViewerProject } from "../rendering/viewer-page.js";
 
@@ -84,7 +85,7 @@ export class MapApplication {
     const result = await this.loadValidatedMap(repositoryPath);
     if (!result.ok) return contextError(result);
 
-    const query = new ContextQueryService(new BusinessGraph(result.map)).query(selector);
+    const query = await this.queryService(result.map).query(selector);
     if (!query.found) {
       if (query.ambiguous) {
         return contextError({
@@ -113,7 +114,7 @@ export class MapApplication {
       schemaVersion: 1,
       ok: true,
       command: "context",
-      repository: result.map.source,
+      repository: { root: result.map.source.root },
       data: query.data,
     };
   }
@@ -122,14 +123,25 @@ export class MapApplication {
     const result = await this.loadValidatedMap(repositoryPath);
     if (!result.ok) return searchError(result);
 
+    const context = this.queryService(result.map);
+    const hits = new ConceptSearchService(result.map.nodes).search(query);
+    const results = await Promise.all(
+      hits.map(async (hit) => ({
+        ...hit,
+        map: (await context.describeNode(result.map.nodes.find(({ id }) => id === hit.id)!)).map,
+      })),
+    );
+
     return {
       schemaVersion: 1,
       ok: true,
       command: "search",
-      repository: result.map.source,
+      repository: { root: result.map.source.root },
       data: {
         query,
-        results: new ConceptSearchService(result.map.nodes).search(query),
+        results,
+        ...(hits[0] ? { contextFor: hits[0].id } : {}),
+        ...(await context.summarize(hits[0] ? [hits[0].id] : [])),
       },
     };
   }
@@ -141,18 +153,18 @@ export class MapApplication {
         schemaVersion: 1,
         ok: false,
         command: "flows",
-        ...(result.repository ? { repository: result.repository } : {}),
+        ...(result.repository ? { repository: { root: result.repository.root } } : {}),
         error: result.error,
       };
     }
     const navigation = new FlowNavigationService(new BusinessGraph(result.map));
-    const selected = flowId ? navigation.context(flowId) : undefined;
-    if (flowId && !selected) {
+    const flow = flowId ? result.map.flows.find(({ id }) => id === flowId) : undefined;
+    if (flowId && !flow) {
       return {
         schemaVersion: 1,
         ok: false,
         command: "flows",
-        repository: result.map.source,
+        repository: { root: result.map.source.root },
         error: {
           code: "FLOW_NOT_FOUND",
           flowId,
@@ -160,12 +172,21 @@ export class MapApplication {
         },
       };
     }
+    const context = this.queryService(result.map);
     return {
       schemaVersion: 1,
       ok: true,
       command: "flows",
-      repository: result.map.source,
-      data: selected ? { selected } : { navigation: navigation.directory() },
+      repository: { root: result.map.source.root },
+      data: flow
+        ? {
+            selected: await context.flowContext(flow),
+            ...(await context.summarize([
+              flow.scenario,
+              ...flow.steps.flatMap(({ concept }) => (concept ? [concept] : [])),
+            ])),
+          }
+        : { navigation: navigation.directory() },
     };
   }
 
@@ -176,21 +197,56 @@ export class MapApplication {
         schemaVersion: 1,
         ok: false,
         command: "search",
-        ...(result.repository ? { repository: result.repository } : {}),
+        ...(result.repository ? { repository: { root: result.repository.root } } : {}),
         error: result.error,
       };
     }
+    const context = this.queryService(result.map);
+    const hits = new FlowSearchService(new BusinessGraph(result.map)).search(query);
+    const results = await Promise.all(
+      hits.map(async (hit) => {
+        const flow = result.map.flows.find(({ id }) => id === hit.id)!;
+        return {
+          ...hit,
+          map: await context.flowLocation(flow),
+          matchedSteps: await Promise.all(
+            hit.matchedSteps.map(async (match) => {
+              const step = flow.steps.find(({ id }) => id === match.id)!;
+              return {
+                ...match,
+                ...(step.concept ? { concept: step.concept } : {}),
+                map: await context.stepLocation(flow, step.id),
+              };
+            }),
+          ),
+        };
+      }),
+    );
+    const first = results[0];
     return {
       schemaVersion: 1,
       ok: true,
       command: "search",
-      repository: result.map.source,
+      repository: { root: result.map.source.root },
       data: {
         query,
         target: "flows",
-        results: new FlowSearchService(new BusinessGraph(result.map)).search(query),
+        results,
+        ...(first ? { contextFor: first.id } : {}),
+        ...(await context.summarize(
+          first
+            ? [
+                first.scenarioId,
+                ...first.matchedSteps.flatMap(({ concept }) => (concept ? [concept] : [])),
+              ]
+            : [],
+        )),
       },
     };
+  }
+
+  private queryService(map: ValidatedBusinessMap): ContextQueryService {
+    return new ContextQueryService(new BusinessGraph(map), new QuerySourceLocator(map.source.root));
   }
 
   public async project(repositoryPath: string): Promise<MapProjectionResult> {
@@ -291,7 +347,7 @@ function contextError(
     schemaVersion: 1,
     ok: false,
     command: "context",
-    ...(result.repository ? { repository: result.repository } : {}),
+    ...(result.repository ? { repository: { root: result.repository.root } } : {}),
     error: result.error,
   };
 }
@@ -301,7 +357,7 @@ function searchError(result: Extract<ValidatedMapResult, { readonly ok: false }>
     schemaVersion: 1,
     ok: false,
     command: "search",
-    ...(result.repository ? { repository: result.repository } : {}),
+    ...(result.repository ? { repository: { root: result.repository.root } } : {}),
     error: result.error,
   };
 }

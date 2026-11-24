@@ -45,16 +45,36 @@ compatibility: 需要 Node.js 24+、PATH 中的 semantic-atlas CLI，以及目�
 | --- | --- |
 | 已知流程 ID | `semantic-atlas flows "<flow-id>" --project "<name-or-id>"` |
 | 已知业务概念 ID | `semantic-atlas context "<concept-id>" --project "<name-or-id>"` |
-| 只有要完成的业务行为 | `semantic-atlas search --flows "<business-query>" --project "<name-or-id>"`，选命中的流程 ID 再读该层 |
+| 只有要完成的业务行为 | `semantic-atlas search --flows "<business-query>" --project "<name-or-id>"`，先判断候选与随附关联，再按需读取流程 |
 | 需要补看整体结构或没有合适命中 | 可选用 `semantic-atlas flows --project "<name-or-id>"` 取得根流程与简要目录 |
 
 表中示例选择已登记项目；按路径查询时，将该选项替换为 `--repo "<repository-root>"`。
 
-读取目标流程中的动作、判断、连接条件、结果、子流程和步骤引用概念的源码锚点。当前层已足以判断时直接核实对应源码；只有上层承诺、细节或必要协作会改变结论时，才补看父层、子流程或概念上下文，不展开无关邻域。
+查询返回紧凑 JSON，`repository.root` 确认资料与本地锚点所属仓库，不列全库文件。
+搜索保留最多五个候选，每个命中带维护位置；随附业务摘要只属于 `contextFor` 指定的
+第一候选，帮助判断入口，不表示它已被选定。先结合业务含义核对候选；另一个候选更
+合适时，按其概念 ID 调用 `context`，或按流程 ID 调用 `flows`，取得对应资料。
+
+摘要中的 `concepts` 按 ID 唯一提供业务含义、规则、备注与源码锚点；`relations` 用
+`from`、`type`、`to` 和 `summary` 说明关联原因；`flows` 列出所属场景或步骤引用，
+`references` 指明引用概念、步骤及位置。这些条目的 `map.file/line/column` 定位当前
+YAML 中应维护的声明。`scope: "recorded"` 表示只反映已记录关系：直接关联与共享数据、
+接口、规则的其他使用方可提示要检查的业务及图，不能据此认定全部影响或排除未记录
+的消费者。结合当前源码判断哪些图确实需要同步，不因有关联就全部改动。
+
+需要完整动作、判断、条件和结果时再读 `flows <flow-id>`。其 `selected` 提供本层
+步骤与转换，`scenario`、`parents`、`steps[].concept` 和 `steps[].childFlows` 用 ID 引用；
+概念的详情从同一响应 `concepts` 查。`context` 的所选概念单独在 `selected`，其余
+概念在 `concepts`。当前资料已足以确定入口时直接核实对应源码；只有上层承诺、细节
+或必要协作会改变结论时，才补看父层、子流程或另一个概念，不展开无关邻域。
 
 `search --flows` 根据流程及相关业务文本的词面相似度返回候选，不是向量或语义搜索。不同词汇、同义改写或不同语言可能没有命中；分数只说明这次查询的相关排序。需要概念检索时可用普通 `semantic-atlas search "<business-term>"`，同样按业务含义判断结果，而不是把分数当正确性证明。
 
-从锚点的 `file` 定位文件，再查 `value` 指定的类、方法或函数；打开当前声明和必要调用方，确认实际动作。资料给的是导航与规则线索，当前源码和证据决定行为。
+符号锚点用 `file` 定位文件，再查 `value` 指定的类、方法或函数；它的
+`resolution: "hint"` 不代表已定位声明行。`missing` 表示预期本地路径缺失或类型不符，
+应查当前替代入口；文件／文档锚点的 `located` 仅指向文件开头。YAML 维护行号从本次
+文件派生，不能当成代码行号。打开当前声明和必要调用方，确认实际动作；资料仍是导航
+与规则线索。
 
 | 结果 | 怎样继续 |
 | --- | --- |

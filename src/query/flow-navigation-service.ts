@@ -1,4 +1,4 @@
-import type { FlowContext, FlowNavigation, FlowReference } from "../contracts/flow-navigation.js";
+import type { FlowNavigation, FlowReference } from "../contracts/flow-navigation.js";
 import type { BusinessFlow } from "../contracts/map.js";
 import type { BusinessGraph } from "../map/business-graph.js";
 
@@ -54,27 +54,6 @@ export class FlowNavigationService {
     };
     for (const id of this.directory().roots) visit(id);
     return ordered;
-  }
-
-  public context(id: string): FlowContext | undefined {
-    const flow = this.flows.find((candidate) => candidate.id === id);
-    if (!flow) return undefined;
-    return {
-      ...reference(flow),
-      scenario: this.graph.requireNode(flow.scenario),
-      documentPath: flow.documentPath,
-      startsAt: flow.startsAt,
-      ...(flow.notes ? { notes: flow.notes } : {}),
-      parents: this.flows
-        .filter((parent) => this.children.get(parent.id)!.some((child) => child.id === id))
-        .map(reference),
-      steps: flow.steps.map(({ concept, ...step }) => ({
-        ...step,
-        ...(concept ? { concept: this.graph.requireNode(concept) } : {}),
-        childFlows: concept ? this.childFlows(concept, flow.id) : [],
-      })),
-      transitions: flow.transitions,
-    };
   }
 
   private childrenOfFlow(flow: BusinessFlow): readonly BusinessFlow[] {

@@ -100,8 +100,9 @@ anchors:
     description: Confirm inventory and create a durable customer order.
 ```
 
-`context` retains both fields. The business-facing Viewer hides source anchors. The Agent locates
-the current method using normal repository tools and confirms its behavior.
+Queries retain both fields with `resolution: "hint"`; they do not guess a declaration's code line.
+A missing local path is marked `missing`. The business-facing Viewer hides source anchors.
+The Agent locates the current method using normal repository tools and confirms its behavior.
 Existing file references and unbound symbols remain compatible; maintenance
 can refine them when current evidence establishes a more precise business entry.
 
@@ -126,18 +127,32 @@ semantic-atlas web
 流程与源码保留在同一仓库，锚点相对它解析；不同项目分别查询，不递归混合子项目。
 
 `validate` checks every map document as one graph. `search` ranks up to five
-concepts of any business-node kind for a natural-language query. Each result
-includes a query-relative score, stable ID, node kind, and the fields that
-matched. Use the selected stable ID with `context` to return that concept's
-containment, direct incoming and outgoing relationships, related concepts,
-source-navigation anchors, and complete related flows in a versioned JSON
-envelope. Existing exact and partial `context` selectors remain supported.
+concepts with stable IDs, query-relative scores, matched fields, and current YAML
+maintenance locations. The first candidate's ID appears in `contextFor`: only
+that candidate has an attached business summary. It remains a lexical candidate
+for the Agent to assess; use another candidate's ID with `context` when needed.
+
+The shared summary returns unique concept details and source anchors, typed
+relations with business reasons, and related flow references with step locations.
+It covers direct relations and other recorded users of shared data, interfaces,
+and invariants. `scope: "recorded"` marks this as investigation evidence to
+confirm in source. It does not establish complete change impact.
+
+`context` retains exact and partial selectors and adds the selected concept,
+ancestor IDs and direct child IDs. Related flows remain summaries;
+`flows <id>` expands that flow's full local steps and
+transitions. Scenario, parent, step concept and child-flow references use IDs;
+concept details and anchors appear once in the same response. Query commands
+emit compact versioned JSON with only `repository.root`, without a map-file
+inventory. Each item's `map` locates its current YAML declaration. See the
+[query contract](docs/map-format.md#context-projection) for fields and limits.
 `render` produces a deterministic, self-contained interactive HTML Viewer from
 that same normalized map.
 
 AI 按业务问题直接定位流程：已知编号时直接 `flows <flow-id>`，未知时用
-`search "<业务描述>" --flows` 返回相关流程，再读取该图的步骤、子流程与具体代码锚点。
-`context <concept-id>` 可以补看业务规则、数据和协作。没有必须先读总览的顺序。
+`search "<业务描述>" --flows` 返回相关流程及命中步骤的维护位置。`contextFor` 标明
+第一流程候选的关联摘要；另一个候选更合适时按其流程 ID 读取，或用 `scenarioId`
+查询概念上下文。完整步骤与子流程按需读取，没有必须先读总览的顺序。
 搜索使用业务名称、别名、步骤和说明做词面匹配，AI 仍需判断业务含义，不能把分数当成证据。
 
 人通过画布阅读。所有页面统一为流程图；节点角标直接进子流程，多目标先选择。

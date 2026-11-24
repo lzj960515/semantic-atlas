@@ -1,8 +1,5 @@
-import type {
-  BusinessFlowStepDefinition,
-  BusinessFlowTransitionDefinition,
-  BusinessNode,
-} from "./map.js";
+import type { BusinessFlowStepDefinition, BusinessFlowTransitionDefinition } from "./map.js";
+import type { BusinessQuerySummary, QueryMapReference } from "./query-context.js";
 
 export interface FlowReference {
   readonly id: string;
@@ -20,24 +17,24 @@ export interface FlowNavigation {
   readonly flows: readonly FlowDirectoryEntry[];
 }
 
-export interface FlowStepContext extends Omit<BusinessFlowStepDefinition, "concept"> {
-  readonly concept?: BusinessNode;
-  readonly childFlows: readonly FlowReference[];
+export interface FlowStepContext extends BusinessFlowStepDefinition {
+  readonly map: QueryMapReference;
+  readonly childFlows: readonly string[];
 }
 
 export interface FlowContext extends FlowReference {
-  readonly scenario: BusinessNode;
-  readonly documentPath: string;
+  readonly scenario: string;
+  readonly map: QueryMapReference;
   readonly startsAt: readonly string[];
   readonly notes?: string;
-  readonly parents: readonly FlowReference[];
+  readonly parents: readonly string[];
   readonly steps: readonly FlowStepContext[];
   readonly transitions: readonly BusinessFlowTransitionDefinition[];
 }
 
 export type FlowsData =
   | { readonly navigation: FlowNavigation }
-  | { readonly selected: FlowContext };
+  | ({ readonly selected: FlowContext } & BusinessQuerySummary);
 
 export interface FlowSearchResult extends FlowReference {
   readonly scenarioId: string;
@@ -47,8 +44,17 @@ export interface FlowSearchResult extends FlowReference {
   readonly matchedSteps: readonly { readonly id: string; readonly name: string }[];
 }
 
-export interface FlowSearchData {
+export interface FlowSearchData extends BusinessQuerySummary {
   readonly query: string;
+  readonly contextFor?: string;
   readonly target: "flows";
-  readonly results: readonly FlowSearchResult[];
+  readonly results: readonly (Omit<FlowSearchResult, "matchedSteps"> & {
+    readonly map: QueryMapReference;
+    readonly matchedSteps: readonly {
+      readonly id: string;
+      readonly name: string;
+      readonly concept?: string;
+      readonly map: QueryMapReference;
+    }[];
+  })[];
 }

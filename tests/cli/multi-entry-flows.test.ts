@@ -37,7 +37,8 @@ describe("多个业务入口与独立并行后续", () => {
     const context = JSON.parse(
       (await runCli(["context", "monitoring", "--repo", repository])).stdout,
     );
-    expect(context.data.flows[0].startsAt).toEqual(selected.startsAt);
+    expect(context.data.flows[0]).toMatchObject({ id: "monitoring.flow", scenario: "monitoring" });
+    expect(context.data.flows[0]).not.toHaveProperty("steps");
 
     const result = await new MapApplication().viewerProject(repository);
     expect(result.ok).toBe(true);

@@ -591,9 +591,11 @@ async function runUpgradeCommand(runtime: CliRuntime): Promise<UpgradeEnvelope> 
 }
 
 function serialize(exitCode: number, envelope: object): CliRunResult {
+  const command = "command" in envelope ? envelope.command : undefined;
+  const query = command === "search" || command === "context" || command === "flows";
   return {
     exitCode,
-    stdout: `${JSON.stringify(envelope, null, 2)}\n`,
+    stdout: `${JSON.stringify(envelope, null, query ? undefined : 2)}\n`,
     stderr: "",
   };
 }

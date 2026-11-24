@@ -38,16 +38,15 @@ interface ContextEnvelopeView {
     readonly selected: {
       readonly anchors: readonly { readonly value: string }[];
     };
-    readonly incoming: readonly RelationView[];
-    readonly outgoing: readonly RelationView[];
+    readonly relations: readonly RelationView[];
     readonly flows: readonly { readonly id: string }[];
   };
 }
 
 interface RelationView {
   readonly type: string;
-  readonly from: { readonly id: string };
-  readonly to: { readonly id: string };
+  readonly from: string;
+  readonly to: string;
 }
 
 interface EvaluationSuite {
@@ -179,12 +178,12 @@ async function assertExpectedContext(
   }
 
   for (const relation of expectation.relations ?? []) {
-    expect(envelope.data[relation.direction], caseId).toEqual(
+    expect(envelope.data.relations, caseId).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           type: relation.type,
-          from: expect.objectContaining({ id: relation.from }),
-          to: expect.objectContaining({ id: relation.to }),
+          from: relation.from,
+          to: relation.to,
         }),
       ]),
     );

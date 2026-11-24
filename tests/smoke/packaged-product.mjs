@@ -225,14 +225,19 @@ async function exerciseInstalledProduct() {
   assert.equal(context.stderr, "");
   const contextData = JSON.parse(context.stdout).data;
   assert.equal(contextData.selected.id, "commerce.orders.place-order");
-  assert.deepEqual(contextData.selected.anchors, [
-    {
-      kind: "symbol",
-      file: "src/orders/place-order.service.ts",
-      value: "PlaceOrderService.execute",
-      description: "Historical orchestration entry point to confirm in current source.",
-    },
-  ]);
+  assert.deepEqual(
+    contextData.selected.anchors.map(
+      ({ resolution: _resolution, location: _location, ...anchor }) => anchor,
+    ),
+    [
+      {
+        kind: "symbol",
+        file: "src/orders/place-order.service.ts",
+        value: "PlaceOrderService.execute",
+        description: "Historical orchestration entry point to confirm in current source.",
+      },
+    ],
+  );
   assert.deepEqual(
     contextData.flows.map(({ id }) => id),
     ["commerce.orders.place-order-flow"],
