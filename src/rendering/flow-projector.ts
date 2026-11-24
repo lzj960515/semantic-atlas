@@ -106,9 +106,12 @@ function renderCards(
     const stack = node.childFlows.length
       ? `<button class="flow-card__child" type="button" data-action="open-child-flow" aria-label="${escapeHtml(t("viewer.childFlows"))}" data-i18n-aria-label="viewer.childFlows"${node.childFlows.length > 1 ? ' aria-haspopup="menu" aria-expanded="false" aria-controls="child-flow-menu"' : ""}><svg class="flow-card__stack" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><rect x="2" y="2" width="9" height="9" rx="2"/><path d="M 5 13 H 12 Q 14 13 14 11 V 5"/></svg></button>`
       : "";
+    const notes = interactive
+      ? `<span class="flow-card__notes" role="img" aria-label="${escapeHtml(t("viewer.nodeDetails"))}" data-i18n-aria-label="viewer.nodeDetails"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><path d="M 8 7 V 11"/><circle cx="8" cy="5" r=".65" fill="currentColor" stroke="none"/></svg></span>`
+      : "";
     return `<article class="${classes}" data-node-id="${escapeHtml(node.id)}" data-layout-node="${escapeHtml(node.id)}" data-flow-step-id="${escapeHtml(node.id)}" style="left:${position.x - position.width / 2 + layout.offsetX}px;top:${position.y - position.height / 2 + layout.offsetY}px;width:${CARD_WIDTH}px">
               <div class="flow-card__body"${interactive ? ' role="button" tabindex="0" aria-controls="node-details" aria-expanded="false"' : ""}>
-              <h3><span class="flow-card__symbol" aria-hidden="true"></span><span class="flow-card__title-text">${escapeHtml(node.name)}</span></h3>
+              <h3><span class="flow-card__symbol" aria-hidden="true"></span><span class="flow-card__title-text">${escapeHtml(node.name)}</span>${notes}</h3>
               <p>${escapeHtml(node.summary)}</p>
               </div>${stack}
             </article>`;

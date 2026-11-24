@@ -232,6 +232,9 @@ function viewerStyles(): string {
     .flow-card--child:hover, .flow-card--child.flow-card--selected { border-color: #759e79; box-shadow: 0 3px 0 -1px white, 0 3px 0 0 #9dbb9e, 0 6px 0 -1px white, 0 6px 0 0 #c5d5bc, 0 10px 18px #214e2911; }
     .flow-card h3 { display: flex; align-items: flex-start; gap: 7px; margin: 0; font-size: 14px; font-weight: 600; line-height: 21px; }
     .flow-card__title-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .flow-card__notes { flex: 0 0 14px; display: inline-flex; width: 14px; height: 14px; margin-top: 3px; color: #6d8167; }
+    .flow-card__notes svg { width: 14px; height: 14px; }
+    .flow-card--interactive:hover .flow-card__notes, .flow-card--selected .flow-card__notes { color: #527d54; }
     .flow-card__symbol { flex-shrink: 0; width: 6px; height: 6px; margin-top: 7px; border-radius: 50%; background: #8baf87; }
     .flow-card--start .flow-card__symbol { width: 8px; height: 8px; margin-top: 6px; border: 2px solid #77a17a; background: white; }
     .flow-card--decision .flow-card__symbol { border-radius: 1px; background: #bd9852; transform: rotate(45deg); }
