@@ -29,10 +29,12 @@ describe("按业务直接定位流程与代码", () => {
     expect(selected).toMatchObject({
       id: "payment.flow",
       startsAt: ["charge"],
-      parents: [{ id: "journey.flow" }],
+      parents: ["journey.flow"],
     });
     expect(
-      selected.steps.find((step: { id: string }) => step.id === "charge").concept.anchors,
+      JSON.parse(direct.stdout)
+        .data.concepts.find((concept: { id: string }) => concept.id === "charge")
+        .anchors.map(({ resolution: _resolution, ...anchor }: Record<string, unknown>) => anchor),
     ).toEqual([
       {
         kind: "symbol",

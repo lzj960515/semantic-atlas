@@ -75,17 +75,6 @@ export class BusinessGraph {
     return this.map.flows;
   }
 
-  public flowsRelatedTo(nodeId: string): readonly BusinessFlow[] {
-    const containedConceptIds = new Set([nodeId, ...this.descendants(nodeId).map(({ id }) => id)]);
-    return Object.freeze(
-      this.map.flows.filter(
-        (flow) =>
-          containedConceptIds.has(flow.scenario) ||
-          flow.steps.some((step) => step.concept === nodeId),
-      ),
-    );
-  }
-
   public ancestors(nodeId: string): readonly BusinessNode[] {
     const ancestors: BusinessNode[] = [];
     let currentId = this.parentByChild.get(nodeId);
@@ -101,17 +90,6 @@ export class BusinessGraph {
     return Object.freeze(
       (this.childrenByParent.get(nodeId) ?? []).map((childId) => this.requireNode(childId)),
     );
-  }
-
-  public descendants(nodeId: string): readonly BusinessNode[] {
-    const descendants: BusinessNode[] = [];
-    const pending = [...(this.childrenByParent.get(nodeId) ?? [])];
-    while (pending.length > 0) {
-      const descendantId = pending.shift()!;
-      descendants.push(this.requireNode(descendantId));
-      pending.push(...(this.childrenByParent.get(descendantId) ?? []));
-    }
-    return Object.freeze(descendants);
   }
 
   public incoming(nodeId: string): readonly BusinessRelation[] {

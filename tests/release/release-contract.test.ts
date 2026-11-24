@@ -282,7 +282,6 @@ describe("public release candidate", () => {
     expect(release).not.toContain("Direct V1 Main Cutover");
 
     for (const productDocument of [productContract, deliveryPlan]) {
-      expect(productDocument).toContain("semantic-atlas@2.3.0");
       expect(productDocument).not.toContain("old-CLI upgrade compatibility");
       expect(productDocument).not.toContain("v0.4 transition rehearsal");
     }

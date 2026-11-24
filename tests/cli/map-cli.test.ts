@@ -608,22 +608,21 @@ describe("semantic-atlas context", () => {
         selected: {
           id: "commerce.orders.place-order",
           name: "Place order",
-          documentId: "commerce",
+          map: { file: "docs/business-map/commerce.yaml" },
           anchors: [{ value: "PlaceOrderService.execute" }],
         },
-        ancestors: [
-          { id: "commerce", name: "Commerce" },
-          { id: "commerce.orders", name: "Orders" },
-        ],
-        children: [{ id: "commerce.orders.create-order", name: "Create order" }],
-        incoming: [],
-        outgoing: [
-          {
+        ancestors: ["commerce", "commerce.orders"],
+        children: ["commerce.orders.create-order"],
+        relations: expect.arrayContaining([
+          expect.objectContaining({
             type: "invokes",
-            from: { id: "commerce.orders.place-order" },
-            to: { id: "commerce.orders.create-order", name: "Create order" },
-          },
-        ],
+            from: "commerce.orders.place-order",
+            to: "commerce.orders.create-order",
+          }),
+        ]),
+        concepts: expect.arrayContaining([
+          expect.objectContaining({ id: "commerce.orders.create-order", name: "Create order" }),
+        ]),
         flows: [],
       },
     });
@@ -637,25 +636,23 @@ describe("semantic-atlas context", () => {
     expect(JSON.parse(operationResult.stdout)).toMatchObject({
       ok: true,
       data: {
-        incoming: [
-          {
+        relations: expect.arrayContaining([
+          expect.objectContaining({
             type: "invokes",
-            from: { id: "commerce.orders.place-order" },
-            to: { id: "commerce.orders.create-order" },
-          },
-        ],
-        outgoing: [
-          {
+            from: "commerce.orders.place-order",
+            to: "commerce.orders.create-order",
+          }),
+          expect.objectContaining({
             type: "writes",
-            from: { id: "commerce.orders.create-order" },
-            to: { id: "commerce.orders.order" },
-          },
-        ],
+            from: "commerce.orders.create-order",
+            to: "commerce.orders.order",
+          }),
+        ]),
       },
     });
   });
 
-  it("returns complete related flows for a scenario and its referenced concepts", async () => {
+  it("returns related-flow locations and reads complete branches only on request", async () => {
     const repositoryRoot = await trackedRepository({
       "commerce.yaml": mapDocument(
         "commerce",
@@ -686,29 +683,30 @@ describe("semantic-atlas context", () => {
     ]);
 
     expect(scenarioResult.exitCode).toBe(0);
-    expect(JSON.parse(scenarioResult.stdout)).toMatchObject({
-      ok: true,
-      data: {
-        flows: [
-          {
-            id: "commerce.orders.place-order-flow",
-            scenario: "commerce.orders.place-order",
-            startsAt: ["receive-order"],
-            steps: [
-              { id: "create-order", concept: "commerce.orders.create-order" },
-              { id: "order-created", kind: "outcome" },
-              { id: "payment-authorized", kind: "decision" },
-              { id: "payment-declined", kind: "outcome" },
-              { id: "receive-order", kind: "action" },
-            ],
-            transitions: expect.arrayContaining([
-              { from: "payment-authorized", when: "authorized", to: "create-order" },
-              { from: "payment-authorized", when: "declined", to: "payment-declined" },
-            ]),
-          },
-        ],
-      },
+    const related = JSON.parse(scenarioResult.stdout).data.flows[0];
+    expect(related).toMatchObject({
+      id: "commerce.orders.place-order-flow",
+      scenario: "commerce.orders.place-order",
+      map: { file: "docs/business-map/commerce.yaml" },
     });
+    expect(related).not.toHaveProperty("steps");
+    const detail = JSON.parse(
+      (await runCli(["flows", related.id, "--repo", repositoryRoot])).stdout,
+    ).data.selected;
+    expect(detail.startsAt).toEqual(["receive-order"]);
+    expect(detail.steps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "create-order", concept: "commerce.orders.create-order" }),
+        expect.objectContaining({ id: "payment-authorized", kind: "decision" }),
+        expect.objectContaining({ id: "payment-declined", kind: "outcome" }),
+      ]),
+    );
+    expect(detail.transitions).toEqual(
+      expect.arrayContaining([
+        { from: "payment-authorized", when: "authorized", to: "create-order" },
+        { from: "payment-authorized", when: "declined", to: "payment-declined" },
+      ]),
+    );
     expect(JSON.parse(operationResult.stdout)).toMatchObject({
       ok: true,
       data: {

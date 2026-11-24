@@ -366,6 +366,7 @@ stable ID for ties. Each candidate contains:
 - `rank` within the returned list;
 - a `0–1` score that compares relevance only within the current query;
 - stable ID, name, kind, and supplying document ID;
+- `map`，定位候选在当前 YAML 中的声明；
 - `matchedFields` drawn from `name`, `alias`, `id`, and `summary`.
 
 The deterministic local matcher applies Unicode NFKC and lowercase
@@ -376,8 +377,12 @@ threshold are omitted, so no sufficiently related vocabulary produces a
 successful empty result rather than a concept error. Scores are ranking signals,
 not correctness probabilities or map truth scores.
 
-After choosing a candidate, callers use its stable ID with `context` to obtain
-the local business neighborhood. The earlier compatibility selector remains
+搜索同时返回第一候选的局部业务摘要，以字符串 `contextFor` 标明其概念 ID。
+`results` 仍包含其他候选的排序和维护位置；摘要不混入它们各自的邻域。第一候选只是
+词面排序结果，调用者依据业务含义决定目标；其他候选更合适时按其 ID 读取 `context`。
+无命中时省略 `contextFor`，摘要列表为空。摘要结构见[查询投影](#context-projection)。
+
+The earlier compatibility selector remains
 available and resolves in this order:
 
 1. exact stable ID;
@@ -395,24 +400,38 @@ when no candidate is sufficient.
 
 ## Context Projection
 
-For one selected node, `context` returns:
+`search`、`search --flows`、`context` 与指定 ID 的 `flows` 共用局部业务摘要。
+查询结果使用紧凑 JSON，`repository` 只保留 `root`；不附地图文件目录。
+完整 YAML 仍是持久业务来源，以下位置与关联摘要在每次查询中派生。
 
-- the selected node;
-- its ordered ancestor chain;
-- direct semantic children;
-- direct incoming and outgoing horizontal relations;
-- complete summaries for referenced endpoint nodes;
-- navigation anchors for all directly returned nodes;
-- the document IDs that supplied each item;
-- advisory anchor diagnostics when requested and available;
-- complete related flows, including steps and labeled transitions.
+| 字段 | 含义与读取方式 |
+| --- | --- |
+| `scope: "recorded"` | 仅反映当前地图显式记录的关系，不代表已确认影响或完整依赖 |
+| `concepts` | 按 ID 唯一的概念详情：`id`、`kind`、`name`、`summary`、可选 `notes`、源码 `anchors` 和维护位置 `map`；规则沿 `invariant` 概念及 `constrained_by` 表达 |
+| `relations` | `from`、`type`、`to`、`summary`、可选 `notes` 和 `map`；端点用 ID 引用概念，保留关联原因 |
+| `flows` | 流程的 `id`、`name`、所属 `scenario` ID、`map` 与 `references`；仅为所属／引用摘要，不展开步骤与转换 |
+| `flows[].references` | 相关概念的 `concept` ID、引用它的 `step` ID 和步骤 `map`，供调查及同步图时定位 |
 
-A flow is related when it belongs to the selected scenario, belongs to a
-scenario under the selected domain or capability, or directly references the
-selected operation, data, invariant, or interface from one of its steps.
+摘要先取查询种子的所有直接关系，再沿直接关系涉及的共享 `data`、`interface` 和
+`invariant`，补充它们的其他非 `part_of` 关系。它会暴露共享订单的读写者、同一事件的
+生产者与消费者、同一规则约束的其他动作；不会沿普通动作继续无限递归，也不把归属
+解释成执行先后。流程摘要覆盖这些业务概念所属的场景或直接引用它们的步骤。
+哪些关系与当前修改相关，仍由调用者核实源码与业务证据。
 
-The result is intentionally local. The caller can query another returned stable
-ID when it needs to expand the investigation.
+`context <id-or-term>` 在摘要外返回 `selector`、`matchedBy`、所选概念详情 `selected`、
+按顺序排列的祖先 ID `ancestors` 和直接子概念 ID `children`。祖先与子概念详情纳入
+`concepts`，所选概念不再在其中重复。归属链只补充身份与导航，不自动展开所有后代
+的业务或流程；需要时按返回 ID 继续查询。
+
+各 `map` 为 `{file, line?, column?}`：`file` 相对 `repository.root`，一基行列从本次
+读取的 YAML AST 派生，指向概念／流程／步骤的 `id` 或关系的 `from`。无法取得位置
+时仅保留文件，不编造行列。该位置是维护声明的入口，不是代码位置，也不持久化。
+
+源码锚点保持[原有字段](#navigation-anchors)，额外的 `resolution` 只表达导航状态。
+存在的 `file`／`document` 标为 `located`，`location` 指向文件第一行；目录、符号和
+`search` 保留 `hint`。绑定符号的 `file` 与 `value` 继续交给调用者查当前声明，不猜
+代码行号；预期本地路径缺失或类型不符时标为 `missing`。这些状态不确认业务行为，
+也不从跨项目线索推导新的关系模型。
 
 ## 同分支编辑与业务定位
 
@@ -431,11 +450,19 @@ AI 不必先从总览进入。已知编号直接 `flows <flow-id>`；未知时
 ## 流程搜索与直接读取
 
 `search <query> --flows` 直接返回最多五个业务流程候选，包含 `id`、`name`、`summary`、
-`scenarioId`、相对分数和命中字段。匹配流程名称、所属场景业务别名、步骤及其引用业务的名称和说明，使用
-本地词面检索。没有 `--flows` 时仍搜索业务概念。
+`scenarioId`、相对分数和命中字段。每个候选有流程 `map` 与 `matchedSteps`，命中步骤
+带 ID、名称、可选概念 ID 和维护位置。匹配流程名称、所属场景业务别名、步骤及其引用
+业务的名称和说明，使用本地词面检索。没有 `--flows` 时仍搜索业务概念。
 
-`flows <flow-id>` 直接读取该图，`data.selected` 包含入口、步骤、带标签转换、父流程和
-业务概念。步骤的 `concept` 为包含源码锚点的业务对象，`childFlows` 指向子图。
-指定编号时只返回该流程，不附带全量目录。省略编号时返回 `data.navigation`，
-它与人的级联菜单共用同一目录，AI不必先读它。
+`contextFor` 为第一流程候选的 ID，摘要基于其所属场景及命中步骤引用的概念；它不表示
+已选定业务。其他候选更合适时，可按 `scenarioId` 读取概念上下文，或按流程 ID 读取
+完整流程。搜索不附每个候选的完整邻域，也不重复输出各图的全部步骤。
+
+`flows <flow-id>` 读取该图的完整本层细节。`data.selected` 包含 `id`、`name`、`summary`、
+所属 `scenario` ID、`map`、入口 `startsAt`、可选 `notes`、父流程 ID `parents`、步骤
+`steps` 和带标签转换 `transitions`。步骤保留 `kind`、`name`、`summary`、可选 `notes`
+及 `map`；`concept` 为可选概念 ID，`childFlows` 为子流程 ID 列表。概念详情从同一
+响应 `concepts` 查，父图和子图按 ID 需要时再读。指定编号时不附全量目录或其他流程
+完整内容。省略编号时只返回
+`data.navigation`，它与人的级联菜单共用同一目录，AI 不必先读它。
 没有匹配的编号返回 `FLOW_NOT_FOUND`，不会自动换成名字相近的业务。

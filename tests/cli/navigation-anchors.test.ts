@@ -31,7 +31,12 @@ describe("file-bound symbol navigation", () => {
     const result = await runCli(["context", "orders.create", "--repo", repositoryRoot]);
 
     expect(result.exitCode, result.stdout).toBe(0);
-    expect(JSON.parse(result.stdout).data.selected.anchors).toEqual(anchors);
+    expect(
+      JSON.parse(result.stdout).data.selected.anchors.map(
+        ({ resolution: _resolution, location: _location, ...anchor }: Record<string, unknown>) =>
+          anchor,
+      ),
+    ).toEqual(anchors);
     const output = path.join(repositoryRoot, "map.html");
     const rendered = await runCli(["render", "--repo", repositoryRoot, "--output", output]);
     expect(rendered.exitCode, rendered.stdout).toBe(0);

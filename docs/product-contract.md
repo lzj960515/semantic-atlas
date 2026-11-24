@@ -4,10 +4,8 @@ This page defines the accepted initial product. It answers what Semantic Atlas
 must improve, how agents and people use it, and which results establish
 that the product works.
 
-**Status: the behavior below is implemented for 4.1.2, including named-project
-queries, multiple flow entries, unconditional fan-out and business-boundary
-authoring guidance. Exact publication identity lives in the corresponding GitHub Release;
-longitudinal acceptance remains in progress.**
+**状态：当前 5.0.0 源码已实现紧凑查询、业务关系与维护位置输出。YAML 持久格式保持
+不变；查询 JSON 的字段变化见下文。发布身份以对应 GitHub Release 为准，长期验收仍在进行。**
 
 ## Purpose
 
@@ -68,6 +66,28 @@ An agent uses typed business relations to ask what invokes an action, what data
 it reads or writes, which invariant constrains it, and which interfaces cross
 its boundary. These relations guide source investigation when user wording and
 implementation vocabulary differ.
+
+### AI 查询与按需读取
+
+首次定位应足以判断业务入口：搜索候选带当前 YAML 的维护位置，第一候选随附唯一
+概念详情、源码入口、显式业务关系及相关图的引用位置；`contextFor` 明确摘要所属的
+候选 ID。最多五个候选仍由 Agent 按业务含义选择，第一候选及其词面分数不代表
+已经确定目标。选中其他候选后，按稳定 ID 读取相应概念或流程。
+
+已知概念用 `context` 直达所选业务与其关联；已知流程用 `flows <id>` 直接读本层完整
+步骤和转换。普通查询中的相关流程保留所属／引用摘要，完整细节按需读取。响应通过
+ID 连接概念、关系和流程，避免在步骤和关系中重复概念与锚点；查询不列全库文件，
+使用紧凑 JSON，`repository` 只报告选中的 `root`。
+
+关联解释来自 `relations` 的类型、业务 `summary` 与端点，流程的 `references` 说明
+哪些步骤引用了相关概念。查询覆盖直接关系及共享数据、接口、规则的其他已记录使用方，
+帮助 Agent 判断哪些业务与图需要核实；不无限扩展动作邻域。`scope: "recorded"` 明示
+范围：记录了关联不等于当前变更一定有影响，未返回也不证明没有使用方。跨项目线索
+仍由 Agent 转到对应仓库核实，本轮不引入跨仓关系模型。
+
+维护位置从当前 YAML 派生，不改变持久模型。代码符号保留文件和声明提示，CLI 不猜
+代码行号；导航状态只说明路径可进入或缺失，不代替当前行为核实。字段与定位语义
+由[查询投影](map-format.md#context-projection)定义。
 
 ### Human inspection
 
@@ -244,9 +264,8 @@ The initial product delivers one coherent path:
    query, with a deterministic query-relative score and stable IDs.
 5. Select a concept by stable ID, while retaining the existing exact and partial
    selector behavior for compatibility.
-6. Return its containment, direct business relations, related concepts, and
-   navigation anchors as structured JSON, together with complete related
-   business flows.
+6. 返回有维护位置的局部业务摘要、概念与锚点、直接关系及共享数据／接口／规则的其他
+   已记录使用方；相关图提供引用位置，指定流程时才展开完整本层步骤。
 7. Render deterministic interactive human-readable projections from the same
    graph as a portable HTML artifact or loopback Web session, with linked
    business process diagrams.
@@ -291,9 +310,8 @@ the following:
 
 - tracked example and real-project map files load and validate through the
   public CLI;
-- ranked search returns the expected node-level candidates and stable IDs, then
-  context queries return the expected business owner, containment, incoming
-  and outgoing relationships, navigation anchors, and related flows;
+- 搜索候选与指定概念／流程查询返回预期业务身份、维护位置、代码入口、带原因的
+  已记录关联及相关图引用；候选摘要所属明确，概念不重复，完整流程按需读取；
 - the renderer produces readable business process diagrams from the
   same normalized map and links shared business concepts between them;
 - a package-managed Agent Skill activates for business-changing work with or
@@ -314,14 +332,11 @@ human-intervention evidence as acceptance conditions.
 
 ## Current Delivery State
 
-The initial product, managed setup, versioned observations, read-only
-reconciliation, public repository, and npm publication are complete. The first
-real target-domain map and reviewed observation pair are in local use. The
-current `semantic-atlas@2.3.0` release adds manual project registration,
-parameterless Web startup, on-demand single-project loading, and project-level
-unavailable states without changing the tracked YAML business-map source.
-Target-repository sharing and longitudinal acceptance remain separate verified
-stages.
+当前源码版本为 `semantic-atlas@5.0.0`。项目登记、只读阅读器、观察与历史校准能力继续
+保留；本次将 AI 查询改为唯一概念详情、带原因的关联、相关图引用及当前 YAML 位置，
+完整步骤按需读取。查询 JSON 的重复嵌套对象与全量文件目录已移除，因此使用主版本
+标明输出契约变化；业务文件仍使用原有 YAML，无需迁移。公开发行和本机安装分别核验，
+长期真实任务验收仍按下文证据标准进行。
 
 ## Current Public Release
 

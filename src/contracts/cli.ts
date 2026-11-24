@@ -1,15 +1,10 @@
-import type {
-  BusinessFlow,
-  BusinessNode,
-  BusinessRelation,
-  MapIssue,
-  RepositoryMapSource,
-} from "./map.js";
+import type { BusinessNode, MapIssue, RepositoryMapSource } from "./map.js";
 import type { FlowsData, FlowSearchData } from "./flow-navigation.js";
 import type { InsightSummaryResult } from "./insights.js";
 import type { ObservationKind } from "./observation.js";
 import type { ReconciliationCandidateReport } from "./reconciliation.js";
 import type { ProjectSelectionFailure, RegisteredProject } from "./project.js";
+import type { BusinessQuerySummary, QueryConcept, QueryMapReference } from "./query-context.js";
 
 export interface CliRunResult {
   readonly exitCode: number;
@@ -21,7 +16,9 @@ export interface CliSuccessEnvelope<TCommand extends string, TData> {
   readonly schemaVersion: 1;
   readonly ok: true;
   readonly command: TCommand;
-  readonly repository: RepositoryMapSource;
+  readonly repository: TCommand extends "search" | "context" | "flows"
+    ? Pick<RepositoryMapSource, "root">
+    : RepositoryMapSource;
   readonly data: TData;
 }
 
@@ -36,7 +33,9 @@ export interface CliErrorEnvelope<TCommand extends string> {
   readonly schemaVersion: 1;
   readonly ok: false;
   readonly command: TCommand;
-  readonly repository?: RepositoryMapSource;
+  readonly repository?: TCommand extends "search" | "context" | "flows"
+    ? Pick<RepositoryMapSource, "root">
+    : RepositoryMapSource;
   readonly error: CliError;
 }
 
@@ -172,29 +171,18 @@ export interface ConceptSearchResult extends ConceptCandidate {
   readonly matchedFields: readonly ConceptSearchField[];
 }
 
-export interface SearchData {
+export interface SearchData extends BusinessQuerySummary {
   readonly query: string;
-  readonly results: readonly ConceptSearchResult[];
+  readonly contextFor?: string;
+  readonly results: readonly (ConceptSearchResult & { readonly map: QueryMapReference })[];
 }
 
-export interface ContextRelation {
-  readonly type: BusinessRelation["type"];
-  readonly summary: string;
-  readonly notes?: string;
-  readonly documentId: string;
-  readonly from: BusinessNode;
-  readonly to: BusinessNode;
-}
-
-export interface ContextData {
+export interface ContextData extends BusinessQuerySummary {
   readonly selector: string;
   readonly matchedBy: ConceptMatchKind;
-  readonly selected: BusinessNode;
-  readonly ancestors: readonly BusinessNode[];
-  readonly children: readonly BusinessNode[];
-  readonly incoming: readonly ContextRelation[];
-  readonly outgoing: readonly ContextRelation[];
-  readonly flows: readonly BusinessFlow[];
+  readonly selected: QueryConcept;
+  readonly ancestors: readonly string[];
+  readonly children: readonly string[];
 }
 
 export interface RenderData {

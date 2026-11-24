@@ -120,28 +120,38 @@ product evidence decide whether the described business path is current.
 Holds normalized immutable nodes, relations, flows, aliases, containment
 indexes, and incoming/outgoing relation indexes for one command. It exposes
 domain operations in terms of business concepts and scenario paths rather than
-file layout or parser objects. Related flows are derived from scenario
-containment and step concept references.
+file layout or parser objects. 流程导航与局部查询分别使用图中的归属、关系和步骤引用，
+按各自职责派生目录或业务摘要。
 
 ### ContextQueryService
 
-Resolves a concept by stable ID, name, or alias and returns the smallest useful
-business neighborhood: ancestors, direct children, incoming and outgoing
-relations, referenced concepts, summaries, navigation anchors, and complete
-related flows. It reports ambiguity explicitly rather than selecting a hidden
-match. It preserves bound symbol anchors as structured file paths and
-declaration names; source location and behavior confirmation belong to the
-calling Agent's repository tools.
+按稳定 ID、名称或别名解析概念，歧义时显式报告候选。`query` 返回单独的 `selected`、
+祖先与直接子概念 ID，并复用 `summarize` 提供查询摘要：唯一概念详情、显式关系和
+流程所属／步骤引用位置。所选概念不再重复放入 `concepts`。
+
+`summarize` 以选定概念为种子，先取直接关系，再补充直接关系涉及的共享数据、接口与
+规则的其他非归属关系；普通动作不继续递归。关联摘要保留类型、业务原因、端点 ID 与
+维护位置，相关流程只提供 ID、名称、所属场景与具体引用。`scope: "recorded"` 约束其
+含义为已记录知识，不推导当前变更影响。完整步骤由指定 ID 的 `flows` 单独投影。
+
+### QuerySourceLocator
+
+每次查询创建一个定位器，缓存生命周期限定在本次调用。定位器读取当前 YAML AST，
+按概念／流程／步骤 ID 及关系三元组找到唯一声明，从解析器行列计数取得 `map` 位置；
+没有位置时保留文件。位置为查询派生信息，不写回业务文件，不进入持久模型。
+
+源码锚点使用文件元数据确认路径是否存在及类型。文件和文档的 `located` 指向文件
+开头；存在的符号、目录及搜索线索保持 `hint`，预期本地路径不存在或类型不符为
+`missing`。文件绑定符号保留 `file` 与 `value`，声明位置和行为由调用 Agent 使用
+仓库工具核实；不扫描文本猜代码行号。跨项目搜索提示也不自动变成跨仓关系。
 
 ### ConceptSearchService
 
-Ranks every normalized business node against one natural-language query and
-returns at most five deterministic candidates. It compares names, aliases,
-stable IDs, and summaries through local lexical similarity, keeps scores within
-`0–1`, and uses stable IDs to break ties. The score expresses relevance within
-that query rather than truth or selection confidence. Candidate retrieval owns
-no graph expansion or source-evidence judgment; callers pass the selected stable
-ID to `ContextQueryService`.
+用自然语言查询对所有概念的名称、别名、稳定 ID 和说明做本地词面排序，最多返回五个
+候选。分数处于 `0–1`，同分按稳定 ID 排列，只表达本次查询的相对相关度。服务负责
+候选检索，不判断业务正确性，也不扩展关系或确认源码。
+`MapApplication` 在排序后只给第一候选附上 `summarize` 摘要，用 `contextFor` 明确
+所属；搜索服务本身不持有位置或扩展逻辑。调用者选定其他候选时按稳定 ID 读取。
 
 ### MapProjector 与流程导航
 
@@ -291,8 +301,11 @@ AI 根据业务含义选择结果；没有语义向量索引，不将分数解�
 浏览器的级联菜单与 AI 的 `flows` 命令使用同一目录，AI 可以直接读取任意编号。
 菜单从标题旁左对齐向右展开，鼠标悬停整行时只更新右侧列，保留当前行 DOM 和焦点，
 避免名称点击被展开打断。键盘和触屏保留明确的展开操作，窄屏在菜单内横向滚动。
-流程详情包含本层步骤、转换、子流程、概念与源码锚点；没有锚点时如实为空。
-`search --flows` 复用现有词面检索，直接返回流程候选；普通 `search` 保留概念检索。
+内部流程导航继续服务 Viewer；CLI 将指定图投影为本层步骤、转换与父／子流程 ID，
+步骤只引用概念 ID，同一响应的 `concepts` 唯一提供详情与源码锚点；没有锚点时如实为空。
+`search --flows` 复用现有词面检索，返回流程候选与命中步骤位置。`MapApplication` 只用
+第一候选的场景及命中步骤概念形成摘要，以该流程 ID 标出 `contextFor`；普通 `search`
+以第一概念 ID 标出摘要归属。没有命中时省略 `contextFor`，摘要为空。
 目录支持共享子流程；循环引用保留一个可达入口，菜单沿当前路径停止重复展开。
 
 ### ManagedSkillsInstaller
@@ -483,8 +496,11 @@ semantic-atlas reconcile candidates [--repo <path>]
 semantic-atlas --version
 ```
 
-Map commands resolve and report the repository root and map-document set they
-used. `project add` defaults to the current directory, validates the complete
+查询命令 `search`（含 `--flows`）、`context`、`flows` 在成功或错误结果包含仓库信息时，
+只保留 `repository.root`，不输出全库地图文件列表；存在定位的条目各自带 `map`。
+CLI 边界将这三类命令序列化为紧凑 JSON；其他命令保持原有输出形式。
+`validate` 和 `render` 等地图命令继续报告所用仓库及文档集合。
+`project add` defaults to the current directory, validates the complete
 map, and reports `added` or `already_exists`. Parameterless `web` reads the
 registered list; `web --repo` uses only its explicit temporary paths. `web`
 reports its loopback URL and repository count without exposing roots to the
@@ -492,24 +508,24 @@ browser. Observation commands report the derived repository identity, while
 package lifecycle commands remain repository-independent. Machine output uses
 a versioned envelope with a stable success or error discriminant.
 
-`search --flows` 直接检索流程及其业务步骤，按流程去重返回命中步骤。`flows <id>`
-只读取指定图及源码锚点，省略编号时才提供目录。
+`search --flows` 按流程去重返回命中步骤与维护位置；随附摘要只属于 `contextFor`
+指向的第一候选，不表示已选定业务。`flows <id>` 只展开指定图的完整本层内容及局部
+关联摘要，省略编号时只提供目录。流程中的概念和父／子流程以 ID 引用。
 
 `validate`、`search`、`flows`、`context`、`render` 与 `web` 均支持
 `--project <name-or-id>`，从登记目录解析目标，与当前工作目录无关；它与显式 `--repo`
 互斥。两项均未提供时，地图命令仍使用当前目录，`web` 仍使用完整登记清单。
 
-`search` returns at most five ranked nodes from every business-node kind. A
-successful empty result means the map has no sufficiently related vocabulary;
-it is not a repository failure. Each candidate includes `rank`, a `0–1`
-query-relative `score`, stable identity, node kind, supplying document, and
-`matchedFields`. Exact ID, name, or alias matches score `1`; ties use stable ID.
+`search` 从所有概念类型返回最多五个候选；成功的空结果表示词汇不足以命中。
+每项有 `rank`、本次查询相对 `score`、稳定身份、概念类型、所属文档、`matchedFields`
+和当前声明的 `map`。第一候选的概念 ID 为 `contextFor`，调用者仍负责选择符合业务
+的候选。精确 ID、名称或别名命中记为 `1`，同分按稳定 ID 排列。
 
-`context` returns ambiguity when multiple concepts match a compatibility
-selector. Callers can then use a stable ID. A missing concept is a bounded map
-result and routes the Agent to a bounded current-evidence business model; it is
-not a repository failure. A successful result includes every flow related
-through scenario containment or direct step concept references.
+`context` 的兼容选择器有多个匹配时返回歧义，调用者再用稳定 ID 选择。概念缺失是
+有界地图结果，引导 Agent 转向当前证据调查。成功时返回所选概念、祖先与直接子概念
+身份、已记录局部关系与流程引用摘要；不会展开所有后代场景或完整相关流程。具体字段
+及有界扩展语义见
+[查询投影](map-format.md#context-projection)。
 
 `setup`, `upgrade`, and `--version` do not discover a repository or load a
 business map. Their results expose the package version and managed Skill paths
