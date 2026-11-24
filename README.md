@@ -6,13 +6,13 @@
 
 English | [简体中文](README.zh-CN.md)
 
-Semantic Atlas 用流程图帮助人和 AI 共同理解业务。AI 根据源码、文档与运行证据维护
-Git 中的业务资料，人通过只读画布检查流程、分支与结果，并逐层进入细节。
+Semantic Atlas 将业务流程图作为人和 AI 协作的一等公民。经确认的流程定义业务应当
+怎样运转，代码负责实现，测试与运行记录用于检查兑现情况。人通过只读画布讨论
+流程、分支与结果，AI 维护 Git 中同一份业务规范与对应实现。
 总览和子图统一为业务流程图；业务归属、源码锚点与查询为 AI 提供调查入口。
 
-The map is deliberately advisory. It helps an agent enter through the right
-business boundary; current source, tests, tracked product documents, and
-required runtime evidence still decide what the system does now.
+图与代码不一致时，先核对业务决定，区分实现缺陷、图误写与意图变化；不能直接改图
+迁就代码。首次建图仍需调查当前实现，明确区分确认规则、实现现状和待定差异。
 The installed Skill activates from business-changing task meaning, so a
 repository without a map still receives the same bounded business-understanding
 workflow and updates affected business flows in the same branch.
@@ -209,20 +209,22 @@ for implementation details and the optional debugging override.
 For a business-changing engineering task:
 
 1. Probe the smallest useful map neighborhood whether or not map files exist.
-2. Use returned map knowledge as investigation leads, or build the smallest
-   source-supported business model after `MAP_NOT_FOUND`.
+2. Use confirmed flows as the business contract; after `MAP_NOT_FOUND`, investigate
+   the current implementation and build the smallest useful candidate flow.
 3. Trace any related business flow and identify the decisions, branches, and
    outcomes that the task can affect.
-4. Confirm every change-controlling claim in current source and tests.
-5. Use tracked product documents for durable intent and runtime evidence for
-   state-dependent behavior.
-6. Let current evidence override missing, stale, or contradicted map knowledge.
+4. Check source and tests against the confirmed business rules.
+5. Use business decisions to establish intended behavior and runtime evidence to
+   establish what actually happened.
+6. Classify discrepancies as implementation defects, flow errors, or changed intent;
+   never rewrite a confirmed flow merely because code differs.
 7. Implement, verify, and recheck the affected business paths through the
    repository's normal engineering workflow.
 8. 业务行为变化时，在同一分支同步代码与流程，一起验证和合入；纯实现调整不强制改图。
 
-The final engineering conclusion is expected to be more accurate than the map
-that helped locate it.
+The engineering conclusion distinguishes the intended business contract, actual
+implementation, and unresolved differences. Confirmed rules are not rewritten
+merely because existing code behaves differently.
 
 ## Agent Skills
 
@@ -234,8 +236,7 @@ that helped locate it.
 `part_of` 继续表达所有权，不作为执行顺序。安装和升级会清理已识别的旧维护 Skill，
 持续提供同一入口。业务资料仍随所属仓库通过 Git 维护。
 
-业务代码和相关流程在同分支一起修改、检查、评审与合入。合并冲突按最终代码的业务
-行为重新梳理，不机械拼接图文件。只有实现组织变化时无需重画。旧业务文件不要求兼容，
+业务代码和相关流程在同分支一起修改、检查、评审与合入。合并先确定共同生效的业务规则，再核对最终实现，不机械拼接图文件。只有实现组织变化时无需重画。旧业务文件不要求兼容，
 新版发布后再按新契约重写，当前不迁移其他项目。
 
 ## Accuracy Observations

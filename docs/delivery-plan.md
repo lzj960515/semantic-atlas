@@ -16,8 +16,8 @@ than inventing one from task-local code.
 
 Acceptance:
 
-- the map is explicitly advisory while current evidence controls engineering
-  conclusions;
+- confirmed flows define the business contract, while source and runtime evidence
+  establish implementation conformance and discrepancies;
 - tracked files and an in-memory graph define the complete initial lifecycle;
 - evaluation prioritizes engineering accuracy and human intervention;
 - documentation contains no inherited persistence, structural-index, graph
@@ -94,13 +94,12 @@ Acceptance:
 - a package-managed Skill activates from business-changing task meaning, probes
   the smallest useful map neighborhood even when map files are absent, and
   builds a bounded current-evidence business model;
-- map results are described as investigation leads and every
-  change-controlling claim is confirmed in current source, tests, or tracked
-  product documents;
+- confirmed flows define expected business behavior; current source, tests and
+  runtime evidence establish implementation conformance and discrepancies;
 - missing concepts, ambiguous terms, missing anchors, stale anchors, and
   contradicted relations route to bounded ordinary source discovery;
-- every business-changing result records a task observation and a maintenance
-  disposition, while canonical map mutation remains a separate reviewed change;
+- business changes update flows and implementation in the same branch and are
+  reviewed together; observations remain optional tools for explicit historical tasks;
 - already represented, implementation-local, and unresolved results are valid
   no-candidate outcomes;
 - controlled fixtures cover an upstream root cause, a downstream consumer,
@@ -146,7 +145,7 @@ as one local product without publishing it.
 Acceptance:
 
 - product docs, public types, CLI help, machine envelopes, examples, Skill, and
-  rendered behavior describe one consistent advisory-map workflow;
+  rendered behavior describe one consistent flow-first business workflow;
 - one clean candidate passes the full suite, typecheck, build, package dry-run,
   external packed-CLI smoke, example rendering, Skill checks, and retained
   accuracy regressions;
