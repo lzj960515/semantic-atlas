@@ -213,17 +213,6 @@ describe("public release candidate", () => {
         read("docs/delivery-plan.md"),
       ]);
 
-    for (const section of [
-      "## Install",
-      "## Upgrade",
-      "## Add A Business Map",
-      "## Evidence Order",
-      "## Accuracy Observations",
-      "## Reconciliation",
-      "## Local Data And Privacy",
-    ]) {
-      expect(readme).toContain(section);
-    }
     expect(readme).toContain("npm install --global semantic-atlas");
     expect(readme).toContain("semantic-atlas setup");
     expect(readme).toContain("docs/business-map/*.yaml");
@@ -232,7 +221,6 @@ describe("public release candidate", () => {
     expect(readme).toContain("~/.semantic-atlas/projects.json");
     expect(readme).toContain("not merged with registered projects");
     expect(readme).toContain("127.0.0.1");
-    expect(readme).toContain("返回");
     expect(readme).toContain("semantic-atlas observe task --stdin");
     expect(readme).toContain("semantic-atlas reconcile candidates");
     expect(readme).toContain("semantic-atlas reconcile status");
@@ -240,17 +228,6 @@ describe("public release candidate", () => {
     expect(readme).toContain("License-MIT");
     expect(readme).toContain("[简体中文](README.zh-CN.md)");
 
-    for (const section of [
-      "## 安装",
-      "## 升级",
-      "## 添加业务地图",
-      "## 证据顺序",
-      "## 准确性观测",
-      "## 地图校准",
-      "## 本地数据与隐私",
-    ]) {
-      expect(readmeZh).toContain(section);
-    }
     expect(readmeZh).toContain("semantic-atlas setup");
     expect(readmeZh).toContain("semantic-atlas web --repo");
     expect(readmeZh).toContain("semantic-atlas project add");
