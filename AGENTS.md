@@ -1,9 +1,8 @@
 # Semantic Atlas Agent Guide
 
-Semantic Atlas is a Git-native, advisory business map for coding agents.
-It improves the accuracy of engineering work by giving an agent durable
-business context before the agent confirms decisive behavior in current source,
-tests, tracked product documentation, and runtime evidence.
+Semantic Atlas 将业务流程图作为人和 AI 协作的一等公民。经确认的流程图与业务决定
+定义应有行为，代码负责实现；测试与运行证据核对是否兑现。图与代码不一致时先核对
+业务意图，不自动改图迁就代码。首次建图仍调查当前实现，分清确认规则与实现差异。
 
 Before contributing or changing the product, read [CONTRIBUTING.md](CONTRIBUTING.md)
 to confirm the canonical upstream repository and the target for fork pull requests.
@@ -29,8 +28,8 @@ navigation conventions to Wiki maintenance workflows.
 
 - Tracked declarative files are the shared business-map source.
 - Every CLI invocation loads those files into an in-memory graph.
-- The map supplies business boundaries, relationships, navigation anchors, and
-  scenario flows as investigation hypotheses.
+- The map supplies the shared business contract, its boundaries and relationships,
+  and navigation anchors for checking implementation conformance.
 - Relationships describe durable collaboration. Flows separately describe
   business-relevant actions, decisions, labeled branches, and outcomes.
 - 统一的 `semantic-atlas` Skill 从任务的业务含义介入；仓库尚无图时，先建立当前任务
@@ -38,10 +37,11 @@ navigation conventions to Wiki maintenance workflows.
 - AI 依据已知流程或概念 ID 直达 `flows <id>`／`context <id>`；只有业务意图时，
   用 `search --flows` 词面定位相关流程。按需补看上下层和协作，不强制从总览起步。
   无 ID 的 `flows` 提供可选目录；人的级联浏览不约束 AI 的调查顺序。
-- 当前源码、测试、已跟踪的产品决定和必要运行证据确认会影响改动的结论。
+- 已确认流程图与业务决定定义业务规则；当前源码、测试和运行证据说明实现及运行现状。
+  差异先分类为实现缺陷、图误写或意图变化，不以代码已经运行自动覆盖图。
 - 业务行为变化时，代码与相关流程在同一分支同步修改、审阅、提交和合入；不默认
   留作候选等待主分支后的独立维护。纯机械或内部组织变化不要求重画流程。
-- 合并或重放后按最终代码重审受影响的流程条件、顺序、结果与子流程引用；没有文本
+- 合并或重放先确定共同生效的业务规则，再检查最终代码是否实现相关条件、顺序、结果与子流程；没有文本
   冲突也需核对两边行为叠加。禁止只拼接两边 YAML 文本。
 - `observe` 与 `reconcile` 保留为明确请求时使用的历史记录工具，不作为正常工程
   或流程维护的前置条件，不自动修改或清理已有观察数据。
@@ -101,12 +101,12 @@ tracked map files
 3. 在同一工作分支实施代码与相关流程变更；只更新实际影响范围。纯机械或内部
    组织变化没有业务含义变化时，保留既有流程并说明核对结果。
 4. 对完整候选进行业务验证、图校验、实际阅读和独立审查，检查代码与图一致。
-5. 按授权一起提交和合入。遇到合并或重放，以最终代码重审受影响路径和两边规则
-   的叠加，再完成必要验证；文本合并成功不代表业务一致。
+5. 按授权一起提交和合入。遇到合并或重放，先确定两边规则叠加后的最终业务流程，
+   再核对代码与必要验证；文本合并成功不代表业务一致，代码先合入也不自动成为业务决定。
 6. 交付说明业务边界、代码与流程修改、验证及真实 Git 状态。准确性观察或历史候选
    校准仅在明确请求时执行，不延后本次流程同步，也不构成交付门槛。
 
-业务资料是理解入口，最终工程结论仍由当前实现与业务证据支持。
+业务流程图是业务规范与验收基准；工程结论分别说明应有规则、当前实现及尚未解决的差异。
 
 ## Public Release Contract
 

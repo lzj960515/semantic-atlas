@@ -1,6 +1,6 @@
 # Semantic Atlas Evaluation
 
-This page defines how the initial product proves that an advisory business map
+This page defines how the product proves that a shared business-flow contract
 improves engineering accuracy and reduces routine human supervision. It applies
 to the CLI, renderer, Agent Skill, and real-project evaluation.
 
@@ -9,6 +9,31 @@ private real-project evaluation pass. Business-flow behavior is covered by the
 current source candidate and still needs longitudinal real-task evidence.**
 
 ## Evaluation Question
+
+当前以已确认业务流程图作为业务规范，代码与运行证据用于核对实现。早期评估使用
+过“地图仅作线索、源码优先”的方法；历史结果保留当时语义，不能据此证明新的规范
+优先工作流已经通过。业务确认与实现事实分别核验。
+
+## 业务规范与实现差异验收
+
+规则应在实际行为中生效，不能只检查序言是否出现“一等公民”：
+
+- 已确认流程与代码不一致：从既有业务决定核对期望，保留正确流程，定位并在获准范围修实现；代码现状及其测试不能自动覆盖业务规则。
+- 图是草稿或确有误写：依据任务、产品决定及必要使用方修候选图，不将每张未确认草稿当作不可更改的规则。
+- 用户改变业务要求：先在图中明确新期望，再实现并对照验收，同分支维护。
+- 尚无流程：调查当前实现建立最小候选，明确哪些规则已有确认、哪些只是现状或待定；发现代码缺陷不把缺陷确立为业务要求。
+- 尚未运行：分别报告图的规范、源码实现和未验证的运行状态，不把清楚的图当作生产成功证据。
+
+不引入逐节点审批或新的持久确认字段；依靠已有任务、产品决定和评审记录判断依据。
+新上下文应在自然业务请求中实际选择正确的冲突处理，单纯通过格式或既有代码测试
+不足以证明该能力。私有项目资料与运行证据留在所属任务中。
+
+2026-11-24 的隔离样例试作给出退款少退投诉与必要环境。已确认流程及产品决定要求
+发货前全额退款，实现与旧测试却扣固定费。新上下文自行查询业务流程、核实差异，
+修复金额逻辑与业务断言，保留正确流程和决定；金额低于原固定费时也全额退回，已
+发货仍拒绝取消。三项业务检查、图校验和独立审查通过。没有修改真实业务项目，
+没有测量基线收益；此结果只证明该次保留规范、修实现的实际选择。独立文字审查另
+发现两处合并指引仍代码优先，由规则作者修正并复审关闭。
 
 The primary question is:
 
@@ -236,9 +261,9 @@ business change produces an explicit flow-maintenance decision.
 
 ### Evidence accuracy
 
-Every claim that controls the change is confirmed in current source, tests,
-tracked product documents, or required runtime evidence. Map statements are not
-reported as current implementation facts without confirmation.
+业务要求以已确认流程及业务决定为依据；实现与运行事实分别核对源码、测试及必要
+运行证据。不因代码存在推翻规范，也不把流程中的应有保证宣称为已经实现。未决
+差异、候选误写和实现缺陷应能清楚区分。
 
 ### Implementation accuracy
 
@@ -271,7 +296,8 @@ The first real-project suite contains at least:
    source-supported business model.
 6. A stale-anchor case where the business meaning remains useful but the source
    location changed.
-7. A contradicted-relation case where current evidence must override the map.
+7. A discrepancy case that distinguishes an implementation defect from a flow
+   error or a later confirmed business decision.
 8. A code-quality case where the first runnable implementation would create an
    unclear responsibility or unnecessary mechanism.
 9. A branch-sensitive refactor where a broad implementation still appears to
@@ -334,7 +360,7 @@ When practical, run each case in two fresh contexts with the same model,
 repository revision, task wording, tool availability, and acceptance oracle:
 
 - `ordinary`: normal repository discovery without the map or its Skill;
-- `map-assisted`: the package-managed Skill with the tracked advisory map.
+- `map-assisted`: the package-managed Skill with the tracked business flows.
 
 The task oracle remains unavailable to both task agents. An independent review
 compares their source-supported conclusions and implementation candidates.

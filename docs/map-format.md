@@ -127,8 +127,8 @@ invariant
 interface
 ```
 
-Every node is advisory. The format does not assign a numeric truth score or
-pretend that one confidence value can replace task-time evidence.
+已确认的节点与流程承载业务规范；未决解释在现有备注中说明。格式不增加数值真值
+分数或逐节点审批字段，也不把源码已运行视为业务规则自动成立的证明。
 
 ## Relation Contract
 
@@ -239,10 +239,9 @@ business outcome. Keep parameter validation, DTO conversion, helpers,
 framework wiring, Service or Queue names, retries, and timing in current-source
 evidence. Cycles are valid when the repeated business path itself is durable.
 
-Flows remain advisory knowledge. A source discrepancy starts an investigation
-into whether source regressed, product intent changed, the flow was already
-stale, or available evidence is unresolved. It never synchronizes either side
-automatically.
+已确认流程定义应有行为。源码差异需要核实是实现偏离规范、图误写、业务决定变化，
+还是意图尚未确认；不自动以源码覆盖流程。首次建图可以记录当前实现与已知差异，
+但不能把代码缺陷确立为正确规则。阅读器不执行流程，也不会自动同步任何一侧。
 
 ## Navigation Anchors
 
@@ -353,8 +352,8 @@ Horizontal relation endpoints follow their business meaning:
 - `constrained_by` targets an invariant.
 
 The first version does not require every node to have a parent or horizontal
-relation. Incompleteness is valid advisory knowledge and remains visible to the
-caller.
+relation. Incomplete coverage remains visible to the caller and does not make
+unrecorded implementation behavior an approved business rule.
 
 ## Ranked Search And Lookup Semantics
 
@@ -435,9 +434,9 @@ when no candidate is sufficient.
 
 ## 同分支编辑与业务定位
 
-改变业务行为时，在同一开发分支更新代码和相关流程，校验完整地图，实际查看受影响
-图，并一起评审和合入。纯实现调整不改变流程含义时保持原图。合并冲突按合并后代码
-重新核实分支、结果与引用，再修订资料，不等待合入后创建候选任务。
+业务规则变化先在流程中表达，再同分支实现和验证，并一起评审合入。纯实现调整不
+改变业务含义时保持原图。合并冲突先确定共同生效的最终业务流程，再核对代码中的
+分支、结果与引用；不等待合入后创建候选任务，也不让代码先合入决定业务规则。
 
 AI 不必先从总览进入。已知编号直接 `flows <flow-id>`；未知时
 `search "<business-query>" --flows` 搜索流程业务词，再读取命中的图、步骤和概念锚点。

@@ -28,9 +28,10 @@ MapDocumentLoader -> MapValidator -> BusinessFlowValidator -> BusinessGraph
 Calling Agent
   -> activates from business task meaning
   -> probes the graph, including the map-not-found outcome
-  -> treats available map results as investigation hypotheses
-  -> confirms decisive behavior in current repository evidence
-  -> updates affected code and business flows in the same branch
+  -> uses confirmed business flows as the intended business contract
+  -> checks implementation and runtime evidence against that contract
+  -> classifies discrepancies without automatically rewriting flows to match code
+  -> expresses business changes in flows before implementing them in the same branch
 
 published package Skills bundle
         |
@@ -284,9 +285,10 @@ and public language behavior. Runtime language scope is owned by the
 AI 根据业务含义选择结果；没有语义向量索引，不将分数解释为业务正确性。
 缺少上下文时才补看上层、子流程与协作，不强制总览或固定搜索顺序。
 
-根据源码、产品决定和运行证据确定业务行为，沿流程步骤上的概念锚点定位文件、类
-和方法。业务变化在当前分支同步代码和图，检查正常路径、条件和结果。纯实现改动
-不强制重画。合并冲突按最终代码的业务含义重新梳理受影响图，不做机械文本拼接。
+已确认流程与业务决定定义期望行为，沿概念锚点定位文件、类和方法，检查实现是否
+兑现规范。发现差异先判断实现缺陷、图误写或意图变化，不自动改图迁就代码。缺图
+时调查当前实现形成候选，并注明待定差异。业务变化先在图中表达，再同分支实现；
+纯实现改动不重画。合并先确定共同生效的业务规则，再核对最终代码，不做机械拼接。
 
 流程设计、业务边界和文件编写资料在同一 Skill 中按需读取。旧候选与观察仅在明确
 处理历史资料时使用，不作为普通工程的默认动作或合入后的前置工作。
@@ -637,7 +639,8 @@ relationship direction, labeled branch outcomes, and whether the update belongs
 in the shared map.
 
 业务行为变化时，同分支更新代码与受影响流程，使用正常 Git 差异、验证与审阅一起合入。
-纯实现改动不强制改图。多个 Agent 的合并冲突依据最终代码重审业务含义，不机械拼接。
+纯实现改动不强制改图。多个 Agent 合并时先确定共同生效的业务流程，再核对最终代码
+是否实现这些规则，不机械拼接。
 旧观察与候选工具仅用于明确请求的历史资料处理，不决定普通开发何时维护图。
 
 统一的 semantic-atlas Skill 独立于任务编排器，根据业务任务选择直接定位、调查、实现

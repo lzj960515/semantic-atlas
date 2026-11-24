@@ -4,8 +4,8 @@ This page defines the accepted initial product. It answers what Semantic Atlas
 must improve, how agents and people use it, and which results establish
 that the product works.
 
-**状态：当前 5.0.0 源码已实现紧凑查询、业务关系与维护位置输出。YAML 持久格式保持
-不变；查询 JSON 的字段变化见下文。发布身份以对应 GitHub Release 为准，长期验收仍在进行。**
+**状态：当前 5.1.0 候选以已确认业务流程图为业务规范，包含节点说明标识与完整写图指导。
+紧凑查询及 YAML 格式保持；发布身份以对应 GitHub Release 为准，长期验收仍在进行。**
 
 ## Purpose
 
@@ -17,12 +17,13 @@ business-relevant decisions, branches, and outcomes that relationships alone
 cannot express. An existing shared map accelerates that work; a missing map
 starts a bounded current-evidence path.
 
-The map is a durable navigation prior rather than a synchronized copy of the
-codebase. Product structure normally changes more slowly than implementation,
-so a partially stale map can still lead an agent toward the right owners,
-collaborators, invariants, and upstream causes. The agent corrects that prior
-with current source, tests, tracked product documentation, Git, and runtime
-evidence before changing behavior.
+业务流程图是一等公民。经确认的流程图承载业务规则，是人和 AI 共同讨论、设计、
+实现与验收的基准。代码实现业务规范，测试与运行证据用于检查是否兑现；代码已经
+这样执行，不构成改变业务规则的理由。发生差异时，先核对用户要求和已有业务决定，
+区分实现缺陷、图的误写与业务意图变化，不默认让图迁就代码。
+
+首次建图或缺少资料时，调查当前实现形成可讨论候选，分清已确认规则、实现现状和
+待定差异。图的确认依据来自任务、产品决定与已有评审，不新增逐节点审批或持久字段。
 
 ## Product Outcome
 
@@ -40,8 +41,8 @@ reliably:
 - correct their investigation without requiring a person to supervise routine
   discovery and implementation.
 
-The map itself may be incomplete or stale. The final engineering conclusion
-uses current evidence and is held to a higher accuracy standard than the map.
+图可能尚未完整，锚点也可能过期。工程结论需要同时说清应有业务规则与实际实现，
+局部资料缺失不会让代码自动成为业务规范；未决业务意图保持明确状态。
 
 ## Users And Core Scenarios
 
@@ -182,8 +183,9 @@ rules for the complete authoring lifecycle.
 内部重命名、接线或组织变化没有改变业务含义时，不强制重画。新的局部业务没有流程
 资料时，建立足以表达当前改动的流程，不补画整个系统。
 
-合并出现冲突时，依据合并后代码的业务行为重新梳理受影响路径，检查上下层和协作
-交接，再解决图文件冲突。不能只做文本拼接或保留与代码不一致的分支。
+合并出现冲突时，先确定两边业务规则共同生效后的流程，检查上下层和协作交接，
+再核对合并后代码是否实现它。不能只做文本拼接，也不能因为代码先合入就删除正确
+的业务规则；尚未兑现的规则作为实现差异明确保留。
 候选、观察和合入后的校准不再作为正常开发门槛；既有历史工具只在明确请求时使用。
 
 旧业务文件不构成格式兼容约束。格式以当前产品需求与具体契约决定，新版发布后再
@@ -231,30 +233,23 @@ transitions carry distinct business labels. A step can reference an existing
 
 Flows retain only steps that can change a user-visible result, durable data,
 cost or provider usage, authorization or tenant isolation, an interface, or a
-business outcome. They can express stable loops, but they remain advisory
-knowledge rather than an executable workflow or synchronized copy of source.
+business outcome. They can express stable loops. Confirmed flows define the
+business contract; the Viewer does not execute them or automatically synchronize source.
 
 ## Authority And Accuracy
 
-Tracked map documents are authoritative for the shared map. They are not
-authoritative for current application behavior.
+已确认的业务流程图与业务决定定义应有行为；代码和测试说明实现，运行、数据库或
+队列证据说明部署环境实际发生了什么。三者承担不同职责，不能相互冒充。
 
-Every business-changing engineering task follows this evidence order:
+1. 按已知流程或业务 ID 直达；未知时按业务意图搜索，不强制从总览开始。
+2. 从相关流程明确期望行为、影响范围与确认依据；缺图时调查当前实现，建立当前任务所需的候选资料。
+3. 沿源码锚点检查实现是否符合业务规则。发现不一致时先识别哪一侧偏离已有决定，不以源码或测试断言自动覆盖图。
+4. 行为要求改变时先更新流程表达，再实现并对照规范验证；图误写或已被新决定替代时，按确认依据修正图。
+5. 必要时核对运行现状，分别报告业务规则、实现差异与待定事项。业务意图仍不明确且会改变行为时，向用户确认关键取舍。
+6. 流程与实现同分支审查和合入；纯实现调整不重画业务规则，观察工具仍只按明确请求使用。
 
-1. 已知流程或业务 ID 时直接读取；未知时按本次业务意图搜索相关流程，不要求从总览开始。
-2. A map proposes likely business scope and relations; `MAP_NOT_FOUND` routes to
-   the smallest source-supported business model needed for the task.
-3. Current source and tests confirm implementation behavior.
-4. Tracked product documents confirm durable intent when they own that intent.
-5. Runtime, database, queue, or environment evidence confirms state-dependent
-   behavior when the task requires it.
-6. The agent reports uncertainty when available evidence cannot support a
-   decisive conclusion.
-7. 业务行为变化时，代码与相关流程在同分支同步验证；观察记录仅按明确请求执行。
-
-An outdated path or symbol anchor weakens that navigation hint without
-invalidating unrelated business meaning. A contradiction changes the current
-task conclusion immediately; an affected business flow is corrected alongside the code.
+过期路径只影响导航提示，不否定仍成立的业务规则。合并先确定两边共同生效的最终
+业务流程，再核对合并后的实现，不能把先合入代码当成业务决定。
 
 ## Collaboration And Concurrency
 
@@ -344,10 +339,9 @@ human-intervention evidence as acceptance conditions.
 
 ## Current Delivery State
 
-当前源码版本为 `semantic-atlas@5.0.0`。项目登记、只读阅读器、观察与历史校准能力继续
-保留；本次将 AI 查询改为唯一概念详情、带原因的关联、相关图引用及当前 YAML 位置，
-完整步骤按需读取。查询 JSON 的重复嵌套对象与全量文件目录已移除，因此使用主版本
-标明输出契约变化；业务文件仍使用原有 YAML，无需迁移。公开发行和本机安装分别核验，
+当前源码版本为 `semantic-atlas@5.1.0`。本次增加节点详情标识，完善业务图编写与复盘，
+并将已确认流程作为业务规范和验收基准。项目登记、只读阅读器、紧凑 AI 查询、观察
+与历史校准能力继续保留；业务文件格式与查询契约不变。公开发行和本机安装分别核验，
 长期真实任务验收仍按下文证据标准进行。
 
 ## Current Public Release
@@ -426,7 +420,8 @@ map-maintenance effort remain explanatory measures.
 
 `observe` 和 `reconcile` 保留已有不可变记录的查询与处理契约，仅在用户明确要求时使用。
 旧维护观察仍按精确来源记账，不重解释历史字段；这些工具不形成普通开发的候选门槛。
-日常业务变化在当前分支同步代码和流程，冲突按合并后代码重审，再一起验证合入。
+日常业务变化先在流程中明确新规则，再同分支实现；冲突先确定共同生效的业务流程，
+再核对合并后的代码并一起验证合入。
 
 ### Real-use acceptance
 
