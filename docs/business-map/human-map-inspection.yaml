@@ -34,6 +34,18 @@ nodes:
     aliases:
       - Project selection
     anchors:
+      - kind: symbol
+        file: src/rendering/viewer-browser.ts
+        value: viewerBrowserEntry
+        description: 读取与同步业务图 URL，处理图间导航及无效目标。
+      - kind: symbol
+        file: src/web/local-web-application.ts
+        value: LocalWebApplication.resolveFlowLocation
+        description: 为 AI 校验并生成指定业务图的地址片段。
+      - kind: symbol
+        file: src/rendering/flow-projector.ts
+        value: FlowProjector.project
+        description: 由已声明的流程入口生成开始标识，保留业务连线。
       - kind: file
         value: tests/web/local-web-server.test.ts
         description: Public-flow coverage for catalog loading and isolated unavailable projects.
@@ -208,48 +220,84 @@ relations:
 
 flows:
   - id: human-map-inspection.registered-project-viewing.inspect-project-flow
-    name: Inspect a registered project
-    summary: A checkout valid at registration enters the catalog; later selection loads only that map and isolates unavailability.
+    name: 打开并阅读项目的业务流程
+    summary: 从项目目录选图，或用目标链接直接进入，沿开始节点和有向连线阅读。
     scenario: human-map-inspection.registered-project-viewing.inspect-project
-    startsAt: register-project
+    startsAt: [register-project, open-linked-flow]
     steps:
       - id: register-project
         kind: action
-        name: Register valid project
-        summary: A checkout with a valid complete map is retained once for local inspection.
+        name: 登记已有流程的项目
+        summary: 校验成功后，项目加入本机目录。
         concept: human-map-inspection.registered-project-viewing.inspect-project.register-project
       - id: open-project-catalog
         kind: action
-        name: Open project catalog
-        summary: The local Viewer lists manually registered projects before loading a map.
+        name: 打开项目目录
+        summary: 列出项目，按选择加载当前资料。
         concept: human-map-inspection.registered-project-viewing.inspect-project.open-catalog
       - id: select-project
         kind: action
-        name: Select project
-        summary: The Viewer requests only the chosen project through its server-assigned identity.
+        name: 定位要阅读的项目
+        summary: 按目录选择或链接中的项目 ID 加载。
         concept: human-map-inspection.registered-project-viewing.inspect-project.load-selected-map
       - id: project-available
         kind: decision
-        name: Can the selected project be loaded?
-        summary: The current checkout and tracked map are validated when the selection is loaded.
+        name: 项目和流程文件可用吗？
+        summary: 核对目录身份、当前路径及文件有效性。
+      - id: open-linked-flow
+        kind: action
+        name: 打开指定业务图的链接
+        summary: 地址中的项目与流程 ID 决定目标。
+        notes: AI 可用 web --project <name-or-id> --flow <flow-id> --no-open，在目标校验成功后取得 data.url。本机服务提供链接，已有服务的地址也可附带相同 fragment；图中不保存另一套导航状态。
+      - id: flow-available
+        kind: decision
+        name: 目标流程存在吗？
+        summary: 链接指定目标，未指定时选择首张根流程。
+      - id: layout-selected-flow
+        kind: action
+        name: 显示流程起点和有向连线
+        summary: 标明每个开始节点，分离接点并展开分支。
+        notes: 自适应横竖布局继续保留；输入、输出与回线按实际方向连接，不更改源文件中的业务关系。卡片文字按实际尺寸布局，支持缩放和平移。
       - id: selected-map-ready
         kind: outcome
-        name: Selected map ready
-        summary: The person can inspect the chosen project's current relationships and flows.
+        name: 阅读目标流程并按需深入
+        summary: 跳图、进入子流程和返回会同步地址。
+        notes: 刷新或浏览器前进后退按 URL 定位。点击有说明的节点看详情，复制当前 URL 可再次直达；切换其他项目继续按需加载。
+      - id: selected-flow-unavailable
+        kind: outcome
+        name: 提示链接中的流程不存在
+        summary: 可以重新选图，不用默认图冒充目标。
+      - id: no-flow-written
+        kind: outcome
+        name: 提示先由 AI 编写业务流程
+        summary: 有效项目尚无流程时显示编写指引。
       - id: selected-project-unavailable
         kind: outcome
-        name: Selected project unavailable
-        summary: Only the chosen view reports failure while the catalog and other projects remain usable.
+        name: 提示项目或资料不可用
+        summary: 保留其他项目的阅读入口。
     transitions:
       - from: register-project
         to: open-project-catalog
       - from: open-project-catalog
         to: select-project
+      - from: open-linked-flow
+        to: select-project
       - from: select-project
         to: project-available
       - from: project-available
-        when: available
+        when: 可用
+        to: flow-available
+      - from: flow-available
+        when: 指定流程存在或已有默认流程
+        to: layout-selected-flow
+      - from: layout-selected-flow
         to: selected-map-ready
+      - from: flow-available
+        when: 指定流程不存在
+        to: selected-flow-unavailable
+      - from: flow-available
+        when: 未指定目标且尚无流程
+        to: no-flow-written
       - from: project-available
-        when: unavailable
+        when: 不可用
         to: selected-project-unavailable

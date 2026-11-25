@@ -60,13 +60,14 @@ function createLayoutSpec(flow: BusinessFlow): DiagramLayoutSpec {
       id: step.id,
       kind: step.kind === "action" ? "card" : step.kind,
       width: CARD_WIDTH,
-      height: Math.max(
-        104,
-        30 +
-          Math.ceil(stringWidth(step.name) / 24) * 21 +
-          8 +
-          Math.ceil(stringWidth(step.summary) / 31) * 17,
-      ),
+      height:
+        Math.max(
+          104,
+          30 +
+            Math.ceil(stringWidth(step.name) / 24) * 21 +
+            8 +
+            Math.ceil(stringWidth(step.summary) / 31) * 17,
+        ) + (flow.startsAt.includes(step.id) ? 27 : 0),
     })),
     edges: flow.transitions.map((transition, index) => ({
       id: `transition-${index}`,
@@ -109,9 +110,12 @@ function renderCards(
     const notes = interactive
       ? `<span class="flow-card__notes" role="img" aria-label="${escapeHtml(t("viewer.nodeDetails"))}" data-i18n-aria-label="viewer.nodeDetails"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><path d="M 8 7 V 11"/><circle cx="8" cy="5" r=".65" fill="currentColor" stroke="none"/></svg></span>`
       : "";
+    const start = node.start
+      ? `<span class="flow-card__start" data-i18n="viewer.start">${escapeHtml(t("viewer.start"))}</span>`
+      : "";
     return `<article class="${classes}" data-node-id="${escapeHtml(node.id)}" data-layout-node="${escapeHtml(node.id)}" data-flow-step-id="${escapeHtml(node.id)}" style="left:${position.x - position.width / 2 + layout.offsetX}px;top:${position.y - position.height / 2 + layout.offsetY}px;width:${CARD_WIDTH}px">
               <div class="flow-card__body"${interactive ? ' role="button" tabindex="0" aria-controls="node-details" aria-expanded="false"' : ""}>
-              <h3><span class="flow-card__symbol" aria-hidden="true"></span><span class="flow-card__title-text">${escapeHtml(node.name)}</span>${notes}</h3>
+              ${start}<h3><span class="flow-card__symbol" aria-hidden="true"></span><span class="flow-card__title-text">${escapeHtml(node.name)}</span>${notes}</h3>
               <p>${escapeHtml(node.summary)}</p>
               </div>${stack}
             </article>`;

@@ -13,6 +13,9 @@ export default {
   projectList: "List registered project names, IDs, and repository paths",
   projectSelector: "registered project name or ID (exclusive with --repo)",
   web: "Start the local interactive business-map viewer",
+  webFlow: "open a specific flow in one selected project",
+  webFlowProjectRequired:
+    "--flow requires one project: use --project <name-or-id>, a single --repo <path>, or register exactly one project",
   search: "Rank business concepts for a natural-language query",
   context: "Return a local business neighborhood",
   observe: "Record immutable engineering accuracy evidence",

@@ -4,6 +4,30 @@ import { BusinessGraph } from "../../src/map/business-graph.js";
 import { FlowProjector } from "../../src/rendering/flow-projector.js";
 
 describe("节点阅读与子流程入口", () => {
+  it("多个业务入口分别标识开始，单节点结果可同时是起点", () => {
+    const source = map();
+    const overview = source.flows.find((flow) => flow.id === "overview")!;
+    const rendered = new FlowProjector(
+      new BusinessGraph({
+        ...source,
+        flows: [
+          { ...overview, startsAt: ["child", "notes"] },
+          ...source.flows.filter((flow) => flow.id !== overview.id),
+        ],
+      }),
+    ).project("orders");
+    const main = rendered.find((flow) => flow.id === "overview")!;
+    expect(main.nodes.filter((node) => node.start).map((node) => node.id)).toEqual([
+      "child",
+      "notes",
+    ]);
+    expect(main.textLayer.match(/class="flow-card__start"/gu)).toHaveLength(2);
+    const singleResult = rendered.find((flow) => flow.id === "first")!;
+    expect(singleResult.nodes[0]).toMatchObject({ start: true, kind: "outcome" });
+    expect(singleResult.textLayer).toContain('data-i18n="viewer.start"');
+    expect(singleResult.textLayer).toContain("flow-card--outcome");
+  });
+
   it("卡片正文只为备注提供交互，子流程使用独立角标，多个目标留给用户选择", () => {
     const rendered = new FlowProjector(new BusinessGraph(map()))
       .project("orders")

@@ -4,7 +4,7 @@ This page defines the accepted initial product. It answers what Semantic Atlas
 must improve, how agents and people use it, and which results establish
 that the product works.
 
-**状态：当前 5.1.0 候选以已确认业务流程图为业务规范，包含节点说明标识与完整写图指导。
+**状态：当前 5.2.0 候选支持流程 URL 直达、醒目起点与分离连线接点，保留自适应布局。
 紧凑查询及 YAML 格式保持；发布身份以对应 GitHub Release 为准，长期验收仍在进行。**
 
 ## Purpose
@@ -135,6 +135,11 @@ display names, never repository paths, and cannot submit a filesystem path.
 进入按钮，无备注节点正文保持原样。
 起点、判断、结果与子流程继续使用当前卡片样式，不改成大菱形。
 
+每个 `startsAt` 指定的入口显示独立“开始”标记和蓝色轮廓，普通动作入口另有浅蓝底色。
+入口同时是判断或结果时，保留其类型底色。标记由已有入口声明派生，多入口逐个显示，
+不要求 AI 添加仅用于占位的开始节点。连线从不同接点进入、离开卡片，分支和回线
+使用可辨别的路径；自适应横竖布局、文字实测、缩放和平移继续保留。
+
 节点用一句话概括具体业务意图，补充说明只保留读懂路径所需的信息；清单、解释和
 例外放详情。写作预算由 Skill 指导，不变成文件格式的硬限制，也不在界面截断文字。
 读者仅看节点与分支就应理解主要过程，影响路径的关键条件保持可见。
@@ -146,6 +151,16 @@ display names, never repository paths, and cannot submit a filesystem path.
 画布采用紧凑 HTML 卡片与 SVG 正交连线。文字可选择、可复制，长文本与整页翻译后
 按实际内容重新测量；小图不自动放大超过原始字号，避免节点和线条变成大色块。
 Web 与导出的单文件 HTML 共用同一个阅读器。
+
+每张业务流程可通过 URL 直接打开。fragment 使用已有项目 ID 和流程 ID：
+`#project=<project-id>&flow=<flow-id>`。初次打开、刷新按目标定位，切项目、跳图、
+深入和上一层同步地址，浏览器前进后退恢复对应目标。未指定流程使用默认根图；
+指定目标不存在时明确提示，不能用第一张图冒充目标。
+
+AI 用 `web --project <name-or-id> --flow <flow-id>`，或单个 `--repo`，从 `data.url`
+取得完整目标链接。仅有一个登记项目时可省略项目选择；多个项目时需要明确选择。
+起服务前核实目标，失败沿现有 CLI 错误边界报告；普通多项目 Web 继续按需加载。
+导出 HTML 使用同一规则及自身内嵌项目 ID。URL 不含仓库路径，不增加业务文件字段。
 
 ### Runtime language
 
@@ -339,9 +354,9 @@ human-intervention evidence as acceptance conditions.
 
 ## Current Delivery State
 
-当前源码版本为 `semantic-atlas@5.1.0`。本次增加节点详情标识，完善业务图编写与复盘，
-并将已确认流程作为业务规范和验收基准。项目登记、只读阅读器、紧凑 AI 查询、观察
-与历史校准能力继续保留；业务文件格式与查询契约不变。公开发行和本机安装分别核验，
+当前源码版本为 `semantic-atlas@5.2.0`。本次增加流程 URL 直达与 `web --flow`，突出每个
+入口的开始样式，分离连线接点并改善回线路径。已确认流程仍为业务规范与验收基准，
+自适应布局和现有查询能力保留；业务文件格式不变。公开发行和本机安装分别核验，
 长期真实任务验收仍按下文证据标准进行。
 
 ## Current Public Release

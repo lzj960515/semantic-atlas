@@ -8,6 +8,7 @@ import { normalizeLocale } from "../i18n/locale.js";
 import { createLatestProjectLoader } from "./latest-project-loader.js";
 import { layoutDiagram, diagramEdgePath } from "./viewer-layout.js";
 import { createDiagramLayoutController } from "./viewer-diagram.js";
+import { readViewerLocation, viewerLocationHash } from "./viewer-location.js";
 import type {
   ViewerProjectModel,
   ViewerProjectPayload,
@@ -51,7 +52,9 @@ export function renderViewerBrowserScript(): string {
     layoutDiagram.toString(),
     diagramEdgePath.toString(),
     createDiagramLayoutController.toString(),
-    "globalThis.__atlasRuntime = { createLatestProjectLoader, layoutDiagram, diagramEdgePath, createDiagramLayoutController };",
+    readViewerLocation.toString(),
+    viewerLocationHash.toString(),
+    "globalThis.__atlasRuntime = { createLatestProjectLoader, layoutDiagram, diagramEdgePath, createDiagramLayoutController, readViewerLocation, viewerLocationHash };",
     `(${viewerBrowserEntry.toString()})(normalizeLocale);`,
   ].join("\n");
 }
@@ -66,6 +69,8 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
       readonly layoutDiagram: typeof layoutDiagram;
       readonly diagramEdgePath: typeof diagramEdgePath;
       readonly createDiagramLayoutController: typeof createDiagramLayoutController;
+      readonly readViewerLocation: typeof readViewerLocation;
+      readonly viewerLocationHash: typeof viewerLocationHash;
     };
   };
   const modelElement = document.querySelector<HTMLScriptElement>("#viewer-model");
@@ -139,7 +144,7 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
   const runtime = browser.__atlasRuntime;
   const cameras = new Map<string, Camera>();
   const history: NavigationSnapshot[] = [];
-  let projectId = model.projects[0]?.id;
+  let projectId: string | undefined;
   let project: ViewerProjectModel | undefined;
   let flowId: string | undefined;
   let selected: HTMLElement | undefined;
@@ -149,6 +154,12 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     | { pointerId: number; x: number; y: number; moved: boolean; startX: number; startY: number }
     | undefined;
   const cameraKey = (): string => `${projectId ?? ""}:${flowId ?? ""}`;
+  const updateLocation = (id: string, nextFlowId?: string, replace = false): void => {
+    const hash = runtime.viewerLocationHash(id, nextFlowId);
+    if (window.location.hash === hash) return;
+    if (replace) window.history.replaceState(null, "", hash);
+    else window.history.pushState(null, "", hash);
+  };
   const currentFlow = () => project?.flows.find((flow) => flow.id === flowId);
   const allViews = (): HTMLElement[] =>
     Array.from(host.querySelectorAll<HTMLElement>("[data-project-view]"));
@@ -435,6 +446,7 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     summary.textContent = flow?.summary ?? "";
     summary.hidden = !flow?.summary;
     setControls(Boolean(flow));
+    diagramSelect.disabled = !project?.flows.length;
     const view = currentView();
     if (flow && view) {
       status.hidden = true;
@@ -444,16 +456,20 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
       else applyCamera(camera);
     } else {
       layout.disconnect();
-      showStatus(t("viewer.noFlows"), t("viewer.addFlow"));
+      showStatus(
+        t(flowId ? "viewer.flowNotFound" : "viewer.noFlows"),
+        t(flowId ? "viewer.flowLinkMissing" : "viewer.addFlow"),
+      );
     }
   };
-  const navigate = (nextId: string): void => {
+  const navigate = (nextId: string, replaceLocation = false): void => {
     if (nextId === flowId || !project?.flows.some((flow) => flow.id === nextId)) return;
-    if (flowId) {
+    const previousFlow = currentFlow();
+    if (previousFlow) {
       const camera = cameras.get(cameraKey());
       const selectedId = selected?.dataset.nodeId;
       history.push({
-        flowId,
+        flowId: previousFlow.id,
         ...(camera ? { camera } : {}),
         ...(selectedId ? { selectedId } : {}),
       });
@@ -461,15 +477,17 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     closeMenus();
     closeDetails();
     flowId = nextId;
+    updateLocation(projectId!, flowId, replaceLocation);
     activateFlow();
     title.focus({ preventScroll: true });
   };
-  backButton.addEventListener("click", () => {
+  const goBack = (replaceLocation = false): void => {
     const previous = history.pop();
     if (!previous) return;
     closeMenus();
     closeDetails();
     flowId = previous.flowId;
+    updateLocation(projectId!, flowId, replaceLocation);
     if (previous.camera) cameras.set(cameraKey(), previous.camera);
     activateFlow();
     const card = Array.from(currentView()?.querySelectorAll<HTMLElement>(".flow-card") ?? []).find(
@@ -477,7 +495,8 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     );
     if (card) openDetails(card);
     title.focus({ preventScroll: true });
-  });
+  };
+  backButton.addEventListener("click", () => goBack());
   detailsClose.addEventListener("click", () => closeDetails(true));
 
   const clearProject = (removeMarkup: boolean): void => {
@@ -489,6 +508,7 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     history.length = 0;
     cameras.clear();
     if (removeMarkup) host.replaceChildren();
+    else for (const view of allViews()) view.hidden = true;
     title.textContent = "";
     summary.textContent = "";
     summary.hidden = true;
@@ -507,10 +527,11 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     project = payload.project;
     if (payload.markup) host.innerHTML = payload.markup;
     translateMarkup(host);
-    flowId = project.flows[0]?.id;
+    flowId = runtime.readViewerLocation(window.location.hash).flowId ?? project.flows[0]?.id;
     viewport.setAttribute("aria-busy", "false");
     markAvailability(id, false);
     activateFlow();
+    updateLocation(id, flowId, true);
   };
   const enterUnavailable = (error: unknown, id: string): void => {
     if (id !== projectId) return;
@@ -567,7 +588,49 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
       else enterUnavailable(new Error(t("viewer.exportedLoadFailed")), id);
     }
   };
-  projectSelect.addEventListener("change", activateProject);
+  projectSelect.addEventListener("change", () => {
+    updateLocation(projectSelect.value);
+    activateProject();
+  });
+  const openLocation = (): void => {
+    const location = runtime.readViewerLocation(window.location.hash);
+    const id = location.projectId ?? model.projects[0]?.id;
+    if (!id) {
+      projectId = undefined;
+      clearProject(false);
+      showStatus(t("viewer.noProjects"), t("viewer.registerProject"));
+      return;
+    }
+    if (!model.projects.some((reference) => reference.id === id)) {
+      projectId = id;
+      projectSelect.value = "";
+      clearProject(model.mode === "web");
+      viewport.setAttribute("aria-busy", "false");
+      showStatus(t("viewer.projectUnavailable"), t("viewer.projectLinkMissing"));
+      return;
+    }
+    projectSelect.value = id;
+    if (project?.id !== id) {
+      activateProject();
+      return;
+    }
+    const nextId = location.flowId ?? project.flows[0]?.id;
+    if (nextId === flowId) {
+      updateLocation(id, nextId, true);
+      return;
+    }
+    if (nextId && project.flows.some((flow) => flow.id === nextId)) {
+      if (history.at(-1)?.flowId === nextId) goBack(true);
+      else navigate(nextId, true);
+      return;
+    }
+    closeMenus();
+    closeDetails();
+    history.length = 0;
+    flowId = nextId;
+    activateFlow();
+  };
+  window.addEventListener("hashchange", openLocation);
   const zoom = (factor: number, pointer?: { x: number; y: number }): void => {
     const camera = cameras.get(cameraKey());
     if (!camera) return;
@@ -719,10 +782,5 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     else applyCamera(camera);
   }).observe(viewport);
   projectSelect.disabled = model.projects.length < 2;
-  projectSelect.value = projectId ?? "";
-  if (projectId) activateProject();
-  else {
-    clearProject(false);
-    showStatus(t("viewer.noProjects"), t("viewer.registerProject"));
-  }
+  openLocation();
 }

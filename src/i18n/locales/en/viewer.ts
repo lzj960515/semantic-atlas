@@ -4,6 +4,7 @@ export default {
   jumpToDiagram: "Other flows",
   back: "Previous level",
   nodeDetails: "Node notes",
+  start: "Start",
   childFlows: "View child flows",
   expandFlow: "Expand child flows of {{name}}",
   mapControls: "Canvas zoom",
@@ -17,6 +18,10 @@ export default {
   registerProject: "Run semantic-atlas project add [path], then restart semantic-atlas web.",
   closeDetails: "Close node notes",
   noFlows: "No business flow has been written yet",
+  flowNotFound: "Flow not found",
+  flowLinkMissing: "This project does not contain the linked flow. Choose another flow.",
+  projectLinkMissing:
+    "The linked project is not available in this viewer. Check the project and server.",
   addFlow: "Ask AI to add a business flow, then reopen this project.",
   unavailableProject: "{{name}} - Unavailable",
   loadFailed: "This project's business flow diagrams could not be loaded.",

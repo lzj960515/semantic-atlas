@@ -193,12 +193,14 @@ export async function runCli(
     .description(t("cli.web"))
     .option("--repo <paths...>", t("cli.repos"))
     .addOption(new Option("--project <name-or-id>", t("cli.projectSelector")).conflicts("repo"))
+    .option("--flow <flow-id>", t("cli.webFlow"))
     .option("--port <port>", t("cli.port"), parsePort, 4310)
     .option("--no-open", t("cli.noOpen"))
     .action(
       async (options: {
         readonly repo?: readonly string[];
         readonly project?: string;
+        readonly flow?: string;
         readonly port: number;
         readonly open: boolean;
       }) => {
@@ -210,6 +212,7 @@ export async function runCli(
             (repositoryPath) =>
               runWebCommand(resolvedRuntime, {
                 repositoryPaths: [repositoryPath],
+                ...(options.flow !== undefined ? { flowId: options.flow } : {}),
                 port: options.port,
                 openBrowser: options.open,
               }),
@@ -217,6 +220,7 @@ export async function runCli(
           return;
         }
         commandEnvelope = await runWebCommand(resolvedRuntime, {
+          ...(options.flow !== undefined ? { flowId: options.flow } : {}),
           ...(options.repo
             ? {
                 repositoryPaths: options.repo.map((repositoryPath) => path.resolve(repositoryPath)),

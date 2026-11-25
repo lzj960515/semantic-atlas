@@ -13,6 +13,9 @@ export default {
   projectList: "列出已登记项目的名称、ID和仓库路径",
   projectSelector: "已登记项目的名称或ID（与 --repo 互斥）",
   web: "启动本地交互式业务地图查看器",
+  webFlow: "直达所选项目中的指定业务流程",
+  webFlowProjectRequired:
+    "--flow 需要明确一个项目：请使用 --project <名称或ID>、单个 --repo <路径>，或仅登记一个项目",
   search: "按自然语言查询业务概念并排序",
   context: "返回局部业务上下文",
   observe: "记录不可变的工程准确性证据",

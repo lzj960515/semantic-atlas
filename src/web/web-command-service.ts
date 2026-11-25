@@ -6,6 +6,7 @@ import { startLocalWebServer, type LocalWebServer } from "./local-web-server.js"
 
 export interface StartWebOptions {
   readonly repositoryPaths?: readonly string[];
+  readonly flowId?: string;
   readonly port: number;
   readonly openBrowser: boolean;
 }
@@ -24,11 +25,14 @@ export class WebCommandService {
   public async start(options: StartWebOptions): Promise<WebSessionData> {
     const repositoryPaths = options.repositoryPaths ?? (await this.projectStore.read());
     const application = new LocalWebApplication(this.mapApplication, repositoryPaths);
+    const location =
+      options.flowId !== undefined ? await application.resolveFlowLocation(options.flowId) : "";
     const server = await startLocalWebServer({ application, port: options.port });
+    const url = `${server.url}${location}`;
     installShutdownHandlers(server);
-    if (options.openBrowser) openDefaultBrowser(server.url);
+    if (options.openBrowser) openDefaultBrowser(url);
     return {
-      url: server.url,
+      url,
       repositoryCount: server.repositoryCount,
     };
   }

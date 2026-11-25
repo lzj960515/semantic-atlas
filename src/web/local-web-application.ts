@@ -1,6 +1,7 @@
 import { t } from "../i18n/index.js";
 import { MapApplication } from "../application/map-application.js";
 import { createProjectCatalog } from "../projects/project-directory.js";
+import { viewerLocationHash } from "../rendering/viewer-location.js";
 import {
   renderWebViewerPage,
   toViewerProjectPayload,
@@ -50,6 +51,19 @@ export class LocalWebApplication {
 
   public render(): string {
     return renderWebViewerPage(this.projects);
+  }
+
+  public async resolveFlowLocation(flowId: string): Promise<string> {
+    if (this.projects.length !== 1) {
+      throw new Error(t("cli.webFlowProjectRequired"));
+    }
+    const project = this.projects[0]!;
+    const result = await this.mapApplication.flows(project.repositoryPath, flowId);
+    if (!result.ok) throw new Error(result.error.message);
+    if (!("selected" in result.data)) {
+      throw new Error(t("errors.flowNotFound", { flowId }));
+    }
+    return viewerLocationHash(project.id, result.data.selected.id);
   }
 
   public async loadProject(id: string): Promise<WebProjectLoadResult> {

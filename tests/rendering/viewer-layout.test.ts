@@ -6,6 +6,7 @@ import {
   diagramEdgePath,
   type DiagramLayout,
   type DiagramLayoutSpec,
+  type DiagramPoint,
 } from "../../src/rendering/viewer-layout.js";
 
 describe("业务流程布局", () => {
@@ -103,7 +104,121 @@ describe("业务流程布局", () => {
     expect(retry.points).not.toEqual([...forward.points].reverse());
     expect(new Set(retry.points.map((point) => point.y)).size).toBeGreaterThan(1);
   });
+
+  it.each(["LR", "TB"] as const)("%s布局的分支、合流、回边与自环使用独立接点", (direction) => {
+    const base = branchingDiagram(direction);
+    const spec: DiagramLayoutSpec = {
+      ...base,
+      edges: [
+        ...base.edges,
+        { ...base.edges[0]!, id: "accepted-retry", from: "accepted", to: "entry" },
+        { ...base.edges[0]!, id: "declined-retry", from: "declined", to: "choice" },
+        { ...base.edges[0]!, id: "self", from: "choice", to: "choice" },
+        { ...base.edges[0]!, id: "parallel", from: "choice", to: "accepted" },
+      ],
+    };
+    const layout = layoutDiagram(dagre, spec);
+    for (const node of spec.nodes) {
+      const ports = spec.edges.flatMap((edge, index) => {
+        const points = layout.edges[index]!.points;
+        return [
+          ...(edge.from === node.id ? [points[0]!] : []),
+          ...(edge.to === node.id ? [points.at(-1)!] : []),
+        ];
+      });
+      expect(new Set(ports.map((point) => `${point.x},${point.y}`)).size).toBe(ports.length);
+    }
+    for (const edge of layout.edges) {
+      for (let index = 1; index < edge.points.length - 1; index += 1) {
+        const before = edge.points[index - 1]!;
+        const point = edge.points[index]!;
+        const after = edge.points[index + 1]!;
+        expect(
+          (point.x - before.x) * (after.x - point.x) + (point.y - before.y) * (after.y - point.y),
+        ).toBeGreaterThanOrEqual(0);
+      }
+    }
+    expect(opposingSegments(layout)).toEqual([]);
+    expectRoutesOutsideCards(layout);
+  });
+
+  it.each(["LR", "TB"] as const)(
+    "%s布局从卡片侧面进入合流时，不穿卡片或反向共用通道",
+    (direction) => {
+      const spec: DiagramLayoutSpec = {
+        direction,
+        nodes: ["first", "second", "third", "done", "cancelled"].map((id) => ({
+          id,
+          kind: "card",
+          width: 208,
+          height: 114,
+        })),
+        edges: [
+          ["first", "cancelled"],
+          ["second", "done"],
+          ["third", "done"],
+          ["third", "cancelled"],
+        ].map(([from, to], index) => ({
+          id: String(index),
+          from: from!,
+          to: to!,
+          width: 100,
+          height: 19,
+          minlen: 1,
+          weight: 3,
+        })),
+      };
+      const layout = layoutDiagram(dagre, spec);
+      expect(opposingSegments(layout)).toEqual([]);
+      expectRoutesOutsideCards(layout);
+    },
+  );
 });
+
+function expectRoutesOutsideCards(layout: DiagramLayout): void {
+  for (const edge of layout.edges) {
+    for (let index = 1; index < edge.points.length; index += 1) {
+      const before = edge.points[index - 1]!;
+      const point = edge.points[index]!;
+      for (const node of layout.nodes) {
+        const horizontal = before.y === point.y;
+        const [axis, cross, size, crossSize] = horizontal
+          ? (["x", "y", "width", "height"] as const)
+          : (["y", "x", "height", "width"] as const);
+        const inside =
+          before[cross] > node[cross] - node[crossSize] / 2 &&
+          before[cross] < node[cross] + node[crossSize] / 2 &&
+          Math.min(Math.max(before[axis], point[axis]), node[axis] + node[size] / 2) >
+            Math.max(Math.min(before[axis], point[axis]), node[axis] - node[size] / 2);
+        expect(inside, `${edge.id} 穿过 ${node.id}`).toBe(false);
+      }
+    }
+  }
+}
+
+function opposingSegments(layout: DiagramLayout): readonly string[] {
+  const segments = layout.edges.flatMap((edge) =>
+    edge.points
+      .slice(1)
+      .map((point, index) => ({ edge: edge.id, from: edge.points[index]!, to: point })),
+  );
+  const overlaps = (a: number, b: number, c: number, d: number) =>
+    Math.min(Math.max(a, b), Math.max(c, d)) > Math.max(Math.min(a, b), Math.min(c, d));
+  const horizontal = (from: DiagramPoint, to: DiagramPoint) => from.y === to.y;
+  return segments.flatMap((segment, index) =>
+    segments.slice(index + 1).flatMap((other) => {
+      if (segment.edge === other.edge) return [];
+      const isHorizontal = horizontal(segment.from, segment.to);
+      if (isHorizontal !== horizontal(other.from, other.to)) return [];
+      const [axis, constant] = isHorizontal ? (["x", "y"] as const) : (["y", "x"] as const);
+      return segment.from[constant] === other.from[constant] &&
+        (segment.to[axis] - segment.from[axis]) * (other.to[axis] - other.from[axis]) < 0 &&
+        overlaps(segment.from[axis], segment.to[axis], other.from[axis], other.to[axis])
+        ? [`${segment.edge}/${other.edge}`]
+        : [];
+    }),
+  );
+}
 
 function branchingDiagram(direction: "LR" | "TB"): DiagramLayoutSpec {
   return {

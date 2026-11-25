@@ -48,6 +48,8 @@ The browser is a read-only canvas. Distinct node styles identify starting
 points, decisions, outcomes, and steps with deeper flows. Click a step's corner
 icon to enter a deeper flow, then use **Previous level** to return. A small
 information marker identifies notes; click the node body to read them.
+Each declared entry has a **Start** badge and a blue outline so readers can find
+where to begin, including flows with multiple entries.
 **Other flows** opens a cascading menu for direct navigation.
 
 Business readers see the process and its explanations. Code file and method
@@ -105,6 +107,22 @@ start here; generating new files is only needed when the relevant flows are abse
 
 To try a fictional flow from a source checkout, see the
 [order-management example](examples/订单管理/README.md).
+
+### Open A Specific Flow
+
+```bash
+semantic-atlas web --project my-app --flow "<flow-id>" --no-open
+```
+
+The command validates the target and returns its full local URL in `data.url`,
+including `#project=<project-id>&flow=<flow-id>`. The agent gives you that link
+to open the exact diagram. For an unregistered project, use a single
+`--repo /path/to/my-app`. With several registered projects, select one explicitly.
+
+Switching projects or flows updates the URL. Copy it to reopen the same diagram;
+refresh and browser back/forward restore the target. Unknown targets show a
+clear message. Exported HTML uses the same fragment format with its embedded
+project ID.
 
 ## Let The Business Decide The Diagram
 

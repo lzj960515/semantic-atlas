@@ -183,6 +183,11 @@ Dagre 确定层级和位置，正交走线保持水平或垂直并使用圆角�
 分支标签放在对应连接的空白区。服务端预估与浏览器实测共用布局，文字变化后重新
 测量卡片，完整展示标题、摘要与条件。
 
+连线保留 Dagre 给出的接近侧与回线路径，同一节点同侧的所有入线、出线一起排序，
+分配独立接点。正交化在首末段沿卡片外法向进出，在卡片与原通道之间安排拐点，
+避免把端点强制钉到左右或上下中心造成反向共线。共线简化只压缩同向路径，不删除
+必要转折。横竖自适应继续按可读比例选择，修复不增加手工接点或另一套图数据。
+
 ### ViewerPage 与浏览状态
 
 正式阅读器按流程阅读需求重新实现。项目内所有页面使用一套流程画布，顶部提供
@@ -195,8 +200,18 @@ Dagre 确定层级和位置，正交走线保持水平或垂直并使用圆角�
 详情不放进入按钮。正文无备注时保持原样。源码锚点保留在业务文件和 CLI，Web 数据只包含业务阅读所需内容。
 浏览历史保存图编号、视野与选中节点；切项目时清空。浏览器不提供内容编辑或写入。
 
+`FlowProjector` 按既有 `startsAt` 派生 `start`，为每个入口生成可翻译的“开始”标记；
+`ViewerPage` 用蓝色轮廓及普通动作入口的浅蓝底色区别起点。判断、结果入口保留其类型
+底色。预排为标记预留高度，浏览器继续以实际卡片尺寸重排，不增加源文件字段。
+
 静态 HTML 内嵌完整流程资料与运行包，可离线导航。Web 首页只包含项目名称和不透明
 标识，选择项目后按需载入。请求编号与取消信号防止较早请求覆盖新的项目。
+
+`viewer-location.ts` 为 CLI 和共享浏览器运行包提供相同的 fragment 编解码：
+`#project=<project-id>&flow=<flow-id>`。URLSearchParams 编码已有 ID；初次进入、刷新和
+hashchange 从地址定位，内部导航用 History API 写地址。默认选择用 replaceState
+规范化，后续阅读用 pushState；原有视野与节点说明历史仍在内存中。不存在的目标
+显示明确状态，流程不存在时仍可打开选图菜单恢复。
 
 ### ProjectStore And ProjectRegistrationService
 
@@ -226,6 +241,10 @@ map and resolves a selected ID back to its server-only path for one
 `MapApplication.viewerProject` call. Duplicate basenames receive deterministic
 numeric labels without revealing parent or absolute paths. A project load
 failure becomes a safe unavailable result and does not affect another project.
+
+`LocalWebApplication.resolveFlowLocation` 为明确的 `web --flow` 验证单项目及目标流程，
+返回共享 codec 生成的 fragment。`WebCommandService` 在监听前完成校验，将 fragment
+加入服务地址，用同一 URL 打开浏览器并返回 CLI。普通多项目启动继续按需加载。
 
 `LocalWebServer` binds to `127.0.0.1`, serves GET and HEAD, rejects mutation
 methods, and accepts no repository path from HTTP. Its root serves the Viewer
@@ -618,8 +637,11 @@ Errors fall into stable categories:
 - `WEB_START_FAILED`: the registered list cannot be read, the loopback port
   cannot bind, or the local Viewer cannot start.
 
-A selected checkout that is missing or has an invalid map is a project-level
-unavailable result, not `WEB_START_FAILED`. The HTTP response uses a safe
+A selected checkout that is missing or has an invalid map during ordinary
+on-demand viewing is a project-level unavailable result, not `WEB_START_FAILED`.
+An explicit `web --flow` validates its one target before listening; target
+validation failures use the existing `WEB_START_FAILED` CLI boundary.
+The HTTP response uses a safe
 summary and never forwards a repository path or lower-level error message.
 
 Unexpected infrastructure errors propagate to the CLI boundary with a safe
