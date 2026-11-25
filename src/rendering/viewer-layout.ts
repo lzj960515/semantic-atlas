@@ -233,6 +233,154 @@ export function layoutDiagram(
         (horizontal ? (labelY >= (source.y + target.y) / 2 ? 1 : -1) * (edge.height / 2 + 7) : 0),
     };
   });
+  const compact = (points: readonly DiagramPoint[]): DiagramPoint[] => {
+    const result: DiagramPoint[] = [];
+    for (const point of points) {
+      const previous = result.at(-1);
+      if (previous?.x === point.x && previous.y === point.y) continue;
+      const before = result.at(-2);
+      if (
+        before &&
+        previous &&
+        ((before.x === previous.x && previous.x === point.x) ||
+          (before.y === previous.y && previous.y === point.y)) &&
+        (previous.x - before.x) * (point.x - previous.x) +
+          (previous.y - before.y) * (point.y - previous.y) >=
+          0
+      )
+        result.pop();
+      result.push(point);
+    }
+    return result;
+  };
+  const direction = (from: DiagramPoint, to: DiagramPoint): string =>
+    `${Math.sign(to.x - from.x)},${Math.sign(to.y - from.y)}`;
+  const length = (points: readonly DiagramPoint[]): number =>
+    points
+      .slice(1)
+      .reduce(
+        (sum, point, index) =>
+          sum + Math.abs(point.x - points[index]!.x) + Math.abs(point.y - points[index]!.y),
+        0,
+      );
+  const overlaps = (a: number, b: number, c: number, d: number): boolean =>
+    Math.min(Math.max(a, b), Math.max(c, d)) > Math.max(Math.min(a, b), Math.min(c, d));
+
+  // 从整条路线消去阶梯，不再把 Dagre 的每一段斜线都当成必须保留的转弯。
+  // 只缩短可见路径：保留首末法向、避开卡片，也不侵占另一条反向线的通道。
+  for (const edge of edges) {
+    const original = edge.points;
+    const outgoing = direction(original[0]!, original[1]!);
+    const incoming = direction(original.at(-2)!, original.at(-1)!);
+    const clear = (points: readonly DiagramPoint[]): boolean => {
+      if (
+        direction(points[0]!, points[1]!) !== outgoing ||
+        direction(points.at(-2)!, points.at(-1)!) !== incoming
+      )
+        return false;
+      return points.slice(1).every((point, index) => {
+        const before = points[index]!;
+        const after = points[index + 2];
+        if (
+          after &&
+          (point.x - before.x) * (after.x - point.x) + (point.y - before.y) * (after.y - point.y) <
+            0
+        )
+          return false;
+        const [axis, cross, size, crossSize] =
+          before.y === point.y
+            ? (["x", "y", "width", "height"] as const)
+            : (["y", "x", "height", "width"] as const);
+        if (
+          nodes.some(
+            (node) =>
+              before[cross] > node[cross] - node[crossSize] / 2 &&
+              before[cross] < node[cross] + node[crossSize] / 2 &&
+              overlaps(
+                before[axis],
+                point[axis],
+                node[axis] - node[size] / 2,
+                node[axis] + node[size] / 2,
+              ),
+          )
+        )
+          return false;
+        return !edges.some(
+          (other) =>
+            other !== edge &&
+            other.points.slice(1).some((to, i) => {
+              const from = other.points[i]!;
+              return (
+                from[cross] === to[cross] &&
+                from[cross] === before[cross] &&
+                (to[axis] - from[axis]) * (point[axis] - before[axis]) < 0 &&
+                overlaps(before[axis], point[axis], from[axis], to[axis])
+              );
+            }),
+        );
+      });
+    };
+    let changed = true;
+    while (changed) {
+      changed = false;
+      let best = edge.points;
+      for (let from = 0; from < edge.points.length - 2; from += 1) {
+        for (let to = edge.points.length - 1; to > from + 1; to -= 1) {
+          const a = edge.points[from]!;
+          const b = edge.points[to]!;
+          const turns =
+            a.x === b.x || a.y === b.y ? [[]] : [[{ x: a.x, y: b.y }], [{ x: b.x, y: a.y }]];
+          for (const turn of turns) {
+            const candidate = compact([
+              ...edge.points.slice(0, from + 1),
+              ...turn,
+              ...edge.points.slice(to),
+            ]);
+            if (
+              (candidate.length < best.length ||
+                (candidate.length === best.length && length(candidate) < length(best))) &&
+              clear(candidate)
+            )
+              best = candidate;
+          }
+        }
+      }
+      if (best !== edge.points) {
+        edge.points = best;
+        changed = true;
+      }
+    }
+    if (edge.points === original) continue;
+    const definition = spec.edges.find((item) => item.id === edge.id)!;
+    if (!definition.width || !definition.height) continue;
+    // 标签跟随最终线段，优先选靠近原 Dagre 标签、且能完整放下条件文字的位置。
+    const labels = edge.points.slice(1).flatMap((to, index) => {
+      const from = edge.points[index]!;
+      const across = from.y === to.y;
+      const [axis, cross, extent, crossExtent] = across
+        ? (["x", "y", definition.width, definition.height] as const)
+        : (["y", "x", definition.height, definition.width] as const);
+      const low = Math.min(from[axis], to[axis]) + extent / 2;
+      const high = Math.max(from[axis], to[axis]) - extent / 2;
+      if (low > high) return [];
+      return [-1, 1].flatMap((side) => {
+        const along = Math.max(low, Math.min(high, edge[axis]));
+        const perpendicular = from[cross] + side * (crossExtent / 2 + 7);
+        const label = across ? { x: along, y: perpendicular } : { x: perpendicular, y: along };
+        return nodes.some(
+          (node) =>
+            Math.abs(label.x - node.x) < (definition.width + node.width) / 2 + 4 &&
+            Math.abs(label.y - node.y) < (definition.height + node.height) / 2 + 4,
+        )
+          ? []
+          : [label];
+      });
+    });
+    labels.sort(
+      (a, b) => Math.hypot(a.x - edge.x, a.y - edge.y) - Math.hypot(b.x - edge.x, b.y - edge.y),
+    );
+    if (labels[0]) Object.assign(edge, labels[0]);
+  }
   const padding = 44;
   return {
     direction: spec.direction,

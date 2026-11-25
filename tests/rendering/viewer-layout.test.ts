@@ -43,6 +43,37 @@ describe("业务流程布局", () => {
     }
   });
 
+  it.each(["LR", "TB"] as const)(
+    "%s布局能直连时不绕行，侧向分支只保留必要的一次转弯",
+    (direction) => {
+      const base = branchingDiagram(direction);
+      const spec = {
+        ...base,
+        nodes: base.nodes.map((node) => ({
+          ...node,
+          width: direction === "LR" ? 208 : 104,
+          height: direction === "LR" ? 104 : 208,
+        })),
+      };
+      const layout = layoutDiagram(dagre, spec);
+      expect(layout.edges.find((edge) => edge.id === "start")!.points).toHaveLength(2);
+      for (const id of ["yes", "no"]) {
+        const branch = layout.edges.find((edge) => edge.id === id)!;
+        expect(branch.points).toHaveLength(3);
+        // 分支条件仍贴近最终路线，不能留在已经删除的阶梯旁。
+        const distances = branch.points.slice(1).map((to, index) => {
+          const from = branch.points[index]!;
+          const x = Math.max(Math.min(from.x, to.x), Math.min(Math.max(from.x, to.x), branch.x));
+          const y = Math.max(Math.min(from.y, to.y), Math.min(Math.max(from.y, to.y), branch.y));
+          return Math.hypot(branch.x - x, branch.y - y);
+        });
+        expect(Math.min(...distances)).toBeLessThanOrEqual(25);
+      }
+      expectRoutesOutsideCards(layout);
+      expect(opposingSegments(layout)).toEqual([]);
+    },
+  );
+
   it("判断与普通节点一样使用卡片，长文本按实测高度重排", () => {
     const spec = branchingDiagram("LR");
     const initial = layoutDiagram(dagre, spec);
@@ -102,7 +133,10 @@ describe("业务流程布局", () => {
     const retry = result.edges.find((edge) => edge.id === "retry")!;
     const forward = result.edges.find((edge) => edge.id === "start")!;
     expect(retry.points).not.toEqual([...forward.points].reverse());
-    expect(new Set(retry.points.map((point) => point.y)).size).toBeGreaterThan(1);
+    expect(retry.points[0]).not.toEqual(forward.points.at(-1));
+    expect(retry.points.at(-1)).not.toEqual(forward.points[0]);
+    expect(opposingSegments(result)).toEqual([]);
+    expectRoutesOutsideCards(result);
   });
 
   it.each(["LR", "TB"] as const)("%s布局的分支、合流、回边与自环使用独立接点", (direction) => {

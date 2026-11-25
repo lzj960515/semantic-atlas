@@ -4,7 +4,7 @@ import { BusinessGraph } from "../../src/map/business-graph.js";
 import { FlowProjector } from "../../src/rendering/flow-projector.js";
 
 describe("节点阅读与子流程入口", () => {
-  it("多个业务入口分别标识开始，单节点结果可同时是起点", () => {
+  it("多个入口只用起点样式识别，不增加标签或预排高度", () => {
     const source = map();
     const overview = source.flows.find((flow) => flow.id === "overview")!;
     const rendered = new FlowProjector(
@@ -21,10 +21,16 @@ describe("节点阅读与子流程入口", () => {
       "child",
       "notes",
     ]);
-    expect(main.textLayer.match(/class="flow-card__start"/gu)).toHaveLength(2);
+    expect(main.textLayer.match(/flow-card--start/gu)).toHaveLength(2);
+    expect(main.textLayer).not.toContain('class="flow-card__start"');
+    const original = new FlowProjector(new BusinessGraph(source)).project("orders");
+    expect(main.layout.nodes).toEqual(
+      original.find((flow) => flow.id === "overview")!.layout.nodes,
+    );
     const singleResult = rendered.find((flow) => flow.id === "first")!;
     expect(singleResult.nodes[0]).toMatchObject({ start: true, kind: "outcome" });
-    expect(singleResult.textLayer).toContain('data-i18n="viewer.start"');
+    expect(singleResult.textLayer).toContain("flow-card--start");
+    expect(singleResult.textLayer).not.toContain('data-i18n="viewer.start"');
     expect(singleResult.textLayer).toContain("flow-card--outcome");
   });
 

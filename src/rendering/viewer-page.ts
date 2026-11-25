@@ -231,8 +231,6 @@ function viewerStyles(): string {
     .flow-card--child { --card-accent: #6e9676; border-color: #b4cbb5; box-shadow: 0 3px 0 -1px white, 0 3px 0 0 #c3d2be, 0 6px 0 -1px white, 0 6px 0 0 #dce5d5, 0 9px 13px #1b302505; }
     .flow-card--child:hover, .flow-card--child.flow-card--selected { border-color: #759e79; box-shadow: 0 3px 0 -1px white, 0 3px 0 0 #9dbb9e, 0 6px 0 -1px white, 0 6px 0 0 #c5d5bc, 0 10px 18px #214e2911; }
     .flow-card--start.flow-card--action { border-color: #9fbad0; background: #f0f6fb; }
-    .flow-card--start .flow-card__body { min-height: 129px; }
-    .flow-card__start { display: inline-flex; align-items: center; margin: 0 0 9px; padding: 3px 8px; border-radius: 999px; color: #315b7d; background: #deebf5; font-size: 10px; font-weight: 600; line-height: 12px; letter-spacing: .15px; }
     .flow-card h3 { display: flex; align-items: flex-start; gap: 7px; margin: 0; font-size: 14px; font-weight: 600; line-height: 21px; }
     .flow-card__title-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
     .flow-card__notes { flex: 0 0 14px; display: inline-flex; width: 14px; height: 14px; margin-top: 3px; color: #6d8167; }

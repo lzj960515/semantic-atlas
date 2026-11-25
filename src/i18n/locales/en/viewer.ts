@@ -4,7 +4,6 @@ export default {
   jumpToDiagram: "Other flows",
   back: "Previous level",
   nodeDetails: "Node notes",
-  start: "Start",
   childFlows: "View child flows",
   expandFlow: "Expand child flows of {{name}}",
   mapControls: "Canvas zoom",

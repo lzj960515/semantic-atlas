@@ -4,7 +4,6 @@ export default {
   jumpToDiagram: "查看其他流程",
   back: "上一层",
   nodeDetails: "节点说明",
-  start: "开始",
   childFlows: "查看子流程",
   expandFlow: "展开{{name}}的子流程",
   mapControls: "画布缩放",
