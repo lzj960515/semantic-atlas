@@ -1,6 +1,6 @@
 {
   "name": "semantic-atlas",
-  "version": "5.2.1",
+  "version": "5.2.2",
   "description": "面向人与 AI 协作的业务流程图与只读阅读器。",
   "keywords": [
     "ai-agents",
@@ -74,8 +74,8 @@
     "format:check": "oxfmt --check \"src/**/*.ts\" \"tests/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" vitest.config.ts"
   },
   "dependencies": {
-    "@dagrejs/dagre": "^1.1.8",
     "commander": "^14.0.0",
+    "elkjs": "0.12.1",
     "i18next": "26.4.2",
     "i18next-browser-languagedetector": "8.2.1",
     "string-width": "^8.2.2",

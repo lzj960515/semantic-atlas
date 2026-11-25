@@ -4,7 +4,7 @@ This page defines the accepted initial product. It answers what Semantic Atlas
 must improve, how agents and people use it, and which results establish
 that the product works.
 
-**状态：当前 5.2.1 候选保留流程 URL 直达、起点样式与分离接点，简化多余折弯。
+**状态：当前 5.2.2 候选由统一布局引擎计算节点、独立接点和正交路线，保留原有阅读交互。
 紧凑查询及 YAML 格式保持；发布身份以对应 GitHub Release 为准，长期验收仍在进行。**
 
 ## Purpose
@@ -355,8 +355,9 @@ human-intervention evidence as acceptance conditions.
 
 ## Current Delivery State
 
-当前源码版本为 `semantic-atlas@5.2.1`。本次移除入口的“开始”标签及专用留白，
-在保留独立接点与箭头方向的前提下简化连线，条件标签跟随最终路线。已确认流程仍为业务规范与验收基准，
+当前源码版本为 `semantic-atlas@5.2.2`。节点、独立接点与正交路线改由同一布局引擎
+协调，避免后置均分接点造成的可直连路径台阶；条件标签安排在分支出发处。入口
+继续只用样式识别，保留无额外“开始”标签及专用留白的卡片。已确认流程仍为业务规范与验收基准，
 自适应布局和现有查询能力保留；业务文件格式不变。公开发行和本机安装分别核验，
 长期真实任务验收仍按下文证据标准进行。
 

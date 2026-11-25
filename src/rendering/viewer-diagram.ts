@@ -1,4 +1,4 @@
-import type dagre from "@dagrejs/dagre";
+import type { ELK } from "elkjs/lib/elk-api.js";
 import type {
   DiagramLayout,
   DiagramLayoutSpec,
@@ -8,19 +8,22 @@ import type {
 
 /** 只维护当前流程的实际文字尺寸和连接线，不保存用户编辑状态。 */
 export function createDiagramLayoutController(
-  dagreApi: Pick<typeof dagre, "graphlib" | "layout">,
+  elkApi: Pick<ELK, "layout">,
   arrange: (
-    api: Pick<typeof dagre, "graphlib" | "layout">,
+    api: Pick<ELK, "layout">,
     spec: DiagramLayoutSpec,
     sizes: Readonly<Record<string, DiagramSize>>,
     viewport?: DiagramSize,
-  ) => DiagramLayout,
+  ) => Promise<DiagramLayout>,
   edgePath: (points: readonly DiagramPoint[]) => string,
   onLayout: (view: HTMLElement) => void,
+  onError: (view: HTMLElement, error: unknown) => void,
 ): { observe(view: HTMLElement, spec: DiagramLayoutSpec): void; disconnect(): void } {
   let observer: ResizeObserver | undefined;
   let frame: number | undefined;
+  let revision = 0;
   const disconnect = (): void => {
+    revision += 1;
     observer?.disconnect();
     observer = undefined;
     if (frame !== undefined) cancelAnimationFrame(frame);
@@ -32,6 +35,13 @@ export function createDiagramLayoutController(
     const svg = view.querySelector<SVGSVGElement>("svg");
     const root = svg?.querySelector<SVGGElement>("[data-layout-root]");
     if (!world || !svg || !root) return;
+    // 实测布局完成前先使用服务端预排，初次 fit 仍有完整的画布尺寸。
+    const initialWidth = svg.getAttribute("width")!;
+    const initialHeight = svg.getAttribute("height")!;
+    world.dataset.canvasWidth = initialWidth;
+    world.dataset.canvasHeight = initialHeight;
+    world.style.width = `${initialWidth}px`;
+    world.style.height = `${initialHeight}px`;
     const cards = Array.from(view.querySelectorAll<HTMLElement>("[data-layout-node]"));
     const labels = Array.from(view.querySelectorAll<HTMLElement>(".diagram-label"));
     const labelById = new Map(labels.map((label) => [label.dataset.layoutEdge!, label]));
@@ -42,7 +52,8 @@ export function createDiagramLayoutController(
       ]),
     );
     let previous = "";
-    const update = (): void => {
+    const update = async (): Promise<void> => {
+      const requestedRevision = revision;
       frame = undefined;
       const sizes = Object.fromEntries(
         cards.map((card) => [
@@ -57,8 +68,15 @@ export function createDiagramLayoutController(
       const viewport = { width: view.clientWidth, height: view.clientHeight };
       const measurement = JSON.stringify([sizes, edges, viewport]);
       if (measurement === previous) return;
+      let layout: DiagramLayout;
+      try {
+        layout = await arrange(elkApi, { ...spec, edges }, sizes, viewport);
+      } catch (error) {
+        if (requestedRevision === revision) onError(view, error);
+        return;
+      }
+      if (requestedRevision !== revision) return;
       previous = measurement;
-      const layout = arrange(dagreApi, { ...spec, edges }, sizes, viewport);
       world.dataset.canvasWidth = String(layout.width);
       world.dataset.canvasHeight = String(layout.height);
       world.style.width = `${layout.width}px`;
@@ -82,12 +100,14 @@ export function createDiagramLayoutController(
       }
       onLayout(view);
     };
-    observer = new ResizeObserver(() => {
-      if (frame === undefined) frame = requestAnimationFrame(update);
-    });
+    const schedule = (): void => {
+      revision += 1;
+      if (frame === undefined) frame = requestAnimationFrame(() => void update());
+    };
+    observer = new ResizeObserver(schedule);
     for (const element of [...cards, ...labels]) observer.observe(element);
     observer.observe(view);
-    update();
+    schedule();
   };
   return { observe, disconnect };
 }

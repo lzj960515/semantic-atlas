@@ -7,8 +7,8 @@ import { conceptDetailLinks } from "../../src/rendering/viewer-navigation.js";
 const metadata = { id: "orders", name: "订单示例" };
 
 describe("业务流程投影", () => {
-  it("从完整旅程开始，再按节点引用排列子流程", () => {
-    const project = new MapProjector(new BusinessGraph(exampleMap())).viewerProject(metadata);
+  it("从完整旅程开始，再按节点引用排列子流程", async () => {
+    const project = await new MapProjector(new BusinessGraph(exampleMap())).viewerProject(metadata);
 
     expect(project.flows.map(({ id }) => id)).toEqual([
       "journey.flow",
@@ -33,10 +33,10 @@ describe("业务流程投影", () => {
     expect(conceptDetailLinks(graph, "domain", "journey.flow")).toEqual([]);
   });
 
-  it("同一概念在不同步骤出现时使用本步骤备注，未写备注时沿用业务备注", () => {
+  it("同一概念在不同步骤出现时使用本步骤备注，未写备注时沿用业务备注", async () => {
     const map = exampleMap();
     const flow = map.flows.find(({ id }) => id === "journey.flow")!;
-    const project = new MapProjector(
+    const project = await new MapProjector(
       new BusinessGraph({
         ...map,
         flows: map.flows.map((candidate) =>
@@ -67,15 +67,15 @@ describe("业务流程投影", () => {
     );
   });
 
-  it("没有编写流程时不生成没有连线的分类图，也不推断业务先后", () => {
+  it("没有编写流程时不生成没有连线的分类图，也不推断业务先后", async () => {
     const map = exampleMap();
     const projector = new MapProjector(new BusinessGraph({ ...map, flows: [] }));
 
-    expect(projector.viewerProject(metadata).flows).toEqual([]);
-    expect(projector.project(metadata).content).not.toContain("data-map-view=");
+    expect((await projector.viewerProject(metadata)).flows).toEqual([]);
+    expect((await projector.project(metadata)).content).not.toContain("data-map-view=");
   });
 
-  it("投影统计仍包含完整业务资料，渲染文字经过HTML转义", () => {
+  it("投影统计仍包含完整业务资料，渲染文字经过HTML转义", async () => {
     const map = exampleMap();
     const projector = new MapProjector(
       new BusinessGraph({
@@ -83,12 +83,12 @@ describe("业务流程投影", () => {
         flows: map.flows.map((flow) => ({ ...flow, name: '<script>alert("x")</script>' })),
       }),
     );
-    const projection = projector.project(metadata);
+    const projection = await projector.project(metadata);
 
     expect(projection).toMatchObject({ nodeCount: 4, relationCount: 1, flowCount: 3 });
     expect(projection.content).not.toContain('<script>alert("x")</script>');
     expect(projection.content).toContain("\\u003cscript>");
-    expect(projection.content).toBe(projector.project(metadata).content);
+    expect(projection.content).toBe((await projector.project(metadata)).content);
   });
 });
 

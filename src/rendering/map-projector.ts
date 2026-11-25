@@ -15,10 +15,10 @@ export interface ViewerProjectMetadata {
 export class MapProjector {
   public constructor(private readonly graph: BusinessGraph) {}
 
-  public project(
+  public async project(
     metadata: ViewerProjectMetadata = { id: "repository", name: t("viewer.title") },
-  ): MapProjection {
-    const project = this.viewerProject(metadata);
+  ): Promise<MapProjection> {
+    const project = await this.viewerProject(metadata);
     return {
       format: "html",
       content: renderViewerPage([project]),
@@ -28,11 +28,10 @@ export class MapProjector {
     };
   }
 
-  public viewerProject(metadata: ViewerProjectMetadata): ViewerProject {
+  public async viewerProject(metadata: ViewerProjectMetadata): Promise<ViewerProject> {
     const navigation = new FlowNavigationService(this.graph);
-    const projected = new Map(
-      new FlowProjector(this.graph).project(metadata.id).map((flow) => [flow.id, flow]),
-    );
+    const flows = await new FlowProjector(this.graph).project(metadata.id);
+    const projected = new Map(flows.map((flow) => [flow.id, flow]));
     return {
       ...metadata,
       navigation: navigation.directory(),

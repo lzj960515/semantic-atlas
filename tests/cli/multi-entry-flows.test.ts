@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import dagre from "@dagrejs/dagre";
+import ELK from "elkjs/lib/elk.bundled.js";
 import { layoutDiagram } from "../../src/rendering/viewer-layout.js";
 import { runCli } from "../../src/cli/run-cli.js";
 import { MapApplication } from "../../src/application/map-application.js";
@@ -54,7 +54,10 @@ describe("多个业务入口与独立并行后续", () => {
     expect(diagram.svg).toContain('data-flow-transition="collected--save"');
     expect(diagram.svg).toContain('data-flow-transition="collected--notify"');
     expect(diagram.textLayer.match(/flow-card--start/gu)).toHaveLength(3);
-    const layout = layoutDiagram(dagre, diagram.layout);
+    const layout = await layoutDiagram(
+      new ELK.default({ algorithms: ["layered"] }),
+      diagram.layout,
+    );
     for (const position of layout.nodes) {
       expect([position.x, position.y, position.width, position.height].every(Number.isFinite)).toBe(
         true,

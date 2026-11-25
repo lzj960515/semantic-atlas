@@ -257,7 +257,9 @@ export class MapApplication {
     return {
       ok: true,
       repository: result.map.source,
-      projection: new MapProjector(graph).project(viewerProjectMetadata(result.map.source.root)),
+      projection: await new MapProjector(graph).project(
+        viewerProjectMetadata(result.map.source.root),
+      ),
     };
   }
 
@@ -272,7 +274,7 @@ export class MapApplication {
     return {
       ok: true,
       repository: result.map.source,
-      viewerProject: new MapProjector(graph).viewerProject(
+      viewerProject: await new MapProjector(graph).viewerProject(
         metadata ?? viewerProjectMetadata(result.map.source.root),
       ),
     };

@@ -1,6 +1,6 @@
 import type LanguageDetector from "i18next-browser-languagedetector";
 import type { i18n, Resource } from "i18next";
-import type dagre from "@dagrejs/dagre";
+import type { ELK, ELKConstructorArguments } from "elkjs/lib/elk-api.js";
 import { dirname, join } from "node:path";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -21,7 +21,7 @@ const detectorRoot = dirname(require.resolve("i18next-browser-languagedetector/p
 const browserDependencies = [
   `/*! i18next (MIT)\n${readFileSync(join(i18nextRoot, "LICENSE"), "utf8")}*/\n${readFileSync(join(i18nextRoot, "dist/umd/i18next.min.js"), "utf8")}`,
   `/*! i18next-browser-languagedetector (MIT)\n${readFileSync(join(detectorRoot, "LICENSE"), "utf8")}*/\n${readFileSync(join(detectorRoot, "i18nextBrowserLanguageDetector.min.js"), "utf8")}`,
-  `/*! @dagrejs/dagre (MIT)\n${readFileSync(require.resolve("@dagrejs/dagre/LICENSE"), "utf8")}*/\n${readFileSync(require.resolve("@dagrejs/dagre/dist/dagre.min.js"), "utf8")}`,
+  `/*! elkjs (EPL-2.0), source: https://github.com/kieler/elkjs\n${readFileSync(require.resolve("elkjs/LICENSE.md"), "utf8")}*/\n${readFileSync(require.resolve("elkjs/lib/elk.bundled.js"), "utf8")}`,
 ];
 
 interface ViewerModel {
@@ -63,7 +63,7 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
   const browser = globalThis as typeof globalThis & {
     readonly i18next: i18n;
     readonly i18nextBrowserLanguageDetector: typeof LanguageDetector;
-    readonly dagre: typeof dagre;
+    readonly ELK: new (options?: ELKConstructorArguments) => ELK;
     readonly __atlasRuntime: {
       readonly createLatestProjectLoader: typeof createLatestProjectLoader;
       readonly layoutDiagram: typeof layoutDiagram;
@@ -190,14 +190,22 @@ function viewerBrowserEntry(normalizeLocale: (value: string) => "en" | "zh-CN" |
     });
   };
   const layout = runtime.createDiagramLayoutController(
-    browser.dagre,
+    new browser.ELK({ algorithms: ["layered"] }),
     runtime.layoutDiagram,
     runtime.diagramEdgePath,
     (view) => {
       if (view !== currentView()) return;
+      status.hidden = true;
       const camera = cameras.get(cameraKey());
       if (!camera || camera.fitted) fit();
       else applyCamera(camera);
+    },
+    (view, error) => {
+      if (view !== currentView()) return;
+      showStatus(
+        t("viewer.projectUnavailable"),
+        error instanceof Error ? error.message : t("viewer.loadFailed"),
+      );
     },
   );
   const closeDetails = (restoreFocus = false): void => {

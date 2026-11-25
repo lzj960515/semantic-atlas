@@ -48,7 +48,7 @@ The browser is a read-only canvas. Distinct node styles identify starting
 points, decisions, outcomes, and steps with deeper flows. Click a step's corner
 icon to enter a deeper flow, then use **Previous level** to return. A small
 information marker identifies notes; click the node body to read them.
-Each declared entry has a **Start** badge and a blue outline so readers can find
+Each declared entry has a distinct blue outline so readers can find
 where to begin, including flows with multiple entries.
 **Other flows** opens a cascading menu for direct navigation.
 

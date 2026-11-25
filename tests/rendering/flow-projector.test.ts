@@ -4,10 +4,10 @@ import { BusinessGraph } from "../../src/map/business-graph.js";
 import { FlowProjector } from "../../src/rendering/flow-projector.js";
 
 describe("节点阅读与子流程入口", () => {
-  it("多个入口只用起点样式识别，不增加标签或预排高度", () => {
+  it("多个入口只用起点样式识别，不增加标签或预排高度", async () => {
     const source = map();
     const overview = source.flows.find((flow) => flow.id === "overview")!;
-    const rendered = new FlowProjector(
+    const rendered = await new FlowProjector(
       new BusinessGraph({
         ...source,
         flows: [
@@ -23,7 +23,7 @@ describe("节点阅读与子流程入口", () => {
     ]);
     expect(main.textLayer.match(/flow-card--start/gu)).toHaveLength(2);
     expect(main.textLayer).not.toContain('class="flow-card__start"');
-    const original = new FlowProjector(new BusinessGraph(source)).project("orders");
+    const original = await new FlowProjector(new BusinessGraph(source)).project("orders");
     expect(main.layout.nodes).toEqual(
       original.find((flow) => flow.id === "overview")!.layout.nodes,
     );
@@ -34,10 +34,9 @@ describe("节点阅读与子流程入口", () => {
     expect(singleResult.textLayer).toContain("flow-card--outcome");
   });
 
-  it("卡片正文只为备注提供交互，子流程使用独立角标，多个目标留给用户选择", () => {
-    const rendered = new FlowProjector(new BusinessGraph(map()))
-      .project("orders")
-      .find((flow) => flow.id === "overview")!;
+  it("卡片正文只为备注提供交互，子流程使用独立角标，多个目标留给用户选择", async () => {
+    const flows = await new FlowProjector(new BusinessGraph(map())).project("orders");
+    const rendered = flows.find((flow) => flow.id === "overview")!;
     const card = (id: string) =>
       rendered.textLayer.match(
         new RegExp(`<article[^>]*data-node-id="${id}"[\\s\\S]*?<\\/article>`, "u"),

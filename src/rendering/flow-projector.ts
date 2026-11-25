@@ -1,4 +1,4 @@
-import dagre from "@dagrejs/dagre";
+import ELK from "elkjs/lib/elk.bundled.js";
 import stringWidth from "string-width";
 import { getTranslator } from "../i18n/index.js";
 import type { BusinessFlow, BusinessFlowStepDefinition } from "../contracts/map.js";
@@ -17,16 +17,21 @@ const CARD_WIDTH = 208;
 const t = getTranslator("en");
 
 export class FlowProjector {
+  private readonly elk = new ELK.default({ algorithms: ["layered"] });
+
   public constructor(private readonly graph: BusinessGraph) {}
 
-  public project(projectId: string): readonly ViewerBusinessFlow[] {
-    return Object.freeze(this.graph.flows().map((flow) => this.projectFlow(flow, projectId)));
+  public async project(projectId: string): Promise<readonly ViewerBusinessFlow[]> {
+    const flows = await Promise.all(
+      this.graph.flows().map((flow) => this.projectFlow(flow, projectId)),
+    );
+    return Object.freeze(flows);
   }
 
-  private projectFlow(flow: BusinessFlow, projectId: string): ViewerBusinessFlow {
+  private async projectFlow(flow: BusinessFlow, projectId: string): Promise<ViewerBusinessFlow> {
     const nodes = flow.steps.map((step) => this.nodeDetails(step, flow));
     const spec = createLayoutSpec(flow);
-    const layout = layoutDiagram(dagre, spec);
+    const layout = await layoutDiagram(this.elk, spec);
     return {
       id: flow.id,
       name: flow.name,
@@ -74,8 +79,6 @@ function createLayoutSpec(flow: BusinessFlow): DiagramLayoutSpec {
       to: transition.to,
       width: transition.when ? Math.max(24, stringWidth(transition.when) * 5.5 + 10) : 0,
       height: transition.when ? 19 : 0,
-      minlen: 1,
-      weight: 3,
     })),
   };
 }
